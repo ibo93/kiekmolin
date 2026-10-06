@@ -14579,6 +14579,9 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     <input type="hidden" id="selectedTableId" value="">
                 </div>
 
+                <!-- Gilt fuer diesen Termin eine Aktion? Siehe aktionHinweisZeigen(). -->
+                <div id="resAktionHinweis" role="status" style="display:none;align-items:center;gap:8px;margin:0 0 12px;padding:12px 16px;border-radius:16px;background:#fff4cc;color:#5c4600;font-size:14px;font-weight:600;line-height:1.4;"></div>
+
                 <!-- Footer: Zusammenfassung + Button -->
                 <div class="res-footer-summary">
                     <div id="resSummaryInfo">
@@ -16698,6 +16701,11 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                                     table: tableNum,
                                     table_id: r.table_id || null,
                                     notes: r.notes || '',
+                                    // OHNE DIESE ZEILE WAERE DER VORTEIL WEG. Die Liste
+                                    // uebernimmt nur Felder, die hier stehen -- wie
+                                    // mapRestaurant. Der Gast liest "10 % auf die
+                                    // Rechnung", und an der Kasse weiss es keiner.
+                                    aktion_text: r.aktion_text || '',
                                     status: r.status || 'confirmed',
                                     source: r.source || 'dashboard',
                                     restaurant_id: r.restaurant_id,
@@ -17106,6 +17114,12 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         '<div><div style="font-size:9px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.15em;">Telefon</div><div style="font-size:15px;font-weight:700;color:var(--ink-strong);font-family:Inter,sans-serif;">' + res.phone + '</div></div>' +
                         '</div>' +
                         '<a href="tel:' + res.phone + '" style="padding:10px 20px;background:linear-gradient(135deg,#00251e,#003d33);color:white;border-radius:9999px;font-size:13px;font-weight:700;text-decoration:none;font-family:Inter,sans-serif;box-shadow:0 4px 12px rgba(0,37,30,0.2);">Anrufen</a>' +
+                        '</div>' : '') +
+
+                        // Aktion fuer diesen Termin -- das Personal zieht den Vorteil an der Kasse ab.
+                        (res.aktion_text ? '<div style="display:flex;gap:10px;padding:14px 18px;background:#fff4cc;border:1px solid rgba(115,92,0,0.18);border-radius:20px;margin-bottom:12px;">' +
+                        '<span class="material-symbols-outlined" style="font-size:16px;color:#735c00;flex-shrink:0;margin-top:1px;">redeem</span>' +
+                        '<div style="font-size:13px;color:#5c4600;font-weight:700;line-height:1.5;">' + escapeHtml(res.aktion_text) + '</div>' +
                         '</div>' : '') +
 
                         // Anmerkungen — Stitch Glass
@@ -18501,6 +18515,14 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             detailsHtml += '</a>';
                         }
 
+                        // Aktion -- der Vorteil, den der Gast beim Reservieren gelesen hat
+                        if (res.aktion_text) {
+                            detailsHtml += '<div style="display: flex; align-items: flex-start; gap: 10px; padding: 12px; background: #fff4cc; border-radius: 16px; margin-bottom: 8px;">';
+                            detailsHtml += '<span class="material-symbols-outlined" style="font-size:16px;color:#735c00;">redeem</span>';
+                            detailsHtml += '<span style="font-size: 13px; color: #5c4600; font-weight: 700;">' + escapeHtml(res.aktion_text) + '</span>';
+                            detailsHtml += '</div>';
+                        }
+
                         // Notizen
                         if (res.notes) {
                             detailsHtml += '<div style="display: flex; align-items: flex-start; gap: 10px; padding: 12px; background: var(--bg-secondary); border-radius: 16px; margin-bottom: 8px;">';
@@ -19341,6 +19363,35 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 <h1 style="font-family: 'Epilogue', sans-serif; font-size: clamp(30px, 5vw, 48px); font-weight: 900; letter-spacing: -0.04em; color: var(--ink-deep); margin: 0 0 8px; line-height: 1.05;">Tagesangebote verwalten</h1>
                 <p style="font-size: 16px; color: var(--text-secondary); margin: 0;">Erstelle attraktive Angebote für deine Gäste</p>
             </header>
+
+            <!-- AKTIONEN & EVENTS (seit 06.10.2026). Was ein Lokal jede Woche
+                 wiederholt -- Ladies Night, Party, Happy Hour -- oder einmal
+                 macht, und Vorteile wie "10 % bei Online-Reservierung".
+                 Der Wirt legt sie selbst an; Gaeste sehen sie auf der
+                 Lokalseite und beim Reservieren. Tabelle aktionen, SQL 38. -->
+            <div class="panel" id="aktionenPanel" style="margin-bottom:16px;border-left:3px solid #735c00;">
+                <div class="panel-content">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+                        <div style="flex:1;min-width:240px;">
+                            <div style="font-family:Epilogue,sans-serif;font-size:17px;font-weight:800;margin-bottom:4px;">Aktionen &amp; Events</div>
+                            <div style="font-size:13px;color:var(--text-secondary);line-height:1.55;">
+                                Was bei euch <strong>jede Woche</strong> läuft oder <strong>einmal</strong> stattfindet.
+                                Gäste sehen es auf eurer Seite und beim Reservieren. Ein Vorteil bei Online-Reservierung
+                                steht danach an der Reservierung – ihr zieht ihn an der Kasse ab.
+                            </div>
+                        </div>
+                    </div>
+                    <div id="aktionenHinweis" style="display:none;margin-bottom:12px;padding:12px 14px;border-radius:14px;background:#fee2e2;color:#7f1d1d;font-size:13px;line-height:1.5;"></div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+                        <button type="button" class="dash-btn" onclick="aktionFormular('ladies')" style="padding:8px 14px;border-radius:9999px;border:1px solid var(--border-color);background:var(--bg-card);font-size:13px;font-weight:700;cursor:pointer;">+ Ladies Night</button>
+                        <button type="button" class="dash-btn" onclick="aktionFormular('party')" style="padding:8px 14px;border-radius:9999px;border:1px solid var(--border-color);background:var(--bg-card);font-size:13px;font-weight:700;cursor:pointer;">+ Party</button>
+                        <button type="button" class="dash-btn" onclick="aktionFormular('happyhour')" style="padding:8px 14px;border-radius:9999px;border:1px solid var(--border-color);background:var(--bg-card);font-size:13px;font-weight:700;cursor:pointer;">+ Happy Hour</button>
+                        <button type="button" class="dash-btn" onclick="aktionFormular('online')" style="padding:8px 14px;border-radius:9999px;border:1px solid var(--border-color);background:var(--bg-card);font-size:13px;font-weight:700;cursor:pointer;">+ 10 % Online-Reservierung</button>
+                        <button type="button" class="dash-btn" onclick="aktionFormular('eigene')" style="padding:8px 14px;border-radius:9999px;border:none;background:#735c00;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">+ Eigene Aktion</button>
+                    </div>
+                    <div id="aktionenListe" style="display:grid;gap:10px;"></div>
+                </div>
+            </div>
 
             <!-- DER MITTAGSTISCH GEHOERT HIERHIN.
                  Ibo hat ihn am 07.09.2026 unter "Angebote" gesucht und
@@ -26978,6 +27029,9 @@ async function saveReservationToSupabase(reservation) {
         // Liste: { ok, id, track_token, status }. Der Rest steht schon
         // im Formular -- der Gast hat ihn gerade selbst eingetippt.
         const antwort = await response.json().catch(function () { return null; });
+        // Was der SERVER fuer diesen Termin festgehalten hat -- nicht was
+        // der Browser vermutet. Die Bestaetigung zeigt es gleich an.
+        window._letzteAktion = (antwort && antwort.ok && antwort.aktion) ? antwort.aktion : null;
         if (response.ok && antwort && antwort.ok) {
             const savedRes = [{
                 id: antwort.id,
@@ -29899,6 +29953,7 @@ function updateResSummary() {
         areaText = timeVal.substring(0,5) + ' Uhr';
     }
     if (summaryArea) summaryArea.textContent = areaText;
+    try { aktionHinweisZeigen(); } catch (e) {}
 }
 
 // ==================== WARTELISTE (ECHT) ====================
@@ -30260,6 +30315,15 @@ function showReservationConfirmation(reservation) {
         document.head.appendChild(s);
     }
 
+    // Aktion fuer diesen Termin -- mit textContent, der Text kommt vom Server.
+    if (window._letzteAktion && window._letzteAktion.text) {
+        var _ak = document.createElement('div');
+        _ak.style.cssText = 'margin:0 20px 18px;padding:12px 14px;border-radius:14px;background:#fff4cc;color:#5c4600;font-size:13px;font-weight:600;line-height:1.45;';
+        _ak.textContent = window._letzteAktion.text
+            + (window._letzteAktion.gespeichert === false ? ' — bitte beim Ankommen kurz erwähnen.' : '');
+        card.appendChild(_ak);
+    }
+    window._letzteAktion = null;
     document.body.appendChild(card);
 
     // Auto-Close nach 8 Sekunden
@@ -30552,6 +30616,7 @@ function showDashboardSection(section) {
             break;
         case 'offers':
             renderActiveOffers();
+            if (typeof aktionenVerwaltung === 'function') aktionenVerwaltung();
             break;
         case 'customers':
             loadCustomers();
@@ -42092,6 +42157,9 @@ async function showRestaurantLanding(rest) {
              renderRestaurantSpecials gefuellt und bleibt leer, wenn das
              Haus heute keines hat. -->
         <div id="lpSpecials"></div>
+        <!-- Aktionen & Events des Hauses (Ladies Night, Party ...). Wird nach
+             dem Aufbau befuellt; ohne Aktionen bleibt der Platz leer. -->
+        <div id="lpAktionen"></div>
 
         <!-- Über uns Section -->
         <section class="lp-ueber-uns-grid" style="max-width:1280px;margin:0 auto;padding:0 24px 128px;display:grid;grid-template-columns:1fr;gap:64px;align-items:center;">
@@ -42398,6 +42466,7 @@ async function showRestaurantLanding(rest) {
     // Tagesangebote des Hauses nachladen. Erst jetzt -- vorher gibt es
     // #lpSpecials noch nicht.
     if (typeof renderRestaurantSpecials === 'function') renderRestaurantSpecials(rest.id);
+    if (typeof renderRestaurantAktionen === 'function') renderRestaurantAktionen(rest.id);
 
     // Sticky Bottom Bar entfernt (Liquid Glass Redesign - Action Bar ist oben sticky)
     var oldSticky = document.getElementById('lpStickyBar');
@@ -76888,6 +76957,382 @@ function showDailySpecialInMenu(restaurantId) {
         return angebote.length;
     });
 }
+
+// =====================================================================
+// AKTIONEN -- Ladies Night, Party, Happy Hour, 10 % bei Online-Reservierung
+// =====================================================================
+//
+// Seit dem 06.10.2026, gebaut fuer den ersten Shisha-Bar-Kunden. Der Wirt
+// legt sie selbst an (Dashboard -> Angebote), Tabelle aktionen (SQL 38).
+//
+// DIESELBE REGEL STEHT AUF DEM SERVER: netlify/functions/lib/aktionen.js.
+// tests/aktionen-test.js prueft beide mit denselben Faellen. Der Server
+// entscheidet, was an der Reservierung steht -- der Browser zeigt nur an,
+// was der Gast erwarten darf.
+//
+// Wochentage ab Montag (0 = Mo ... 6 = So), wie rest_day. "bis" vor "von"
+// heisst ueber Mitternacht; die Aktion gehoert dem Tag, an dem sie anfaengt.
+var AKTION_TAGE_KURZ = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+var AKTION_TAGE_LANG = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+
+function aktionMinuten(t) {
+    var m = /^(\d{1,2}):(\d{2})/.exec(String(t == null ? '' : t));
+    return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+}
+function aktionWochentag(datum) {
+    var t = String(datum || '').split('-').map(Number);
+    if (t.length !== 3 || !t[0] || !t[1] || !t[2]) return null;
+    return (new Date(Date.UTC(t[0], t[1] - 1, t[2])).getUTCDay() + 6) % 7;
+}
+function aktionPasst(a, datum, uhrzeit) {
+    if (!a || a.aktiv === false) return false;
+    var d = String(datum || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return false;
+    if (a.gueltig_ab && d < String(a.gueltig_ab).slice(0, 10)) return false;
+    if (a.gueltig_bis && d > String(a.gueltig_bis).slice(0, 10)) return false;
+    if (a.datum) {
+        if (String(a.datum).slice(0, 10) !== d) return false;
+    } else {
+        var tage = Array.isArray(a.wochentage) ? a.wochentage.map(Number) : [];
+        if (tage.indexOf(aktionWochentag(d)) < 0) return false;
+    }
+    var von = aktionMinuten(a.von), bis = aktionMinuten(a.bis), t = aktionMinuten(uhrzeit);
+    if (t == null || (von == null && bis == null)) return true;
+    if (von != null && bis != null) {
+        if (bis > von) return t >= von && t <= bis;
+        return t >= von;
+    }
+    if (von != null) return t >= von;
+    return t <= bis;
+}
+function aktionenFuerReservierung(liste, datum, uhrzeit) {
+    return (Array.isArray(liste) ? liste : [])
+        .filter(function (a) { return a && (a.gilt_fuer === 'alle' || a.gilt_fuer === 'reservierung'); })
+        .filter(function (a) { return aktionPasst(a, datum, uhrzeit); })
+        .sort(function (x, y) {
+            var vx = x.vorteil ? 0 : 1, vy = y.vorteil ? 0 : 1;
+            return vx - vy || (Number(x.reihenfolge) || 0) - (Number(y.reihenfolge) || 0);
+        });
+}
+function aktionZeitplanText(a) {
+    if (!a) return '';
+    var teile = [];
+    if (a.datum) {
+        var t = String(a.datum).slice(0, 10).split('-');
+        var wt = aktionWochentag(a.datum);
+        teile.push((wt != null ? AKTION_TAGE_KURZ[wt] + ' ' : '') + Number(t[2]) + '.' + Number(t[1]) + '.');
+    } else {
+        var tage = (Array.isArray(a.wochentage) ? a.wochentage.map(Number) : []).filter(function (x) { return x >= 0 && x <= 6; });
+        tage = tage.filter(function (x, i) { return tage.indexOf(x) === i; }).sort();
+        if (tage.length === 7) teile.push('Täglich');
+        else if (tage.length === 1) teile.push('Jeden ' + AKTION_TAGE_LANG[tage[0]]);
+        else if (tage.length > 2 && tage[tage.length - 1] - tage[0] === tage.length - 1)
+            teile.push(AKTION_TAGE_KURZ[tage[0]] + '–' + AKTION_TAGE_KURZ[tage[tage.length - 1]]);
+        else teile.push(tage.map(function (x) { return AKTION_TAGE_KURZ[x]; }).join(', '));
+    }
+    var von = a.von ? String(a.von).slice(0, 5) : '', bis = a.bis ? String(a.bis).slice(0, 5) : '';
+    if (von && bis) teile.push(von + '–' + bis);
+    else if (von) teile.push('ab ' + von);
+    else if (bis) teile.push('bis ' + bis);
+    return teile.join(' · ');
+}
+
+// Aktionen eines Hauses holen. Gast: nur aktive (die Regel in der
+// Datenbank laesst ohnehin nur die durch). Wirt: alle eigenen, mit Token.
+//
+// STILLER AUSFALL VERMIEDEN: fehlt die Tabelle (SQL 38 nicht eingespielt),
+// merkt sich das window._aktionenTabelleFehlt. Der Gast sieht dann einfach
+// keine Aktionen -- der Wirt aber sieht in seiner Verwaltung einen roten
+// Hinweis statt einer leeren Liste, die wie "keine Aktionen" aussieht.
+var _aktionenCache = {};
+function aktionenLaden(restaurantId, alsWirt) {
+    if (!restaurantId) return Promise.resolve([]);
+    var schluessel = restaurantId + (alsWirt ? ':wirt' : '');
+    if (!alsWirt && _aktionenCache[schluessel]) return _aktionenCache[schluessel];
+    var url = SUPABASE_URL + '/rest/v1/aktionen?restaurant_id=eq.' + encodeURIComponent(restaurantId)
+        + (alsWirt ? '' : '&aktiv=eq.true')
+        + '&select=id,titel,beschreibung,art,gilt_fuer,vorteil,wochentage,datum,von,bis,gueltig_ab,gueltig_bis,aktiv,reihenfolge'
+        + '&order=reihenfolge.asc,erstellt_am.asc';
+    var token = (alsWirt && typeof kmiToken === 'function') ? kmiToken() : SUPABASE_KEY;
+    var p = fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + token } })
+        .then(function (res) {
+            if (res.status === 404 || res.status === 400) { window._aktionenTabelleFehlt = true; return []; }
+            if (!res.ok) return [];
+            window._aktionenTabelleFehlt = false;
+            return res.json();
+        })
+        .then(function (z) { return Array.isArray(z) ? z : []; })
+        .catch(function () { return []; });
+    if (!alsWirt) _aktionenCache[schluessel] = p;
+    return p;
+}
+window.aktionenLaden = aktionenLaden;
+
+// Eine Karte -- auf der Lokalseite. Alles, was der Wirt eingetippt hat,
+// laeuft durch escapeHtml: der Text kommt aus der Datenbank, nicht von uns.
+function aktionKarteHtml(a) {
+    var vorteil = a.vorteil ? '<div style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:9999px;background:var(--lp-akzent-hell,#fff4cc);color:var(--lp-akzent-text,#5c4600);font-size:13px;font-weight:700;">'
+        + '<span class="material-symbols-outlined" style="font-size:16px;">redeem</span>' + escapeHtml(a.vorteil)
+        + (a.gilt_fuer === 'reservierung' ? ' · bei Online-Reservierung' : '') + '</div>' : '';
+    return '<div style="background:var(--lp-karte,#ffffff);border:1px solid var(--lp-rand,rgba(0,0,0,0.06));border-radius:24px;padding:22px 22px 20px;box-shadow:0 4px 18px rgba(0,0,0,0.05);">'
+        + '<div style="font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--lp-gedaempft,#6b7280);margin-bottom:8px;">'
+        + '<span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px;margin-right:4px;">' + (a.art === 'vorteil' ? 'local_offer' : 'event_upcoming') + '</span>'
+        + escapeHtml(aktionZeitplanText(a)) + '</div>'
+        + '<div style="font-family:Epilogue,sans-serif;font-size:22px;font-weight:800;color:var(--lp-tinte,var(--ink-deep));line-height:1.2;">' + escapeHtml(a.titel || '') + '</div>'
+        + (a.beschreibung ? '<div style="margin-top:6px;font-size:14px;line-height:1.55;color:var(--lp-gedaempft,var(--text-secondary));">' + escapeHtml(a.beschreibung) + '</div>' : '')
+        + vorteil + '</div>';
+}
+
+// Fuellt #lpAktionen auf der Lokalseite. Ohne Aktionen bleibt der Platz leer.
+function renderRestaurantAktionen(restaurantId) {
+    var ziel = document.getElementById('lpAktionen');
+    if (!ziel) return Promise.resolve(0);
+    return aktionenLaden(restaurantId, false).then(function (liste) {
+        if (!document.getElementById('lpAktionen')) return 0;
+        if (!liste.length) { ziel.innerHTML = ''; return 0; }
+        var h = '<section style="max-width:1280px;margin:0 auto;padding:0 24px 96px;">';
+        h += '<span style="color:var(--lp-akzent,#735c00);font-family:Epilogue,sans-serif;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;display:block;margin-bottom:16px;font-size:14px;">Bei uns</span>';
+        h += '<h2 style="font-family:Epilogue,sans-serif;font-size:clamp(28px,4vw,40px);font-weight:700;color:var(--lp-tinte,var(--ink-deep));margin-bottom:24px;line-height:1.1;">Aktionen &amp; Events</h2>';
+        h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;">';
+        liste.forEach(function (a) { h += aktionKarteHtml(a); });
+        h += '</div></section>';
+        ziel.innerHTML = h;
+        return liste.length;
+    });
+}
+window.renderRestaurantAktionen = renderRestaurantAktionen;
+
+// Im Reservierungsfenster: gilt fuer Tag und Uhrzeit etwas? Der Gast soll
+// es VOR dem Absenden lesen -- "Donnerstag ist Ladies Night" ist oft genau
+// der Grund, an diesem Tag zu kommen.
+function aktionHinweisZeigen() {
+    var box = document.getElementById('resAktionHinweis');
+    if (!box) return;
+    var rid = (document.getElementById('reservationRestaurantId') || {}).value || '';
+    var datum = (document.getElementById('reservationDate') || {}).value || '';
+    var zeit = (document.getElementById('reservationTime') || {}).value || '';
+    if (!rid || !datum) { box.style.display = 'none'; return; }
+    aktionenLaden(rid, false).then(function (liste) {
+        var passend = aktionenFuerReservierung(liste, datum, zeit);
+        if (!passend.length) { box.style.display = 'none'; box.textContent = ''; return; }
+        var a = passend[0];
+        box.textContent = '';
+        var stern = document.createElement('span');
+        stern.className = 'material-symbols-outlined';
+        stern.style.cssText = 'font-size:18px;flex-shrink:0;';
+        stern.textContent = a.vorteil ? 'redeem' : 'event_upcoming';
+        var text = document.createElement('span');
+        text.textContent = (a.titel || 'Aktion') + (a.vorteil ? ': ' + a.vorteil : ' · ' + aktionZeitplanText(a))
+                         + (passend.length > 1 ? '  (+' + (passend.length - 1) + ' weitere)' : '');
+        box.appendChild(stern); box.appendChild(text);
+        box.style.display = 'flex';
+    });
+}
+window.aktionHinweisZeigen = aktionHinweisZeigen;
+
+// ---- AKTIONEN VERWALTEN (Dashboard -> Angebote) -------------------------
+//
+// SCHREIBEN MIT BELEG. Jeder Schreibvorgang bittet um die geschriebene
+// Zeile zurueck (Prefer: return=representation). Eine Regel in der
+// Datenbank, die das Schreiben nicht erlaubt, antwortet sonst mit 201/204
+// und schreibt NICHTS -- und die Liste saehe aus, als waere gespeichert
+// worden. Nur eine zurueckgegebene Zeile ist ein Beweis.
+var AKTION_VORLAGEN = {
+    ladies:    { titel: 'Ladies Night', art: 'event', gilt_fuer: 'alle', wochentage: [3], von: '21:00', bis: '03:00',
+                 beschreibung: 'Jeden Donnerstag: Musik, Specials und gute Stimmung.', vorteil: '' },
+    party:     { titel: 'Party', art: 'event', gilt_fuer: 'alle', wochentage: [5], von: '22:00', bis: '',
+                 beschreibung: 'DJ ab 22 Uhr.', vorteil: '' },
+    happyhour: { titel: 'Happy Hour', art: 'vorteil', gilt_fuer: 'alle', wochentage: [0, 1, 2, 3, 4], von: '17:00', bis: '19:00',
+                 beschreibung: '', vorteil: '2 für 1 auf Cocktails' },
+    online:    { titel: 'Online reserviert', art: 'vorteil', gilt_fuer: 'reservierung', wochentage: [0, 1, 2, 3, 4, 5, 6], von: '', bis: '',
+                 beschreibung: 'Wer online reserviert, spart.', vorteil: '10 % auf die Rechnung' },
+    eigene:    { titel: '', art: 'event', gilt_fuer: 'alle', wochentage: [], von: '', bis: '', beschreibung: '', vorteil: '' }
+};
+var _aktionenWirt = [];
+
+function _aktionKopf(extra) {
+    return Object.assign({ 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json' }, extra || {});
+}
+function _aktionHinweis(text) {
+    var h = document.getElementById('aktionenHinweis');
+    if (!h) return;
+    h.style.display = text ? 'block' : 'none';
+    h.textContent = text || '';
+}
+
+function aktionenVerwaltung() {
+    var liste = document.getElementById('aktionenListe');
+    if (!liste) return;
+    var rid = (typeof getControlRestaurantId === 'function') ? getControlRestaurantId() : null;
+    if (!rid) { _aktionHinweis('Kein Restaurant gewählt.'); liste.innerHTML = ''; return; }
+    liste.innerHTML = '<div style="font-size:13px;color:var(--text-secondary);">Lädt …</div>';
+    aktionenLaden(rid, true).then(function (z) {
+        _aktionenWirt = z;
+        if (window._aktionenTabelleFehlt) {
+            _aktionHinweis('Aktionen sind noch nicht eingerichtet: die Datei datenbank/38-aktionen.sql muss einmal in Supabase eingespielt werden. Bis dahin wird nichts gespeichert.');
+            liste.innerHTML = '';
+            return;
+        }
+        _aktionHinweis('');
+        if (!z.length) {
+            liste.innerHTML = '<div style="font-size:13px;color:var(--text-secondary);padding:6px 2px;">Noch keine Aktion. Fangt mit einer Vorlage oben an.</div>';
+            return;
+        }
+        liste.innerHTML = z.map(function (a) {
+            return '<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border-color);border-radius:16px;background:var(--bg-card);' + (a.aktiv ? '' : 'opacity:0.55;') + '">'
+                + '<span class="material-symbols-outlined" style="font-size:20px;color:#735c00;">' + (a.art === 'vorteil' ? 'local_offer' : 'event_upcoming') + '</span>'
+                + '<div style="flex:1;min-width:0;">'
+                +   '<div style="font-weight:800;font-size:14px;">' + escapeHtml(a.titel) + (a.aktiv ? '' : ' <span style="font-weight:600;color:var(--text-secondary);">(pausiert)</span>') + '</div>'
+                +   '<div style="font-size:12px;color:var(--text-secondary);">' + escapeHtml(aktionZeitplanText(a))
+                +     (a.vorteil ? ' · ' + escapeHtml(a.vorteil) : '') + (a.gilt_fuer === 'reservierung' ? ' · nur Online-Reservierung' : '') + '</div>'
+                + '</div>'
+                + '<button type="button" onclick="aktionAktivSchalten(\'' + a.id + '\',' + (!a.aktiv) + ')" style="padding:6px 12px;border-radius:9999px;border:1px solid var(--border-color);background:var(--bg-secondary);font-size:12px;font-weight:700;cursor:pointer;">' + (a.aktiv ? 'Pausieren' : 'Aktivieren') + '</button>'
+                + '<button type="button" onclick="aktionFormular(\'' + a.id + '\')" aria-label="Bearbeiten" style="padding:6px 10px;border-radius:9999px;border:1px solid var(--border-color);background:var(--bg-secondary);cursor:pointer;"><span class="material-symbols-outlined" style="font-size:16px;">edit</span></button>'
+                + '<button type="button" onclick="aktionLoeschen(\'' + a.id + '\')" aria-label="Löschen" style="padding:6px 10px;border-radius:9999px;border:1px solid var(--border-color);background:var(--bg-secondary);cursor:pointer;"><span class="material-symbols-outlined" style="font-size:16px;">delete</span></button>'
+                + '</div>';
+        }).join('');
+    });
+}
+window.aktionenVerwaltung = aktionenVerwaltung;
+
+// Formular -- mit einer Vorlage ('ladies', 'party', ...) oder einer
+// vorhandenen Aktion (ihre id).
+function aktionFormular(vorlageOderId) {
+    var a = AKTION_VORLAGEN[vorlageOderId]
+        ? Object.assign({}, AKTION_VORLAGEN[vorlageOderId])
+        : Object.assign({}, _aktionenWirt.find(function (x) { return x.id === vorlageOderId; }) || AKTION_VORLAGEN.eigene);
+    var alt = document.getElementById('aktionModal');
+    if (alt) alt.remove();
+    var einmalig = !!a.datum;
+    var feld = 'width:100%;padding:10px 14px;border:1px solid var(--border-color);border-radius:12px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;box-sizing:border-box;';
+    var lab = 'display:block;font-size:12px;font-weight:700;color:var(--text-secondary);margin:12px 0 6px;';
+    var tage = AKTION_TAGE_KURZ.map(function (t, i) {
+        var an = (a.wochentage || []).map(Number).indexOf(i) >= 0;
+        return '<label style="display:inline-flex;align-items:center;gap:4px;padding:6px 10px;border:1px solid var(--border-color);border-radius:9999px;font-size:13px;cursor:pointer;">'
+             + '<input type="checkbox" class="aktionTag" value="' + i + '"' + (an ? ' checked' : '') + '>' + t + '</label>';
+    }).join(' ');
+    var ov = document.createElement('div');
+    ov.id = 'aktionModal';
+    ov.className = 'modal-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10005;display:flex;align-items:center;justify-content:center;padding:16px;';
+    ov.innerHTML = '<div style="background:var(--bg-solid,#fff);border-radius:24px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto;padding:22px;">'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+        +   '<div style="font-family:Epilogue,sans-serif;font-size:20px;font-weight:800;">' + (a.id ? 'Aktion bearbeiten' : 'Neue Aktion') + '</div>'
+        +   '<button type="button" onclick="document.getElementById(\'aktionModal\').remove()" aria-label="Schließen" style="border:none;background:var(--bg-secondary);border-radius:50%;width:34px;height:34px;cursor:pointer;">×</button>'
+        + '</div>'
+        + '<input type="hidden" id="akId" value="' + escapeHtml(a.id || '') + '">'
+        + '<label style="' + lab + '" for="akTitel">Titel *</label><input id="akTitel" maxlength="80" style="' + feld + '" value="' + escapeHtml(a.titel || '') + '">'
+        + '<label style="' + lab + '" for="akBeschreibung">Beschreibung</label><textarea id="akBeschreibung" maxlength="500" rows="2" style="' + feld + 'resize:vertical;">' + escapeHtml(a.beschreibung || '') + '</textarea>'
+        + '<label style="' + lab + '" for="akVorteil">Vorteil für Gäste (optional)</label><input id="akVorteil" maxlength="120" placeholder="z. B. 10 % auf die Rechnung, Cocktail gratis" style="' + feld + '" value="' + escapeHtml(a.vorteil || '') + '">'
+        + '<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;cursor:pointer;"><input type="checkbox" id="akNurReservierung"' + (a.gilt_fuer === 'reservierung' ? ' checked' : '') + '> Vorteil nur bei Online-Reservierung</label>'
+        + '<div style="' + lab + '">Wann?</div>'
+        + '<div style="display:flex;gap:8px;margin-bottom:8px;">'
+        +   '<label style="font-size:13px;cursor:pointer;"><input type="radio" name="akWann" value="woche"' + (einmalig ? '' : ' checked') + ' onchange="aktionWannUmschalten()"> Jede Woche</label>'
+        +   '<label style="font-size:13px;cursor:pointer;"><input type="radio" name="akWann" value="einmal"' + (einmalig ? ' checked' : '') + ' onchange="aktionWannUmschalten()"> Einmalig</label>'
+        + '</div>'
+        + '<div id="akWoche" style="display:' + (einmalig ? 'none' : 'flex') + ';flex-wrap:wrap;gap:6px;">' + tage + '</div>'
+        + '<div id="akEinmal" style="display:' + (einmalig ? 'block' : 'none') + ';"><label style="' + lab + '" for="akDatum">Datum</label><input type="date" id="akDatum" style="' + feld + '" value="' + escapeHtml(a.datum ? String(a.datum).slice(0, 10) : '') + '"></div>'
+        + '<div style="display:flex;gap:10px;">'
+        +   '<div style="flex:1;"><label style="' + lab + '" for="akVon">Von (optional)</label><input type="time" id="akVon" style="' + feld + '" value="' + escapeHtml(a.von ? String(a.von).slice(0, 5) : '') + '"></div>'
+        +   '<div style="flex:1;"><label style="' + lab + '" for="akBis">Bis (optional)</label><input type="time" id="akBis" style="' + feld + '" value="' + escapeHtml(a.bis ? String(a.bis).slice(0, 5) : '') + '"></div>'
+        + '</div>'
+        + '<div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">„Bis“ vor „Von“ heißt über Mitternacht – z. B. 21:00 bis 03:00.</div>'
+        + '<div style="display:flex;gap:10px;margin-top:18px;">'
+        +   '<button type="button" onclick="document.getElementById(\'aktionModal\').remove()" style="flex:1;padding:12px;border-radius:9999px;border:1px solid var(--border-color);background:var(--bg-secondary);font-weight:700;cursor:pointer;">Abbrechen</button>'
+        +   '<button type="button" id="akSpeichernBtn" onclick="aktionSpeichern()" style="flex:2;padding:12px;border-radius:9999px;border:none;background:#735c00;color:#fff;font-weight:800;cursor:pointer;">Speichern</button>'
+        + '</div></div>';
+    document.body.appendChild(ov);
+}
+window.aktionFormular = aktionFormular;
+
+function aktionWannUmschalten() {
+    var einmal = (document.querySelector('input[name="akWann"]:checked') || {}).value === 'einmal';
+    var w = document.getElementById('akWoche'), e = document.getElementById('akEinmal');
+    if (w) w.style.display = einmal ? 'none' : 'flex';
+    if (e) e.style.display = einmal ? 'block' : 'none';
+}
+window.aktionWannUmschalten = aktionWannUmschalten;
+
+// Aus dem Formular eine Zeile machen -- und pruefen, bevor etwas rausgeht.
+// Gibt { zeile } oder { fehler } zurueck.
+function aktionAusFormular() {
+    function wert(id) { return String((document.getElementById(id) || {}).value || '').trim(); }
+    var titel = wert('akTitel');
+    if (!titel) return { fehler: 'Bitte einen Titel eingeben.' };
+    var einmal = (document.querySelector('input[name="akWann"]:checked') || {}).value === 'einmal';
+    var tage = Array.prototype.slice.call(document.querySelectorAll('.aktionTag:checked')).map(function (c) { return Number(c.value); });
+    var datum = wert('akDatum');
+    if (einmal && !datum) return { fehler: 'Bitte ein Datum wählen.' };
+    if (!einmal && !tage.length) return { fehler: 'Bitte mindestens einen Wochentag wählen.' };
+    var vorteil = wert('akVorteil');
+    return { zeile: {
+        titel: titel.slice(0, 80),
+        beschreibung: wert('akBeschreibung').slice(0, 500) || null,
+        vorteil: vorteil.slice(0, 120) || null,
+        art: vorteil ? 'vorteil' : 'event',
+        gilt_fuer: (document.getElementById('akNurReservierung') || {}).checked ? 'reservierung' : 'alle',
+        wochentage: einmal ? null : tage,
+        datum: einmal ? datum : null,
+        von: wert('akVon') || null,
+        bis: wert('akBis') || null
+    } };
+}
+
+async function aktionSpeichern() {
+    var ergebnis = aktionAusFormular();
+    if (ergebnis.fehler) { showToast(ergebnis.fehler, 'error'); return; }
+    var rid = getControlRestaurantId();
+    if (!rid) { showToast('Kein Restaurant gewählt', 'error'); return; }
+    var id = String((document.getElementById('akId') || {}).value || '');
+    var btn = document.getElementById('akSpeichernBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Speichert …'; }
+    try {
+        var url = SUPABASE_URL + '/rest/v1/aktionen' + (id ? '?id=eq.' + encodeURIComponent(id) : '');
+        var zeile = ergebnis.zeile;
+        if (!id) { zeile.restaurant_id = rid; zeile.aktiv = true; }
+        var res = await fetch(url, { method: id ? 'PATCH' : 'POST', headers: _aktionKopf({ 'Prefer': 'return=representation' }), body: JSON.stringify(zeile) });
+        var zurueck = await res.json().catch(function () { return null; });
+        if (!res.ok || !Array.isArray(zurueck) || !zurueck.length) {
+            throw new Error(res.status === 404 ? 'Tabelle fehlt – SQL 38 einspielen'
+                : (!res.ok ? 'HTTP ' + res.status : 'Keine Berechtigung – nichts gespeichert'));
+        }
+        var m = document.getElementById('aktionModal'); if (m) m.remove();
+        _aktionenCache = {};
+        showToast(id ? 'Aktion gespeichert' : 'Aktion angelegt – Gäste sehen sie auf eurer Seite', 'success');
+        aktionenVerwaltung();
+    } catch (e) {
+        showToast('Nicht gespeichert: ' + e.message, 'error');
+        if (btn) { btn.disabled = false; btn.textContent = 'Speichern'; }
+    }
+}
+window.aktionSpeichern = aktionSpeichern;
+
+async function aktionAktivSchalten(id, aktiv) {
+    try {
+        var res = await fetch(SUPABASE_URL + '/rest/v1/aktionen?id=eq.' + encodeURIComponent(id),
+            { method: 'PATCH', headers: _aktionKopf({ 'Prefer': 'return=representation' }), body: JSON.stringify({ aktiv: !!aktiv }) });
+        var zurueck = await res.json().catch(function () { return null; });
+        if (!res.ok || !Array.isArray(zurueck) || !zurueck.length) throw new Error(res.ok ? 'Keine Berechtigung' : 'HTTP ' + res.status);
+        _aktionenCache = {};
+        showToast(aktiv ? 'Aktion läuft wieder' : 'Aktion pausiert', 'success');
+        aktionenVerwaltung();
+    } catch (e) { showToast('Nicht geändert: ' + e.message, 'error'); }
+}
+window.aktionAktivSchalten = aktionAktivSchalten;
+
+async function aktionLoeschen(id) {
+    if (typeof kinConfirm === 'function' && !(await kinConfirm('Diese Aktion wirklich löschen?'))) return;
+    try {
+        var res = await fetch(SUPABASE_URL + '/rest/v1/aktionen?id=eq.' + encodeURIComponent(id),
+            { method: 'DELETE', headers: _aktionKopf({ 'Prefer': 'return=representation' }) });
+        var zurueck = await res.json().catch(function () { return null; });
+        if (!res.ok || !Array.isArray(zurueck) || !zurueck.length) throw new Error(res.ok ? 'Keine Berechtigung' : 'HTTP ' + res.status);
+        _aktionenCache = {};
+        showToast('Aktion gelöscht', 'success');
+        aktionenVerwaltung();
+    } catch (e) { showToast('Nicht gelöscht: ' + e.message, 'error'); }
+}
+window.aktionLoeschen = aktionLoeschen;
 
 // ---- Restaurantseite in der App ----------------------------------------
 // Fuellt den Platzhalter #lpSpecials, den openRestaurantLanding zwischen
