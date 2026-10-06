@@ -14266,6 +14266,35 @@
 .lp-ohne-foto { background: #003d33; background-image: radial-gradient(rgba(255,255,255,0.06) 1.5px, transparent 1.5px); background-size: 22px 22px; display: flex; align-items: center; justify-content: center; }
 .lp-ohne-foto span { font-family: Epilogue, sans-serif; font-weight: 800; font-size: 280px; line-height: 1; color: rgba(254,214,91,0.22); transform: translateY(-120px); }
 .dark-mode .lp-ohne-foto { background-color: #00251e; }
+/* STARTSEITE: Jetzt geoeffnet (06.10.2026) */
+.heute-abend { margin: 0 0 20px; }
+.ha-kopf { display: flex; align-items: baseline; justify-content: space-between; padding: 0 20px; margin-bottom: 10px; }
+.ha-kopf h3 { margin: 0; font-family: Epilogue, sans-serif; font-size: 20px; font-weight: 800; color: #00251e; }
+.ha-kopf span { font-size: 13px; font-weight: 600; color: #5f6b68; }
+.ha-reihe { display: flex; gap: 12px; overflow-x: auto; padding: 2px 20px 6px; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.ha-reihe::-webkit-scrollbar { display: none; }
+.ha-karte { flex: 0 0 220px; scroll-snap-align: start; display: flex; flex-direction: column; gap: 0; padding: 6px; border: 1px solid rgba(0,37,30,0.10); border-radius: 28px; background: #ffffff; text-align: left; cursor: pointer; font-family: Inter, sans-serif; }
+.ha-karte.aktion { background: #fff4cc; border-color: #f5d77a; }
+.ha-bild { display: flex; align-items: center; justify-content: center; height: 108px; border-radius: 22px; background: #003d33 center/cover no-repeat; }
+.ha-bild b { font-family: Epilogue, sans-serif; font-weight: 800; font-size: 56px; color: rgba(254,214,91,0.55); }
+.ha-text { display: flex; flex-direction: column; gap: 3px; padding: 10px 10px 8px; min-width: 0; }
+.ha-aktion { align-self: flex-start; padding: 3px 9px; border-radius: 9999px; background: #fed65b; color: #00251e; font-size: 11px; font-weight: 800; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ha-name { font-family: Epilogue, sans-serif; font-size: 16px; font-weight: 800; color: #00251e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ha-unter { font-size: 13px; color: #404946; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ha-karte.aktion .ha-unter { color: #5c4600; }
+.ha-offen { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #166534; margin-top: 2px; }
+.ha-offen i { width: 7px; height: 7px; border-radius: 9999px; background: #16a34a; }
+.ha-leer { flex: 1; padding: 16px 18px; border-radius: 22px; background: #edeeef; color: #404946; font-size: 14px; line-height: 1.45; }
+.dark-mode .ha-kopf h3 { color: #f3f4f4; }
+.dark-mode .ha-kopf span { color: #a9b2af; }
+.dark-mode .ha-karte { background: #1a1d1c; border-color: rgba(255,255,255,0.10); }
+.dark-mode .ha-karte.aktion { background: #3a2f0b; border-color: #6b5413; }
+.dark-mode .ha-name { color: #f3f4f4; }
+.dark-mode .ha-unter { color: #c9cfcd; }
+.dark-mode .ha-karte.aktion .ha-unter { color: #fde68a; }
+.dark-mode .ha-offen { color: #86efac; }
+.dark-mode .ha-leer { background: #262a29; color: #c9cfcd; }
+.dark-mode .ha-aktion { background: #fed65b; color: #00251e; } /* Gold bleibt Gold: es heisst Aktion */
 .dark-mode .kmi-stempel-punkt.voll { background: #fed65b; } /* Gold bleibt Gold: es ist der Stempel */
 </style>
 <script>
@@ -15913,8 +15942,11 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 <p style="font-size:14px;color:rgba(255,255,255,0.85);margin-bottom:16px;display:none;">Bestelle online bei Restaurants in Ostfriesland.</p>
                 <div style="background:rgba(255,255,255,0.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.4);border-radius:20px;padding:16px 20px;display:flex;align-items:center;gap:12px;">
                     <div style="flex:1;">
-                        <p style="font-family:'Epilogue',sans-serif;font-weight:800;font-size:15px;color:var(--ink-strong);" id="heroRestCount">2 Restaurants in Greetsiel</p>
-                        <p style="font-size:12px;color:var(--text-secondary);margin-top:2px;" data-i18n="tagline">Italienisch & Norddeutsche Küche</p>
+                        <!-- Hier stand fest "2 Restaurants in Greetsiel" und "Italienisch &
+                             Norddeutsche Kueche" -- kein Skript hat es je angepasst. Jetzt
+                             zaehlt heuteAbendZeichnen() echte Haeuser. -->
+                        <p style="font-family:'Epilogue',sans-serif;font-weight:800;font-size:15px;color:var(--ink-strong);" id="heroRestCount">Restaurants in Ostfriesland</p>
+                        <p style="font-size:12px;color:var(--text-secondary);margin-top:2px;" id="heroTagline">Essen gehen, bestellen, reservieren</p>
                     </div>
                     <button style="background:linear-gradient(135deg,#00251e,#003d33);color:white;border:none;padding:12px 20px;border-radius:50px;font-family:'Inter',sans-serif;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;transition:transform 0.2s,opacity 0.2s;" onclick="document.getElementById('searchInput').focus(); document.getElementById('searchInput').scrollIntoView({behavior:'smooth', block:'center'});" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">
                         <span class="material-symbols-outlined" style="font-size:16px;">explore</span>
@@ -15922,6 +15954,16 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     </button>
                 </div>
             </div>
+        </section>
+
+        <!-- JETZT GEOEFFNET (06.10.2026): was ein Gast zuerst wissen will, ohne zu
+             suchen -- wer hat jetzt offen, wo laeuft gerade eine Aktion. -->
+        <section id="heuteAbend" class="heute-abend" aria-labelledby="heuteAbendTitel" style="display:none;">
+            <div class="ha-kopf">
+                <h3 id="heuteAbendTitel">Jetzt geöffnet</h3>
+                <span id="heuteAbendZahl"></span>
+            </div>
+            <div id="heuteAbendReihe" class="ha-reihe"></div>
         </section>
 
         <!-- Gastronomen CTA Banner (nur für Admins sichtbar, nicht für Kunden) -->
@@ -28682,6 +28724,102 @@ function renderRestaurants(filter) {
 
     // Hero-Banner Bild aktualisieren
     updateHeroBannerImage();
+
+    // Kopfzeile mit echten Zahlen + "Jetzt geöffnet"
+    try { heuteAbendZeichnen(); } catch (e) { console.warn('[heuteAbend]', e); }
+}
+
+// JETZT GEOEFFNET + KOPFZEILE (06.10.2026)
+//
+// Bewusst OHNE "Tisch frei": getTableAvailabilityByTime nimmt bei einem
+// Ladefehler 13 Tische und null Reservierungen an. Ein "Tisch frei" von
+// dort koennte erfunden sein -- ein Gast, der deshalb losgeht, steht vor
+// einem vollen Haus. Gezeigt wird nur, was stimmt: offen bis, laufende
+// Aktion, Entfernung.
+var _heuteAbendLauf = 0;
+function heuteAbendZeichnen() {
+    var alle = (APP_DATA.restaurants || []).filter(function (r) { return r && r.is_active !== false; });
+    var offen = alle.filter(function (r) { try { return checkIfOpen(r); } catch (e) { return false; } });
+
+    // Kopf: echte Zahl statt "2 Restaurants in Greetsiel"
+    var kopf = document.getElementById('heroRestCount');
+    if (kopf && alle.length) {
+        var orte = []; alle.forEach(function (r) { if (r.city && orte.indexOf(r.city) < 0) orte.push(r.city); });
+        kopf.textContent = alle.length + (alle.length === 1 ? ' Restaurant' : ' Restaurants') + ' in ' + (orte.length === 1 ? orte[0] : 'Ostfriesland')
+            + (offen.length ? ' · ' + offen.length + ' jetzt offen' : '');
+    }
+    var tag = document.getElementById('heroTagline');
+    if (tag && alle.length) {
+        var zaehl = {};
+        alle.forEach(function (r) { (Array.isArray(r.cuisine_type) && r.cuisine_type.length ? r.cuisine_type : (r.cuisine ? [r.cuisine] : [])).forEach(function (k) { if (k) zaehl[k] = (zaehl[k] || 0) + 1; }); });
+        var top = Object.keys(zaehl).sort(function (a, b) { return zaehl[b] - zaehl[a]; }).slice(0, 3)
+            .map(function (k) { return kuecheLabel(k) || k; });
+        if (top.length) tag.textContent = top.join(' · ');
+    }
+
+    var sek = document.getElementById('heuteAbend'), reihe = document.getElementById('heuteAbendReihe'), zahl = document.getElementById('heuteAbendZahl');
+    if (!sek || !reihe) return;
+    if (!alle.length) { sek.style.display = 'none'; return; }
+    sek.style.display = '';
+    if (!offen.length) {
+        // Nicht still verschwinden: sagen, dass gerade zu ist -- und wann
+        // als naechstes jemand aufmacht, wenn das eingetragen ist.
+        var tage = ['so', 'mo', 'di', 'mi', 'do', 'fr', 'sa'], d = new Date(), jm = d.getHours() * 60 + d.getMinutes(), naechst = null;
+        alle.forEach(function (r) {
+            var oh = r.opening_hours && typeof r.opening_hours === 'object' ? r.opening_hours : null;
+            var st = String((oh && oh[tage[d.getDay()] + '_start']) || '').slice(0, 5);
+            if (!/^\d\d:\d\d$/.test(st)) return;
+            var m = +st.slice(0, 2) * 60 + +st.slice(3, 5);
+            if (m > jm && (!naechst || m < naechst.m)) naechst = { m: m, r: r, st: st };
+        });
+        zahl.textContent = '';
+        reihe.innerHTML = '<div class="ha-leer">Gerade hat kein Lokal geöffnet.'
+            + (naechst ? ' Als Nächstes: <b>' + escapeHtml(naechst.r.name) + '</b> um ' + naechst.st + '.' : '') + '</div>';
+        return;
+    }
+    zahl.textContent = offen.length + (offen.length === 1 ? ' Lokal' : ' Lokale');
+    var lauf = ++_heuteAbendLauf;
+    function karten(aktionen) {
+        var liste = offen.slice().sort(function (a, b) {
+            var aa = aktionen[a.id] ? 1 : 0, bb = aktionen[b.id] ? 1 : 0;
+            if (aa !== bb) return bb - aa;
+            if (a._distKm != null && b._distKm != null) return a._distKm - b._distKm;
+            return (b.rating || 0) - (a.rating || 0);
+        }).slice(0, 12);
+        reihe.innerHTML = liste.map(function (r) {
+            var bild = r.image && !/^data:image\/gif/.test(r.image) ? r.image : '';
+            var bis = (typeof getClosingTimeToday === 'function' ? getClosingTimeToday(r) : '') || '';
+            var akt = aktionen[r.id];
+            var unter = [kuechenListe(r, ', ') || '', r._distKm != null ? (r._distKm < 2.5 ? Math.max(1, Math.round(r._distKm / 4.8 * 60)) + ' Min. zu Fuß' : r._distKm.toFixed(1).replace('.', ',') + ' km') : (r.city || '')].filter(Boolean).join(' · ');
+            return '<button type="button" class="ha-karte' + (akt ? ' aktion' : '') + '" onclick="heuteAbendOeffnen(\'' + String(r.id).replace(/[^a-zA-Z0-9-]/g, '') + '\')">'
+                + '<span class="ha-bild"' + (bild ? ' style="background-image:url(\'' + String(bild).replace(/['"()\\]/g, '') + '\')"' : '') + '>' + (bild ? '' : '<b aria-hidden="true">' + escapeHtml(String(r.name || '?').charAt(0).toUpperCase()) + '</b>') + '</span>'
+                + '<span class="ha-text">'
+                + (akt ? '<span class="ha-aktion">Läuft gerade · ' + escapeHtml(akt.titel || 'Aktion') + '</span>' : '')
+                + '<span class="ha-name">' + escapeHtml(r.name || '') + '</span>'
+                + (unter ? '<span class="ha-unter">' + escapeHtml(unter) + '</span>' : '')
+                + '<span class="ha-offen"><i aria-hidden="true"></i>' + (bis ? 'Offen bis ' + escapeHtml(String(bis).slice(0, 5)) : 'Jetzt geöffnet') + '</span>'
+                + '</span></button>';
+        }).join('');
+    }
+    karten({});
+    // Aktionen nachladen (gecacht); Karten mit laufender Aktion ruecken nach vorn.
+    if (typeof aktionenLaden === 'function' && typeof aktionLaeuftJetzt === 'function') {
+        Promise.all(offen.slice(0, 20).map(function (r) {
+            return aktionenLaden(r.id, false).then(function (l) {
+                var a = (l || []).filter(function (x) { return x && x.gilt_fuer !== 'reservierung' && aktionLaeuftJetzt(x); })[0];
+                return [r.id, a || null];
+            }).catch(function () { return [r.id, null]; });
+        })).then(function (paare) {
+            if (lauf !== _heuteAbendLauf) return;
+            var m = {}, irgendeine = false;
+            paare.forEach(function (p) { if (p[1]) { m[p[0]] = p[1]; irgendeine = true; } });
+            if (irgendeine) karten(m);
+        });
+    }
+}
+function heuteAbendOeffnen(id) {
+    var r = (APP_DATA.restaurants || []).find(function (x) { return String(x.id) === String(id); });
+    if (r && typeof showRestaurantLanding === 'function') showRestaurantLanding(r);
 }
 
 // DIE VERFUEGBARKEIT FLACKERTE BEI JEDEM NEUZEICHNEN
