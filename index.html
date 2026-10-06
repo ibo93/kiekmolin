@@ -14229,6 +14229,29 @@
         }
 
     </style>
+<style>
+/* KLEINE MOMENTE (06.10.2026) ------------------------------------------
+   1. Knoepfe geben beim Druecken leicht nach, wie bei iOS. Mit der Eigen-
+      schaft "scale" statt "transform": sie verrechnet sich mit vorhandenen
+      Verschiebungen (translateX(-50%) ...), statt sie zu ueberschreiben.
+   2. Stempel-Moment in der Bestellbestaetigung.
+   3. Reservierungsbestaetigung: Haken springt kurz auf.
+   Alles Bewegte entfaellt bei "Bewegung reduzieren". */
+@media (prefers-reduced-motion: no-preference) {
+    :is(button, .btn, [role="button"]):not(:disabled):active { scale: 0.97; }
+    .kmi-stempel-punkt.neu { animation: kmiStempelAuf 0.6s cubic-bezier(0.2, 1.4, 0.4, 1) 0.25s both; }
+    .kmi-haken-auf { animation: kmiStempelAuf 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+}
+@keyframes kmiStempelAuf { 0% { transform: scale(0.2); opacity: 0; } 70% { transform: scale(1.18); opacity: 1; } 100% { transform: scale(1); } }
+.kmi-stempel-moment { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 16px; border-radius: 22px; background: #003d33; color: #ffffff; }
+.kmi-stempel-moment strong { font-family: Epilogue, sans-serif; font-size: 17px; font-weight: 800; color: #ffffff; }
+.kmi-stempel-moment span { font-size: 13px; color: #d7efe8; }
+.kmi-stempel-reihe { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; width: 100%; max-width: 300px; margin-bottom: 6px; }
+.kmi-stempel-punkt { aspect-ratio: 1; border-radius: 9999px; border: 2px dashed rgba(255,255,255,0.45); box-sizing: border-box; display: block; }
+.kmi-stempel-punkt.voll { background: #fed65b; border: 0; }
+.dark-mode .kmi-stempel-moment { background: #0b3a31; }
+.dark-mode .kmi-stempel-punkt.voll { background: #fed65b; } /* Gold bleibt Gold: es ist der Stempel */
+</style>
 </head>
 <body>
 
@@ -31032,7 +31055,20 @@ async function createReservationInSupabase(reservation) {
     await saveReservationToSupabase(reservation);
 }
 
+function reservierungWann(datum, zeit) {
+    var uhr = String(zeit || '').slice(0, 5);
+    var tag = new Date(String(datum) + 'T12:00:00');
+    if (isNaN(tag.getTime())) return uhr;
+    var heute = new Date(); heute.setHours(12, 0, 0, 0);
+    var diff = Math.round((tag - heute) / 86400000);
+    if (diff === 0) return 'heute, ' + uhr;
+    if (diff === 1) return 'morgen, ' + uhr;
+    if (diff > 1 && diff < 7) return tag.toLocaleDateString('de-DE', { weekday: 'long' }) + ', ' + uhr;
+    return tag.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'long' }) + ', ' + uhr;
+}
+
 function showReservationConfirmation(reservation) {
+    window._kalenderReservierung = reservation;
     var formattedDate = new Date(reservation.date).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
     var isPending = reservation.status === 'pending';
 
@@ -31051,16 +31087,19 @@ function showReservationConfirmation(reservation) {
     var iconSvg = isPending
         ? '<span class="material-symbols-outlined" style="font-size:20px;color:#92400e;">schedule</span>'
         : '<span class="material-symbols-outlined" style="font-size:20px;color:#16a34a;">check</span>';
-    var titleText = isPending ? 'Anfrage gesendet!' : 'Vielen Dank!';
+    // "Bis Freitag, 19:00!" statt "Vielen Dank!" -- der Satz, den man im
+    // Restaurant zum Abschied sagt. Heute/morgen/Wochentag, sonst Datum.
+    var wann = reservierungWann(reservation.date, reservation.time);
+    var titleText = isPending ? 'Anfrage gesendet!' : 'Bis ' + wann + '!';
     var subtitleText = isPending
-        ? 'Das Restaurant wird Ihre Reservierung in Kürze bestätigen'
-        : 'Wir freuen uns, Sie bei ' + reservation.restaurantName + ' zu begrüssen';
+        ? 'Für ' + wann + ' – das Restaurant bestätigt in Kürze'
+        : escapeHtml(reservation.restaurantName || 'Das Restaurant') + ' freut sich auf Sie';
 
     card.innerHTML = ''
         + '<div style="padding:20px;">'
         +   '<div style="display:flex;justify-content:space-between;align-items:flex-start;">'
         +     '<div style="display:flex;align-items:center;gap:12px;">'
-        +       '<div style="width:40px;height:40px;background:' + iconBg + ';border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
+        +       '<div class="kmi-haken-auf" style="width:40px;height:40px;background:' + iconBg + ';border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
         +         iconSvg
         +       '</div>'
         +       '<div>'
@@ -31086,7 +31125,7 @@ function showReservationConfirmation(reservation) {
         +       '<div style="font-size:13px;font-weight:600;color:var(--text-primary);">' + reservation.partySize + '</div>'
         +     '</div>'
         +   '</div>'
-        +   '<button onclick="addReservationToCalendar(\'' + (reservation.restaurantName || '').replace(/'/g, '') + '\',\'' + reservation.date + '\',\'' + reservation.time + '\',' + reservation.partySize + ');event.stopPropagation();" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:12px;padding:10px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:16px;font-size:13px;font-weight:600;cursor:pointer;color:var(--text-primary);font-family:Inter,sans-serif;">'
+        +   '<button onclick="kalenderFuerLetzteReservierung();event.stopPropagation();" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:12px;padding:10px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:16px;font-size:13px;font-weight:600;cursor:pointer;color:var(--text-primary);font-family:Inter,sans-serif;">'
         +     '<span class="material-symbols-outlined" style="font-size:16px;color:var(--primary);">calendar_today</span>'
         +     'Im Kalender speichern'
         +   '</button>'
@@ -31283,33 +31322,46 @@ function closeResStatusOverlay() {
     }
 }
 
-function addReservationToCalendar(restaurantName, date, time, partySize) {
-    // iCal (.ics) Datei generieren
-    var dtStart = date.replace(/-/g, '') + 'T' + time.replace(/:/g, '').substring(0, 4) + '00';
-    // Ende: 1.5 Stunden später
-    var startH = parseInt(time.split(':')[0]);
-    var startM = parseInt(time.split(':')[1]);
-    var endM = startM + 30;
-    var endH = startH + 1;
-    if (endM >= 60) { endM -= 60; endH++; }
-    if (endH >= 24) endH -= 24;
-    var dtEnd = date.replace(/-/g, '') + 'T' + String(endH).padStart(2,'0') + String(endM).padStart(2,'0') + '00';
-
+// KALENDER-DATEI (.ics) -- ueberarbeitet am 06.10.2026.
+// Es fehlten UID und DTSTAMP, beide sind nach RFC 5545 Pflicht; Outlook
+// lehnt Dateien ohne sie ab. Kommas und Semikolons im Namen wurden nicht
+// maskiert ("Fisch, Bar & Grill" zerbrach die Zeile). Bei "Tisch fuer"
+// fehlte das Leerzeichen. Jetzt mit Adresse und zwei Stunden Dauer.
+function kalenderFuerLetzteReservierung() {
+    var r = window._kalenderReservierung;
+    if (!r) return;
+    addReservationToCalendar(r.restaurantName || 'Restaurant', r.date, r.time, r.partySize, r.restaurantId);
+}
+function icsText(t) { return String(t == null ? '' : t).replace(/\\/g, '\\\\').replace(/[,;]/g, function (c) { return '\\' + c; }).replace(/\r?\n/g, '\\n'); }
+function addReservationToCalendar(restaurantName, date, time, partySize, restaurantId) {
+    var start = String(time || '19:00').slice(0, 5).split(':');
+    var sh = parseInt(start[0], 10) || 19, sm = parseInt(start[1], 10) || 0;
+    var ende = new Date(String(date) + 'T' + String(sh).padStart(2, '0') + ':' + String(sm).padStart(2, '0') + ':00');
+    ende.setMinutes(ende.getMinutes() + 120);
+    function stempel(d) { return d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0') + 'T' + String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0') + '00'; }
+    var dtStart = String(date).replace(/-/g, '') + 'T' + String(sh).padStart(2, '0') + String(sm).padStart(2, '0') + '00';
+    var r = (typeof APP_DATA !== 'undefined' && APP_DATA.restaurants || []).find(function (x) { return x.id == restaurantId; }) || {};
+    var ort = [restaurantName, r.address, [r.zip || r.postal_code, r.city].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+    var jetzt = new Date();
+    var dtStamp = jetzt.getUTCFullYear() + String(jetzt.getUTCMonth() + 1).padStart(2, '0') + String(jetzt.getUTCDate()).padStart(2, '0') + 'T'
+        + String(jetzt.getUTCHours()).padStart(2, '0') + String(jetzt.getUTCMinutes()).padStart(2, '0') + String(jetzt.getUTCSeconds()).padStart(2, '0') + 'Z';
     var icsContent = [
         'BEGIN:VCALENDAR',
         'VERSION:2.0',
         'PRODID:-//Kiek mol in//Reservierung//DE',
         'BEGIN:VEVENT',
+        'UID:' + dtStart + '-' + Math.random().toString(36).slice(2, 10) + '@kiekmolin.de',
+        'DTSTAMP:' + dtStamp,
         'DTSTART:' + dtStart,
-        'DTEND:' + dtEnd,
-        'SUMMARY:Reservierung ' + restaurantName,
-        'DESCRIPTION:Tisch für' + partySize + ' Personen bei ' + restaurantName + '\\nGebucht über Kiek mol in',
-        'LOCATION:' + restaurantName,
+        'DTEND:' + stempel(ende),
+        'SUMMARY:' + icsText('Reservierung ' + restaurantName),
+        'DESCRIPTION:' + icsText('Tisch für ' + partySize + ' Personen bei ' + restaurantName + '\nGebucht über Kiek mol in'),
+        'LOCATION:' + icsText(ort),
         'STATUS:CONFIRMED',
         'BEGIN:VALARM',
         'TRIGGER:-PT60M',
         'ACTION:DISPLAY',
-        'DESCRIPTION:Reservierung bei ' + restaurantName + ' in 1 Stunde',
+        'DESCRIPTION:' + icsText('Reservierung bei ' + restaurantName + ' in 1 Stunde'),
         'END:VALARM',
         'END:VEVENT',
         'END:VCALENDAR'
@@ -31319,11 +31371,11 @@ function addReservationToCalendar(restaurantName, date, time, partySize) {
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url;
-    a.download = 'reservierung-' + restaurantName.toLowerCase().replace(/[^a-z0-9]/g, '-') + '.ics';
+    a.download = 'reservierung-' + String(restaurantName).toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.ics';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
     showToast('Kalender-Datei heruntergeladen!', 'success');
 }
 
@@ -50147,6 +50199,9 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
                 <p id="confirmOrderNumber" style="color: rgba(0,61,51,0.6); font-size: 13px; margin: 0;">XX-0001</p>
             </div>
 
+            <!-- Stempel-Moment: erscheint nur, wenn der Stempel WIRKLICH gespeichert ist -->
+            <div id="ocStempelMoment" aria-live="polite"></div>
+
             <!-- Push Opt-in Banner (dynamisch, zeigt CTA / iOS-Hinweis / Status) -->
             <div id="ocPushOptInBanner"></div>
 
@@ -56898,7 +56953,10 @@ async function submitOrder() {
     try {
         var _lpFeatures = (currentOrderRestaurant && currentOrderRestaurant.features) ? currentOrderRestaurant.features : [];
         if (typeof addLoyaltyPoint === 'function' && phone && _lpFeatures.indexOf('loyalty_points') !== -1) {
-            addLoyaltyPoint(phone, currentOrderRestaurant.id);
+            var _lpRid = currentOrderRestaurant.id;
+            var _lpBox = document.getElementById('ocStempelMoment');
+            if (_lpBox) _lpBox.innerHTML = '';
+            addLoyaltyPoint(phone, _lpRid).then(function (ok) { if (ok) stempelMoment(phone, _lpRid); });
         }
     } catch(e) {}
     // Das Sterne-Fenster nach 60 Sekunden ist raus -- siehe den Block
@@ -76444,6 +76502,7 @@ async function addLoyaltyPoint(phone, restaurantId) {
             freeUsed: current.freeUsed || 0,
             lastOrderAt: payload.last_order_at
         };
+        return true;
     } catch(e) {
         console.warn('addLoyaltyPoint Supabase fehlgeschlagen, schreibe in localStorage:', e.message);
         try {
@@ -76456,7 +76515,39 @@ async function addLoyaltyPoint(phone, restaurantId) {
             localStorage.setItem('kmi_loyalty', JSON.stringify(data));
             _loyaltyCache[_loyaltyKey(phone, restaurantId)] = data[key];
         } catch(_){}
+        // Nur auf diesem Geraet gemerkt -- kein "Stempel erhalten" zeigen.
+        return false;
     }
+}
+
+// DER STEMPEL-MOMENT (06.10.2026).
+//
+// Bisher sah der Gast seine Stempelkarte nur im Bestellformular. Dass die
+// Bestellung gerade einen Stempel gebracht hat, erfuhr er nie. Jetzt steht
+// er in der Bestaetigung -- der neue Stempel springt kurz auf, auf Android
+// vibriert es einmal kurz. Beides entfaellt bei "Bewegung reduzieren".
+// Gezeigt wird er NUR, wenn die Datenbank ihn angenommen hat.
+function stempelMoment(phone, restId) {
+    var box = document.getElementById('ocStempelMoment');
+    if (!box) return;
+    var d = getLoyaltyData(phone, restId) || {};
+    var gesamt = d.orders || 0;
+    if (!gesamt) return;
+    var aufKarte = gesamt % 10 === 0 ? 10 : gesamt % 10;
+    var geschafft = gesamt % 10 === 0;
+    var kreise = '';
+    for (var i = 1; i <= 10; i++) {
+        kreise += '<span class="kmi-stempel-punkt' + (i <= aufKarte ? ' voll' : '') + (i === aufKarte ? ' neu' : '') + '" aria-hidden="true"></span>';
+    }
+    box.innerHTML = '<div class="kmi-stempel-moment">'
+        + '<div class="kmi-stempel-reihe">' + kreise + '</div>'
+        + '<strong>' + (geschafft ? 'Geschafft – dein Gratis-Essen wartet!' : 'Stempel ' + aufKarte + ' von 10') + '</strong>'
+        + '<span>' + (geschafft ? 'Beim nächsten Mal im Warenkorb einlösen.' : 'Noch ' + (10 - aufKarte) + ' bis zum Gratis-Essen.') + '</span>'
+        + '</div>';
+    try {
+        var ruhig = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (!ruhig && navigator.vibrate) navigator.vibrate(geschafft ? [30, 60, 30] : 25);
+    } catch (e) {}
 }
 
 // ALLE STEMPELKARTEN EINES GASTES, UEBER ALLE HAEUSER.
