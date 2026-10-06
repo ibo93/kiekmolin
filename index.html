@@ -14166,6 +14166,46 @@
         :is(html, #kmi-glas).dark-mode .view-toggle { background-color: #1a1a1a !important; }
         :is(html, #kmi-glas).dark-mode #offlineBanner { background: #3a1212 !important; color: #fecaca !important; }
 
+        /* ================= ECKEN WIE iOS 27 =================
+           06.10.2026, Ibo: "Mein Design ist besser -- nur das Glas, die
+           Cards, das Runde von iOS 27". Aufbau und Farben bleiben.
+
+           iOS: Ecken passen INEINANDER -- ein Element in einer Karte ist um
+           genau den Abstand zum Rand weniger rund. Gemessen (Chromium, alle
+           Gaeste- und Dashboard-Flaechen eingeblendet): von 43 verschachtelten
+           Ecken passten 2. Typisch: aussen 48, innen 16.
+
+           Das System:  Fenster 34 px  ·  Karten 28 px  ·  in einer Karte 12 px
+           (28 minus 16 Innenabstand)  ·  Knoepfe, Pillen, Kreise voll rund.
+           Knoepfe und Felder fasst die Regel nicht an (:not(...)) -- die sind
+           Pillen und bleiben es. Kreise (50 %) auch nicht: der Wert ist kein px.
+           Lesbarkeit: Ecken aendern keine Farbe; nachgemessen mit
+           werkzeug/lesbarkeit-messen.js und werkzeug/durchsicht-messen.js. */
+        :is(html, #kmi-glas) :is(.panel, .stat-box, .stat-card, .rest-stat-box, .res-section-header, .res-settings-card, .glass-card, .dash-card, .dashboard-card, .landing-card, .profile-glass-card, .jobs-cta-banner, .oc-glass-card, .lp-hero-karte, [style*="border-radius:48px"], [style*="border-radius: 48px"], [style*="border-radius:40px"], [style*="border-radius:32px"], [style*="border-radius: 32px"], [style*="border-radius:24px"], [style*="border-radius: 24px"]):not(button):not(a):not(.btn):not([class*="btn"]):not(input):not(select):not(.chip) {
+            border-radius: 28px !important;
+        }
+        :is(html, #kmi-glas) :is(.panel, .stat-box, .stat-card, .rest-stat-box, .res-section-header, .res-settings-card, .glass-card, .dash-card, .dashboard-card, .landing-card, .profile-glass-card, .jobs-cta-banner, .oc-glass-card, .lp-hero-karte, [style*="border-radius:48px"], [style*="border-radius: 48px"], [style*="border-radius:40px"], [style*="border-radius:32px"], [style*="border-radius: 32px"], [style*="border-radius:24px"], [style*="border-radius: 24px"]) :is([style*="border-radius:16px"], [style*="border-radius: 16px"], [style*="border-radius:14px"], [style*="border-radius:20px"], [style*="border-radius:24px"], [style*="border-radius: 24px"], .timeslot, .cal-day, .availability-control, .floorplan-container, .floorplan-grid, .res-slots-preview, .panel, .stat-box, .stat-card, .rest-stat-box, .res-section-header, .res-settings-card, .glass-card, .dash-card, .dashboard-card, .landing-card, .profile-glass-card, .jobs-cta-banner, .oc-glass-card, .lp-hero-karte, [style*="border-radius:48px"], [style*="border-radius: 48px"], [style*="border-radius:40px"], [style*="border-radius:32px"], [style*="border-radius: 32px"], [style*="border-radius:24px"], [style*="border-radius: 24px"]):not(button):not(a):not(.btn):not([class*="btn"]):not(input):not(select):not(.chip) {
+            border-radius: 12px !important;
+        }
+        :is(html, #kmi-glas) :is(.modal, .onboarding-card, .assistant-chat):not(button):not(a):not(.btn):not([class*="btn"]):not(input):not(select):not(.chip) {
+            border-radius: 34px !important;
+        }
+        :is(html, #kmi-glas) :is(.cart-panel, [style*="border-radius:48px 48px 0 0"], [style*="border-radius:32px 32px 0 0"], [style*="border-radius:24px 24px 0 0"]):not(button):not(a):not(.btn):not([class*="btn"]):not(input):not(select):not(.chip) {
+            border-radius: 34px 34px 0 0 !important;
+        }
+        /* Glas-Leisten mit iOS-27-Kante: ein dunkler Rand und eine helle
+           Lichtkante oben -- so trennt Apple Glas vom Inhalt darunter, damit
+           es lesbar bleibt. */
+        :is(html, #kmi-glas):not(.dark-mode) :is(.kmi-glas-leiste:not(.kmi-glas-dunkel), .install-banner) {
+            border: 1px solid rgba(0,37,30,0.16) !important;
+        }
+        :is(html, #kmi-glas).dark-mode :is(.kmi-glas-leiste, .install-banner) {
+            border: 1px solid rgba(0,0,0,0.65) !important;
+        }
+        :is(html, #kmi-glas) .kmi-glas-dunkel {
+            border: 1px solid rgba(0,0,0,0.35) !important;
+        }
+
         @media (prefers-reduced-transparency: reduce) {
             /* Dieselbe Liste wie oben, sonst gewinnt die Freigabe der
                Leisten (gemessen: ohne das blieben 8 Glasflaechen).
