@@ -2715,7 +2715,8 @@
             color: rgba(255,255,255,0.9) !important;
         }
         .dark-mode .stat-box-label {
-            color: rgba(255,255,255,0.45) !important;
+            /* 0,45 ergab 4,45 : 1 auf der Kachel -- knapp drunter (06.10.2026) */
+            color: rgba(255,255,255,0.62) !important;
         }
 
         .dark-mode .panel {
@@ -13998,7 +13999,11 @@
            Weichzeichner Rechenzeit -- auf einem guenstigen Handy ruckelt
            die Speisekarte beim Scrollen.
 
-           1. Jeder Weichzeichner aus, ausser im Dashboard (eigener Schritt).
+           1. Jeder Weichzeichner aus -- seit dem zweiten Schritt (Ibo: "Mach
+              die ganze App") auch im Dashboard. Dort gezaehlt: 88 Glas-
+              flaechen ueber 16 Ansichten (4 Bereiche, hell/dunkel, Handy/
+              Rechner), echt schwebend nur Seitenleiste, Kopfzeile und der
+              Menue-Knopf am Handy.
            2. Die schwebenden Leisten bekommen EINEN gemeinsamen Glas-Look,
               mit Grund, der auch ohne Weichzeichner lesbar bleibt.
            3. "Transparenz reduzieren" am Handy: gar kein Glas, deckende
@@ -14007,13 +14012,14 @@
            :is(html, #kmi-glas) wie bei den Knoepfen: die Kennung gibt das
            Gewicht, um ~700 Stellen mit Weichzeichner (Regeln, style-
            Attribute, Skripte) zu ueberstimmen. */
-        :is(html, #kmi-glas) body *:not(#dashboardView, #dashboardView *) {
+        :is(html, #kmi-glas) body * {
             backdrop-filter: none !important;
             -webkit-backdrop-filter: none !important;
         }
         :is(html, #kmi-glas) :is(#guestTopNav, .bottom-nav, .kmi-glas-leiste, #menuModal header,
             #menuCategoryTabs, .cart-button-fixed, .install-banner, .ptr-indicator,
-            #mapSection [style*="backdrop-filter"]) {
+            #mapSection [style*="backdrop-filter"],
+            .dash-sidebar, .dash-header, .dash-mobile-menu-btn) {
             backdrop-filter: blur(20px) saturate(180%) !important;
             -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
         }
@@ -14053,13 +14059,45 @@
         .res-wt.res-wt-so { color: #b91c1c; }
         .dark-mode .res-wt.res-wt-so { color: #ff8a80; }
 
+        /* LESBAR IM DASHBOARD. Beim Glas-Umbau mitgemessen (Chromium):
+           - "Restaurant offen": weisse Schrift auf einem 70-%-weissen Feld
+             MITTEN in der gruenen Karte "Restaurant-Steuerung" -- 1,8 : 1.
+             Die Klasse .availability-control bringt den hellen Grund mit;
+             in der gruenen Karte gehoert dort ein Hauch Weiss hin.
+           - Verbindungsanzeige oben: Orange (#ff9500) auf Hellgrau 2 : 1.
+           - Dunkel: Gold-Knoepfe ("Speichern") bekamen die helle Schrift
+             der allgemeinen Knopf-Regel -- 1,2 : 1 auf Gold. Der Knopf
+             "Angebot" verlor im Dunkeln sein Gold (5 % Weiss) -- 2,37 : 1. */
+        [style*="background:#003d33"] .availability-control {
+            background: rgba(255,255,255,0.08) !important;
+            border-color: rgba(255,255,255,0.15) !important;
+        }
+        :is(html, #kmi-glas):not(.dark-mode) #connectionStatus[style*="var(--warning)"] { color: #92400e !important; }
+        :is(html, #kmi-glas):not(.dark-mode) #connectionStatus[style*="var(--success)"] { color: #15803d !important; }
+        /* Gold bleibt Gold -- ueber eine Klasse am Knopf, nicht ueber den
+           style-Text (tests/dunkelmodus-test.js verbietet zu Recht Regeln
+           auf "background:#fed65b": die machten Abzeichen grau). */
+        :is(html, #kmi-glas).dark-mode .dash-btn-gold {
+            background: #fed65b !important;
+            color: #5c4600 !important;
+        }
+        /* Die Ursache bei "Speichern": die Regel "dunkle Markenschrift im
+           Dunkeln hell machen" (color:#00251e -> hell) fragt nicht, ob der
+           Knopf selbst einen GOLDENEN Grund hat. Auf Gold muss sie dunkel
+           bleiben. */
+        :is(html, #kmi-glas).dark-mode [style*="color:#00251e"][style*="background:#FFD54F" i] {
+            color: #00251e !important;
+            background-color: #FFD54F !important;
+        }
+
         @media (prefers-reduced-transparency: reduce) {
             /* Dieselbe Liste wie oben, sonst gewinnt die Freigabe der
                Leisten (gemessen: ohne das blieben 8 Glasflaechen). */
             :is(html, #kmi-glas) body *,
             :is(html, #kmi-glas) :is(#guestTopNav, .bottom-nav, .kmi-glas-leiste, #menuModal header,
                 #menuCategoryTabs, .cart-button-fixed, .install-banner, .ptr-indicator,
-                #mapSection [style*="backdrop-filter"]) {
+                #mapSection [style*="backdrop-filter"],
+                .dash-sidebar, .dash-header, .dash-mobile-menu-btn) {
                 backdrop-filter: none !important;
                 -webkit-backdrop-filter: none !important;
             }
@@ -16427,7 +16465,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 <button id="btnGastroLogo" class="dash-btn dash-btn-secondary" onclick="openLogoUploadModal()" title="Restaurant-Logo ändern" aria-label="Restaurant-Logo ändern" style="display:none;padding:10px;width:40px;height:40px;border-radius:9999px;background:rgba(0,61,51,0.06);border:none;cursor:pointer;align-items:center;justify-content:center;">
                     <span class="material-symbols-outlined" style="font-size:20px;color:var(--ink-deep);">image</span>
                 </button>
-                <button class="dash-btn dash-btn-primary" onclick="showDashboardSection('offers')" style="padding:10px 20px;background:#fed65b;color:#735c00;border:none;border-radius:9999px;font-family:Inter,sans-serif;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;">
+                <button class="dash-btn dash-btn-primary dash-btn-gold" onclick="showDashboardSection('offers')" style="padding:10px 20px;background:#fed65b;color:#735c00;border:none;border-radius:9999px;font-family:Inter,sans-serif;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;">
                     <span class="material-symbols-outlined" style="font-size:18px;">add</span>
                     Angebot
                 </button>

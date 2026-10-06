@@ -19,9 +19,18 @@
 //      darunter nicht -- an den Bildpunkten gemessen 10,91 : 1)
 //   "Transparenz reduzieren"          8 Glasflaechen -> 0, Leisten deckend
 //
+// Zweiter Schritt, Ibo: "Mach die ganze App". Dashboard, 16 Ansichten
+// (4 Bereiche ohne Anmeldung eingeblendet, hell/dunkel, Rechner/Handy):
+//   Glasflaechen                      88           ->  40 (nur Seitenleiste,
+//                                                      Kopfzeile, Menue-Knopf)
+//   Texte unter 4,5 : 1               30           ->  0
+//     "Restaurant offen" 1,8 (weiss auf weissem Feld in der gruenen Karte),
+//     Verbindungsanzeige 2,0, dunkel "Speichern" 1,2 und "Angebot" 2,37,
+//     Kennzahl-Beschriftungen 4,45
+//
 // GEGENPROBEN (06.10.2026) -- jede wurde rot:
 //   - #kmi-glas aus der Abschalt-Regel entfernt
-//   - die Ausnahme fuer das Dashboard entfernt
+//   - die Ausnahme fuer das Dashboard wieder eingebaut
 //   - in "Transparenz reduzieren" die Leisten-Liste weggelassen
 //   - den Verlauf der Startseite wieder ab 40 % hell
 'use strict';
@@ -34,9 +43,10 @@ function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK
 
 console.log('\n-- 1. Glas aus, ausser auf den Leisten --');
 t('jeder Weichzeichner aus, mit dem Gewicht einer Kennung',
-  /:is\(html, #kmi-glas\) body \*:not\(#dashboardView, #dashboardView \*\) \{\s*backdrop-filter: none !important;\s*-webkit-backdrop-filter: none !important;/.test(H), null);
-var LEISTEN = ['#guestTopNav', '.bottom-nav', '.kmi-glas-leiste', '#menuModal header', '#menuCategoryTabs', '.cart-button-fixed', '.install-banner', '.ptr-indicator', '#mapSection [style*="backdrop-filter"]'];
-var frei = H.match(/:is\(html, #kmi-glas\) :is\(([^)]*\)?[^)]*)\) \{\s*backdrop-filter: blur\(20px\) saturate\(180%\) !important;/);
+  /\n        :is\(html, #kmi-glas\) body \* \{\s*backdrop-filter: none !important;\s*-webkit-backdrop-filter: none !important;/.test(H), null);
+t('ohne Ausnahme -- auch das Dashboard (keine :not(#dashboardView)-Luecke mehr)', H.indexOf('body *:not(#dashboardView') < 0, null);
+var LEISTEN = ['#guestTopNav', '.bottom-nav', '.kmi-glas-leiste', '#menuModal header', '#menuCategoryTabs', '.cart-button-fixed', '.install-banner', '.ptr-indicator', '#mapSection [style*="backdrop-filter"]', '.dash-sidebar', '.dash-header', '.dash-mobile-menu-btn'];
+var frei = H.match(/:is\(html, #kmi-glas\) :is\(([^{]*)\) \{\s*backdrop-filter: blur\(20px\) saturate\(180%\) !important;/);
 t('die Leisten bekommen EINEN gemeinsamen Glas-Look', !!frei, null);
 LEISTEN.forEach(function (l) { t('  Leiste dabei: ' + l, !!frei && frei[1].indexOf(l) >= 0, l); });
 t('die Leisten der Lokalseite sind markiert (Kopfleiste und Aktionsleiste)',
@@ -50,7 +60,7 @@ console.log('\n-- 2. Transparenz reduzieren --');
 var red = (H.match(/@media \(prefers-reduced-transparency: reduce\) \{([\s\S]*?)\n        \}\n/) || [])[1] || '';
 t('es gibt die Regel', red.length > 0, null);
 t('sie schaltet auch die Leisten ab (gleiches Gewicht wie die Freigabe)',
-  /:is\(html, #kmi-glas\) :is\(#guestTopNav, \.bottom-nav, \.kmi-glas-leiste, #menuModal header,[^{]*\) \{\s*backdrop-filter: none !important;/.test(red), null);
+  /:is\(html, #kmi-glas\) :is\(#guestTopNav, \.bottom-nav, \.kmi-glas-leiste, #menuModal header,[^{]*\.dash-sidebar, \.dash-header, \.dash-mobile-menu-btn\) \{\s*backdrop-filter: none !important;/.test(red), null);
 t('und macht die Leisten deckend, hell und dunkel',
   /background-color: #ffffff !important;/.test(red) && /background-color: #121414 !important;/.test(red) && /\.kmi-glas-dunkel \{ background-color: #00251e !important; \}/.test(red), null);
 
@@ -73,6 +83,18 @@ t('Kalender: Wochentage in voller Zweitfarbe, Sonntag eigene Farbe hell und dunk
   && H.indexOf('color:rgba(64,73,70,0.6);padding:4px 0;">Mo</div>') < 0, null);
 t('Sonntag hell ' + k(hx('#b91c1c'), [255, 255, 255]) + ' : 1, dunkel ' + k(hx('#ff8a80'), hx('#1a2e27')) + ' : 1',
   k(hx('#b91c1c'), [255, 255, 255]) >= 4.5 && k(hx('#ff8a80'), hx('#1a2e27')) >= 4.5, null);
+
+console.log('\n-- 4. Lesbar im Dashboard --');
+t('"Restaurant offen": in der gruenen Karte kein weisses Feld mehr',
+  /\[style\*="background:#003d33"\] \.availability-control \{\s*background: rgba\(255,255,255,0\.08\) !important;/.test(H), null);
+t('Verbindungsanzeige hell: dunkles Orange ' + k(hx('#92400e'), hx('#f3f4f5')) + ' : 1 statt #ff9500',
+  /#connectionStatus\[style\*="var\(--warning\)"\] \{ color: #92400e !important; \}/.test(H) && k(hx('#92400e'), hx('#f3f4f5')) >= 4.5, null);
+t('dunkel: Gold-Knoepfe behalten dunkle Schrift (' + k(hx('#00251e'), hx('#ffd54f')) + ' : 1)',
+  /:is\(html, #kmi-glas\)\.dark-mode \[style\*="color:#00251e"\]\[style\*="background:#FFD54F" i\] \{\s*color: #00251e !important;/.test(H), null);
+t('dunkel: "Angebot" behaelt sein Gold (' + k(hx('#5c4600'), hx('#fed65b')) + ' : 1)',
+  /:is\(html, #kmi-glas\)\.dark-mode \.dash-btn-gold \{\s*background: #fed65b !important;\s*color: #5c4600 !important;/.test(H)
+  && /class="dash-btn dash-btn-primary dash-btn-gold" onclick="showDashboardSection\('offers'\)"/.test(H), null);
+t('dunkel: Kennzahl-Beschriftung 62 % statt 45 % Weiss', /\.dark-mode \.stat-box-label \{[^}]*color: rgba\(255,255,255,0\.62\) !important;/.test(H), null);
 
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);
