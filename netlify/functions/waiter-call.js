@@ -5,7 +5,7 @@
 // Restaurants: "Tisch 5 ruft".
 //
 // Aufruf: POST /.netlify/functions/waiter-call
-//   Body: { restaurant_id: "<uuid>", table: 5, reason: "service"|"pay" }
+//   Body: { restaurant_id: "<uuid>", table: 5, reason: "service"|"pay"|"kohle" }
 // Antwort: { ok:true, sent } | { ok:false, error }
 //
 // BEWUSST OHNE freien Text: Die Function ist öffentlich erreichbar (der Gast
@@ -39,9 +39,16 @@ function sbHeaders(extra) {
 }
 
 // Feste Gründe -- kein Freitext von aussen
+//
+// kohle seit dem 06.10.2026: In einer Shisha-Bar ist "neue Kohle" der
+// haeufigste Ruf ueberhaupt. Als eigener Grund, damit das Personal schon am
+// Handy sieht, dass es mit der Kohlezange kommen muss und nicht mit der
+// Karte. Der Knopf erscheint beim Gast nur, wenn das Lokal ihn eingeschaltet
+// hat (features: kohle_ruf) -- eine Pizzeria soll keinen Kohle-Knopf zeigen.
 var REASONS = {
     service: { title: 'Bedienung gerufen', verb: 'braucht kurz Hilfe' },
-    pay:     { title: 'Gast möchte zahlen', verb: 'möchte zahlen' }
+    pay:     { title: 'Gast möchte zahlen', verb: 'möchte zahlen' },
+    kohle:   { title: 'Neue Kohle', verb: 'möchte neue Kohle' }
 };
 
 exports.handler = async function (event) {

@@ -81,7 +81,10 @@ exports.handler = async function (event) {
                 return {
                     id: r.id,
                     tisch: m.table || null,
-                    grund: m.reason === 'pay' ? 'pay' : 'service',
+                    // Jeder bekannte Grund kommt so an, wie er geschickt wurde.
+                    // Vorher wurde alles ausser 'pay' zu 'service' -- ein Kohle-Ruf
+                    // waere beim Personal als "braucht kurz Hilfe" angekommen.
+                    grund: (m.reason === 'pay' || m.reason === 'kohle') ? m.reason : 'service',
                     zeit: r.created_at
                 };
             })

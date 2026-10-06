@@ -20132,6 +20132,20 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 </div>
             </div>
 
+                <!-- KOHLE-RUF FUER SHISHA-BARS (seit 06.10.2026). Positives Flag
+                     wie die Vorbestellung: aus, bis der Wirt es einschaltet.
+                     Eine Pizzeria soll ihren Gaesten keinen Kohle-Knopf zeigen. -->
+                <div style="margin-top: 14px; padding: 16px 20px; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3);">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+                        <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">
+                            <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">local_fire_department</span>
+                            Kohle-Knopf (Shisha)
+                        </div>
+                        <div class="toggle-switch off" id="kohleRufToggle" onclick="toggleFeature('kohle_ruf')" style="width:44px;height:24px;flex-shrink:0;"></div>
+                    </div>
+                    <div style="font-size: 11px; color: var(--text-secondary);">Gäste am Tisch sehen zusätzlich „Kohle bitte“. Euer Handy zeigt dann „Tisch 5 möchte neue Kohle“ – ihr wisst sofort, was gebraucht wird.</div>
+                </div>
+
                 <!-- VORBESTELLUNG: darf der Gast bestellen, wenn zu ist?
                      Umgezogen aus der Restaurant-Steuerung -- gesucht wurde sie
                      hier, bei den Bestell-Einstellungen. Zusammen mit der
@@ -24499,6 +24513,7 @@ function zeigeTischRuf(act) {
     var md = act.metadata || {};
     var tisch = md.table || String(act.user_name || '').replace(/\D+/g, '') || '?';
     var zahlen = md.reason === 'pay';
+    var kohle = md.reason === 'kohle';
 
     // Läuft schon ein Ruf: nur den Text ergänzen statt ein zweites Overlay
     // übereinanderzulegen -- sonst sieht das Personal nur den obersten.
@@ -24507,7 +24522,8 @@ function zeigeTischRuf(act) {
         var alt = document.getElementById('tischRufTitel');
         if (alt) alt.textContent = 'Mehrere Tische rufen!';
         var det = document.getElementById('tischRufDetail');
-        if (det) det.innerHTML = (det.innerHTML ? det.innerHTML + ' · ' : '') + 'Tisch ' + _alarmEsc(tisch);
+        if (det) det.innerHTML = (det.innerHTML ? det.innerHTML + ' · ' : '') + 'Tisch ' + _alarmEsc(tisch)
+                               + (kohle ? ' (Kohle)' : (zahlen ? ' (zahlen)' : ''));
         return;
     }
 
@@ -24517,11 +24533,11 @@ function zeigeTischRuf(act) {
     ov.innerHTML =
         '<div style="max-width:420px;width:100%;background:linear-gradient(160deg,#003D33,#00251e);border:1px solid rgba(255,255,255,0.12);border-radius:28px;padding:36px 28px 24px;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,0.5);">' +
             '<div style="width:88px;height:88px;margin:0 auto 20px;border-radius:50%;background:rgba(255,213,79,0.12);display:flex;align-items:center;justify-content:center;animation:pulse 1.2s infinite;">' +
-                '<span class="material-symbols-outlined" style="font-size:44px;color:#FFD54F;font-variation-settings:\'FILL\' 1;">' + (zahlen ? 'payments' : 'room_service') + '</span>' +
+                '<span class="material-symbols-outlined" style="font-size:44px;color:#FFD54F;font-variation-settings:\'FILL\' 1;">' + (kohle ? 'local_fire_department' : (zahlen ? 'payments' : 'room_service')) + '</span>' +
             '</div>' +
             '<div id="tischRufTitel" style="font-family:Epilogue,sans-serif;font-size:26px;font-weight:900;color:#ffffff;letter-spacing:-0.01em;">Tisch ' + _alarmEsc(tisch) + ' ruft!</div>' +
             '<div id="tischRufDetail" style="margin-top:10px;color:rgba(255,255,255,0.85);font-family:Inter,sans-serif;font-size:15px;line-height:1.5;">' +
-                (zahlen ? 'Der Gast möchte zahlen' : 'Der Gast braucht kurz Hilfe') + '</div>' +
+                (kohle ? 'Der Gast möchte neue Kohle' : (zahlen ? 'Der Gast möchte zahlen' : 'Der Gast braucht kurz Hilfe')) + '</div>' +
             '<button onclick="schliesseTischRuf(false)" style="margin-top:24px;width:100%;padding:16px;border:none;border-radius:9999px;background:#FFD54F;color:#00251e;font-family:Inter,sans-serif;font-size:16px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">' +
                 '<span class="material-symbols-outlined" style="font-size:20px;">check</span>Ich gehe hin' +
             '</button>' +
@@ -34143,6 +34159,14 @@ async function toggleFeature(feature) {
             else features.push('preorder');
             var label = 'Vorbestellung';
             var wasEnabled = hatPreorder;
+        } else if (feature === 'kohle_ruf') {
+            // Positives Flag wie preorder -- NICHT in die Standardregel unten
+            // fallen lassen, die baut daraus sonst "no_reservations".
+            var hatKohle = features.indexOf('kohle_ruf') >= 0;
+            if (hatKohle) features = features.filter(function (f) { return f !== 'kohle_ruf'; });
+            else features.push('kohle_ruf');
+            var label = 'Kohle-Knopf';
+            var wasEnabled = hatKohle;
         } else {
             var flagName = feature === 'ordering' ? 'no_ordering' : 'no_reservations';
             var isCurrentlyDisabled = features.indexOf(flagName) >= 0;
@@ -34219,6 +34243,11 @@ function updateFeatureToggles(features) {
         // bisher. Kein Betrieb bekommt Vorbestellungen ungefragt.
         if (features.indexOf('preorder') >= 0) preorderToggle.classList.remove('off');
         else preorderToggle.classList.add('off');
+    }
+    var kohleRufToggle = document.getElementById('kohleRufToggle');
+    if (kohleRufToggle) {
+        if (features.indexOf('kohle_ruf') >= 0) kohleRufToggle.classList.remove('off');
+        else kohleRufToggle.classList.add('off');
     }
 
     // Betriebsferien-Felder mitpflegen
@@ -47520,6 +47549,14 @@ document.addEventListener('error', function(e) {
             <span class="material-symbols-outlined" style="font-size:18px;">room_service</span>
             <span id="menuWaiterBtnLabel">Bedienung rufen</span>
         </button>
+        <!-- KOHLE BITTE -- nur in Lokalen, die den Kohle-Ruf eingeschaltet
+             haben (features: kohle_ruf), und nur am Tisch. Sitzt ueber
+             "Bedienung rufen", damit beide mit dem Daumen erreichbar sind. -->
+        <button type="button" id="menuKohleBtn" onclick="callWaiter('kohle', this)"
+            style="display:none;position:fixed;left:16px;bottom:144px;z-index:60;background:rgba(120,38,0,0.94);color:#fff;border:1px solid rgba(255,200,150,0.3);border-radius:9999px;padding:12px 18px;font-family:Inter,sans-serif;font-size:14px;font-weight:700;cursor:pointer;align-items:center;gap:8px;box-shadow:0 8px 24px rgba(0,0,0,0.28);">
+            <span class="material-symbols-outlined" style="font-size:18px;">local_fire_department</span>
+            <span>Kohle bitte</span>
+        </button>
     </div>
 </div>
 
@@ -49256,6 +49293,9 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
                     <button type="button" onclick="callWaiter('service', this)" style="background:rgba(0,61,51,0.08);color:#003d33;border:1px solid rgba(0,61,51,0.18);border-radius:9999px;padding:12px 16px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;">
                         <span class="material-symbols-outlined" style="font-size:17px;">room_service</span>Bedienung
                     </button>
+                    <button type="button" id="ocKohleBtn" onclick="callWaiter('kohle', this)" style="display:none;background:rgba(120,38,0,0.1);color:#782600;border:1px solid rgba(120,38,0,0.25);border-radius:9999px;padding:12px 16px;font-size:13px;font-weight:700;cursor:pointer;align-items:center;gap:6px;">
+                        <span class="material-symbols-outlined" style="font-size:17px;">local_fire_department</span>Kohle
+                    </button>
                 </div>
             </div>
 
@@ -49618,6 +49658,8 @@ async function openMenuModal(restaurantId) {
             _mwBtn.style.display = _showWaiter ? 'inline-flex' : 'none';
             var _mwLbl = document.getElementById('menuWaiterBtnLabel');
             if (_mwLbl && _showWaiter) _mwLbl.textContent = 'Bedienung rufen · Tisch ' + window._qrTableNumber;
+            var _kBtn = document.getElementById('menuKohleBtn');
+            if (_kBtn) _kBtn.style.display = (_showWaiter && kohleRufAn(appRest)) ? 'inline-flex' : 'none';
         }
     } catch (e) {}
     // Sticky "Hier bestellen" verstecken
@@ -54468,7 +54510,17 @@ function orderMoreAtTable() {
 // wie der Bestell-Alarm; der Text wird serverseitig gebaut (waiter-call.js),
 // damit über die öffentliche Schnittstelle keine beliebigen Meldungen ans
 // Personal geschickt werden können.
-var _waiterCallLast = 0;
+// Je Grund eine eigene Sperre: wer gerade Kohle gerufen hat, muss trotzdem
+// sofort die Bedienung rufen koennen -- das sind zwei verschiedene Wuensche.
+var _waiterCallLast = {};
+
+// Der Kohle-Knopf erscheint nur, wenn das Lokal ihn eingeschaltet hat.
+// Positives Flag wie preorder: fehlt es, sieht der Gast nichts davon.
+function kohleRufAn(rest) {
+    var f = (rest && rest.features) || [];
+    return Array.isArray(f) && f.indexOf('kohle_ruf') >= 0;
+}
+window.kohleRufAn = kohleRufAn;
 
 // Tischinfo aus der Sitzung wiederherstellen -- damit der "Bedienung"-Knopf
 // auch nach einem Seitenwechsel oder Neuladen weiß, wo der Gast sitzt.
@@ -54510,8 +54562,10 @@ async function callWaiter(reason, btn) {
     // Sperre gegen mehrfaches Tippen -- sonst klingelt es beim Personal
     // im Sekundentakt und wird als Störung wahrgenommen statt als Hilfe.
     var now = Date.now();
-    if (now - _waiterCallLast < 60000) {
-        var wait = Math.ceil((60000 - (now - _waiterCallLast)) / 1000);
+    var _grund = reason || 'service';
+    var _zuletzt = _waiterCallLast[_grund] || 0;
+    if (now - _zuletzt < 60000) {
+        var wait = Math.ceil((60000 - (now - _zuletzt)) / 1000);
         showToast('Schon gerufen – bitte noch ' + wait + ' Sekunden warten', 'info');
         return;
     }
@@ -54522,13 +54576,18 @@ async function callWaiter(reason, btn) {
         var res = await fetch('/.netlify/functions/waiter-call', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ restaurant_id: rest.id, table: table, reason: reason || 'service' })
+            body: JSON.stringify({ restaurant_id: rest.id, table: table, reason: _grund })
         });
         var j = await res.json().catch(function () { return null; });
         if (j && j.ok) {
-            _waiterCallLast = Date.now();
-            showToast('Die Bedienung wurde informiert – jemand kommt gleich zu Tisch ' + table, 'success');
-            if (btn) { btn.textContent = 'Bedienung kommt'; btn.style.opacity = '0.75'; }
+            _waiterCallLast[_grund] = Date.now();
+            if (_grund === 'kohle') {
+                showToast('Neue Kohle ist unterwegs zu Tisch ' + table, 'success');
+                if (btn) { btn.textContent = 'Kohle kommt'; btn.style.opacity = '0.75'; }
+            } else {
+                showToast('Die Bedienung wurde informiert – jemand kommt gleich zu Tisch ' + table, 'success');
+                if (btn) { btn.textContent = 'Bedienung kommt'; btn.style.opacity = '0.75'; }
+            }
             // Nach der Sperrzeit wieder freigeben
             setTimeout(function () {
                 if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.innerHTML = _btnHtml; }
@@ -55670,6 +55729,8 @@ async function submitOrder() {
         if (_pickupAddr) _pickupAddr.textContent = (currentOrderRestaurant.name || '') + ' \u00b7 ' + (currentOrderRestaurant.street || '') + ', ' + (currentOrderRestaurant.city || '');
         var _dineinInfo = document.getElementById('ocDineinInfo');
         if (_dineinInfo) _dineinInfo.textContent = (currentOrderRestaurant.name || '');
+        var _ocKohle = document.getElementById('ocKohleBtn');
+        if (_ocKohle) _ocKohle.style.display = kohleRufAn(currentOrderRestaurant) ? 'inline-flex' : 'none';
     }
 
     // Zeitanzeige entfernt — Kunde sieht Live-Status über den Banner
