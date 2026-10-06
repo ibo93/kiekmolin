@@ -24733,10 +24733,29 @@ function showNewReservationAlarm(res) {
     }, 8000);
 }
 
+// PROBEN DER GASTWEG-WACHE SIND KEINE BESTELLUNGEN.
+//
+// Die Wache legt alle 15 Minuten echte Bestellungen an und loescht sie
+// Sekunden spaeter. Das Echtzeit-Signal fuer eine neue Bestellung kommt
+// aber SOFORT -- bis zum 06.10.2026 hiess das: Ton, Hinweis, Vollbild-
+// Alarm und Push beim Wirt, fuer einen Gast, den es nie gab.
+//
+// Dieselbe Regel wie netlify/functions/lib/probe.js: der Name beginnt
+// mit "[Probe]". Am ANFANG, nicht irgendwo -- "Max [Probe]" ist ein Gast.
+function istWacheProbe(o) {
+    if (!o || typeof o !== 'object') return false;
+    var n = o.customer_name != null ? o.customer_name : o.guest_name;
+    return String(n == null ? '' : n).indexOf('[Probe]') === 0;
+}
+window.istWacheProbe = istWacheProbe;
+
 // ==================== BESTELLUNGEN ECHTZEIT ====================
 function handleRealtimeOrder(payload) {
     var type = payload.eventType;
     var order = payload.new || {};
+
+    // Vor allem anderen: keine Liste neu laden, kein Ton, kein Alarm.
+    if (istWacheProbe(order)) return;
 
     // Gastronom: nur eigenes Restaurant
     var _gId = window._gastroOnlyRestaurantId;
@@ -56843,7 +56862,10 @@ async function loadDashboardOrders() {
         }
 
         if (response.ok) {
-            const data = await response.json();
+            // Proben der Gastweg-Wache gar nicht erst aufnehmen: sonst
+            // klingelt der Abfrage-Weg weiter unten, wenn die Echtzeit-
+            // Verbindung ausgefallen ist, und der Zaehler im Menue blinkt.
+            const data = (await response.json()).filter(o => !istWacheProbe(o));
             dashboardOrders = data.map(order => ({
                 id: order.id,
                 order_number: order.order_number,

@@ -19,8 +19,8 @@
 // Quelltext. Sie haetten den Fehler NIE gefunden, weil er nicht im
 // Quelltext stand, sondern in einer Regel in der Datenbank.
 //
-// SIEBEN PRUEFUNGEN
-// =================
+// ACHT PRUEFUNGEN
+// ===============
 //   1. Ausgelieferte Seite -- ist das, was der Browser holt, die neue?
 //   2. Reservieren    -- der Weg, der am 25.08. zu war.
 //   3. Bestellen      -- derselbe Weg fuer Bestellungen.
@@ -28,6 +28,7 @@
 //   5. Mindestbestellwert
 //   6. Vorbestellung  -- behaelt sie ihren Zeitpunkt? (seit 14.09.)
 //   7. Mailversand    -- geht ueberhaupt etwas raus? (seit 14.09.)
+//   8. Am Tisch       -- kommt die Tischnummer in der Kueche an? (seit 06.10.)
 //
 // Zu 6 und 7: beide Wege hatten am 14.09.2026 einen Fehler, den
 // monatelang niemand gesehen hat. Vorbestellungen liefen NIE, und ohne
@@ -55,6 +56,7 @@
 
 var alarmModul = require('./lib/alarm');
 var gedaechtnis = require('./lib/wache-gedaechtnis');
+var PROBE = require('./lib/probe');
 
 // EINE PRUEFUNG, DIE GERADE NICHT PRUEFBAR IST, IST KEIN "ALLES GUT".
 //
@@ -78,16 +80,22 @@ var UNPRUEFBAR = 'unpruefbar';
 //
 // tests/wache-test.js vergleicht beide Zahlen und wird rot, wenn eine
 // stehenbleibt.
-var CACHE_MINDESTENS = 56;
+var CACHE_MINDESTENS = 57;
 
 var SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co';
 var SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY || '';
 var SEITE        = process.env.URL || process.env.DEPLOY_URL || 'https://kiekmolin.de';
 
 // Der Name, an dem jede Probe zu erkennen ist. Steht beim Anlegen, beim
-// Aufraeumen und im Melder, der sie ueberspringt -- deshalb hier einmal
-// und nur hier.
-var PROBE_NAME = '[Probe] Gastweg-Wache';
+// Aufraeumen und ueberall, wo Proben uebersprungen werden -- Bondrucker,
+// Kassen, Dashboard. Deshalb in lib/probe.js und nur dort.
+var PROBE_NAME = PROBE.PROBE_NAME;
+
+// Ein Tisch, den es in keinem Lokal gibt. Als ZAHL, nicht als Text:
+// genau so schickt ihn der Browser (parseInt aus ?tisch=7). Eine Probe,
+// die etwas anderes schickt als der Gast, prueft einen Weg, den niemand
+// geht.
+var PROBE_TISCH = 99;
 
 // DIE BESTELLNUMMER DARF HOECHSTENS 20 ZEICHEN HABEN.
 //
@@ -278,6 +286,68 @@ async function pruefeVorbestellung(haus) {
         }
     } catch (e) {
         return 'Vorbestellung: Nachlesen fehlgeschlagen (' + e.message + ')';
+    }
+    return null;
+}
+
+// ---- PRUEFUNG: KOMMT DER TISCH IN DER KUECHE AN? ---------------------
+//
+// Am 06.10.2026 gefragt: "ich will wissen ob alles geht" -- zum Tisch-QR.
+// Die ehrliche Antwort war: das weiss niemand. Diese Wache bestellte
+// seit dem 25.08. alle 15 Minuten -- aber immer als Abholung. Nie vor
+// Ort, nie mit Tischnummer. In der ganzen Datei stand kein einziges
+// "tisch", "dine_in" oder "table_number".
+//
+// WIE ES AUSSIEHT, WENN ES KAPUTT IST
+// Genau wie bei der Vorbestellung: der selbstheilende Insert in
+// order-save wirft eine Spalte, die er nicht kennt, still heraus und
+// speichert den Rest. Richtig -- eine Bestellung darf an keiner Spalte
+// scheitern. Aber dann steht in der Kueche eine Bestellung OHNE Tisch.
+// Kein Fehler, keine Meldung, nichts Rotes. Der Gast wartet, die Kueche
+// weiss nicht, wohin mit dem Teller.
+//
+// Deshalb reicht "gespeichert" nicht. Die Probe liest nach, ob BEIDES
+// angekommen ist: die Bestellart UND die Nummer.
+async function pruefeTischBestellung(haus) {
+    var a = await alsGast('order-save', {
+        order: {
+            order_number:   probeNummer('TI'),
+            restaurant_id:  haus,
+            customer_name:  PROBE_NAME,
+            customer_phone: '0000000000',
+            status:         'received',
+            order_type:     'dine_in',
+            table_number:   PROBE_TISCH,
+            items:          [],
+            subtotal:       0,
+            total:          0
+        }
+    });
+    if (!(a.daten && a.daten.ok && a.daten.id)) return 'Bestellen am Tisch: ' + grundAus(a);
+
+    try {
+        var res = await fetch(SUPABASE_URL + '/rest/v1/orders?id=eq.' + encodeURIComponent(a.daten.id)
+            + '&select=order_type,table_number', { headers: kopf() });
+        if (!res.ok) return 'Bestellen am Tisch: gespeichert, aber nicht nachlesbar (HTTP ' + res.status + ')';
+        var zeilen = await res.json();
+        if (!zeilen || !zeilen.length) return 'Bestellen am Tisch: gespeichert gemeldet, aber nicht auffindbar';
+        var z = zeilen[0];
+
+        // Die Nummer zuerst: fehlt sie, ist das der Fall, der in der Kueche
+        // wirklich wehtut. Als Text verglichen -- je nach Spalte kommt 99
+        // oder "99" zurueck, und beides ist richtig.
+        if (z.table_number == null || String(z.table_number) !== String(PROBE_TISCH)) {
+            return 'Bestellen am Tisch: die Tischnummer ist unterwegs verlorengegangen '
+                 + '(geschickt: ' + PROBE_TISCH + ', angekommen: '
+                 + (z.table_number == null ? 'nichts' : z.table_number) + '). '
+                 + 'In der Kueche steht eine Bestellung ohne Tisch -- niemand weiss, wohin der Teller soll.';
+        }
+        if (z.order_type !== 'dine_in') {
+            return 'Bestellen am Tisch: aus "vor Ort" ist unterwegs "' + (z.order_type || 'nichts')
+                 + '" geworden. Auf dem Bon steht dann Abholung, obwohl der Gast am Tisch sitzt.';
+        }
+    } catch (e) {
+        return 'Bestellen am Tisch: Nachlesen fehlgeschlagen (' + e.message + ')';
     }
     return null;
 }
@@ -479,7 +549,10 @@ var PRUEFUNGEN = [
     // Seit dem 14.09.2026 dazu: beide Wege hatten an dem Tag einen
     // Fehler, den monatelang niemand gesehen hat.
     { kennung: 'wache-vorbestellung', fn: pruefeVorbestellung },
-    { kennung: 'wache-mail',          fn: pruefeMailversand }
+    { kennung: 'wache-mail',          fn: pruefeMailversand },
+    // Seit dem 06.10.2026: der Tisch-QR. Vorher bestellte die Wache nur
+    // als Abholung -- ob am Tisch etwas ankommt, wusste niemand.
+    { kennung: 'wache-tisch',         fn: pruefeTischBestellung }
 ];
 
 exports.handler = async function () {
@@ -605,3 +678,14 @@ async function melden(schlecht, gut) {
 function antwort(rumpf) {
     return { statusCode: 200, body: JSON.stringify(rumpf) };
 }
+
+// Fuer tests/wache-tisch-test.js: die Pruefung soll dort LAUFEN, gegen
+// einen nachgebauten Server -- nicht nur im Quelltext nachgelesen werden.
+// Ein Test, der nur liest, haette nie gemerkt, dass "gespeichert" und
+// "angekommen" zwei verschiedene Dinge sind.
+exports._intern = {
+    pruefeTischBestellung: pruefeTischBestellung,
+    PROBE_TISCH: PROBE_TISCH,
+    PROBE_NAME: PROBE_NAME,
+    PRUEFUNGEN: PRUEFUNGEN
+};

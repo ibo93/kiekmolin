@@ -21,6 +21,7 @@
 var crypto = require('crypto');
 var ZAHLART = require('./lib/zahlart');
 var BESTELLART = require('./lib/bestellart');
+var PROBE = require('./lib/probe');
 
 var SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co';
 var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cmdtYmRva2R6bXVtZHllemhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1NjEyOTgsImV4cCI6MjA4MTEzNzI5OH0.7Ciwa2UKUHwtorvq3p6sN69XmVvPg0Kvg5lgrovxpDw';
@@ -744,6 +745,29 @@ exports.handler = async function (event) {
         }
 
         var order = orders[0];
+
+        // KEINE PROBE AUF DEN BON.
+        //
+        // Die Gastweg-Wache legt alle 15 Minuten Bestellungen an, um zu
+        // sehen, ob Gaeste durchkommen. Die leben ein paar Sekunden -- und
+        // dieser Drucker fragt 17 Mal pro Minute. Bis zum 06.10.2026 haette
+        // er eine Probe genauso gedruckt wie jede andere Bestellung: 0 Euro,
+        // kein Gericht, "[Probe] Gastweg-Wache", seit dem Tag auch "Tisch 99".
+        //
+        // Als gedruckt MARKIEREN, nicht nur ueberspringen. Sonst bliebe sie
+        // die aelteste ungedruckte Bestellung, und bricht die Wache vor dem
+        // Aufraeumen ab, stuende jeder echte Bon bis zu 24 Stunden dahinter.
+        if (PROBE.istProbe(order)) {
+            try {
+                await sbPatch('orders?id=eq.' + encodeURIComponent(order.id), {
+                    printed_at: new Date().toISOString()
+                });
+            } catch (e) {
+                console.warn('[pos-print] Probe nicht als erledigt markiert:', e.message);
+            }
+            return xmlResponse(emptyEposResponse());
+        }
+
         var xml = generateEposBon(order, rrows[0].name);
 
         // Sofort als gedruckt markieren (in v1 vertrauen wir dem Drucker).

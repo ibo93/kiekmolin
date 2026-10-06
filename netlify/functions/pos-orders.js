@@ -18,6 +18,7 @@
 var crypto = require('crypto');
 var ZAHLART = require('./lib/zahlart');
 var BESTELLART = require('./lib/bestellart');
+var PROBE = require('./lib/probe');
 
 // Bevorzugt die Server-Variablen (service_role = voller Zugriff). Falls die auf
 // Netlify nicht gesetzt sind, Fallback auf die ohnehin öffentlichen anon-Daten
@@ -235,7 +236,11 @@ exports.handler = async function (event) {
         }
 
         var orderRows = await sbGet(path);
-        var orders = (orderRows || []).map(mapOrder);
+        // Keine Proben der Gastweg-Wache an die Kasse. Sie leben ein paar
+        // Sekunden -- genug, um bei einem Abruf genau in diesem Moment als
+        // echte Bestellung ueber 0 Euro in der Kasse zu landen. Siehe
+        // lib/probe.js.
+        var orders = (orderRows || []).filter(function (o) { return !PROBE.istProbe(o); }).map(mapOrder);
 
         return json(200, {
             ok: true,
