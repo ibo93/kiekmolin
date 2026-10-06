@@ -84,7 +84,9 @@ function welt(antworten, extras) {
 function finde(b, titel) { return b.filter(function (x) { return x.titel === titel; })[0]; }
 
 var HEILE = {
-    restaurants: [{ id: 'r-1' }],
+    // Seit 06.10.2026 gehoert zur heilen Welt auch der Auftritt: ein Haus
+    // ohne Foto oder ohne Oeffnungszeiten ist nicht "in Ordnung".
+    restaurants: [{ id: 'r-1', image_url: 'https://bild/gastraum.jpg', images: [], logo_url: 'https://bild/logo.png', opening_hours: { mo_start: '11:00', mo_end: '22:00' } }],
     orders: [{ id: 'o1' }, { id: 'o2' }],
     restaurant_events: [],
     reservations: [],
@@ -108,6 +110,13 @@ var HEILE = {
       finde(b, 'Bestellungen heute').wert === '2 Bestellungen', finde(b, 'Bestellungen heute').wert);
     t('bei heiler Welt steht kein Fehler drin',
       b.filter(function (f) { return f.stand === 'fehler'; }).length === 0);
+
+    // ---- 1b. Auftritt: ohne Foto / ohne Zeiten -> Warnung -------------------
+    var ohneFoto = await welt(Object.assign({}, HEILE, { restaurants: [{ id: 'r-1', image_url: 'data:image/gif;base64,R0lGOD', images: [], logo_url: null, opening_hours: null, opening_time: null }] })).lauf();
+    var af = finde(ohneFoto, 'Foto, Logo, Öffnungszeiten');
+    t('Auftritt: Platzhalter-GIF zaehlt nicht als Foto -> Warnung', af && af.stand === 'warnung' && /Foto/.test(af.wert) && /Öffnungszeiten/.test(af.wert), af && (af.stand + ' ' + af.wert));
+    var mitFoto = finde(b, 'Foto, Logo, Öffnungszeiten');
+    t('Auftritt: mit Foto, Logo und Zeiten -> in Ordnung', mitFoto && mitFoto.stand === 'ok', mitFoto && mitFoto.stand);
 
     // ---- 2. DER KERN: kaputte Welt darf NICHT gruen sein --------------------
     var tot = await welt({ __werfen: true }).lauf();

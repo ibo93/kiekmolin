@@ -14250,6 +14250,22 @@
 .kmi-stempel-punkt { aspect-ratio: 1; border-radius: 9999px; border: 2px dashed rgba(255,255,255,0.45); box-sizing: border-box; display: block; }
 .kmi-stempel-punkt.voll { background: #fed65b; border: 0; }
 .dark-mode .kmi-stempel-moment { background: #0b3a31; }
+/* LOKALSEITE: Visitenkarte + Platzhalter ohne Foto (06.10.2026) */
+.lp-fakten { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 0 auto 20px; }
+.lp-fakt { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 6px 14px; border-radius: 9999px; background: #edeeef; color: #191c1d; font: 700 14px Inter, sans-serif; text-decoration: none; box-sizing: border-box; }
+.lp-fakt i { width: 8px; height: 8px; border-radius: 9999px; background: currentColor; display: inline-block; }
+.lp-fakt.offen { background: #dcfce7; color: #166534; }
+.lp-fakt.zu { background: #fef2f2; color: #b91c1c; }
+.lp-fakt-knopf { background: #003d33; color: #ffffff; min-height: 44px; }
+.lp-fakt-knopf .material-symbols-outlined { font-size: 18px; color: #ffffff; }
+.dark-mode .lp-fakt { background: #262a29; color: #f3f4f4; }
+.dark-mode .lp-fakt.offen { background: #12321f; color: #86efac; }
+.dark-mode .lp-fakt.zu { background: #3b1414; color: #fecaca; }
+.dark-mode .lp-fakt-knopf { background: #9cd1c3; color: #00251e; }
+.dark-mode .lp-fakt-knopf .material-symbols-outlined { color: #00251e; }
+.lp-ohne-foto { background: #003d33; background-image: radial-gradient(rgba(255,255,255,0.06) 1.5px, transparent 1.5px); background-size: 22px 22px; display: flex; align-items: center; justify-content: center; }
+.lp-ohne-foto span { font-family: Epilogue, sans-serif; font-weight: 800; font-size: 280px; line-height: 1; color: rgba(254,214,91,0.22); transform: translateY(-120px); }
+.dark-mode .lp-ohne-foto { background-color: #00251e; }
 .dark-mode .kmi-stempel-punkt.voll { background: #fed65b; } /* Gold bleibt Gold: es ist der Stempel */
 </style>
 <script>
@@ -42804,6 +42820,36 @@ async function openRestaurantBySlug(slug) {
     showRestaurantLanding(rest);
 }
 
+// VISITENKARTE OBEN AUF DER LOKALSEITE (06.10.2026).
+// Drei Angaben, die ein Gast zuerst wissen will: hat es offen, wie weit ist
+// es, wie erreiche ich es. Der Offen-Status wurde schon berechnet
+// (landingIsOpen ...), aber nie angezeigt.
+// Eine Oeffnungszeit wird nur genannt, wenn sie EINGETRAGEN ist --
+// getOpeningTimeToday liefert sonst "11:00" als Annahme.
+function lpVisitenkarte(rest, offen, schliesst) {
+    var teile = [];
+    var tage = ['so', 'mo', 'di', 'mi', 'do', 'fr', 'sa'];
+    var oh = rest.opening_hours && typeof rest.opening_hours === 'object' ? rest.opening_hours : null;
+    var heuteStart = (oh && oh[tage[new Date().getDay()] + '_start']) || rest.opening_time || '';
+    heuteStart = String(heuteStart).slice(0, 5);
+    var jetzt = new Date(), jm = jetzt.getHours() * 60 + jetzt.getMinutes();
+    var startMin = heuteStart ? (+heuteStart.slice(0, 2)) * 60 + (+heuteStart.slice(3, 5)) : null;
+    if (offen) {
+        teile.push('<span class="lp-fakt offen"><i aria-hidden="true"></i>' + (schliesst ? 'Offen bis ' + escapeHtml(String(schliesst).slice(0, 5)) : 'Jetzt geöffnet') + '</span>');
+    } else if (startMin != null && startMin > jm) {
+        teile.push('<span class="lp-fakt zu"><i aria-hidden="true"></i>Öffnet heute ' + escapeHtml(heuteStart) + '</span>');
+    } else {
+        teile.push('<span class="lp-fakt zu"><i aria-hidden="true"></i>Gerade geschlossen</span>');
+    }
+    if (typeof _userLat === 'number' && typeof _userLng === 'number' && rest.lat && rest.lng && typeof getDistanceKm === 'function') {
+        var km = getDistanceKm(_userLat, _userLng, +rest.lat, +rest.lng);
+        if (isFinite(km)) teile.push('<span class="lp-fakt">' + (km < 2.5 ? Math.max(1, Math.round(km / 4.8 * 60)) + ' Min. zu Fuß' : km.toFixed(1).replace('.', ',') + ' km') + '</span>');
+    }
+    var tel = String(rest.phone || '').replace(/[^\d+]/g, '');
+    if (tel.length >= 6) teile.push('<a class="lp-fakt lp-fakt-knopf" href="tel:' + tel + '"><span class="material-symbols-outlined" aria-hidden="true">call</span>Anrufen</a>');
+    return '<div class="lp-fakten">' + teile.join('') + '</div>';
+}
+
 async function showRestaurantLanding(rest) {
     // DIE FARBE DES WIRTS -- einmal hier, geprueft, und dann ueberall
     // ueber die CSS-Variable --marke. Nicht 20 Stellen mit derselben
@@ -42971,7 +43017,12 @@ async function showRestaurantLanding(rest) {
     var landingOpenTime = typeof getOpeningTimeToday === 'function' ? getOpeningTimeToday(rest) : '';
 
     // Logo - rundes Badge mit Schatten
-    var logoHtml = rest.logo ? '<div style="width:64px;height:64px;border-radius:50%;overflow:hidden;border:3px solid rgba(255,255,255,0.9);box-shadow:0 4px 16px rgba(0,0,0,0.25);margin-bottom:10px;background:var(--bg-card);"><img src="' + rest.logo + '" style="width:100%;height:100%;object-fit:cover;" alt="' + rest.name + '" loading="lazy"></div>' : '';
+    var logoHtml = rest.logo ? '<div style="width:64px;height:64px;border-radius:50%;overflow:hidden;border:3px solid rgba(255,255,255,0.9);margin:0 auto 12px;background:var(--bg-card);"><img src="' + rest.logo + '" style="width:100%;height:100%;object-fit:cover;" alt="' + rest.name + '" loading="lazy"></div>' : '';
+
+    // Kein echtes Foto? (mapRestaurant setzt dann ein 1x1-GIF.) Statt einer
+    // gestreckten gruenen Flaeche: gestalteter Grund mit dem Anfangsbuchstaben.
+    var lpEchtesFoto = !!(rest.image && !/^data:image\/gif/.test(rest.image));
+    var lpInitial = String(rest.name || '?').trim().charAt(0).toUpperCase();
 
     // Overlay erstellen
     var landing = document.createElement('div');
@@ -43022,7 +43073,7 @@ async function showRestaurantLanding(rest) {
 
         <!-- Immersive Hero Header -->
         <section style="position:relative;height:751px;width:100%;overflow:hidden;" id="lpHero">
-            <div id="lpHeroBg1" style="position:absolute;inset:0;background:url('${rest.image || ''}') center/cover no-repeat;transition:opacity 2s ease-in-out;opacity:1;"></div>
+            <div id="lpHeroBg1" class="${lpEchtesFoto ? '' : 'lp-ohne-foto'}" style="position:absolute;inset:0;${lpEchtesFoto ? "background:url('" + rest.image + "') center/cover no-repeat;" : ''}transition:opacity 2s ease-in-out;opacity:1;">${lpEchtesFoto ? '' : '<span aria-hidden="true">' + escapeHtml(lpInitial) + '</span>'}</div>
             <div id="lpHeroBg2" style="position:absolute;inset:0;background:center/cover no-repeat;transition:opacity 2s ease-in-out;opacity:0;"></div>
             <div style="position:absolute;inset:0;background:linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 30%, #ffffff 100%);"></div>
             <!-- Floating Information Card -->
@@ -43046,11 +43097,13 @@ async function showRestaurantLanding(rest) {
                      auf weisser Karte. Beides muss zusammen drehen.
                      Gemessen nach dem Fix: 15,47 : 1 statt 1,57 : 1. -->
                 <div class="lp-hero-karte" style="backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);padding:32px 48px;border-radius:48px;max-width:640px;width:100%;text-align:center;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
+                    ${logoHtml}
                     <div style="display:flex;justify-content:center;gap:4px;margin-bottom:16px;">
                         ${rest.rating ? '<span class="material-symbols-outlined" style="color:var(--lp-akzent,#735c00);font-variation-settings:\'FILL\' 1;">star</span>'.repeat(Math.min(Math.round(rest.rating), 5)) : ''}
                     </div>
                     <h1 style="font-family:'Epilogue',sans-serif;font-size:48px;font-weight:800;color:var(--ink-deep);letter-spacing:-0.04em;margin-bottom:8px;line-height:1;text-transform:uppercase;">${rest.name}</h1>
-                    <p style="font-family:'Epilogue',sans-serif;font-size:18px;color:var(--ink-strong);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:24px;">${rest.city || 'Greetsiel'}, Ostfriesland</p>
+                    <p style="font-family:'Epilogue',sans-serif;font-size:18px;color:var(--ink-strong);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px;">${rest.city || 'Greetsiel'}, Ostfriesland</p>
+                    ${lpVisitenkarte(rest, landingIsOpen, landingCloseTime)}
                     ${abAchtzehn(rest) ? '<div class="lp-ab18"><span class="material-symbols-outlined" aria-hidden="true">badge</span>Ab 18 · Ausweis mitbringen</div>' : ''}
                     <p style="color:var(--text-secondary);font-family:'Inter',sans-serif;font-size:16px;line-height:1.6;max-width:480px;margin:0 auto;font-style:italic;">
                         <!-- Ohne das Wort "Küche": "Fisch und Bar Küche" ist
@@ -43576,7 +43629,9 @@ async function showRestaurantLanding(rest) {
             }
         } catch(e) {}
 
-        if (imgs.length <= 1) return;
+        // Das 1x1-Platzhalter-GIF ist kein Foto -- nicht einblenden.
+        imgs = imgs.filter(function (u) { return u && !/^data:image\/gif/.test(u); });
+        if (imgs.length <= 1 && !(imgs.length === 1 && document.querySelector('#lpHeroBg1.lp-ohne-foto'))) return;
 
         var bg1 = document.getElementById('lpHeroBg1');
         var bg2 = document.getElementById('lpHeroBg2');
@@ -43602,6 +43657,7 @@ async function showRestaurantLanding(rest) {
                 bg1.style.opacity = '0';
                 setTimeout(function() { bg2.style.transform = 'scale(1.08)'; }, 100);
             } else {
+                if (bg1.classList.contains('lp-ohne-foto')) { bg1.classList.remove('lp-ohne-foto'); bg1.innerHTML = ''; bg1.style.backgroundSize = 'cover'; bg1.style.backgroundPosition = 'center'; }
                 bg1.style.backgroundImage = 'url(' + imgs[currentIdx] + ')';
                 bg1.style.transform = 'scale(1.02)';
                 bg1.style.opacity = '1';
@@ -62819,6 +62875,32 @@ async function selbstcheckAusfuehren(restId) {
     } catch (e) {}
     b.push({ bereich: 'Geprüft wurde', titel: rName || 'Restaurant (Name nicht geladen)',
              stand: SELBSTCHECK_STAND.ok, wert: 'Kennung ' + rid, hinweis: '', belege: [] });
+
+    // ---- 0. Auftritt: Foto, Logo, Oeffnungszeiten (06.10.2026) ----
+    // Fehlt das Foto, sieht der Gast auf der Lokalseite nur eine Flaeche mit
+    // dem Anfangsbuchstaben -- der schlechteste erste Eindruck, und keiner
+    // merkt es, weil die Seite ja "funktioniert". Ohne eingetragene
+    // Oeffnungszeiten kann die Seite nicht sagen, ob offen ist.
+    var auf = await _scHole('restaurants?select=image_url,images,logo_url,opening_hours,opening_time&id=eq.' + encodeURIComponent(rid), 6000);
+    if (auf.ok && Array.isArray(auf.daten) && auf.daten[0]) {
+        var _a = auf.daten[0];
+        var _fotos = (Array.isArray(_a.images) ? _a.images : []).filter(function (u) { return u && !/^data:/.test(u); });
+        var _hatFoto = !!(_a.image_url && !/^data:/.test(_a.image_url)) || _fotos.length > 0;
+        var _hatZeiten = !!(_a.opening_time || (_a.opening_hours && typeof _a.opening_hours === 'object' && Object.keys(_a.opening_hours).some(function (k) { return /_start$/.test(k) && _a.opening_hours[k]; })));
+        var _fehlt = [];
+        if (!_hatFoto) _fehlt.push('Foto');
+        if (!_a.logo_url) _fehlt.push('Logo');
+        if (!_hatZeiten) _fehlt.push('Öffnungszeiten');
+        b.push({ bereich: 'Auftritt', titel: 'Foto, Logo, Öffnungszeiten',
+                 stand: (!_hatFoto || !_hatZeiten) ? SELBSTCHECK_STAND.warnung : SELBSTCHECK_STAND.ok,
+                 wert: _fehlt.length ? 'fehlt: ' + _fehlt.join(', ') : (_fotos.length + (_a.image_url ? 1 : 0)) + ' Foto(s), Logo, Zeiten eingetragen',
+                 hinweis: !_hatFoto ? 'Ohne Foto zeigt die Lokalseite nur den Anfangsbuchstaben. Ein helles Foto vom Gastraum oder einem Gericht macht den größten Unterschied.'
+                        : (!_hatZeiten ? 'Ohne Öffnungszeiten kann die Seite Gästen nicht sagen, ob gerade offen ist.' : (_fehlt.length ? 'Ein Logo macht die Seite wiedererkennbar.' : '')),
+                 belege: [] });
+    } else if (!auf.ok) {
+        b.push({ bereich: 'Auftritt', titel: 'Foto, Logo, Öffnungszeiten', stand: SELBSTCHECK_STAND.unbekannt,
+                 wert: auf.grund, hinweis: 'Konnte nicht geprüft werden.', belege: [] });
+    }
 
     // ---- 1. Ist die Datenbank ueberhaupt da, und wie schnell? ----
     var db = await _scHole('restaurants?select=id&limit=1&id=eq.' + encodeURIComponent(rid), 6000);
