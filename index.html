@@ -1,28 +1,36 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-    <!-- Google Analytics + Consent Mode v2 (DSGVO-konform) -->
-    <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        // Consent Mode: Standardmäßig alles verweigern
-        gtag('consent', 'default', {
-            analytics_storage: 'denied',
-            ad_storage: 'denied',
-            ad_user_data: 'denied',
-            ad_personalization: 'denied',
-            wait_for_update: 500
-        });
-        // Wenn bereits eingewilligt, Consent sofort gewähren
-        if (localStorage.getItem('kin_cookie_consent') === 'accepted') {
-            gtag('consent', 'update', { analytics_storage: 'granted' });
-        }
-    </script>
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-E2J0WW6NCN"></script>
-    <script>
-        gtag('js', new Date());
-        gtag('config', 'G-E2J0WW6NCN', { anonymize_ip: true });
-    </script>
+    <!-- ===================================================================
+         HIER LIEF BIS ZUM 06.10.2026 GOOGLE ANALYTICS (G-E2J0WW6NCN).
+
+         Entfernt, weil die eigene Datenschutzerklaerung woertlich sagte:
+         "Es werden keine Tracking-Cookies, kein Google Analytics und keine
+         Werbepixel verwendet." Das stimmte nicht. Eine Erklaerung, die das
+         Gegenteil von dem sagt, was die App tut, macht jedes andere
+         Dokument angreifbar -- schwerer als das Tracking selbst.
+
+         WAS DABEI VERLOREN GING: nichts, was jemand gebraucht hat. Im
+         ganzen Haus stand kein einziges gtag('event', ...) -- gezaehlt
+         wurden nur rohe Seitenaufrufe, und auch die nur von Gaesten, die
+         im Banner "Alles akzeptieren" gedrueckt hatten.
+
+         WAS DIE FRAGEN BEANTWORTET, DIE WIRKLICH DA SIND:
+           kommt ueber die Restaurantseiten jemand? -> lead-zaehler.js
+             (gesehen -> geklickt -> gesendet, ohne IP, ohne Cookie,
+              deshalb ohne Einwilligung)
+           Bestellungen, Reservierungen, Umsatz?     -> Supabase
+           zahlt der Kunde?                          -> Stripe
+
+         Das Einwilligungsbanner bleibt: Karten, Wetter und die Datenbank
+         sind weiterhin externe Dienste, ueber die der Gast informiert
+         wird. Nur die Analytics-Zeile darin ist weg.
+
+         WER ANALYTICS WIEDER EINBAUEN WILL: dann bitte mit Ereignissen,
+         die eine Frage beantworten -- und VORHER den Satz in der
+         Datenschutzerklaerung aendern, nicht danach.
+         tests/kein-analytics-test.js macht die Datei sonst rot.
+         =================================================================== -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -357,14 +365,47 @@
     <link rel="dns-prefetch" href="https://unpkg.com">
     <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <!-- Textschriften nicht render-blockierend laden: der Browser zeigt sofort
-         die Systemschrift und tauscht nach (display=swap). Spart auf Mobilfunk
-         mehrere hundert Millisekunden bis zum ersten sichtbaren Inhalt --
-         Google bewertet genau das. -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Epilogue:wght@400;700;800;900&family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all';this.onload=null;">
-    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Epilogue:wght@400;700;800;900&family=Inter:wght@400;500;600;700&display=swap"></noscript>
+    <!-- ===================================================================
+         EPILOGUE UND INTER LIEGEN IM PROJEKT, NICHT BEI GOOGLE.
+
+         Bis zum 05.10.2026 standen hier zwei <link> auf
+         fonts.googleapis.com. Damit ging die IP-Adresse JEDES Gastes an
+         Google -- beim Laden, vor jeder Einwilligung, ohne dass er etwas
+         anklicken konnte.
+
+         Das LG Muenchen I hat dafuer am 20.01.2022 (Az. 3 O 17493/20)
+         einem Besucher 100 Euro Schadensersatz zugesprochen. Der BGH hat
+         am 18.11.2024 (VI ZR 10/24) bestaetigt, dass schon der Verlust
+         der Kontrolle ueber die eigenen Daten ein Schaden sein kann.
+
+         Die Symbolschrift darunter lag aus demselben Grund schon im
+         Projekt. Diese zwei hatte niemand nachgezogen.
+
+         WER DAS AENDERN WILL: kein <link> auf fonts.googleapis.com,
+         fonts.gstatic.com oder irgendeinen anderen Schrift-Dienst.
+         tests/schriften-im-haus-test.js macht die Datei sonst rot.
+
+         Variable Schriften, ein Schnitt deckt 100-900 ab -- deshalb vier
+         Dateien statt sechzehn. Die unicode-range sorgt dafuer, dass ein
+         deutscher Gast NUR die beiden latin-Dateien holt (84 KB); die
+         latin-ext-Dateien kommen erst, wenn ein Name wirklich ein
+         Zeichen daraus enthaelt (Doener, Cigkoefte).
+
+         Herkunft: @fontsource-variable/epilogue und
+         @fontsource-variable/inter, Fassung 5.3.0, Lizenz OFL-1.1. Die
+         Lizenztexte liegen daneben in public/fonts/.
+         =================================================================== -->
+    <link rel="preload" href="/public/fonts/epilogue-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/public/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <style>
+    /* font-display:swap -- der Browser zeigt sofort die Systemschrift und
+       tauscht nach. Genau das Verhalten, das vorher der Umweg ueber
+       media="print" nachbauen musste. */
+    @font-face{font-family:'Epilogue';font-style:normal;font-display:swap;font-weight:100 900;src:url(/public/fonts/epilogue-latin.woff2) format('woff2-variations');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
+    @font-face{font-family:'Epilogue';font-style:normal;font-display:swap;font-weight:100 900;src:url(/public/fonts/epilogue-latin-ext.woff2) format('woff2-variations');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;}
+    @font-face{font-family:'Inter';font-style:normal;font-display:swap;font-weight:100 900;src:url(/public/fonts/inter-latin.woff2) format('woff2-variations');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
+    @font-face{font-family:'Inter';font-style:normal;font-display:swap;font-weight:100 900;src:url(/public/fonts/inter-latin-ext.woff2) format('woff2-variations');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;}
+    </style>
     <!-- Die Symbolschrift liegt IM Projekt, nicht bei Google.
          Material Symbols ist eine Ligaturschrift: im HTML steht wirklich
          das Wort "location_on", erst die Schrift macht ein Zeichen daraus.
@@ -14270,7 +14311,7 @@ function completeOnboarding() {
     <div style="max-width:600px; margin:0 auto;">
         <div style="font-size:14px; font-weight:600; color:var(--text-primary, #1a1a1a); margin-bottom:6px;">Wir respektieren deine Privatsphäre</div>
         <div style="font-size:12px; color:var(--text-secondary, #666); line-height:1.5; margin-bottom:14px;">
-            Diese App nutzt technisch notwendige Dienste: Kartendaten (Carto/OpenStreetMap), Schriften (Google Fonts), Wetterdaten (Open-Meteo) und eine Datenbank (Supabase EU). Dabei wird deine IP-Adresse an diese Dienste übermittelt. Wir verwenden keine Tracking-Cookies und keine Werbung.
+            Diese App nutzt technisch notwendige Dienste: Kartendaten (Carto/OpenStreetMap), Wetterdaten (Open-Meteo) und eine Datenbank (Supabase EU). Die Schriften liegen seit dem 05.10.2026 auf unserem eigenen Server, es geht nichts mehr an Google. Dabei wird deine IP-Adresse an diese Dienste übermittelt. Wir verwenden keine Tracking-Cookies und keine Werbung.
             <a href="#" onclick="openModal('datenschutzModal'); return false;" style="color:var(--primary, #2d8a6e); text-decoration:underline;">Mehr erfahren</a>
         </div>
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
@@ -14296,7 +14337,6 @@ function _cookieEntscheidung(alles) {
     localStorage.setItem('kmi_consent_date', new Date().toISOString());
     localStorage.setItem('kin_cookie_consent', alles ? 'accepted' : 'declined');
     try {
-        if (alles && typeof gtag === 'function') gtag('consent', 'update', { analytics_storage: 'granted' });
     } catch (e) {}
     var el = document.getElementById('cookieConsent');
     if (el) el.style.display = 'none';
@@ -45404,7 +45444,7 @@ function generateResponse(message) {
             '<ul style="margin:8px 0;padding-left:20px;line-height:1.8;">' +
             '<li>🔒 Deine Daten gehören dir – keine Weitergabe an Dritte</li>' +
             '<li>🗑️ <strong>Konto löschen</strong>: Profil → Einstellungen → ganz unten „Konto löschen"</li>' +
-            '<li>📄 <strong>Datenschutzerklärung</strong>: <a href="/?page=datenschutz">/datenschutz</a></li>' +
+            '<li>📄 <strong>Datenschutzerklärung</strong>: <a href="#" onclick="openModal(\'datenschutzModal\'); return false;">hier lesen</a></li>' +
             '</ul>';
     }
 
@@ -45413,7 +45453,7 @@ function generateResponse(message) {
         return '<strong>Kontakt & Support:</strong>' +
             '<ul style="margin:8px 0;padding-left:20px;line-height:1.8;">' +
             '<li>📧 E-Mail: <a href="mailto:info@kiekmolin.de">info@kiekmolin.de</a></li>' +
-            '<li>📄 <a href="/?page=impressum">Impressum</a></li>' +
+            '<li>📄 <a href="#" onclick="openModal(\'impressumModal\'); return false;">Impressum</a></li>' +
             '<li>🌐 <strong>Kiek mol in</strong> – die regionale Gastro-Plattform für Ostfriesland</li>' +
             '</ul>' +
             '<span style="font-size:12px;color:var(--text-secondary);">Wir sind ein kleines Team – Antwort meist innerhalb 24h.</span>';
