@@ -14252,6 +14252,53 @@
 .dark-mode .kmi-stempel-moment { background: #0b3a31; }
 .dark-mode .kmi-stempel-punkt.voll { background: #fed65b; } /* Gold bleibt Gold: es ist der Stempel */
 </style>
+<script>
+// LADE-STAND (06.10.2026) -- Regel 6: eine leere Liste ist keine Fehlermeldung.
+//
+// Bestellungen, Reservierungen, Kueche: schlug das Laden fehl, wurde die Liste
+// auf [] gesetzt -- und der Wirt sah "Keine Bestellungen" oder "Frei", genau
+// wie an einem ruhigen Abend. Jetzt traegt jede Liste ihren Stand:
+//   geklappt  -> "Zuletzt geprueft 18:42"  (leise, grau)
+//   Fehler    -> rote Zeile mit Grund, Uhrzeit und "Nochmal versuchen";
+//                die zuletzt geladenen Daten bleiben stehen.
+// Anzeige: jedes Element mit data-ladestand="<schluessel>".
+var kmiLadeStand = {};
+var kmiLadeNeu = {};
+function ladeStandSetzen(schluessel, ok, grund, nochmal) {
+    kmiLadeStand[schluessel] = { ok: !!ok, zeit: new Date(), grund: grund ? String(grund).slice(0, 160) : '' };
+    if (nochmal && nochmal.call) kmiLadeNeu[schluessel] = nochmal;
+    ladeStandZeigen(schluessel);
+}
+function ladeStandFehlt(schluessel) { var s = kmiLadeStand[schluessel]; return !!(s && !s.ok); }
+function ladeStandZeigen(schluessel) {
+    var s = kmiLadeStand[schluessel]; if (!s) return;
+    var uhr = s.zeit.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    var esc = function (t) { return String(t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+    document.querySelectorAll('[data-ladestand="' + schluessel + '"]').forEach(function (el) {
+        if (s.ok) {
+            el.className = 'kmi-stand ok';
+            el.setAttribute('role', 'status');
+            el.innerHTML = 'Zuletzt geprüft ' + uhr;
+        } else {
+            el.className = 'kmi-stand fehler';
+            el.setAttribute('role', 'alert');
+            el.innerHTML = '<span><b>Nicht aktuell</b> – Laden um ' + uhr + ' fehlgeschlagen' + (s.grund ? ' (' + esc(s.grund) + ')' : '')
+                + '. Was hier steht, ist der letzte Stand, nicht unbedingt alles.</span>'
+                + (kmiLadeNeu[schluessel] ? '<button type="button" onclick="kmiLadeNeu[\'' + schluessel + '\'] && kmiLadeNeu[\'' + schluessel + '\']()">Nochmal versuchen</button>' : '');
+        }
+    });
+}
+</script>
+<style>
+.kmi-stand { font-size: 12px; font-weight: 600; margin: 0 0 10px; }
+.kmi-stand.ok { color: #5f6b68; }
+.dark-mode .kmi-stand.ok { color: #a9b2af; }
+.kmi-stand.fehler { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; border-radius: 16px; background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; font-size: 14px; line-height: 1.4; }
+.kmi-stand.fehler span { flex: 1 1 260px; }
+.kmi-stand.fehler button { height: 40px; padding: 0 16px; border-radius: 9999px; border: 0; background: #991b1b; color: #ffffff; font: 700 14px Inter, sans-serif; cursor: pointer; }
+.dark-mode .kmi-stand.fehler { background: #3b1414; color: #fecaca; border-color: #7f1d1d; }
+.dark-mode .kmi-stand.fehler button { background: #fecaca; color: #3b1414; }
+</style>
 </head>
 <body>
 
@@ -16829,6 +16876,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
 
             <!-- Hidden: Old elements kept for JS compatibility -->
             <div id="resConnectionBanner" style="display: none !important;"></div>
+            <div data-ladestand="reservierungen"></div>
             <div id="resRestaurantDisplay"></div>
 
             <!-- Tab Navigation -->
@@ -17080,17 +17128,21 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                                     };
                                 });
                             }
+                            ladeStandSetzen('reservierungen', true, '', window.resLoadReservations);
                         } else {
                             var errorText = await response.text();
                             console.error('Konnte Reservierungen nicht laden:', response.status, errorText);
-                            window.resAllReservations = [];
+                            // NICHT leeren. Vorher stand danach jeder Tag als "Frei"
+                            // da -- und ein Wirt haette einen belegten Tisch vergeben.
+                            ladeStandSetzen('reservierungen', false, 'HTTP ' + response.status, window.resLoadReservations);
                         }
                     } catch (e) {
                         console.error('Fehler beim Laden:', e);
-                        window.resAllReservations = [];
+                        ladeStandSetzen('reservierungen', false, e && e.message, window.resLoadReservations);
                     }
 
                     window.resLoading = false;
+                    var _resKaputt = ladeStandFehlt('reservierungen');
 
                     // Status-Banner aktualisieren
                     var countEl = document.getElementById('resCount');
@@ -17108,7 +17160,10 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             + (telefonCount > 0 ? ', ' + telefonCount + ' per Telefon' : '') + ')</span>';
                     }
 
-                    if (window.resAllReservations.length > 0) {
+                    if (_resKaputt) {
+                        if (statusDot) statusDot.style.background = '#dc2626';
+                        if (statusText) statusText.innerHTML = 'Reservierungen nicht geladen';
+                    } else if (window.resAllReservations.length > 0) {
                         if (banner) banner.style.background = 'linear-gradient(135deg, #f0fdf4, #ecfdf5)';
                         if (statusDot) statusDot.style.background = '#10b981';
                     } else {
@@ -20315,6 +20370,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         </button>
                     </div>
                 </div>
+                <div data-ladestand="kunden" style="margin:12px 16px 0;"></div>
                 <div class="panel-content" id="customersList" style="padding: 0;">
                     <p style="padding: 20px; color: var(--slate); text-align: center;">Lade Kunden...</p>
                 </div>
@@ -20589,6 +20645,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 <div class="panel-header">
                     <h3 class="panel-title">Aktive Stellenanzeigen</h3>
                 </div>
+                <div data-ladestand="jobs" style="margin:12px 16px 0;"></div>
                 <div class="panel-content" id="jobsDashList" style="padding: 0;">
                     <p style="padding: 20px; color: var(--slate); text-align: center;">Lade Jobs...</p>
                 </div>
@@ -21271,6 +21328,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 </div>
             </div>
 
+            <div data-ladestand="bestellungen"></div>
             <!-- Bestellungen Grid -->
             <div id="ordersGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 32px;">
                 <!-- Wird dynamisch gefüllt -->
@@ -21279,8 +21337,8 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
             <!-- Leerer Zustand -->
             <div id="ordersEmptyState" style="text-align: center; padding: 60px 20px; display: none;">
                 <span class="material-symbols-outlined" style="font-size:80px;color:var(--slate);opacity:0.3;margin-bottom:20px;">assignment</span>
-                <h3 style="font-family: 'Epilogue', sans-serif; font-size: 20px; font-weight: 600; color: var(--dark); margin-bottom: 8px;">Keine Bestellungen</h3>
-                <p style="color: var(--slate); font-size: 14px;">Neue Bestellungen erscheinen hier automatisch</p>
+                <h3 id="ordersEmptyTitel" style="font-family: 'Epilogue', sans-serif; font-size: 20px; font-weight: 600; color: var(--dark); margin-bottom: 8px;">Keine Bestellungen</h3>
+                <p id="ordersEmptyText" style="color: var(--slate); font-size: 14px;">Neue Bestellungen erscheinen hier automatisch</p>
             </div>
         </div>
 
@@ -21938,6 +21996,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         Neuer Gutschein
                     </button>
                 </div>
+                <div data-ladestand="gutscheine" style="margin:12px 20px 0;"></div>
                 <div id="marketingCouponList" style="padding:20px;">
                     <p style="color:var(--text-secondary);text-align:center;padding:20px 0;">Noch keine Gutscheine erstellt</p>
                 </div>
@@ -31799,10 +31858,15 @@ async function loadReservationsForRestaurant(restaurantId) {
             }
 
             container.innerHTML = html;
+        } else {
+            // Fehlte: bei abgelehnter Anfrage blieb "Lade Reservierungen..." fuer immer stehen.
+            container.innerHTML = '<div class="kmi-stand fehler" role="alert"><span><b>Reservierungen nicht geladen</b> (HTTP ' + response.status + '). Es kann sein, dass welche da sind.</span>'
+                + '<button type="button" onclick="loadReservationsForRestaurant(\'' + String(restaurantId).replace(/[^a-zA-Z0-9-]/g, '') + '\')">Nochmal versuchen</button></div>';
         }
     } catch(e) {
         console.error('Fehler:', e);
-        container.innerHTML = '<div style="text-align:center;padding:20px;color:#ef4444;">Fehler beim Laden</div>';
+        container.innerHTML = '<div class="kmi-stand fehler" role="alert"><span><b>Reservierungen nicht geladen</b> – keine Verbindung. Es kann sein, dass welche da sind.</span>'
+            + '<button type="button" onclick="loadReservationsForRestaurant(\'' + String(restaurantId).replace(/[^a-zA-Z0-9-]/g, '') + '\')">Nochmal versuchen</button></div>';
     }
     } catch(e) {
         console.error('loadReservationsForRestaurant Fehler:', e);
@@ -31925,9 +31989,13 @@ async function loadJobsDash() {
 
         if (response.ok) {
             dashboardJobs = await response.json();
+            ladeStandSetzen('jobs', true, '', loadJobsDash);
+        } else {
+            ladeStandSetzen('jobs', false, 'HTTP ' + response.status, loadJobsDash);
         }
     } catch (e) {
         console.error('Fehler:', e);
+        ladeStandSetzen('jobs', false, e && e.message, loadJobsDash);
     }
 
     // Stats aktualisieren
@@ -31960,7 +32028,8 @@ function renderJobsDash() {
     if (!container) return;
 
     if (dashboardJobs.length === 0) {
-        container.innerHTML = '<p style="padding: 20px; color: var(--slate); text-align: center;">Keine Stellenanzeigen vorhanden</p>';
+        container.innerHTML = ladeStandFehlt('jobs') ? ''
+            : '<p style="padding: 20px; color: var(--slate); text-align: center;">Keine Stellenanzeigen vorhanden</p>';
         return;
     }
 
@@ -33759,8 +33828,15 @@ async function renderMarketingCoupons() {
         if (res.ok) {
             var sc = await res.json();
             if (Array.isArray(sc)) coupons = sc;
+            ladeStandSetzen('gutscheine', true, '', renderMarketingCoupons);
+        } else {
+            ladeStandSetzen('gutscheine', false, 'HTTP ' + res.status, renderMarketingCoupons);
         }
-    } catch (e) {}
+    } catch (e) {
+        // War leer: die Liste zeigte dann nur die Gutscheine dieses Geraets --
+        // oder "Noch keine Gutscheine erstellt", obwohl es welche gibt.
+        ladeStandSetzen('gutscheine', false, e && e.message, renderMarketingCoupons);
+    }
 
     // Quelle 2: alte localStorage-Gutscheine (nur dieses Gerät) -- markieren
     var legacy = JSON.parse(localStorage.getItem('kmi_custom_coupons') || '[]');
@@ -33776,7 +33852,8 @@ async function renderMarketingCoupons() {
         coupons = coupons.filter(function(c) { return !c.restaurant_id || c.restaurant_id === selectedRest; });
     }
     if (coupons.length === 0) {
-        container.innerHTML = '<p style="color:var(--text-secondary);text-align:center;padding:20px 0;">Noch keine Gutscheine erstellt</p>';
+        container.innerHTML = ladeStandFehlt('gutscheine') ? ''
+            : '<p style="color:var(--text-secondary);text-align:center;padding:20px 0;">Noch keine Gutscheine erstellt</p>';
         return;
     }
 
@@ -37935,10 +38012,23 @@ async function loadCustomers() {
             renderCustomers();
             updateCustomerStats();
             populateRestaurantDropdown();
+            ladeStandSetzen('kunden', true, '', loadCustomers);
+        } else {
+            // Fehlte: "Lade Kunden..." blieb sonst fuer immer stehen.
+            ladeStandSetzen('kunden', false, 'HTTP ' + response.status, loadCustomers);
+            _listeLeerWennLaedt('customersList');
         }
     } catch (e) {
         console.error('Fehler beim Laden der Kunden:', e);
+        ladeStandSetzen('kunden', false, e && e.message, loadCustomers);
+        _listeLeerWennLaedt('customersList');
     }
+}
+// Steht nach einem Fehler noch "Lade ..." in der Liste, wird es entfernt --
+// die rote Zeile darueber sagt, was los ist.
+function _listeLeerWennLaedt(id) {
+    var el = document.getElementById(id);
+    if (el && /Lade /.test(el.textContent || '') && el.textContent.length < 80) el.innerHTML = '';
 }
 
 // "so komme ich auch rein" -- ein Klick in die echte Rechnung bei
@@ -58149,19 +58239,20 @@ async function loadDashboardOrders() {
                 // aus -- beides prüfte winorder_sent_at, das hier wegfiel.
                 winorder_sent_at: order.winorder_sent_at || null
             }));
+            ladeStandSetzen('bestellungen', true, '', loadDashboardOrders);
             window._kmiOrdersDiag = { status: response.status, count: dashboardOrders.length, rest: (_gastroForce || ordersRestaurantFilter || 'alle'), time: ordersTimeFilter };
 
         } else {
             console.error('Orders API Fehler:', response.status);
             window._kmiOrdersDiag = { status: response.status, count: 0, rest: (_gastroForce || ordersRestaurantFilter || 'alle'), time: ordersTimeFilter, failed: true };
-            // Fallback: Demo-Daten wenn keine Orders Tabelle existiert
-            loadDemoOrders();
+            // NICHT leeren: die zuletzt geladenen Bestellungen bleiben stehen,
+            // darueber steht rot, dass sie nicht aktuell sind.
+            ladeStandSetzen('bestellungen', false, 'HTTP ' + response.status, loadDashboardOrders);
         }
     } catch (e) {
         console.error('Orders Fehler:', e.message);
         window._kmiOrdersDiag = { status: 0, count: 0, rest: (ordersRestaurantFilter || RESTAURANT_ID), time: ordersTimeFilter, error: e.message };
-        // Fallback: Demo-Daten
-        loadDemoOrders();
+        ladeStandSetzen('bestellungen', false, e.message, loadDashboardOrders);
     }
 
     renderDashboardOrders();
@@ -58321,15 +58412,21 @@ async function checkForNewOrders() {
         var resp = await fetch(pollUrl, {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
         });
+        if (!resp.ok) { ladeStandSetzen('bestellungen', false, 'Abfrage HTTP ' + resp.status, loadDashboardOrders); return; }
         if (resp.ok) {
             var data = await resp.json();
+            if (!ladeStandFehlt('bestellungen')) ladeStandSetzen('bestellungen', true, '', loadDashboardOrders);
             var hash = data.map(function(o) { return o.id + o.status + o.updated_at; }).join('|');
             if (hash !== lastOrdersHash) {
                 lastOrdersHash = hash;
                 loadDashboardOrders();
             }
         }
-    } catch(e) { /* polling error - ignoriert */ }
+    } catch(e) {
+        // War "ignoriert": fiel die Echtzeit aus UND die Abfrage, merkte
+        // niemand, dass keine neuen Bestellungen mehr ankamen.
+        ladeStandSetzen('bestellungen', false, 'keine Verbindung', loadDashboardOrders);
+    }
 }
 
 function refreshOrders() {
@@ -58366,6 +58463,11 @@ function renderDashboardOrders() {
     if (filtered.length === 0) {
         grid.innerHTML = '';
         if (emptyState) emptyState.style.display = 'block';
+        // Leer ODER nicht geladen -- das muss man unterscheiden koennen.
+        var _et = document.getElementById('ordersEmptyTitel'), _ex = document.getElementById('ordersEmptyText');
+        var _kaputt = typeof ladeStandFehlt === 'function' && ladeStandFehlt('bestellungen');
+        if (_et) _et.textContent = _kaputt ? 'Bestellungen konnten nicht geladen werden' : 'Keine Bestellungen';
+        if (_ex) _ex.textContent = _kaputt ? 'Es kann sein, dass Bestellungen da sind. Bitte oben „Nochmal versuchen“ – oder kurz im Netz nachsehen.' : 'Neue Bestellungen erscheinen hier automatisch';
         // (Diagnose-Zeile entfernt — Details weiterhin in window._kmiOrdersDiag,
         //  aber nicht mehr in der Oberfläche sichtbar.)
         if (emptyState) {
@@ -78736,15 +78838,21 @@ async function openDayCloseReport(selectedRestaurantId) {
 
     // Daten laden
     var orders = [], reservations = [];
+    // Vorher ignoriert: schlug das Laden fehl, zeigte der Abschluss 0 Bestellungen
+    // und 0,00 EUR Umsatz -- ohne Hinweis. Wer das abheftet, hat einen falschen Tag.
+    var _abschlussFehler = [];
     try {
         var client = sb || window.sb;
+        if (!client) _abschlussFehler.push('keine Verbindung zur Datenbank');
         if (client) {
-            var { data: o } = await client.from('orders').select('*').eq('restaurant_id', restaurantId).gte('created_at', _dayStart.toISOString()).lte('created_at', _dayEnd.toISOString());
+            var { data: o, error: _eo } = await client.from('orders').select('*').eq('restaurant_id', restaurantId).gte('created_at', _dayStart.toISOString()).lte('created_at', _dayEnd.toISOString());
+            if (_eo) _abschlussFehler.push('Bestellungen: ' + (_eo.message || 'Fehler'));
             if (o) orders = o;
-            var { data: res } = await client.from('reservations').select('*').eq('restaurant_id', restaurantId).eq('reservation_date', today);
+            var { data: res, error: _er } = await client.from('reservations').select('*').eq('restaurant_id', restaurantId).eq('reservation_date', today);
+            if (_er) _abschlussFehler.push('Reservierungen: ' + (_er.message || 'Fehler'));
             if (res) reservations = res;
         }
-    } catch(e) { console.error('Tagesabschluss laden:', e); }
+    } catch(e) { console.error('Tagesabschluss laden:', e); _abschlussFehler.push(e && e.message || 'Laden fehlgeschlagen'); }
 
     var totalOrders = orders.length;
     var completedOrders = orders.filter(function(o) { return o.status === 'delivered' || o.status === 'ready' || o.status === 'completed'; }).length;
@@ -78798,6 +78906,10 @@ async function openDayCloseReport(selectedRestaurantId) {
             APP_DATA.restaurants.map(function(rest) { return '<option value="' + rest.id + '"' + (rest.id === restaurantId ? ' selected' : '') + '>' + rest.name + '</option>'; }).join('') +
             '</select>'
         ) + '</div>' +
+        (_abschlussFehler.length
+            ? '<div class="kmi-stand fehler" role="alert" style="margin-bottom:16px;"><span><b>Diese Zahlen sind unvollständig.</b> Nicht geladen: '
+              + escapeHtml(_abschlussFehler.join(' · ')) + '. Bitte nicht als Tagesabschluss verwenden, sondern neu öffnen.</span></div>'
+            : '') +
 
         // Umsatz-Karte
         '<div style="background:linear-gradient(135deg,var(--primary),#2d8a6e);border-radius:14px;padding:20px;color:white;margin-bottom:16px;text-align:center;">' +
@@ -79046,6 +79158,7 @@ function openKitchenDisplay() {
                 '</button>' +
             '</div>' +
         '</div>' +
+        '<div data-ladestand="kueche" style="margin:0 20px;"></div>' +
         // Kanban Container
         '<div id="kdsKanban" style="flex:1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;overflow:hidden;min-height:0;">' +
             // Spalte 1: Neu
@@ -79266,7 +79379,7 @@ async function refreshKitchenOrders() {
 
     try {
         var client = sb || window.sb;
-        if (!client) return;
+        if (!client) { ladeStandSetzen('kueche', false, 'keine Verbindung zur Datenbank', refreshKitchenOrders); return; }
 
         // Alle aktiven Bestellungen laden (inkl. ready)
         var _activeStatus = ['received', 'accepted', 'confirmed', 'preparing', 'ready'];
@@ -79345,9 +79458,13 @@ async function refreshKitchenOrders() {
 
         // Timer sofort aktualisieren
         _kdsUpdateTimers();
+        ladeStandSetzen('kueche', true, '', refreshKitchenOrders);
     } catch(e) {
         console.error('Küchen-Display Fehler:', e.message || e);
-        colNew.innerHTML = '<div style="padding:20px;color:var(--danger-500);font-size:13px;">Fehler: ' + (e.message || '') + '</div>';
+        // Vorher stand der Fehler nur in der Spalte "Neu" -- "In Zubereitung"
+        // und "Fertig" zeigten weiter den alten Stand, als waere alles gut.
+        // Jetzt steht er ueber allen drei Spalten; die Karten bleiben stehen.
+        ladeStandSetzen('kueche', false, e.message || 'Laden fehlgeschlagen', refreshKitchenOrders);
     }
 }
 
