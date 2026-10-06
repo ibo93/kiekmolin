@@ -20331,6 +20331,20 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                              waere die Korrektur eine stille Aenderung. -->
                         <div id="markeVorschau" style="margin-top:10px; padding:10px 14px; border-radius:50px; background:#003d33; color:#fff; font-size:12px; font-weight:700; text-align:center; letter-spacing:0.08em; text-transform:uppercase; font-family:Epilogue,sans-serif;">Reservieren</div>
                         <div id="markeHinweis" style="display:none; margin-top:8px; padding:8px 10px; border-radius:12px; background:rgba(180,83,9,0.09); color:#b45309; font-size:11px; font-weight:600; line-height:1.45;"></div>
+                        <!-- DUNKLER AUFTRITT (seit 06.10.2026) -- fuer Bars, Lounges,
+                             Shisha. Der Gast sieht diese Seite im gemessenen
+                             Dunkelmodus der App, in der Farbe oben. Siehe
+                             barLookPflegen(). -->
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:12px; padding-top:12px; border-top:1px solid var(--border-color);">
+                            <div>
+                                <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">
+                                    <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">dark_mode</span>
+                                    Dunkler Auftritt
+                                </div>
+                                <div style="font-size: 11px; color: var(--text-secondary);">Für Bars &amp; Lounges: Gäste sehen eure Seite und Karte dunkel, in eurer Farbe.</div>
+                            </div>
+                            <div class="toggle-switch off" id="lookDunkelToggle" onclick="toggleFeature('look_dunkel')" style="width:44px;height:24px;flex-shrink:0;"></div>
+                        </div>
                     </div>
 
                     <!-- Zahlungsarten -->
@@ -27355,6 +27369,8 @@ function closeModal(modalId) {
     // Öffnen/Schließen um zwei Einträge und der Zurück-Knopf des Handys
     // musste mehrfach getippt werden, bevor sich sichtbar etwas tat.
     if (modalId === 'menuModal') {
+        // Erst nach dem Schliessen nachsehen -- die Klasse ist dann schon weg.
+        setTimeout(function () { if (typeof barLookPflegen === 'function') barLookPflegen(); }, 0);
         var stickyBar = document.getElementById('lpStickyBar');
         if (stickyBar) stickyBar.style.display = '';
         var landing = document.getElementById('restaurantLanding');
@@ -34224,6 +34240,14 @@ async function toggleFeature(feature) {
             else features.push('preorder');
             var label = 'Vorbestellung';
             var wasEnabled = hatPreorder;
+        } else if (feature === 'look_dunkel') {
+            // Positives Flag -- nicht in die Standardregel fallen lassen,
+            // die baut daraus "no_reservations".
+            var hatLook = features.indexOf('look_dunkel') >= 0;
+            if (hatLook) features = features.filter(function (f) { return f !== 'look_dunkel'; });
+            else features.push('look_dunkel');
+            var label = 'Dunkler Auftritt';
+            var wasEnabled = hatLook;
         } else if (feature === 'kohle_ruf') {
             // Positives Flag wie preorder -- NICHT in die Standardregel unten
             // fallen lassen, die baut daraus sonst "no_reservations".
@@ -34308,6 +34332,11 @@ function updateFeatureToggles(features) {
         // bisher. Kein Betrieb bekommt Vorbestellungen ungefragt.
         if (features.indexOf('preorder') >= 0) preorderToggle.classList.remove('off');
         else preorderToggle.classList.add('off');
+    }
+    var lookDunkelToggle = document.getElementById('lookDunkelToggle');
+    if (lookDunkelToggle) {
+        if (features.indexOf('look_dunkel') >= 0) lookDunkelToggle.classList.remove('off');
+        else lookDunkelToggle.classList.add('off');
     }
     var kohleRufToggle = document.getElementById('kohleRufToggle');
     if (kohleRufToggle) {
@@ -42035,6 +42064,7 @@ async function showRestaurantLanding(rest) {
     // Jetzt stehen sie IM cssText. Damit kann keine spaetere Zuweisung
     // sie mehr aus Versehen mitnehmen -- es gibt nur noch eine.
     landing.style.cssText = '--marke:' + _marke + ';--marke-dunkel:' + MARKE.dunkler(_marke) + ';'
+        + '--marke-label:' + (_marke === MARKE.STANDARD ? '#75a89b' : '#ffffff') + ';'
         + 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#f8f9fa;overflow-y:auto;';
 
     landing.innerHTML = `
@@ -42085,7 +42115,7 @@ async function showRestaurantLanding(rest) {
                      Gemessen nach dem Fix: 15,47 : 1 statt 1,57 : 1. -->
                 <div class="lp-hero-karte" style="backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);padding:32px 48px;border-radius:48px;max-width:640px;width:100%;text-align:center;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
                     <div style="display:flex;justify-content:center;gap:4px;margin-bottom:16px;">
-                        ${rest.rating ? '<span class="material-symbols-outlined" style="color:#735c00;font-variation-settings:\'FILL\' 1;">star</span>'.repeat(Math.min(Math.round(rest.rating), 5)) : ''}
+                        ${rest.rating ? '<span class="material-symbols-outlined" style="color:var(--lp-akzent,#735c00);font-variation-settings:\'FILL\' 1;">star</span>'.repeat(Math.min(Math.round(rest.rating), 5)) : ''}
                     </div>
                     <h1 style="font-family:'Epilogue',sans-serif;font-size:48px;font-weight:800;color:var(--ink-deep);letter-spacing:-0.04em;margin-bottom:8px;line-height:1;text-transform:uppercase;">${rest.name}</h1>
                     <p style="font-family:'Epilogue',sans-serif;font-size:18px;color:var(--ink-strong);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:24px;">${rest.city || 'Greetsiel'}, Ostfriesland</p>
@@ -42170,7 +42200,7 @@ async function showRestaurantLanding(rest) {
                 <div style="position:absolute;bottom:-32px;right:-32px;width:192px;height:192px;background:#fed65b;border-radius:16px;z-index:-1;opacity:0.2;filter:blur(40px);"></div>
             </div>
             <div>
-                <span style="color:#735c00;font-family:Epilogue,sans-serif;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;display:block;margin-bottom:16px;font-size:14px;">Über uns</span>
+                <span style="color:var(--lp-akzent,#735c00);font-family:Epilogue,sans-serif;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;display:block;margin-bottom:16px;font-size:14px;">Über uns</span>
                 <h2 style="font-family:Epilogue,sans-serif;font-size:clamp(32px,5vw,48px);font-weight:700;color:var(--ink-deep);margin-bottom:32px;line-height:1.1;">
                     ${(function(){
                         // Ueber kuecheLabel, sonst stuende hier bei einem
@@ -42303,12 +42333,12 @@ async function showRestaurantLanding(rest) {
         <section style="max-width:1280px;margin:0 auto;padding:0 24px 192px;">
             <div class="lp-location-wrap" style="background:#edeeef;border-radius:48px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.06);display:flex;flex-direction:column;position:relative;z-index:0;">
                 <div id="lpLeafletMap" style="height:400px;background:#edeeef;flex:1;min-height:400px;position:relative;z-index:0;"></div>
-                <div style="padding:48px;background:var(--marke,#003d33);color:white;">
+                <div class="lp-marke-feld" style="padding:48px;background:var(--marke,#003d33);color:white;">
                     <h2 style="font-family:Epilogue,sans-serif;font-size:28px;font-weight:700;margin-bottom:32px;">Besuche uns</h2>
                     <div style="display:flex;flex-direction:column;gap:24px;">
-                        ${adresse ? '<div><p style="color:#75a89b;text-transform:uppercase;letter-spacing:0.15em;font-size:12px;font-weight:700;margin-bottom:4px;">Adresse</p><p style="font-size:18px;line-height:1.5;">' + adresse.replace(', ', '<br>') + '</p></div>' : ''}
+                        ${adresse ? '<div><p class="lp-marke-label" style="color:var(--marke-label,#75a89b);text-transform:uppercase;letter-spacing:0.15em;font-size:12px;font-weight:700;margin-bottom:4px;">Adresse</p><p style="font-size:18px;line-height:1.5;">' + adresse.replace(', ', '<br>') + '</p></div>' : ''}
                         <div>
-                            <p style="color:#75a89b;text-transform:uppercase;letter-spacing:0.15em;font-size:12px;font-weight:700;margin-bottom:4px;">Öffnungszeiten</p>
+                            <p class="lp-marke-label" style="color:var(--marke-label,#75a89b);text-transform:uppercase;letter-spacing:0.15em;font-size:12px;font-weight:700;margin-bottom:4px;">Öffnungszeiten</p>
                             ${(function(){
                                 var appR = APP_DATA.restaurants.find(function(x){ return x.id === rest.id; });
                                 if (!appR || !appR.opening_hours) return '<p style="font-size:18px;">Keine Angabe</p>';
@@ -42361,7 +42391,7 @@ async function showRestaurantLanding(rest) {
                                 return '<p style="font-size:18px;line-height:1.5;">' + (hoursText || 'Keine Angabe') + '</p>';
                             })()}
                         </div>
-                        ${rest.phone ? '<div><p style="color:#75a89b;text-transform:uppercase;letter-spacing:0.15em;font-size:12px;font-weight:700;margin-bottom:4px;">Telefon</p><p style="font-size:18px;"><a href="tel:' + rest.phone + '" style="color:white;text-decoration:none;">' + rest.phone + '</a></p></div>' : ''}
+                        ${rest.phone ? '<div><p class="lp-marke-label" style="color:var(--marke-label,#75a89b);text-transform:uppercase;letter-spacing:0.15em;font-size:12px;font-weight:700;margin-bottom:4px;">Telefon</p><p style="font-size:18px;"><a href="tel:' + rest.phone + '" style="color:white;text-decoration:none;">' + rest.phone + '</a></p></div>' : ''}
                         ${rest.googleMapsUrl ? '<div style="padding-top:24px;"><a href="' + rest.googleMapsUrl + '" target="_blank" style="display:flex;align-items:center;gap:8px;color:#fed65b;font-weight:700;text-decoration:none;font-family:Inter,sans-serif;">Route planen <span class="material-symbols-outlined" style="font-size:18px;">open_in_new</span></a></div>' : ''}
                     </div>
                 </div>
@@ -42450,7 +42480,7 @@ async function showRestaurantLanding(rest) {
             <div style="width:60%;max-width:200px;height:1px;background:linear-gradient(90deg,transparent,#c0c8c4,transparent);margin:0 auto 32px;"></div>
             <div style="font-size:12px;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.15em;opacity:0.5;">Powered by</div>
             <a href="https://kiekmolin.de" style="text-decoration:none;">
-                <div style="font-family:Epilogue,sans-serif;font-size:20px;color:var(--ink-deep);font-weight:700;">Kiek mol <span style="color:#735c00;">in</span></div>
+                <div style="font-family:Epilogue,sans-serif;font-size:20px;color:var(--ink-deep);font-weight:700;">Kiek mol <span style="color:var(--lp-akzent,#735c00);">in</span></div>
                 <div style="font-size:12px;margin-top:4px;color:var(--text-secondary);">Restaurants in Ostfriesland</div>
             </a>
             <div style="margin-top:20px;">
@@ -42462,6 +42492,11 @@ async function showRestaurantLanding(rest) {
     `;
 
     document.body.appendChild(landing);
+
+    // Bar-Look: VOR der Karte weiter unten, damit Leaflet gleich die
+    // dunklen Kacheln holt. Siehe barLookPflegen().
+    window._lpRestaurant = rest;
+    if (typeof barLookPflegen === 'function') barLookPflegen();
 
     // Tagesangebote des Hauses nachladen. Erst jetzt -- vorher gibt es
     // #lpSpecials noch nicht.
@@ -42491,7 +42526,7 @@ async function showRestaurantLanding(rest) {
             var lpMap = L.map(mapEl, { zoomControl: false, scrollWheelZoom: false, dragging: true }).setView([lat, lng], 16);
             KARTE.ebene(lpMap);
             // Restaurant Marker
-            var markerHtml = '<div style="width:44px;height:44px;border-radius:50%;background:#fed65b;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 4px 20px rgba(0,37,30,0.25);"><span class="material-symbols-outlined" style="font-size:20px;color:#735c00;font-variation-settings:\'FILL\' 1;">restaurant</span></div>';
+            var markerHtml = '<div style="width:44px;height:44px;border-radius:50%;background:#fed65b;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 4px 20px rgba(0,37,30,0.25);"><span class="material-symbols-outlined" style="font-size:20px;color:var(--lp-akzent,#735c00);font-variation-settings:\'FILL\' 1;">restaurant</span></div>';
             var icon = L.divIcon({ html: markerHtml, iconSize: [44, 44], iconAnchor: [22, 22], className: '' });
             L.marker([lat, lng], { icon: icon }).addTo(lpMap);
             // Klick auf Map öffnet Google Maps
@@ -43392,6 +43427,7 @@ function initTheme() {
 }
 
 function setTheme(theme) {
+    if (typeof barLookGastWahl === 'function') barLookGastWahl();
     localStorage.setItem('kmi_theme', theme);
     applyTheme(theme);
     updateThemeButtons(theme);
@@ -43402,6 +43438,7 @@ function setTheme(theme) {
 
 // Einfache Theme-Funktion für Gäste
 function setThemeSimple(theme) {
+    if (typeof barLookGastWahl === 'function') barLookGastWahl();
     localStorage.setItem('kmi_theme', theme);
 
     applyTheme(theme);
@@ -43761,6 +43798,51 @@ function applyLiquidGlass(enable) {
             background: #0e0e0e !important;
         }
 
+        /* FARBEN DER LOKALSEITE, DIE IM DUNKELN MITDREHEN MUESSEN.
+           Gemessen am 06.10.2026 an einer Bar mit "Dunkler Auftritt"
+           (Chromium, dieselbe Rechnung wie werkzeug/dunkelmodus-messen.js):
+             "Über uns", "in"           #735c00 auf #0e0e0e     3,0 : 1
+             "Besuche uns"              #f0f2f1 auf Markenfarbe 4,47: 1
+             "Adresse", Öffnungszeiten  #9ca8a4 auf Markenfarbe 2,04: 1
+           Im Hellen bleibt jede Farbe, wie sie war -- die Variablen tragen
+           dort genau die alten Werte. */
+        #restaurantLanding {
+            --lp-akzent: #735c00;
+            --lp-karte: #ffffff;
+            --lp-rand: rgba(0,0,0,0.06);
+            --lp-tinte: var(--ink-deep);
+            --lp-gedaempft: #6b7280;
+            --lp-akzent-hell: #fff4cc;
+            --lp-akzent-text: #5c4600;
+        }
+        .dark-mode #restaurantLanding {
+            --lp-akzent: #fed65b;
+            --lp-karte: #1a1d1c;
+            --lp-rand: rgba(255,255,255,0.08);
+            --lp-tinte: #f3f4f4;
+            --lp-gedaempft: #b9c0be;
+            --lp-text: #d4d9d7;
+            --lp-akzent-hell: rgba(254,214,91,0.14);
+            --lp-akzent-text: #fed65b;
+        }
+        /* Das Feld in der Markenfarbe ("Besuche uns"). Die allgemeinen
+           Regeln ".dark-mode p" (#9ca8a4) und ".dark-mode h2" (#f0f2f1)
+           wissen nicht, dass hier ein FARBIGER Grund liegt. MARKE sorgt
+           dafuer, dass reines Weiss darauf mindestens 4,5 : 1 hat -- also
+           steht hier reines Weiss. */
+        .dark-mode .lp-marke-feld h2,
+        .dark-mode .lp-marke-feld p,
+        .dark-mode .lp-marke-feld a {
+            color: #ffffff !important;
+        }
+        /* Die kleinen Ueberschriften im Feld: beim Standard-Gruen das
+           Mint wie bisher (4,57 : 1), bei jeder anderen Farbe Weiss --
+           Mint auf Bernstein waren 1,87 : 1, auch im Hellen. */
+        .lp-marke-feld .lp-marke-label,
+        .dark-mode .lp-marke-feld .lp-marke-label {
+            color: var(--marke-label, #75a89b) !important;
+        }
+
         /* Landing Page Desktop Responsive Layouts (Stitch-Match) */
         @media (min-width: 768px) {
             .lp-ueber-uns-grid {
@@ -44106,6 +44188,7 @@ function setCornerRadiusSimple(corners) {
 }
 
 function resetDesign() {
+    if (typeof barLookGastWahl === 'function') barLookGastWahl();
     localStorage.removeItem('kmi_theme');
     localStorage.removeItem('kmi_accent');
     localStorage.removeItem('kmi_accent_name');
@@ -49717,6 +49800,8 @@ async function openMenuModal(restaurantId) {
         modal.style.display = 'flex';
         modal.classList.add('active');
     }
+    // Kam der Gast direkt (Tisch-QR) ohne Lokalseite, gilt der Bar-Look auch hier.
+    if (typeof barLookPflegen === 'function') barLookPflegen();
     // "Bedienung rufen" nur zeigen, wenn der Gast über den Tisch-QR kam --
     // sonst wäre der Knopf sinnlos (wir wüssten keinen Tisch) und würde
     // Abholern und Lieferkunden nur im Weg stehen.
@@ -74899,9 +74984,76 @@ async function deleteSizeGroup(groupId) {
     }
 }
 
+// ==================== BAR-LOOK: DUNKLER AUFTRITT PRO LOKAL ====================
+//
+// Seit dem 06.10.2026, fuer den ersten Shisha-Bar-Kunden: "fuer bar design
+// aendern waere gut". Eine Bar will nicht im hellen Kiek-mol-in-Auftritt
+// erscheinen.
+//
+// KEINE ZWEITE FARBWELT. Die App hat einen vollstaendigen, im Browser
+// kontrastgemessenen Dunkelmodus (werkzeug/dunkelmodus-messen.js). Hat ein
+// Lokal "Dunkler Auftritt" eingeschaltet (features: look_dunkel), sieht der
+// Gast DIESES Lokal in genau diesem Dunkelmodus -- dazu in der Markenfarbe
+// des Lokals (MARKE, brand_color). Neu gestaltet, aber nichts Ungepruefftes.
+//
+// EINE FUNKTION, DIE AUF DEN ZUSTAND SCHAUT -- NICHT AUF DIE WEGE.
+// Die Lokalseite verschwindet auf mehreren Wegen: closeRestaurantLanding,
+// der Zurueck-Knopf des Handys (popstate entfernt sie DIREKT, ohne
+// closeRestaurantLanding), ein neues Lokal ersetzt das alte. Haette ich
+// den Dunkelmodus nur an einem dieser Wege zurueckgenommen, bliebe der Gast
+// nach "Zurueck" dunkel haengen. Deshalb fragt barLookPflegen() bei jedem
+// Aufruf: welches Lokal ist GERADE zu sehen? -- und wird zusaetzlich bei
+// jeder Aenderung an den Kindern von <body> aufgerufen.
+//
+// DIE WAHL DES GASTES GEWINNT. Wer selbst dunkel eingestellt hat, wird
+// nicht angefasst. Wer waehrenddessen selbst umschaltet, dessen Wahl
+// bleibt fuer diesen Besuch -- der Bar-Look nimmt nichts zurueck und
+// zwingt nichts mehr auf. Umschalten geht auf VIER Wegen (setTheme,
+// setThemeSimple, resetDesign, setThemeMode); beim ersten Bau hing nur
+// setThemeMode dran, und gerade der ist nicht der Schalter, den Gaeste
+// sehen. Alle vier rufen barLookGastWahl().
+function barLookOrt() {
+    if (document.getElementById('restaurantLanding')) return window._lpRestaurant || null;
+    var mm = document.getElementById('menuModal');
+    var offen = mm && (mm.classList.contains('active') || mm.style.display === 'flex');
+    if (!offen) return null;
+    return (typeof currentOrderRestaurant !== 'undefined' && currentOrderRestaurant) || window.currentOrderRestaurant || null;
+}
+function barLookAn(r) {
+    var f = (r && r.features) || [];
+    return Array.isArray(f) && f.indexOf('look_dunkel') >= 0;
+}
+function barLookGastWahl() {
+    window._barLookErzwungen = false;
+    window._barLookGastHatGewaehlt = true;
+}
+function barLookPflegen() {
+    if (window._barLookGastHatGewaehlt) return;
+    var will = barLookAn(barLookOrt());
+    var ist = document.body.classList.contains('dark-mode');
+    if (will && !ist) {
+        document.documentElement.classList.add('dark-mode');
+        document.body.classList.add('dark-mode');
+        window._barLookErzwungen = true;
+    } else if (!will && window._barLookErzwungen) {
+        document.documentElement.classList.remove('dark-mode');
+        document.body.classList.remove('dark-mode');
+        window._barLookErzwungen = false;
+    }
+}
+window.barLookPflegen = barLookPflegen;
+window.barLookGastWahl = barLookGastWahl;
+window.barLookAn = barLookAn;
+try {
+    new MutationObserver(function () { try { barLookPflegen(); } catch (e) {} })
+        .observe(document.body || document.documentElement, { childList: true });
+} catch (e) {}
+
 // ==================== THEME SYSTEM ====================
 // Theme Modus wechseln (Light/Dark)
 function setThemeMode(mode) {
+    // Der Gast hat selbst gewaehlt -- der Bar-Look nimmt nichts mehr zurueck.
+    if (typeof barLookGastWahl === 'function') barLookGastWahl();
 
     if (mode === 'dark') {
         document.body.classList.add('dark-mode');
@@ -77079,7 +77231,7 @@ function aktionKarteHtml(a) {
         + '<span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px;margin-right:4px;">' + (a.art === 'vorteil' ? 'local_offer' : 'event_upcoming') + '</span>'
         + escapeHtml(aktionZeitplanText(a)) + '</div>'
         + '<div style="font-family:Epilogue,sans-serif;font-size:22px;font-weight:800;color:var(--lp-tinte,var(--ink-deep));line-height:1.2;">' + escapeHtml(a.titel || '') + '</div>'
-        + (a.beschreibung ? '<div style="margin-top:6px;font-size:14px;line-height:1.55;color:var(--lp-gedaempft,var(--text-secondary));">' + escapeHtml(a.beschreibung) + '</div>' : '')
+        + (a.beschreibung ? '<div style="margin-top:6px;font-size:14px;line-height:1.55;color:var(--lp-text,var(--text-secondary));">' + escapeHtml(a.beschreibung) + '</div>' : '')
         + vorteil + '</div>';
 }
 
