@@ -23,7 +23,13 @@ t('Bestellungen: Fehler leert die Liste NICHT mehr', ord.length > 1000 && !/load
 t('Bestellungen: Erfolg und beide Fehlerwege melden den Stand',
   (ord.match(/ladeStandSetzen\('bestellungen', true/g) || []).length === 1 && (ord.match(/ladeStandSetzen\('bestellungen', false/g) || []).length === 2, '');
 t('Bestellungen: leerer Zustand unterscheidet "keine" und "nicht geladen"',
-  /_kaputt \? 'Bestellungen konnten nicht geladen werden' : 'Keine Bestellungen'/.test(H), '');
+  /_kaputt \? 'Es können neue Bestellungen da sein' : 'Keine Bestellungen'/.test(H), '');
+t('nach einem Fehler: neuer Versuch alle 15 s, einer zur Zeit, Kueche ohne zweiten Takt',
+  /setTimeout\(function \(\) \{\s*delete kmiLadeUhr\[schluessel\];/.test(H) && /\}, 15000\);/.test(H)
+  && /!kmiLadeUhr\[schluessel\]/.test(H) && /var KMI_EIGENER_TAKT = \{ kueche: 10 \};/.test(H), '');
+t('Erfolg stoppt den Wiederholungs-Takt', /if \(ok\) \{ clearTimeout\(kmiLadeUhr\[schluessel\]\);/.test(H), '');
+t('alter Stand: gestrichelter Rand statt blasser (bleibt lesbar)',
+  /\.kmi-veraltet \{ outline: 2px dashed/.test(H) && !/\.kmi-veraltet \{[^}]*opacity/.test(H) && /id="ordersGrid" data-ladestand-ziel="bestellungen"/.test(H), '');
 var poll = block('async function checkForNewOrders', 'function refreshOrders');
 t('Abfrage-Weg: Fehler wird nicht mehr verschluckt', !/polling error - ignoriert/.test(poll) && /ladeStandSetzen\('bestellungen', false, 'keine Verbindung'/.test(poll), '');
 

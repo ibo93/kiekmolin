@@ -14243,13 +14243,22 @@
     .kmi-haken-auf { animation: kmiStempelAuf 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
 }
 @keyframes kmiStempelAuf { 0% { transform: scale(0.2); opacity: 0; } 70% { transform: scale(1.18); opacity: 1; } 100% { transform: scale(1); } }
-.kmi-stempel-moment { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 16px; border-radius: 22px; background: #003d33; color: #ffffff; }
-.kmi-stempel-moment strong { font-family: Epilogue, sans-serif; font-size: 17px; font-weight: 800; color: #ffffff; }
-.kmi-stempel-moment span { font-size: 13px; color: #d7efe8; }
-.kmi-stempel-reihe { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; width: 100%; max-width: 300px; margin-bottom: 6px; }
-.kmi-stempel-punkt { aspect-ratio: 1; border-radius: 9999px; border: 2px dashed rgba(255,255,255,0.45); box-sizing: border-box; display: block; }
-.kmi-stempel-punkt.voll { background: #fed65b; border: 0; }
+.kmi-stempel-moment { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 18px; border-radius: 28px; background: #003d33; color: #ffffff; text-align: center; }
+.kmi-stempel-kopf { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.kmi-stempel-kopf span { display: flex; align-items: center; gap: 8px; font-family: Epilogue, sans-serif; font-size: 17px; font-weight: 800; color: #ffffff; }
+.kmi-stempel-kopf span svg { width: 20px; height: 20px; color: #fed65b; }
+.kmi-stempel-kopf em { font-style: normal; font-size: 13px; font-weight: 700; color: #d7efe8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kmi-stempel-moment strong { font-family: Epilogue, sans-serif; font-size: 20px; font-weight: 800; color: #ffffff; }
+.kmi-stempel-unter { font-size: 14px; color: #d7efe8; margin-top: -8px; }
+.kmi-stempel-reihe { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.kmi-stempel-punkt { aspect-ratio: 1; border-radius: 9999px; border: 2px dashed rgba(255,255,255,0.45); box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
+.kmi-stempel-punkt b { font-family: Epilogue, sans-serif; font-size: 14px; font-weight: 700; color: #d7efe8; }
+.kmi-stempel-punkt svg { width: 46%; height: 46%; }
+.kmi-stempel-punkt.voll { background: #fed65b; border: 0; color: #00251e; }
+.kmi-stempel-punkt.voll.neu { outline: 4px solid rgba(254,214,91,0.35); }
+.kmi-stempel-punkt.ziel { border-color: #fed65b; color: #fed65b; }
 .dark-mode .kmi-stempel-moment { background: #0b3a31; }
+.dark-mode .kmi-stempel-punkt.voll { background: #fed65b; } /* Gold bleibt Gold: es ist der Stempel */
 /* LOKALSEITE: Visitenkarte + Platzhalter ohne Foto (06.10.2026) */
 .lp-fakten { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 0 auto 20px; }
 .lp-fakt { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 6px 14px; border-radius: 9999px; background: #edeeef; color: #191c1d; font: 700 14px Inter, sans-serif; text-decoration: none; box-sizing: border-box; }
@@ -14266,6 +14275,40 @@
 .lp-ohne-foto { background: #003d33; background-image: radial-gradient(rgba(255,255,255,0.06) 1.5px, transparent 1.5px); background-size: 22px 22px; display: flex; align-items: center; justify-content: center; }
 .lp-ohne-foto span { font-family: Epilogue, sans-serif; font-weight: 800; font-size: 280px; line-height: 1; color: rgba(254,214,91,0.22); transform: translateY(-120px); }
 .dark-mode .lp-ohne-foto { background-color: #00251e; }
+/* RESERVIERUNG BESTAETIGT (Entwurf "Neue Momente", 07.10.2026) */
+.kmi-resok { position: fixed; inset: 0; z-index: 99999; overflow-y: auto; box-sizing: border-box; padding: 64px 16px 32px; background: #003d33; background-image: radial-gradient(rgba(255,255,255,0.06) 1.5px, transparent 1.5px); background-size: 22px 22px; font-family: Inter, sans-serif; display: flex; flex-direction: column; align-items: center; gap: 24px; }
+.kmi-resok > * { width: 100%; max-width: 420px; }
+.kmi-resok > .kmi-resok-zu { position: absolute; top: 16px; right: 16px; width: 44px; height: 44px; border-radius: 9999px; border: 0; background: rgba(255,255,255,0.14); color: #ffffff; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.kmi-resok-kopf { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+.kmi-resok-haken { width: 64px; height: 64px; border-radius: 9999px; background: #fed65b; color: #00251e; display: flex; align-items: center; justify-content: center; }
+.kmi-resok-haken svg { width: 30px; height: 30px; stroke-width: 2.8; }
+.kmi-resok-kopf h2 { margin: 0; font-family: Epilogue, sans-serif; font-size: 34px; font-weight: 900; letter-spacing: -0.02em; line-height: 1.05; color: #ffffff; }
+.kmi-resok-kopf p { margin: 0; font-size: 15px; color: #d7efe8; }
+.kmi-resok-karte { box-sizing: border-box; border-radius: 34px; background: #ffffff; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.kmi-resok-zeile { display: flex; gap: 12px; align-items: stretch; }
+.kmi-resok-datum { width: 84px; flex-shrink: 0; border-radius: 20px; background: #003d33; color: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px 0; }
+.kmi-resok-datum small { font-size: 12px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #fed65b; }
+.kmi-resok-datum b { font-family: Epilogue, sans-serif; font-size: 34px; font-weight: 900; line-height: 1; color: #ffffff; }
+.kmi-resok-datum span { font-size: 12px; font-weight: 700; color: #d7efe8; }
+.kmi-resok-fakten { flex-grow: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 6px; }
+.kmi-resok-fakten span { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: #191c1d; }
+.kmi-resok-fakten span svg { flex-shrink: 0; color: #003d33; }
+.kmi-resok-fakten span.leise { font-size: 14px; font-weight: 500; color: #404946; }
+.kmi-resok-fakten span.leise svg { color: #404946; }
+.kmi-resok-aktion { border-radius: 18px; background: #fff4cc; padding: 12px 14px; color: #5c4600; font-size: 14px; font-weight: 700; line-height: 1.45; }
+.kmi-resok-knoepfe { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.kmi-resok-knoepfe > * { height: 52px; border: 0; border-radius: 9999px; background: #edeeef; color: #00251e; font: 700 15px Inter, sans-serif; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; text-decoration: none; }
+.kmi-resok-knoepfe .haupt { background: #003d33; color: #ffffff; }
+.kmi-resok-fuss { margin: 0; text-align: center; font-size: 13px; line-height: 1.6; color: #d7efe8; }
+.dark-mode .kmi-resok-haken { background: #fed65b; color: #00251e; } /* Gold bleibt: der Haken ist der Moment */
+.dark-mode .kmi-resok { background-color: #00251e; }
+.dark-mode .kmi-resok-karte { background: #1a1d1c; }
+.dark-mode .kmi-resok-fakten span { color: #f3f4f4; }
+.dark-mode .kmi-resok-fakten span svg { color: #9cd1c3; }
+.dark-mode .kmi-resok-fakten span.leise, .dark-mode .kmi-resok-fakten span.leise svg { color: #c9cfcd; }
+.dark-mode .kmi-resok-aktion { background: #3a2f0b; color: #fde68a; }
+.dark-mode .kmi-resok-knoepfe > * { background: #262a29; color: #f3f4f4; }
+.dark-mode .kmi-resok-knoepfe .haupt { background: #9cd1c3; color: #00251e; }
 /* STARTSEITE: Jetzt geoeffnet (06.10.2026) */
 .heute-abend { margin: 0 0 20px; }
 .ha-kopf { display: flex; align-items: baseline; justify-content: space-between; padding: 0 20px; margin-bottom: 10px; }
@@ -14295,7 +14338,6 @@
 .dark-mode .ha-offen { color: #86efac; }
 .dark-mode .ha-leer { background: #262a29; color: #c9cfcd; }
 .dark-mode .ha-aktion { background: #fed65b; color: #00251e; } /* Gold bleibt Gold: es heisst Aktion */
-.dark-mode .kmi-stempel-punkt.voll { background: #fed65b; } /* Gold bleibt Gold: es ist der Stempel */
 </style>
 <script>
 // LADE-STAND (06.10.2026) -- Regel 6: eine leere Liste ist keine Fehlermeldung.
@@ -14309,9 +14351,22 @@
 // Anzeige: jedes Element mit data-ladestand="<schluessel>".
 var kmiLadeStand = {};
 var kmiLadeNeu = {};
+var kmiLadeUhr = {};
+// Neuer Versuch von selbst (Entwurf "Neue Momente", 07.10.2026): nach einem
+// Fehler alle 15 Sekunden, ein Versuch zur Zeit. Die Kueche fragt ohnehin
+// alle 10 Sekunden -- dort keinen zweiten Takt danebenlegen.
+var KMI_EIGENER_TAKT = { kueche: 10 };
 function ladeStandSetzen(schluessel, ok, grund, nochmal) {
     kmiLadeStand[schluessel] = { ok: !!ok, zeit: new Date(), grund: grund ? String(grund).slice(0, 160) : '' };
     if (nochmal && nochmal.call) kmiLadeNeu[schluessel] = nochmal;
+    if (ok) { clearTimeout(kmiLadeUhr[schluessel]); delete kmiLadeUhr[schluessel]; }
+    else if (!KMI_EIGENER_TAKT[schluessel] && kmiLadeNeu[schluessel] && !kmiLadeUhr[schluessel]) {
+        kmiLadeUhr[schluessel] = setTimeout(function () {
+            delete kmiLadeUhr[schluessel];
+            if (document.hidden) { ladeStandSetzen(schluessel, false, (kmiLadeStand[schluessel] || {}).grund); return; }
+            try { kmiLadeNeu[schluessel](); } catch (e) {}
+        }, 15000);
+    }
     ladeStandZeigen(schluessel);
 }
 function ladeStandFehlt(schluessel) { var s = kmiLadeStand[schluessel]; return !!(s && !s.ok); }
@@ -14323,24 +14378,33 @@ function ladeStandZeigen(schluessel) {
         if (s.ok) {
             el.className = 'kmi-stand ok';
             el.setAttribute('role', 'status');
-            el.innerHTML = 'Zuletzt geprüft ' + uhr;
+            el.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>Zuletzt geprüft ' + uhr;
         } else {
+            var takt = KMI_EIGENER_TAKT[schluessel] || (kmiLadeNeu[schluessel] ? 15 : 0);
             el.className = 'kmi-stand fehler';
             el.setAttribute('role', 'alert');
-            el.innerHTML = '<span><b>Nicht aktuell</b> – Laden um ' + uhr + ' fehlgeschlagen' + (s.grund ? ' (' + esc(s.grund) + ')' : '')
-                + '. Was hier steht, ist der letzte Stand, nicht unbedingt alles.</span>'
-                + (kmiLadeNeu[schluessel] ? '<button type="button" onclick="kmiLadeNeu[\'' + schluessel + '\'] && kmiLadeNeu[\'' + schluessel + '\']()">Nochmal versuchen</button>' : '');
+            el.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z"></path><path d="M12 10v5M12 18h.01"></path></svg>'
+                + '<span><b>Nicht aktuell</b> – Laden um ' + uhr + ' fehlgeschlagen' + (s.grund ? ' (' + esc(s.grund) + ')' : '')
+                + '. Was hier steht, ist der letzte Stand, nicht unbedingt alles.'
+                + (takt ? ' Neuer Versuch alle ' + takt + ' Sekunden von selbst.' : '') + '</span>'
+                + (kmiLadeNeu[schluessel] ? '<button type="button" onclick="kmiLadeNeu[\'' + schluessel + '\'] && kmiLadeNeu[\'' + schluessel + '\']()">Nochmal</button>' : '');
         }
     });
+    // Liste mit altem Stand markieren -- gestrichelter Rand, NICHT blasser:
+    // auch der alte Stand muss lesbar bleiben.
+    document.querySelectorAll('[data-ladestand-ziel="' + schluessel + '"]').forEach(function (el) { el.classList.toggle('kmi-veraltet', !s.ok); });
 }
 </script>
 <style>
 .kmi-stand { font-size: 12px; font-weight: 600; margin: 0 0 10px; }
-.kmi-stand.ok { color: #5f6b68; }
+.kmi-stand.ok { color: #5f6b68; display: flex; align-items: center; gap: 6px; }
+.kmi-stand.fehler svg { flex-shrink: 0; }
+.kmi-veraltet { outline: 2px dashed rgba(153,27,27,0.35); outline-offset: 8px; border-radius: 12px; }
+.dark-mode .kmi-veraltet { outline-color: rgba(254,202,202,0.4); }
 .dark-mode .kmi-stand.ok { color: #a9b2af; }
 .kmi-stand.fehler { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; border-radius: 16px; background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; font-size: 14px; line-height: 1.4; }
 .kmi-stand.fehler span { flex: 1 1 260px; }
-.kmi-stand.fehler button { height: 40px; padding: 0 16px; border-radius: 9999px; border: 0; background: #991b1b; color: #ffffff; font: 700 14px Inter, sans-serif; cursor: pointer; }
+.kmi-stand.fehler button { flex-shrink: 0; height: 44px; padding: 0 18px; border-radius: 9999px; border: 0; background: #991b1b; color: #ffffff; font: 700 14px Inter, sans-serif; cursor: pointer; }
 .dark-mode .kmi-stand.fehler { background: #3b1414; color: #fecaca; border-color: #7f1d1d; }
 .dark-mode .kmi-stand.fehler button { background: #fecaca; color: #3b1414; }
 </style>
@@ -21388,7 +21452,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
 
             <div data-ladestand="bestellungen"></div>
             <!-- Bestellungen Grid -->
-            <div id="ordersGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 32px;">
+            <div id="ordersGrid" data-ladestand-ziel="bestellungen" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 32px;">
                 <!-- Wird dynamisch gefüllt -->
             </div>
 
@@ -31282,98 +31346,76 @@ function reservierungWann(datum, zeit) {
 
 function showReservationConfirmation(reservation) {
     window._kalenderReservierung = reservation;
-    var formattedDate = new Date(reservation.date).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
+    // BESTAETIGUNG NACH DEM ENTWURF "NEUE MOMENTE" (07.10.2026).
+    // Vorher: kleine Karte oben, nach 8 Sekunden von selbst weg -- oft bevor
+    // der Gast "Im Kalender speichern" gefunden hatte. Jetzt ein ganzer
+    // Bildschirm, der bleibt, bis er ihn schliesst.
     var isPending = reservation.status === 'pending';
+    var wann = reservierungWann(reservation.date, reservation.time);
+    var tag = new Date(String(reservation.date) + 'T12:00:00');
+    var gueltig = !isNaN(tag.getTime());
+    var r = (APP_DATA.restaurants || []).find(function (x) { return x.id == reservation.restaurantId; }) || {};
+    var adresse = [String(r.street || '').replace(/,\s*$/, ''), [r.zip, r.city].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+    var ziel = r.lat && r.lng ? (r.lat + ',' + r.lng) : adresse;
+    var route = r.googleMapsUrl || (ziel ? 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(ziel) : '');
+    var name = escapeHtml(reservation.restaurantName || 'Das Restaurant');
+    var personen = parseInt(reservation.partySize, 10) || 0;
+    var symbol = function (pfad) { return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + pfad + '</svg>'; };
 
-    // Altes entfernen falls vorhanden
     var old = document.getElementById('confirmationModal');
     if (old) old.remove();
 
-    // Kleine Bestätigungs-Card — KIN Design
     var card = document.createElement('div');
     card.id = 'confirmationModal';
-    card.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:99999;width:calc(100% - 32px);max-width:380px;background:var(--bg-solid);border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,0.12);border:1px solid var(--border-color);animation:resCardSlideDown 0.4s ease;';
-
-    // Unterschiedliche Farben und Texte je nach Status
-    var iconColor = isPending ? '#92400e' : '#16a34a';
-    var iconBg = isPending ? 'rgba(146,64,14,0.1)' : 'rgba(22,163,74,0.1)';
-    var iconSvg = isPending
-        ? '<span class="material-symbols-outlined" style="font-size:20px;color:#92400e;">schedule</span>'
-        : '<span class="material-symbols-outlined" style="font-size:20px;color:#16a34a;">check</span>';
-    // "Bis Freitag, 19:00!" statt "Vielen Dank!" -- der Satz, den man im
-    // Restaurant zum Abschied sagt. Heute/morgen/Wochentag, sonst Datum.
-    var wann = reservierungWann(reservation.date, reservation.time);
-    var titleText = isPending ? 'Anfrage gesendet!' : 'Bis ' + wann + '!';
-    var subtitleText = isPending
-        ? 'Für ' + wann + ' – das Restaurant bestätigt in Kürze'
-        : escapeHtml(reservation.restaurantName || 'Das Restaurant') + ' freut sich auf Sie';
-
+    card.className = 'kmi-resok';
+    card.setAttribute('role', 'dialog');
+    card.setAttribute('aria-modal', 'true');
+    card.setAttribute('aria-labelledby', 'kmiResOkTitel');
     card.innerHTML = ''
-        + '<div style="padding:20px;">'
-        +   '<div style="display:flex;justify-content:space-between;align-items:flex-start;">'
-        +     '<div style="display:flex;align-items:center;gap:12px;">'
-        +       '<div class="kmi-haken-auf" style="width:40px;height:40px;background:' + iconBg + ';border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
-        +         iconSvg
-        +       '</div>'
-        +       '<div>'
-        +         '<div style="font-family:Epilogue,sans-serif;font-size:16px;font-weight:700;color:var(--text-primary);">' + titleText + '</div>'
-        +         '<div style="font-size:13px;color:var(--text-secondary);margin-top:2px;">' + subtitleText + '</div>'
-        +       '</div>'
-        +     '</div>'
-        +     '<button onclick="closeConfirmationModal()" style="width:32px;height:32px;border-radius:50%;border:none;background:var(--bg-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--text-secondary);">'
-        +       '<span class="material-symbols-outlined" style="font-size:16px;">close</span>'
-        +     '</button>'
-        +   '</div>'
-        +   '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">'
-        +     '<div style="flex:1;min-width:0;background:var(--bg-secondary);border-radius:16px;padding:10px 12px;text-align:center;">'
-        +       '<div style="font-size:11px;color:var(--text-secondary);margin-bottom:2px;">Datum</div>'
-        +       '<div style="font-size:13px;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + formattedDate + '</div>'
-        +     '</div>'
-        +     '<div style="min-width:70px;background:var(--bg-secondary);border-radius:16px;padding:10px 12px;text-align:center;">'
-        +       '<div style="font-size:11px;color:var(--text-secondary);margin-bottom:2px;">Uhrzeit</div>'
-        +       '<div style="font-size:13px;font-weight:600;color:var(--text-primary);">' + reservation.time + '</div>'
-        +     '</div>'
-        +     '<div style="min-width:60px;background:var(--bg-secondary);border-radius:16px;padding:10px 12px;text-align:center;">'
-        +       '<div style="font-size:11px;color:var(--text-secondary);margin-bottom:2px;">Gäste</div>'
-        +       '<div style="font-size:13px;font-weight:600;color:var(--text-primary);">' + reservation.partySize + '</div>'
+        + '<button type="button" class="kmi-resok-zu" onclick="closeConfirmationModal()" aria-label="Schließen">' + symbol('<path d="M6 6l12 12M18 6L6 18"></path>') + '</button>'
+        + '<div class="kmi-resok-kopf">'
+        +   '<div class="kmi-resok-haken kmi-haken-auf">' + (isPending ? symbol('<circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path>') : symbol('<path d="M5 12.5l4.5 4.5L19 7"></path>')) + '</div>'
+        +   '<h2 id="kmiResOkTitel">' + (isPending ? 'Anfrage gesendet!' : 'Bis ' + escapeHtml(wann) + '!') + '</h2>'
+        +   '<p>' + (isPending ? 'Für ' + escapeHtml(wann) + ' – ' + name + ' bestätigt in Kürze.' : name + ' freut sich auf Sie.') + '</p>'
+        + '</div>'
+        + '<div class="kmi-resok-karte">'
+        +   '<div class="kmi-resok-zeile">'
+        +     (gueltig ? '<div class="kmi-resok-datum"><small>' + tag.toLocaleDateString('de-DE', { weekday: 'short' }).replace('.', '') + '</small><b>' + tag.getDate() + '</b><span>' + tag.toLocaleDateString('de-DE', { month: 'long' }) + '</span></div>' : '')
+        +     '<div class="kmi-resok-fakten">'
+        +       '<span>' + symbol('<circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path>') + escapeHtml(String(reservation.time || '').slice(0, 5)) + ' Uhr</span>'
+        +       (personen ? '<span>' + symbol('<circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20c.8-3.5 3.3-5 6.5-5s5.7 1.5 6.5 5"></path><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 15c2 .6 3.2 2.2 3.5 5"></path>') + personen + (personen === 1 ? ' Person' : ' Personen') + '</span>' : '')
+        +       (adresse ? '<span class="leise">' + symbol('<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"></path><circle cx="12" cy="9.5" r="2.5"></circle>') + escapeHtml(adresse) + '</span>' : '')
         +     '</div>'
         +   '</div>'
-        +   '<button onclick="kalenderFuerLetzteReservierung();event.stopPropagation();" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:12px;padding:10px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:16px;font-size:13px;font-weight:600;cursor:pointer;color:var(--text-primary);font-family:Inter,sans-serif;">'
-        +     '<span class="material-symbols-outlined" style="font-size:16px;color:var(--primary);">calendar_today</span>'
-        +     'Im Kalender speichern'
-        +   '</button>'
-        +   '<div id="resPushOptInBanner" style="margin-top:12px;">' + (typeof renderPushOptInBanner === 'function' ? renderPushOptInBanner() : '') + '</div>'
-        + '</div>';
-
-    // Animation CSS
-    if (!document.getElementById('resCardStyles')) {
-        var s = document.createElement('style');
-        s.id = 'resCardStyles';
-        s.textContent = '@keyframes resCardSlideDown{from{transform:translateX(-50%) translateY(-30px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}';
-        document.head.appendChild(s);
-    }
+        +   '<div id="kmiResOkAktion"></div>'
+        +   '<div class="kmi-resok-knoepfe">'
+        +     '<button type="button" class="haupt" onclick="kalenderFuerLetzteReservierung();event.stopPropagation();">' + symbol('<rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M3 10h18M8 3v4M16 3v4"></path>') + 'In den Kalender</button>'
+        +     (route ? '<a href="' + escapeHtml(route) + '" target="_blank" rel="noopener"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 3L3 10.5l7.5 3 3 7.5L21 3z"></path></svg>Route</a>' : '')
+        +   '</div>'
+        + '</div>'
+        // Erinnert wird per E-Mail, nicht per Push (Ibo, 07.10.2026) -- deshalb
+        // hier kein Benachrichtigungs-Knopf. Die Saetze stehen nur da, wenn sie
+        // stimmen: den Absage-Link schickt order-email.js sofort mit, wenn eine
+        // Adresse da ist; die Erinnerung (reservation-reminder.js) kommt nur fuer
+        // BESTAETIGTE Termine, am Tag selbst zwischen 9 und 11 Uhr, frueestens
+        // 3 Stunden nach der Buchung -- sicher also nur fuer einen spaeteren Tag.
+        + (reservation.guestEmail
+            ? '<p class="kmi-resok-fuss">'
+              + (!isPending && gueltig && String(reservation.date) > localDayStr(new Date()) ? 'Am Tag selbst kommt vormittags eine Erinnerung per E-Mail.<br>' : '')
+              + 'Ändern oder absagen: Link in der Bestätigungs-E-Mail.</p>'
+            : '');
 
     // Aktion fuer diesen Termin -- mit textContent, der Text kommt vom Server.
     if (window._letzteAktion && window._letzteAktion.text) {
         var _ak = document.createElement('div');
-        _ak.style.cssText = 'margin:0 20px 18px;padding:12px 14px;border-radius:14px;background:#fff4cc;color:#5c4600;font-size:13px;font-weight:600;line-height:1.45;';
+        _ak.className = 'kmi-resok-aktion';
         _ak.textContent = window._letzteAktion.text
             + (window._letzteAktion.gespeichert === false ? ' — bitte beim Ankommen kurz erwähnen.' : '');
-        card.appendChild(_ak);
+        card.querySelector('#kmiResOkAktion').appendChild(_ak);
     }
     window._letzteAktion = null;
     document.body.appendChild(card);
-
-    // Auto-Close nach 8 Sekunden
-    setTimeout(function() {
-        var el = document.getElementById('confirmationModal');
-        if (el) {
-            el.style.transition = 'opacity 0.3s, transform 0.3s';
-            el.style.opacity = '0';
-            el.style.transform = 'translateX(-50%) translateY(-20px)';
-            setTimeout(function() { if (el) el.remove(); }, 300);
-        }
-    }, 8000);
+    try { card.querySelector('.kmi-resok-zu').focus(); } catch (e) {}
 }
 
 // ==================== RESERVIERUNG STATUS-UPDATE OVERLAY (wie bei Bestellungen) ====================
@@ -31554,7 +31596,7 @@ function addReservationToCalendar(restaurantName, date, time, partySize, restaur
     function stempel(d) { return d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0') + 'T' + String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0') + '00'; }
     var dtStart = String(date).replace(/-/g, '') + 'T' + String(sh).padStart(2, '0') + String(sm).padStart(2, '0') + '00';
     var r = (typeof APP_DATA !== 'undefined' && APP_DATA.restaurants || []).find(function (x) { return x.id == restaurantId; }) || {};
-    var ort = [restaurantName, r.address, [r.zip || r.postal_code, r.city].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+    var ort = [restaurantName, String(r.street || r.address || '').replace(/,\s*$/, ''), [r.zip || r.postal_code, r.city].filter(Boolean).join(' ')].filter(Boolean).join(', ');
     var jetzt = new Date();
     var dtStamp = jetzt.getUTCFullYear() + String(jetzt.getUTCMonth() + 1).padStart(2, '0') + String(jetzt.getUTCDate()).padStart(2, '0') + 'T'
         + String(jetzt.getUTCHours()).padStart(2, '0') + String(jetzt.getUTCMinutes()).padStart(2, '0') + String(jetzt.getUTCSeconds()).padStart(2, '0') + 'Z';
@@ -31593,9 +31635,10 @@ function addReservationToCalendar(restaurantName, date, time, partySize, restaur
 }
 
 function closeConfirmationModal() {
+    // Die Bestaetigung hat es schon gesagt. "Reservierung gespeichert!"
+    // stimmte ausserdem bei Anfragen nicht -- die sind noch nicht bestaetigt.
     const modal = document.getElementById('confirmationModal');
     if (modal) modal.remove();
-    showToast('Reservierung gespeichert!', 'success');
 }
 
 // ==================== DASHBOARD SECTION SWITCHING ====================
@@ -57240,7 +57283,8 @@ async function submitOrder() {
             var _lpRid = currentOrderRestaurant.id;
             var _lpBox = document.getElementById('ocStempelMoment');
             if (_lpBox) _lpBox.innerHTML = '';
-            addLoyaltyPoint(phone, _lpRid).then(function (ok) { if (ok) stempelMoment(phone, _lpRid); });
+            var _lpName = currentOrderRestaurant.name || '';
+            addLoyaltyPoint(phone, _lpRid).then(function (ok) { if (ok) stempelMoment(phone, _lpRid, _lpName); });
         }
     } catch(e) {}
     // Das Sterne-Fenster nach 60 Sekunden ist raus -- siehe den Block
@@ -58660,8 +58704,8 @@ function renderDashboardOrders() {
         // Leer ODER nicht geladen -- das muss man unterscheiden koennen.
         var _et = document.getElementById('ordersEmptyTitel'), _ex = document.getElementById('ordersEmptyText');
         var _kaputt = typeof ladeStandFehlt === 'function' && ladeStandFehlt('bestellungen');
-        if (_et) _et.textContent = _kaputt ? 'Bestellungen konnten nicht geladen werden' : 'Keine Bestellungen';
-        if (_ex) _ex.textContent = _kaputt ? 'Es kann sein, dass Bestellungen da sind. Bitte oben „Nochmal versuchen“ – oder kurz im Netz nachsehen.' : 'Neue Bestellungen erscheinen hier automatisch';
+        if (_et) _et.textContent = _kaputt ? 'Es können neue Bestellungen da sein' : 'Keine Bestellungen';
+        if (_ex) _ex.textContent = _kaputt ? 'Bitte WLAN prüfen oder oben „Nochmal“ drücken. Wir versuchen es alle 15 Sekunden von selbst.' : 'Neue Bestellungen erscheinen hier automatisch';
         // (Diagnose-Zeile entfernt — Details weiterhin in window._kmiOrdersDiag,
         //  aber nicht mehr in der Oberfläche sichtbar.)
         if (emptyState) {
@@ -76849,7 +76893,7 @@ async function addLoyaltyPoint(phone, restaurantId) {
 // er in der Bestaetigung -- der neue Stempel springt kurz auf, auf Android
 // vibriert es einmal kurz. Beides entfaellt bei "Bewegung reduzieren".
 // Gezeigt wird er NUR, wenn die Datenbank ihn angenommen hat.
-function stempelMoment(phone, restId) {
+function stempelMoment(phone, restId, lokalName) {
     var box = document.getElementById('ocStempelMoment');
     if (!box) return;
     var d = getLoyaltyData(phone, restId) || {};
@@ -76857,14 +76901,20 @@ function stempelMoment(phone, restId) {
     if (!gesamt) return;
     var aufKarte = gesamt % 10 === 0 ? 10 : gesamt % 10;
     var geschafft = gesamt % 10 === 0;
-    var kreise = '';
+    var haken = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>';
+    var geschenk = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12v8H4v-8M2 7h20v5H2zM12 22V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path></svg>';
+    var felder = '';
     for (var i = 1; i <= 10; i++) {
-        kreise += '<span class="kmi-stempel-punkt' + (i <= aufKarte ? ' voll' : '') + (i === aufKarte ? ' neu' : '') + '" aria-hidden="true"></span>';
+        if (i <= aufKarte) felder += '<span class="kmi-stempel-punkt voll' + (i === aufKarte ? ' neu' : '') + '">' + haken + '</span>';
+        else if (i === 10) felder += '<span class="kmi-stempel-punkt ziel">' + geschenk + '</span>';
+        else felder += '<span class="kmi-stempel-punkt"><b>' + i + '</b></span>';
     }
-    box.innerHTML = '<div class="kmi-stempel-moment">'
-        + '<div class="kmi-stempel-reihe">' + kreise + '</div>'
-        + '<strong>' + (geschafft ? 'Geschafft – dein Gratis-Essen wartet!' : 'Stempel ' + aufKarte + ' von 10') + '</strong>'
-        + '<span>' + (geschafft ? 'Beim nächsten Mal im Warenkorb einlösen.' : 'Noch ' + (10 - aufKarte) + ' bis zum Gratis-Essen.') + '</span>'
+    var name = String(lokalName || '').replace(/[&<>"']/g, '');
+    box.innerHTML = '<div class="kmi-stempel-moment" role="status">'
+        + '<div class="kmi-stempel-kopf"><span>' + geschenk + 'Stempelkarte</span>' + (name ? '<em>' + name + '</em>' : '') + '</div>'
+        + '<div class="kmi-stempel-reihe">' + felder + '</div>'
+        + '<strong>' + (geschafft ? 'Geschafft – dein Gratis-Essen wartet!' : 'Neuer Stempel! ' + aufKarte + ' von 10') + '</strong>'
+        + '<span class="kmi-stempel-unter">' + (geschafft ? 'Beim nächsten Mal im Warenkorb einlösen.' : 'Noch ' + (10 - aufKarte) + (10 - aufKarte === 1 ? ' Bestellung' : ' Bestellungen') + ' bis zum Gratis-Essen.') + '</span>'
         + '</div>';
     try {
         var ruhig = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;

@@ -43,25 +43,34 @@ function tagIn(d) { var x = new Date(); x.setDate(x.getDate() + d); return x.toL
 t('heute', sb.reservierungWann(tagIn(0), '19:00:00') === 'heute, 19:00', sb.reservierungWann(tagIn(0), '19:00:00'));
 t('morgen', sb.reservierungWann(tagIn(1), '19:30') === 'morgen, 19:30', sb.reservierungWann(tagIn(1), '19:30'));
 t('in drei Tagen: Wochentag', /^[A-ZÄÖÜ][a-zäöü]+tag|^Mittwoch|^Samstag|^Sonnabend/.test(sb.reservierungWann(tagIn(3), '20:00')) && /, 20:00$/.test(sb.reservierungWann(tagIn(3), '20:00')), sb.reservierungWann(tagIn(3), '20:00'));
-t('Bestaetigung sagt "Bis ...!" statt "Vielen Dank!"', /var titleText = isPending \? 'Anfrage gesendet!' : 'Bis ' \+ wann \+ '!';/.test(H), '');
+t('Bestaetigung sagt "Bis ...!" statt "Vielen Dank!"', /\(isPending \? 'Anfrage gesendet!' : 'Bis ' \+ escapeHtml\(wann\) \+ '!'\)/.test(H), '');
+var conf = fn('showReservationConfirmation');
+t('Bestaetigung bleibt stehen (kein Auto-Schliessen nach 8 s mehr)', conf.length > 1000 && !/setTimeout/.test(conf), '');
+t('kein Push-Knopf in der Bestaetigung -- erinnert wird per E-Mail', !/renderPushOptInBanner/.test(conf), '');
+t('Erinnerungs-Satz nur fuer bestaetigt + E-Mail + spaeteren Tag', /!isPending && gueltig && String\(reservation\.date\) > localDayStr\(new Date\(\)\)/.test(conf) && /reservation\.guestEmail\s*\?/.test(conf), '');
+t('Route und Kalender in der Bestaetigung', /In den Kalender/.test(conf) && /google\.com\/maps\/dir\/\?api=1&destination=/.test(conf), '');
 t('Restaurantname in der Bestaetigung escaped', /escapeHtml\(reservation\.restaurantName \|\| 'Das Restaurant'\)/.test(H), '');
 
 // ---------- Stempel-Moment ----------
 var alp = fn('addLoyaltyPoint');
 t('addLoyaltyPoint meldet Erfolg (true) und Rueckfall aufs Geraet (false)', /return true;\s*\} catch\(e\)/.test(alp) && /return false;\s*\}\s*\}$/.test(alp.trim()), '');
 t('Moment nur, wenn die Datenbank den Stempel angenommen hat',
-  /addLoyaltyPoint\(phone, _lpRid\)\.then\(function \(ok\) \{ if \(ok\) stempelMoment\(phone, _lpRid\); \}\)/.test(H), '');
+  /addLoyaltyPoint\(phone, _lpRid\)\.then\(function \(ok\) \{ if \(ok\) stempelMoment\(phone, _lpRid, _lpName\); \}\)/.test(H), '');
 t('Platz fuer den Moment in der Bestellbestaetigung', /<div id="ocStempelMoment" aria-live="polite"><\/div>/.test(H), '');
 var sm = fn('stempelMoment');
 t('Vibrieren nur ohne "Bewegung reduzieren"', /prefers-reduced-motion: reduce/.test(sm) && /if \(!ruhig && navigator\.vibrate\)/.test(sm), '');
 // Moment wirklich rendern
 var box = { innerHTML: '' };
 var sb2 = { document: { getElementById: function () { return box; } }, getLoyaltyData: function () { return { orders: 13 }; }, window: {}, navigator: {} };
-vm.createContext(sb2); vm.runInContext(sm, sb2); sb2.stempelMoment('0491', 'r1');
-t('13. Bestellung: "Stempel 3 von 10", drei volle Punkte, der dritte neu',
-  /Stempel 3 von 10/.test(box.innerHTML) && (box.innerHTML.match(/ voll/g) || []).length === 3 && /voll neu/.test(box.innerHTML) && /Noch 7 bis/.test(box.innerHTML), box.innerHTML.slice(0, 120));
+vm.createContext(sb2); vm.runInContext(sm, sb2); sb2.stempelMoment('0491', 'r1', 'Zum <b>Kutter</b>');
+t('13. Bestellung: "Neuer Stempel! 3 von 10", drei volle Felder, das dritte neu, Geschenk auf Feld 10',
+  /Neuer Stempel! 3 von 10/.test(box.innerHTML) && (box.innerHTML.match(/ voll/g) || []).length === 3 && /voll neu/.test(box.innerHTML)
+  && /Noch 7 Bestellungen bis/.test(box.innerHTML) && /kmi-stempel-punkt ziel/.test(box.innerHTML) && /<b>9<\/b>/.test(box.innerHTML), box.innerHTML.slice(0, 160));
+t('Lokalname im Kopf, ohne HTML', /<em>Zum bKutter\/b<\/em>/.test(box.innerHTML) && !/<b>Kutter/.test(box.innerHTML), (box.innerHTML.match(/<em>.*?<\/em>/) || [''])[0]);
+sb2.getLoyaltyData = function () { return { orders: 19 }; }; sb2.stempelMoment('0491', 'r1');
+t('19. Bestellung: "Noch 1 Bestellung" (Einzahl)', /Noch 1 Bestellung bis/.test(box.innerHTML), '');
 sb2.getLoyaltyData = function () { return { orders: 20 }; }; sb2.stempelMoment('0491', 'r1');
-t('20. Bestellung: "Geschafft"', /Geschafft/.test(box.innerHTML) && (box.innerHTML.match(/ voll/g) || []).length === 10, box.innerHTML.slice(0, 120));
+t('20. Bestellung: "Geschafft", alle 10 voll, kein Geschenk-Platzhalter mehr', /Geschafft/.test(box.innerHTML) && (box.innerHTML.match(/ voll/g) || []).length === 10 && !/ziel/.test(box.innerHTML), box.innerHTML.slice(0, 120));
 
 // ---------- Knoepfe ----------
 t('Knoepfe geben nach -- mit "scale", nicht "transform" (verschiebt sonst zentrierte Knoepfe)',

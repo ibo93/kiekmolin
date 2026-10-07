@@ -40,8 +40,11 @@ t('und benutzt nicht mehr die durchsichtige Kartenfarbe',
 
 var conf = h.slice(h.indexOf('function showReservationConfirmation'));
 conf = conf.slice(0, 3000);
+// Seit 07.10.2026 ein ganzer Bildschirm mit Klasse .kmi-resok -- deckend
+// gruen statt --bg-solid. Geprueft wird weiter, was zaehlt: deckend.
 t('die Reservierungs-Bestaetigung ist deckend',
-  /position:fixed[^']*var\(--bg-solid\)/.test(conf), conf.slice(conf.indexOf('cssText'), conf.indexOf('cssText') + 200));
+  /card\.className = 'kmi-resok';/.test(conf) && /\.kmi-resok \{ position: fixed;[^}]*background: #003d33;/.test(h)
+  && /\.kmi-resok-karte \{[^}]*background: #ffffff;/.test(h), conf.slice(0, 200));
 
 console.log('\n-- Der Allergen-Text selbst --');
 

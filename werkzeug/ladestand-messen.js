@@ -66,7 +66,9 @@ var RID = '11111111-1111-4111-8111-111111111111';
   var st = await stand('bestellungen');
   pruef('Bestellungen 500: rote Zeile "Nicht aktuell"', st && /fehler/.test(st.klasse) && /Nicht aktuell/.test(st.text), JSON.stringify(st));
   var le = await leer();
-  pruef('... und der leere Zustand sagt NICHT "Keine Bestellungen"', /nicht geladen/.test(le), le);
+  pruef('... und der leere Zustand sagt NICHT "Keine Bestellungen"', /Es können neue Bestellungen da sein/.test(le), le);
+  var rand = await s.evaluate(function () { return document.getElementById('ordersGrid').classList.contains('kmi-veraltet'); });
+  pruef('... und die Liste hat den gestrichelten Rand (alter Stand)', rand === true, rand);
   modus.orders = 'leer'; await s.evaluate(function () { return loadDashboardOrders(); }); await s.waitForTimeout(300);
   st = await stand('bestellungen'); le = await leer();
   pruef('Bestellungen []: "Zuletzt geprüft HH:MM"', st && /ok/.test(st.klasse) && /Zuletzt geprüft \d\d:\d\d/.test(st.text), JSON.stringify(st));
@@ -76,6 +78,12 @@ var RID = '11111111-1111-4111-8111-111111111111';
   var karten = await s.evaluate(function () { return dashboardOrders.length + '/' + (document.getElementById('ordersGrid').textContent.indexOf('KM-0001') > -1); });
   pruef('erst Daten, dann Ausfall: die Bestellung bleibt stehen', karten === '1/true', karten);
   await s.locator('#sectionOrders').screenshot({ path: path.join(__dirname, 'ausgabe', 'ladestand-bestellungen.png') }).catch(function () {});
+
+  // --- neuer Versuch von selbst ---
+  modus.orders = 'kaputt'; await s.evaluate(function () { return loadDashboardOrders(); }); await s.waitForTimeout(300);
+  modus.orders = 'leer'; await s.waitForTimeout(16500);
+  st = await stand('bestellungen');
+  pruef('Datenbank wieder da: nach 15 s von selbst "Zuletzt geprüft"', st && /ok/.test(st.klasse), JSON.stringify(st));
 
   // --- Reservierungen ---
   await zeige('sectionReservations');
