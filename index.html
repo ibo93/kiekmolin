@@ -632,14 +632,124 @@
         istDunkel: function () {
             return document.body.classList.contains('dark-mode');
         },
+        // ---------------------------------------------------------------
+        // LANDKARTE NACH DEM ENTWURF (07.10.2026). Ibo: "die map ist immer
+        // noch das alte ... nicht das andere drum herum" -- gemeint war der
+        // HINTERGRUND. Fertige Kachelbilder (Esri) lassen sich nicht
+        // umfaerben; der Entwurf hat eigene Farben (Land #ecedeb, Wasser
+        // #cdd7da, Gruen #e1e9df, weisse Strassen) und deutsche Namen.
+        // Darum eine Vektorkarte: OpenStreetMap-Daten von OpenFreeMap
+        // (kein Konto, kein Schluessel), gemalt mit den Farben hier.
+        //
+        // WIE SIEHT ES AUS, WENN ES KAPUTT IST? (Regel 6) Ohne WebGL, ohne
+        // Bibliothek oder ohne Kartendaten waere die Flaeche einfarbig --
+        // wie eine Karte ohne Orte. Deshalb liegt die Esri-Karte darunter
+        // und wird erst entfernt, wenn die Vektorkarte WIRKLICH Daten hat.
+        // Kommt nach 8 Sekunden nichts: Esri bleibt.
+        VEKTOR_JS: 'https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js',
+        VEKTOR_CSS: 'https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css',
+        BRUECKE_JS: 'https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.4/leaflet-maplibre-gl.js',
+        VEKTOR_QUELLE: 'https://tiles.openfreemap.org/planet',
+        VEKTOR_SCHRIFT: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+        VEKTOR_HINWEIS: '<a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> &copy; <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>',
+        VEKTOR_WARTEN: 8000,
+        // Farben 1:1 aus den Entwuerfen "Karte hell" und "Karte dunkel".
+        FARBEN: {
+            hell:   { land: '#ecedeb', wasser: '#cdd7da', fluss: '#c4cfd2', gruen: '#e1e9df', wohnen: '#e6e8e5', haus: '#dde1df', strasse: '#ffffff', rand: '#d6d9d8', weg: '#d6d9d8', bahn: '#c9cfcd', ort: '#5f6b68', wassertext: '#3f5357', strassentext: '#5f6b68' },
+            dunkel: { land: '#232525', wasser: '#181b1d', fluss: '#1b1e20', gruen: '#26302b', wohnen: '#262928', haus: '#2c2f2e', strasse: '#3a3d3c', rand: '#2a2c2c', weg: '#333635', bahn: '#333635', ort: '#b9c0be', wassertext: '#8f9b9e', strassentext: '#9aa3a0' }
+        },
+        webgl: function () {
+            try { var c = document.createElement('canvas'); return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl'))); } catch (e) { return false; }
+        },
+        _laden: null,
+        vektorLaden: function () {
+            if (KARTE._laden) return KARTE._laden;
+            KARTE._laden = new Promise(function (ok, schief) {
+                if (!KARTE.webgl()) return schief(new Error('kein WebGL'));
+                if (window.maplibregl && window.L && L.maplibreGL) return ok();
+                var uhr = setTimeout(function () { schief(new Error('Vektorkarte laedt nicht')); }, KARTE.VEKTOR_WARTEN);
+                var css = document.createElement('link'); css.rel = 'stylesheet'; css.href = KARTE.VEKTOR_CSS; document.head.appendChild(css);
+                function skript(src, weiter) {
+                    var s = document.createElement('script'); s.src = src; s.async = true;
+                    s.onload = weiter; s.onerror = function () { clearTimeout(uhr); schief(new Error('nicht geladen: ' + src)); };
+                    document.head.appendChild(s);
+                }
+                skript(KARTE.VEKTOR_JS, function () { skript(KARTE.BRUECKE_JS, function () { clearTimeout(uhr); (window.maplibregl && L.maplibreGL) ? ok() : schief(new Error('Bruecke fehlt')); }); });
+            });
+            KARTE._laden.catch(function () { KARTE._laden = null; });
+            return KARTE._laden;
+        },
+        stil: function (dunkel) {
+            var f = dunkel ? KARTE.FARBEN.dunkel : KARTE.FARBEN.hell;
+            var name = ['coalesce', ['get', 'name:de'], ['get', 'name_de'], ['get', 'name']];
+            var breit = function (a, b) { return ['interpolate', ['exponential', 1.6], ['zoom'], 9, a, 18, b]; };
+            var gross = ['motorway', 'trunk', 'primary', 'secondary', 'tertiary'];
+            return {
+                version: 8, glyphs: KARTE.VEKTOR_SCHRIFT,
+                sources: { omt: { type: 'vector', url: KARTE.VEKTOR_QUELLE } },
+                layers: [
+                    { id: 'land', type: 'background', paint: { 'background-color': f.land } },
+                    { id: 'wohnen', type: 'fill', source: 'omt', 'source-layer': 'landuse', minzoom: 11, filter: ['in', ['get', 'class'], ['literal', ['residential', 'suburb', 'neighbourhood']]], paint: { 'fill-color': f.wohnen } },
+                    { id: 'gruen', type: 'fill', source: 'omt', 'source-layer': 'landcover', filter: ['in', ['get', 'class'], ['literal', ['wood', 'forest']]], paint: { 'fill-color': f.gruen } },
+                    { id: 'park', type: 'fill', source: 'omt', 'source-layer': 'park', paint: { 'fill-color': f.gruen } },
+                    { id: 'gruenflaeche', type: 'fill', source: 'omt', 'source-layer': 'landuse', minzoom: 12, filter: ['in', ['get', 'class'], ['literal', ['park', 'cemetery', 'pitch', 'stadium', 'recreation_ground']]], paint: { 'fill-color': f.gruen } },
+                    { id: 'wasser', type: 'fill', source: 'omt', 'source-layer': 'water', paint: { 'fill-color': f.wasser } },
+                    { id: 'fluss', type: 'line', source: 'omt', 'source-layer': 'waterway', paint: { 'line-color': f.fluss, 'line-width': breit(0.6, 5) } },
+                    { id: 'haus', type: 'fill', source: 'omt', 'source-layer': 'building', minzoom: 14, paint: { 'fill-color': f.haus } },
+                    { id: 'weg', type: 'line', source: 'omt', 'source-layer': 'transportation', minzoom: 14, filter: ['in', ['get', 'class'], ['literal', ['path', 'track']]], paint: { 'line-color': f.weg, 'line-width': 1, 'line-dasharray': [2, 2] } },
+                    { id: 'bahn', type: 'line', source: 'omt', 'source-layer': 'transportation', minzoom: 10, filter: ['==', ['get', 'class'], 'rail'], paint: { 'line-color': f.bahn, 'line-width': 1.2 } },
+                    { id: 'nebenstrasse', type: 'line', source: 'omt', 'source-layer': 'transportation', minzoom: 12, filter: ['in', ['get', 'class'], ['literal', ['minor', 'service']]], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': f.strasse, 'line-width': breit(0.4, 9) } },
+                    { id: 'strasse-rand', type: 'line', source: 'omt', 'source-layer': 'transportation', filter: ['in', ['get', 'class'], ['literal', gross]], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': f.rand, 'line-width': breit(1.6, 18) } },
+                    { id: 'strasse', type: 'line', source: 'omt', 'source-layer': 'transportation', filter: ['in', ['get', 'class'], ['literal', gross]], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': f.strasse, 'line-width': breit(0.9, 14) } },
+                    { id: 'strassenname', type: 'symbol', source: 'omt', 'source-layer': 'transportation_name', minzoom: 14, layout: { 'symbol-placement': 'line', 'text-field': name, 'text-font': ['Noto Sans Regular'], 'text-size': 11 }, paint: { 'text-color': f.strassentext, 'text-halo-color': f.land, 'text-halo-width': 1.5 } },
+                    { id: 'wassername', type: 'symbol', source: 'omt', 'source-layer': 'water_name', layout: { 'text-field': name, 'text-font': ['Noto Sans Italic'], 'text-size': 12 }, paint: { 'text-color': f.wassertext, 'text-halo-color': f.land, 'text-halo-width': 1.2 } },
+                    { id: 'ort-klein', type: 'symbol', source: 'omt', 'source-layer': 'place', minzoom: 10, filter: ['in', ['get', 'class'], ['literal', ['village', 'suburb', 'hamlet', 'quarter', 'neighbourhood']]], layout: { 'text-field': name, 'text-font': ['Noto Sans Regular'], 'text-size': 12 }, paint: { 'text-color': f.ort, 'text-halo-color': f.land, 'text-halo-width': 1.5 } },
+                    { id: 'ort', type: 'symbol', source: 'omt', 'source-layer': 'place', filter: ['in', ['get', 'class'], ['literal', ['city', 'town']]], layout: { 'text-field': name, 'text-font': ['Noto Sans Bold'], 'text-size': ['interpolate', ['linear'], ['zoom'], 6, 11, 12, 15] }, paint: { 'text-color': f.ort, 'text-halo-color': f.land, 'text-halo-width': 1.5 } }
+                ]
+            };
+        },
+        // Vektorkarte ueber die Esri-Ebene legen; Esri erst wegnehmen, wenn
+        // die Vektorkarte Daten hat. Faellt sie aus: Esri bleibt.
+        vektor: function (karte, dunkel) {
+            if (!karte || karte._kmiVektorVersuch) return;
+            karte._kmiVektorVersuch = true;
+            KARTE.vektorLaden().then(function () {
+                if (!karte._container || !karte._loaded) return;
+                var v = L.maplibreGL({ style: KARTE.stil(dunkel), attribution: KARTE.VEKTOR_HINWEIS });
+                v.addTo(karte);
+                var gl = v.getMaplibreMap(), fertig = false;
+                function aufgeben() { if (fertig) return; fertig = true; clearTimeout(uhr); try { karte.removeLayer(v); } catch (e) {} karte._kmiVektorFehler = true; }
+                var uhr = setTimeout(aufgeben, KARTE.VEKTOR_WARTEN);
+                gl.on('data', function (e) {
+                    if (fertig || e.dataType !== 'source' || e.sourceId !== 'omt' || !e.isSourceLoaded || !e.tile) return;
+                    fertig = true; clearTimeout(uhr);
+                    var alt = karte._kmiEbene;
+                    karte._kmiEbene = v; karte._kmiVektor = true; karte._kmiDunkel = !!dunkel;
+                    if (alt && alt !== v) try { karte.removeLayer(alt); } catch (x) {}
+                    // Quellenhinweis ist Pflicht (OSM-Lizenz). Die Bruecke traegt ihn
+                    // nicht selbst ein -- gemessen: unten stand nur "Leaflet".
+                    if (karte.attributionControl) karte.attributionControl.addAttribution(KARTE.VEKTOR_HINWEIS);
+                });
+                gl.on('error', function (e) {
+                    var u = String((e && e.error && (e.error.url || e.error.message)) || '');
+                    if (e && (e.sourceId === 'omt' || /openfreemap\.org\/planet|vector tile|TileJSON/i.test(u))) aufgeben();
+                });
+            }).catch(function () { karte._kmiVektorFehler = true; });
+        },
+
 
         // Hell/dunkel tauscht nur die Adresse in der bestehenden Ebene.
         // Vorher wurde die ganze Ebene weggeworfen und neu angelegt --
         // jede Kachel noch einmal uebers Netz, nur fuer eine Farbe.
         dunkelSetzen: function (karte, dunkel) {
             if (!karte || !karte._kmiEbene) return;
-            var will = dunkel ? KARTE.DUNKEL : KARTE.HELL;
-            if (karte._kmiEbene._url !== will) karte._kmiEbene.setUrl(will);
+            if (karte._kmiVektor) {
+                // Vektorkarte: nur die Farben tauschen, die Daten bleiben.
+                if (karte._kmiDunkel !== !!dunkel) { karte._kmiDunkel = !!dunkel; try { karte._kmiEbene.getMaplibreMap().setStyle(KARTE.stil(dunkel)); } catch (e) {} }
+            } else {
+                var will = dunkel ? KARTE.DUNKEL : KARTE.HELL;
+                if (karte._kmiEbene._url !== will) karte._kmiEbene.setUrl(will);
+            }
             if (karte.getContainer) karte.getContainer().classList.toggle('kd-dunkel', !!dunkel);
         },
 
@@ -652,6 +762,8 @@
                 attribution: KARTE.HINWEIS
             }).addTo(karte);
             if (karte.getContainer) karte.getContainer().classList.toggle('kd-dunkel', !!d);
+            var raster = karte._kmiEbene;
+            if (karte.whenReady) karte.whenReady(function () { if (karte._kmiEbene === raster) KARTE.vektor(karte, d); });
             return karte._kmiEbene;
         }
     };
