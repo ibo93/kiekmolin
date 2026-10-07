@@ -14272,6 +14272,24 @@
 .dark-mode .lp-fakt.zu { background: #3b1414; color: #fecaca; }
 .dark-mode .lp-fakt-knopf { background: #9cd1c3; color: #00251e; }
 .dark-mode .lp-fakt-knopf .material-symbols-outlined { color: #00251e; }
+/* GERADE BEI UNS (07.10.2026): vom Wirt per Tipp gesetzt, gilt 2 Stunden. */
+.kmi-andrang { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 9999px; font: 700 12px Inter, sans-serif; line-height: 1.3; }
+.kmi-andrang .material-symbols-outlined { font-size: 15px; }
+.kmi-andrang.ruhig { background: #dcfce7; color: #166534; }
+.kmi-andrang.warten { background: #fff4cc; color: #5c4600; }
+.kmi-andrang.voll { background: #fef2f2; color: #b91c1c; }
+.dark-mode .kmi-andrang.ruhig { background: #12321f; color: #86efac; }
+.dark-mode .kmi-andrang.warten { background: #3a2f0b; color: #fde68a; }
+.dark-mode .kmi-andrang.voll { background: #3b1414; color: #fecaca; }
+.lp-fakt.kmi-andrang { font-size: 14px; min-height: 36px; padding: 6px 14px; }
+.card-andrang { margin-top: 10px; }
+.andrang-wahl { display: flex; gap: 4px; padding: 4px; border-radius: 9999px; background: rgba(255,255,255,0.12); }
+.andrang-wahl button { flex: 1; min-height: 40px; padding: 0 8px; border: 0; border-radius: 9999px; background: transparent; color: #ffffff; font: 600 13px Inter, sans-serif; cursor: pointer; white-space: nowrap; }
+.andrang-wahl button[aria-pressed="true"] { background: #ffffff; color: #00251e; font-weight: 800; }
+.andrang-wahl button:disabled { opacity: 0.6; cursor: default; }
+/* bleibt im Dunkeln gleich: die Steuerungs-Karte ist in beiden Modi dunkelgruen */
+.dark-mode .andrang-wahl button[aria-pressed="true"] { background: #ffffff; color: #00251e; }
+.ha-karte .kmi-andrang { align-self: flex-start; margin-top: 4px; font-size: 11px; padding: 3px 9px; }
 .lp-ohne-foto { background: #003d33; background-image: radial-gradient(rgba(255,255,255,0.06) 1.5px, transparent 1.5px); background-size: 22px 22px; display: flex; align-items: center; justify-content: center; }
 .lp-ohne-foto span { font-family: Epilogue, sans-serif; font-weight: 800; font-size: 280px; line-height: 1; color: rgba(254,214,91,0.22); transform: translateY(-120px); }
 .dark-mode .lp-ohne-foto { background-color: #00251e; }
@@ -16925,6 +16943,20 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                                 <span style="font-family:Inter,sans-serif;font-size:12px;opacity:0.7;">Automatisch bestätigen</span>
                             </div>
                             <div class="toggle-switch" id="autoConfirmToggle" onclick="toggleFeature('auto_confirm')" style="width:44px;height:24px;"></div>
+                        </div>
+                        <!-- Gerade bei uns (07.10.2026): ein Tipp, Gaeste sehen es auf der Karte. Gilt 2 Stunden. -->
+                        <div style="padding-top:12px;border-top:1px solid rgba(255,255,255,0.15);">
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                                <span class="material-symbols-outlined" style="font-size:18px;">groups</span>
+                                <span style="font-family:Inter,sans-serif;font-size:13px;font-weight:600;">Gerade bei uns</span>
+                            </div>
+                            <div class="andrang-wahl" id="andrangWahl" role="group" aria-label="Gerade bei uns">
+                                <button type="button" data-andrang="" aria-pressed="true">Normal</button>
+                                <button type="button" data-andrang="ruhig" aria-pressed="false">Ruhig</button>
+                                <button type="button" data-andrang="warten" aria-pressed="false">ca. 30 Min.</button>
+                                <button type="button" data-andrang="voll" aria-pressed="false">Voll</button>
+                            </div>
+                            <div id="andrangStand" role="status" aria-live="polite" style="font-family:Inter,sans-serif;font-size:12px;line-height:1.4;margin-top:8px;color:#ffffff;">Gäste sehen nichts Besonderes.</div>
                         </div>
                         <!-- Die Vorbestellung stand hier, zwischen Online-Reservierungen
                              und Betriebsferien. Sie ist zu den Bestell-Einstellungen
@@ -24699,6 +24731,48 @@ function initLanguage() {
 // Betriebsferien werden ohne DB-Änderung als Eintrag im features-Array
 // gespeichert: "vacation:YYYY-MM-DD:YYYY-MM-DD" (von/bis, beide einschließlich).
 // Liefert { from, to, active, coversDate(dateStr) } oder null.
+// GERADE BEI UNS (07.10.2026)
+//
+// Der Wirt tippt im Dashboard: ruhig / ca. 30 Min. Wartezeit / voll.
+// Gespeichert wie die Ferien im features-Array: "andrang:<stufe>:<bis>",
+// <bis> als ISO-Zeit. Keine neue Spalte, keine SQL-Datei.
+//
+// Er laeuft nach ZWEI STUNDEN von selbst ab. Ein "voll" von Freitagabend,
+// das am Samstagmittag noch dasteht, schickt Gaeste weg -- genau so ein
+// stiller Fehler, der wie eine Antwort aussieht. Und gezeigt wird es nur,
+// solange das Lokal laut Oeffnungszeiten offen hat.
+var ANDRANG = {
+    ruhig:  { text: 'Gerade ruhig – einfach vorbeikommen', kurz: 'Gerade ruhig', icon: 'check_circle' },
+    warten: { text: 'Gerade ca. 30 Min. Wartezeit', kurz: 'ca. 30 Min. warten', icon: 'timer' },
+    voll:   { text: 'Gerade voll – lieber reservieren', kurz: 'Gerade voll', icon: 'group' }
+};
+var ANDRANG_DAUER_MIN = 120;
+function andrangInfo(restaurant, jetzt) {
+    var feats = (restaurant && restaurant.features) || [];
+    if (!Array.isArray(feats)) return null;
+    jetzt = jetzt || new Date();
+    for (var i = 0; i < feats.length; i++) {
+        var m = String(feats[i]).match(/^andrang:(ruhig|warten|voll):(.+)$/);
+        if (!m) continue;
+        var bis = new Date(m[2]);
+        if (isNaN(bis.getTime()) || bis <= jetzt) return null;
+        return { stufe: m[1], bis: bis, text: ANDRANG[m[1]].text, kurz: ANDRANG[m[1]].kurz, icon: ANDRANG[m[1]].icon };
+    }
+    return null;
+}
+window.andrangInfo = andrangInfo;
+// Fuer den Gast: nur bei offenem Lokal. kurz = knappe Form fuer kleine Karten.
+function andrangHtml(restaurant, kurz, extraKlasse) {
+    var a = andrangInfo(restaurant);
+    if (!a) return '';
+    try { if (typeof checkIfOpen === 'function' && !checkIfOpen(restaurant)) return ''; } catch (e) { return ''; }
+    // "lieber reservieren" nur, wo man auch reservieren kann.
+    var ohneRes = (restaurant.features || []).indexOf('no_reservations') >= 0;
+    var text = kurz || (ohneRes && a.stufe === 'voll') ? a.kurz : a.text;
+    return '<span class="kmi-andrang ' + a.stufe + (extraKlasse ? ' ' + extraKlasse : '') + '"><span class="material-symbols-outlined" aria-hidden="true">' + a.icon + '</span>' + text + '</span>';
+}
+window.andrangHtml = andrangHtml;
+
 function getVacationInfo(restaurant) {
     try {
         var feats = (restaurant && restaurant.features) || [];
@@ -28753,6 +28827,7 @@ function renderRestaurants(filter) {
                          sobald die Angebote geladen sind, und bleibt leer, wenn
                          das Haus heute keines hat. -->
                     <div class="card-angebot" data-restaurant-id="${r.id}"></div>
+                    ${(function () { var _a = andrangHtml(r, false); return _a ? '<div class="card-andrang">' + _a + '</div>' : ''; })()}
                     <!-- Tisch-Verfügbarkeit (reservierungs-basiert, async geladen) -->
                     ${_cardNoRes ? '' : `<div class="card-availability" data-restaurant-id="${r.id}" style="display:flex;align-items:center;gap:8px;margin-top:10px;font-family:'Inter',sans-serif;font-size:12px;min-height:20px;">
                         <span class="card-slot-info" style="color:var(--text-secondary);font-size:12px;display:flex;align-items:center;gap:4px;">${_slotGemerkt(r.id)}</span>
@@ -28951,6 +29026,7 @@ function heuteAbendZeichnen() {
                 + '<span class="ha-name">' + escapeHtml(r.name || '') + '</span>'
                 + (unter ? '<span class="ha-unter">' + escapeHtml(unter) + '</span>' : '')
                 + '<span class="ha-offen"><i aria-hidden="true"></i>' + (bis ? 'Offen bis ' + escapeHtml(String(bis).slice(0, 5)) : 'Jetzt geöffnet') + '</span>'
+                + (typeof andrangHtml === 'function' ? andrangHtml(r, true) : '')
                 + '</span></button>';
         }).join('');
     }
@@ -35412,6 +35488,60 @@ function updateVacationUI(features) {
     }
 }
 
+function andrangUI(features) {
+    var wahl = document.getElementById('andrangWahl'), stand = document.getElementById('andrangStand');
+    if (!wahl) return;
+    var a = andrangInfo({ features: features || [] });
+    wahl.querySelectorAll('[data-andrang]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-andrang') === (a ? a.stufe : ''))); });
+    if (stand) stand.textContent = a
+        ? 'Gäste sehen: „' + a.text + '“ – bis ' + a.bis.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr, dann von selbst wieder normal.'
+        : 'Gäste sehen nichts Besonderes.';
+}
+window.andrangUI = andrangUI;
+
+// Speichern mit Probe: return=representation und mindestens eine Zeile
+// zurueck. Ohne Recht antwortet die Datenbank sonst 204 ohne Zeile -- das
+// saehe aus wie gespeichert, und der Gast saehe nichts.
+async function andrangSetzen(stufe) {
+    var restId = getControlRestaurantId();
+    var wahl = document.getElementById('andrangWahl'), stand = document.getElementById('andrangStand');
+    if (!restId) { showToast('Kein Restaurant gefunden', 'error'); return false; }
+    var knoepfe = wahl ? wahl.querySelectorAll('button') : [];
+    Array.prototype.forEach.call(knoepfe, function (b) { b.disabled = true; });
+    try {
+        var res = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
+        });
+        var data = await res.json();
+        if (!data || !data[0]) throw new Error('Restaurant nicht lesbar');
+        var features = (data[0].features || []).filter(function (f) { return String(f).indexOf('andrang:') !== 0; });
+        if (stufe) features.push('andrang:' + stufe + ':' + new Date(Date.now() + ANDRANG_DAUER_MIN * 60000).toISOString());
+        var upd = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=id,features', {
+            method: 'PATCH',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+            body: JSON.stringify({ features: features })
+        });
+        if (!upd.ok) throw new Error('HTTP ' + upd.status);
+        var zeilen = await upd.json();
+        if (!Array.isArray(zeilen) || !zeilen.length) throw new Error('keine Berechtigung – nichts gespeichert');
+        var appR = APP_DATA.restaurants ? APP_DATA.restaurants.find(function (r) { return r.id === restId; }) : null;
+        if (appR) appR.features = zeilen[0].features || features;
+        andrangUI(zeilen[0].features || features);
+        return true;
+    } catch (err) {
+        if (stand) stand.textContent = 'Nicht gespeichert: ' + (err && err.message || err) + '. Gäste sehen den alten Stand.';
+        showToast('„Gerade bei uns“ nicht gespeichert', 'error');
+        return false;
+    } finally {
+        Array.prototype.forEach.call(knoepfe, function (b) { b.disabled = false; });
+    }
+}
+window.andrangSetzen = andrangSetzen;
+document.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest ? e.target.closest('#andrangWahl [data-andrang]') : null;
+    if (b) andrangSetzen(b.getAttribute('data-andrang'));
+});
+
 async function _patchVacation(newEntry) {
     var restId = getControlRestaurantId();
     if (!restId) { showToast('Kein Restaurant gefunden', 'error'); return; }
@@ -35600,6 +35730,7 @@ function updateFeatureToggles(features) {
 
     // Betriebsferien-Felder mitpflegen
     if (typeof updateVacationUI === 'function') updateVacationUI(features);
+    if (typeof andrangUI === 'function') andrangUI(features);
 }
 
 /* DER ROTE BALKEN IM DASHBOARD DES WIRTS.
@@ -43167,6 +43298,7 @@ function lpVisitenkarte(rest, offen, schliesst) {
     } else {
         teile.push('<span class="lp-fakt zu"><i aria-hidden="true"></i>Gerade geschlossen</span>');
     }
+    if (offen && typeof andrangHtml === 'function') { var _and = andrangHtml(rest, false, 'lp-fakt'); if (_and) teile.push(_and); }
     if (typeof _userLat === 'number' && typeof _userLng === 'number' && rest.lat && rest.lng && typeof getDistanceKm === 'function') {
         var km = getDistanceKm(_userLat, _userLng, +rest.lat, +rest.lng);
         if (isFinite(km)) teile.push('<span class="lp-fakt">' + (km < 2.5 ? Math.max(1, Math.round(km / 4.8 * 60)) + ' Min. zu Fuß' : km.toFixed(1).replace('.', ',') + ' km') + '</span>');
