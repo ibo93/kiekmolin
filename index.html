@@ -6481,6 +6481,11 @@
             right: auto;
             left: 3px;
         }
+        /* Zusatz-Schalter: "aus" ist hier kein Alarm, sondern der Normalfall.
+           Rot las sich wie ein Fehler (Ibo, Screenshot 07.10.2026) -- grau wie
+           die Wartezeit direkt darunter. */
+        #kohleRufToggle.off, #abAchtzehnToggle.off, #lookDunkelToggle.off { background: #cbd5e1; }
+        .dark-mode #kohleRufToggle.off, .dark-mode #abAchtzehnToggle.off, .dark-mode #lookDunkelToggle.off { background: #4b5563; }
 
         /* Table Grid */
         /* ===== TABLE GRID - GLASS CARD STYLE (Stitch) ===== */
@@ -21557,7 +21562,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 <!-- KOHLE-RUF FUER SHISHA-BARS (seit 06.10.2026). Positives Flag
                      wie die Vorbestellung: aus, bis der Wirt es einschaltet.
                      Eine Pizzeria soll ihren Gaesten keinen Kohle-Knopf zeigen. -->
-                <div id="kohleRufBox" style="margin-top: 14px; padding: 16px 20px; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3);">
+                <div id="kohleRufBox" style="display:none; margin-top: 14px; padding: 16px 20px; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3);">
                     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
                         <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">
                             <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">local_fire_department</span>
@@ -21572,7 +21577,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                      Zutritt (Jugendschutzgesetz §10). Der Schalter sagt es dem
                      Gast VOR dem Weg -- die Ausweiskontrolle an der Tuer
                      ersetzt er nicht. Siehe abAchtzehn(). -->
-                <div id="abAchtzehnBox" style="margin-top: 14px; padding: 16px 20px; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3);">
+                <div id="abAchtzehnBox" style="display:none; margin-top: 14px; padding: 16px 20px; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3);">
                     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
                         <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">
                             <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">badge</span>
@@ -36040,9 +36045,16 @@ async function toggleFeature(feature) {
 // Ibo: "der Restaurant braucht das ja nicht". Die beiden Schalter erscheinen
 // nur, wenn das Lokal als Kueche Bar oder Shisha hat (auch Lounge/Cocktail)
 // oder den dunklen Bar-Auftritt nutzt. Ist einer schon EIN, bleibt er
-// sichtbar -- sonst koennte ihn niemand mehr ausschalten. Ist das Lokal
-// gar nicht bekannt, bleiben sie sichtbar: lieber ein Schalter zu viel
-// als eine Bar, die ihren nicht findet.
+// sichtbar -- sonst koennte ihn niemand mehr ausschalten.
+//
+// NACHTRAG, gleicher Tag: "das mit kohle und ab 18 ist immer noch" --
+// Screenshot von Pizzeria Al Porto, beide Kaesten zu sehen. Im Browser
+// nachgestellt: die Regel selbst versteckt sie bei einer Pizzeria. Sie lief
+// nur nicht immer. Die Kaesten waren im HTML sichtbar, und entschieden
+// wurde einzig beim Aufbau des Dashboards (initFeatureToggles). Lief der,
+// bevor das Lokal bekannt war, blieb es bei "sichtbar" -- für immer.
+// Jetzt: im HTML versteckt, unbekanntes Lokal = versteckt, und
+// loadOrderSettings() entscheidet bei jedem Öffnen von "Bestellungen" neu.
 function istBarLokal(r) {
     if (!r) return null;
     var k = [].concat(r.cuisine_type || [], r.cuisine || []).map(function (x) { return String(x).toLowerCase(); }).join(' ');
@@ -36055,7 +36067,7 @@ function barSchalterZeigen(features) {
     var bar = istBarLokal(r);
     [['kohleRufBox', 'kohle_ruf'], ['abAchtzehnBox', 'ab_18']].forEach(function (p) {
         var el = document.getElementById(p[0]); if (!el) return;
-        el.style.display = (bar === false && features.indexOf(p[1]) < 0) ? 'none' : '';
+        el.style.display = (bar === true || features.indexOf(p[1]) >= 0) ? '' : 'none';
     });
 }
 
@@ -65860,6 +65872,15 @@ function loadOrderSettings() {
     // Aus Supabase features laden
     var restaurant = APP_DATA.restaurants.find(function(r) { return r.id === restId; });
     var features = (restaurant && restaurant.features) || [];
+
+    // Die Schalter weiter unten (Kohle, Ab 18, Vorbestellung, Wartezeit ...)
+    // gehören zur selben Karte. Sie wurden bisher nur beim Aufbau des
+    // Dashboards gesetzt -- war das Lokal da noch nicht geladen, standen
+    // Kohle-Knopf und "Ab 18" auch bei einer Pizzeria. Hier jedes Mal neu,
+    // aber nur, wenn es das Lokal ist, auf das die Schalter auch schreiben.
+    try {
+        if (restaurant && restId === getControlRestaurantId()) updateFeatureToggles(features);
+    } catch (e) { console.warn('Schalter setzen:', e && e.message); }
 
     if (pickupEl) pickupEl.checked = features.indexOf('abholung') !== -1;
     if (deliveryEl) deliveryEl.checked = features.indexOf('lieferung') !== -1;

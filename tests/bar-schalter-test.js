@@ -25,7 +25,13 @@ t('Shisha: beide sichtbar', lauf({ cuisine_type: ['shisha'] }) === '/', lauf({ c
 t('Bar (auch "Cocktailbar", Grossschreibung): sichtbar', lauf({ cuisine_type: ['Cocktailbar'] }) === '/' && lauf({ cuisine: 'Bar' }) === '/', '');
 t('dunkler Bar-Auftritt: sichtbar', lauf({ cuisine_type: ['fisch'], features: ['look_dunkel'] }) === '/', '');
 t('Pizzeria mit schon eingeschaltetem "Ab 18": dieser bleibt, Kohle weg', lauf({ cuisine_type: ['pizza'] }, ['ab_18']) === 'none/', lauf({ cuisine_type: ['pizza'] }, ['ab_18']));
-t('Lokal unbekannt: beide sichtbar (nichts verstecken, was gebraucht wird)', lauf(null) === '/', lauf(null));
+// Frueher: unbekannt = sichtbar. Genau das liess die Kaesten bei Al Porto
+// stehen, wenn das Dashboard vor dem Lokal geladen war (07.10.2026).
+t('Lokal unbekannt: beide versteckt', lauf(null) === 'none/none', lauf(null));
+t('... aber ein schon eingeschalteter bleibt (sonst nie mehr aus)', lauf(null, ['kohle_ruf']) === '/none', lauf(null, ['kohle_ruf']));
+t('Kaesten sind im HTML von Haus aus versteckt', /<div id="kohleRufBox" style="display:none;/.test(H) && /<div id="abAchtzehnBox" style="display:none;/.test(H), '');
+t('Oeffnen von Bestellungen setzt die Schalter neu', /restId === getControlRestaurantId\(\)\) updateFeatureToggles\(features\)/.test(fn('loadOrderSettings')), '');
+t('"aus" ist bei Kohle/Ab 18 grau, nicht rot', /#kohleRufToggle\.off, #abAchtzehnToggle\.off[^{]*\{ background: #cbd5e1/.test(H), '');
 t('"Barbecue"/"Bäckerei" zaehlen nicht als Bar', lauf({ cuisine: 'Barbecue' }) === 'none/none' && lauf({ cuisine_type: ['baeckerei'] }) === 'none/none', lauf({ cuisine: 'Barbecue' }));
 t('"Weinbar"/"Strandbar" (frei eingetragen) zaehlen als Bar', lauf({ cuisine: 'Weinbar' }) === '/' && lauf({ cuisine_type: ['Strandbar'] }) === '/', lauf({ cuisine: 'Weinbar' }));
 t('wird bei jedem Laden der Schalter aufgerufen', /function updateFeatureToggles\(features\) \{\s*if \(!features\) features = \[\];\s*try \{ barSchalterZeigen\(features\); \} catch \(e\) \{\}/.test(H), '');
