@@ -83,7 +83,7 @@ function flaeche(dunkel) {
     var pins = await s.evaluate(nadeln);
     var bei = function (name) { return pins.filter(function (p) { return p.label.indexOf(name) === 0; })[0] || {}; };
     pruef(w + ': 4 Nadeln, Form 1:1 aus dem Entwurf (Tropfen)', pins.length === 4 && pins.every(function (p) { return p.form === TROPFEN; }), JSON.stringify(pins.map(function (p) { return p.label + '/' + p.form.slice(0, 12); })));
-    pruef(w + ': Fisch offen 40 px, Schild "Fisch · bis HH"', /^offen/.test(bei('Hafenkneipe').k) && bei('Hafenkneipe').b === 40 && /^Fisch · bis \d/.test(bei('Hafenkneipe').schild), JSON.stringify(bei('Hafenkneipe')));
+    pruef(w + ': Fisch offen 40 px, GELB, Schild "Fisch · bis HH"', /^offen/.test(bei('Hafenkneipe').k) && bei('Hafenkneipe').b === 40 && /254, 214, 91/.test(bei('Hafenkneipe').farbe) && /^Fisch · bis \d/.test(bei('Hafenkneipe').schild), JSON.stringify(bei('Hafenkneipe')));
     pruef(w + ': Bar mit Aktion gold, Schild "Happy Hour" darüber', /^aktion/.test(bei('Lounge 26').k) && bei('Lounge 26').badge === 'Happy Hour' && /254, 214, 91/.test(bei('Lounge 26').farbe), JSON.stringify(bei('Lounge 26')));
     pruef(w + ': Café ohne Zeiten: klein, grau, kein "offen"', /^unbekannt/.test(bei('Teestube').k) && bei('Teestube').b === 28 && /Zeiten nicht eingetragen/.test(bei('Teestube').label), JSON.stringify(bei('Teestube')));
     pruef(w + ': Pizza zu: klein, Schild "… · zu"', /^zu/.test(bei('Pizzeria Mare').k) && bei('Pizzeria Mare').b === 28 && / · zu$/.test(bei('Pizzeria Mare').schild), JSON.stringify(bei('Pizzeria Mare')));
@@ -120,6 +120,8 @@ function flaeche(dunkel) {
       }, 900); });
     });
     pruef(w + ': Tipp auf Nadel: Blatt auf, Zeitregler weg, Nadel groß mit Hof', blatt.sicht === 'flex' && blatt.zeitkarte === 'none' && /^Lounge 26.*\|52\|true$/.test(blatt.gewaehlt), JSON.stringify(blatt));
+    var gewFarbe = await s.evaluate(function () { var g = document.querySelector('#fullscreenMapContainer .kd-nadel.gewaehlt .kd-form'); return g ? getComputedStyle(g).fill : ''; });
+    pruef(w + ': gewählte Nadel dunkelgrün (hebt sich vom Gelb ab)', /0, 37, 30/.test(gewFarbe), gewFarbe);
     pruef(w + ': Blatt: Name, "Offen bis 23:59", "Läuft gerade: Happy Hour", Route', blatt.name === 'Lounge 26' && /Offen bis 23:59/.test(blatt.fakten) && /Läuft gerade: Happy Hour/.test(blatt.aktion) && /destination=53\.5035,7\.099/.test(blatt.route || ''), JSON.stringify(blatt));
     var probeZeit = await s.evaluate(function () { return window._probeZeit; });
     pruef(w + ': freie Zeiten nur in der Zukunft, Titel "Freie Tische heute"', blatt.zeiten === 'Freie Tische heute' + probeZeit, blatt.zeiten);

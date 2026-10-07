@@ -14438,13 +14438,17 @@
 .kd-nadel { position: relative; cursor: pointer; }
 .kd-nadel::before { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .kd-nadel svg { position: relative; display: block; overflow: visible; }
-.kd-form { fill: #003d33; stroke: #ffffff; stroke-width: 3; }
-.kd-zeichen { fill: none; stroke: #ffffff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.kd-zeichen .kd-p { fill: #ffffff; stroke: none; }
-.kd-nadel.aktion .kd-form { fill: #fed65b; }
-.kd-nadel.aktion .kd-zeichen { stroke: #00251e; } .kd-nadel.aktion .kd-p { fill: #00251e; }
+/* GELB (Ibo, 07.10.2026: "die nadel muss gelb") -- wie die Nadeln frueher.
+   Gewaehlt: dunkelgruen mit gelbem Zeichen. Zu / ohne Zeiten: klein, grau,
+   weisses Zeichen. Aktion: gelb mit Schild darueber. */
+.kd-form { fill: #fed65b; stroke: #ffffff; stroke-width: 3; }
+.kd-zeichen { fill: none; stroke: #00251e; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.kd-zeichen .kd-p { fill: #00251e; stroke: none; }
+.kd-nadel.gewaehlt .kd-form { fill: #00251e; }
+.kd-nadel.gewaehlt .kd-zeichen { stroke: #fed65b; } .kd-nadel.gewaehlt .kd-p { fill: #fed65b; }
 .kd-nadel.zu .kd-form, .kd-nadel.unbekannt .kd-form { fill: #8a9692; }
-.kd-hof { position: absolute; left: -8px; top: -8px; width: calc(100% + 16px); aspect-ratio: 1; border-radius: 50%; background: rgba(0,61,51,0.16); }
+.kd-nadel.zu .kd-zeichen, .kd-nadel.unbekannt .kd-zeichen { stroke: #ffffff; } .kd-nadel.zu .kd-p, .kd-nadel.unbekannt .kd-p { fill: #ffffff; }
+.kd-hof { position: absolute; left: -8px; top: -8px; width: calc(100% + 16px); aspect-ratio: 1; border-radius: 50%; background: rgba(254,214,91,0.45); }
 .kd-nadel.aktion .kd-hof { background: rgba(254,214,91,0.38); }
 .kd-schild { position: absolute; left: calc(100% + 4px); top: 8px; white-space: nowrap; pointer-events: none; font: 700 12px Inter, sans-serif; color: #00251e; text-shadow: 0 0 3px #ecedeb, 0 0 3px #ecedeb, 0 0 3px #ecedeb, 0 0 3px #ecedeb; }
 .kd-nadel.zu .kd-schild, .kd-nadel.unbekannt .kd-schild { font-weight: 600; color: #4f5956; top: 4px; }
@@ -14452,9 +14456,10 @@
 .kd-ohne-schilder .kd-schild, .kd-ohne-schilder .kd-badge { display: none; }
 .kd-mehrere { width: 44px; height: 44px; border-radius: 50%; background: #00251e; border: 3px solid #ffffff; box-sizing: border-box; display: flex; align-items: center; justify-content: center; color: #ffffff; font: 800 16px Epilogue, sans-serif; cursor: pointer; }
 /* Abendkarte (dunkle Kacheln, auch im hellen Modus): Farben aus dem Entwurf */
-.kd-dunkel .kd-form { fill: #9cd1c3; stroke: #0e0e0e; }
+.kd-dunkel .kd-form { fill: #fed65b; stroke: #0e0e0e; }
 .kd-dunkel .kd-zeichen { stroke: #00251e; } .kd-dunkel .kd-p { fill: #00251e; }
-.kd-dunkel .kd-nadel.aktion .kd-form { fill: #fed65b; }
+.kd-dunkel .kd-nadel.gewaehlt .kd-form { fill: #00251e; stroke: #f3f4f4; }
+.kd-dunkel .kd-nadel.gewaehlt .kd-zeichen { stroke: #fed65b; } .kd-dunkel .kd-nadel.gewaehlt .kd-p { fill: #fed65b; }
 .kd-dunkel .kd-nadel.zu .kd-form, .kd-dunkel .kd-nadel.unbekannt .kd-form { fill: #5f6b68; }
 .kd-dunkel .kd-nadel.zu .kd-zeichen, .kd-dunkel .kd-nadel.unbekannt .kd-zeichen { stroke: #e8eeec; }
 .kd-dunkel .kd-nadel.zu .kd-p, .kd-dunkel .kd-nadel.unbekannt .kd-p { fill: #e8eeec; }
