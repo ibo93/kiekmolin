@@ -14230,6 +14230,45 @@
 
     </style>
 <style>
+/* FELDER SICHTBAR (07.10.2026) -----------------------------------------
+   Ibo, Foto vom Handy: beim Reservieren sah man Name, Telefon, E-Mail,
+   Uhrzeiten und Gaestezahl nicht -- weiss auf weiss. Der Glas-Umbau hat
+   Fenster und Dashboard-Karten deckend gemacht; Felder und Knoepfe darin
+   blieben halb durchsichtig weiss (frueher schimmerte der Hintergrund
+   durch). Gemessen mit werkzeug/felder-messen.js.
+   Hier bekommt jedes Feld eine eigene Flaeche und einen Rand, und jeder
+   Knopf mit halb durchsichtig weisser Flaeche eine sichtbare. Nur in
+   Fenstern und im Dashboard -- ueber Fotos bleibt das Glas.
+   Gewaehlte Zustaende (dunkelgruen, gold) sind nicht weiss und bleiben. */
+:is(html, #kmi-feld) body:not(.dark-mode) :is(.modal, .modal-content, .dashboard-view) :is(.form-input, .form-select, .form-textarea, select, textarea, input[type="text"], input[type="tel"], input[type="email"], input[type="number"], input[type="search"], input[type="password"], input[type="date"], input[type="time"]):not([style*="color:white"]):not([style*="color: white"]):not([style*="color:#fff"]):not([style*="color: #fff"]) {
+    background-color: #f4f6f5 !important; background-image: none !important;
+    border: 1px solid #b9c3bf !important;
+    backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+}
+:is(html, #kmi-feld) body:not(.dark-mode) :is(.modal, .modal-content, .dashboard-view) :is(.form-input, .form-select, .form-textarea, select, textarea, input):focus {
+    border-color: #003d33 !important; background-color: #ffffff !important;
+}
+:is(html, #kmi-feld) body:not(.dark-mode) :is(.modal, .modal-content, .dashboard-view) :is(button, [role="button"]):is([style*="background:rgba(255,255,255,0.3)"], [style*="background: rgba(255,255,255,0.3)"], [style*="background:rgba(255,255,255,0.35)"], [style*="background: rgba(255,255,255,0.35)"], [style*="background:rgba(255,255,255,0.4)"], [style*="background: rgba(255,255,255,0.4)"], [style*="background:rgba(255,255,255,0.45)"], [style*="background: rgba(255,255,255,0.45)"], [style*="background:rgba(255,255,255,0.5)"], [style*="background: rgba(255,255,255,0.5)"], [style*="background:rgba(255,255,255,0.55)"], [style*="background: rgba(255,255,255,0.55)"], [style*="background:rgba(255,255,255,0.6)"], [style*="background: rgba(255,255,255,0.6)"], [style*="background:rgba(255,255,255,0.65)"], [style*="background: rgba(255,255,255,0.65)"], [style*="background:rgba(255,255,255,0.7)"], [style*="background: rgba(255,255,255,0.7)"], [style*="background:rgba(255,255,255,0.75)"], [style*="background: rgba(255,255,255,0.75)"], [style*="background:rgba(255,255,255,0.8)"], [style*="background: rgba(255,255,255,0.8)"], [style*="background:rgba(255,255,255,0.85)"], [style*="background: rgba(255,255,255,0.85)"], [style*="background:rgba(255,255,255,0.9)"], [style*="background: rgba(255,255,255,0.9)"]),
+:is(html, #kmi-feld) body:not(.dark-mode) #reservationModal :is(.slot-btn:not(.selected), .modal-close) {
+    background: #e9edeb !important;
+    outline: 1px solid #ccd5d1 !important; outline-offset: -1px;
+    backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+}
+:is(html, #kmi-feld) body.dark-mode :is(.modal, .modal-content, .dashboard-view) :is(.form-input, .form-select, .form-textarea, select, textarea, input[type="text"], input[type="tel"], input[type="email"], input[type="number"], input[type="search"], input[type="password"], input[type="date"], input[type="time"]) {
+    background-color: #262a29 !important; background-image: none !important;
+    border: 1px solid #535b58 !important; color: #f3f4f4 !important;
+    backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+}
+:is(html, #kmi-feld) body.dark-mode :is(.modal, .modal-content, .dashboard-view) :is(.form-input, .form-select, .form-textarea, select, textarea, input):focus {
+    border-color: #9cd1c3 !important;
+}
+:is(html, #kmi-feld) body.dark-mode :is(.modal, .modal-content, .dashboard-view) :is(button, [role="button"]):is([style*="background:rgba(255,255,255,0.3)"], [style*="background: rgba(255,255,255,0.3)"], [style*="background:rgba(255,255,255,0.35)"], [style*="background: rgba(255,255,255,0.35)"], [style*="background:rgba(255,255,255,0.4)"], [style*="background: rgba(255,255,255,0.4)"], [style*="background:rgba(255,255,255,0.45)"], [style*="background: rgba(255,255,255,0.45)"], [style*="background:rgba(255,255,255,0.5)"], [style*="background: rgba(255,255,255,0.5)"], [style*="background:rgba(255,255,255,0.55)"], [style*="background: rgba(255,255,255,0.55)"], [style*="background:rgba(255,255,255,0.6)"], [style*="background: rgba(255,255,255,0.6)"], [style*="background:rgba(255,255,255,0.65)"], [style*="background: rgba(255,255,255,0.65)"], [style*="background:rgba(255,255,255,0.7)"], [style*="background: rgba(255,255,255,0.7)"], [style*="background:rgba(255,255,255,0.75)"], [style*="background: rgba(255,255,255,0.75)"], [style*="background:rgba(255,255,255,0.8)"], [style*="background: rgba(255,255,255,0.8)"], [style*="background:rgba(255,255,255,0.85)"], [style*="background: rgba(255,255,255,0.85)"], [style*="background:rgba(255,255,255,0.9)"], [style*="background: rgba(255,255,255,0.9)"]),
+:is(html, #kmi-feld) body.dark-mode #reservationModal :is(.slot-btn:not(.selected), .modal-close) {
+    background: #2b302e !important; color: #f3f4f4 !important;
+    outline: 1px solid #464e4b !important; outline-offset: -1px;
+    backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+}
+
 /* KLEINE MOMENTE (06.10.2026) ------------------------------------------
    1. Knoepfe geben beim Druecken leicht nach, wie bei iOS. Mit der Eigen-
       schaft "scale" statt "transform": sie verrechnet sich mit vorhandenen
