@@ -51,7 +51,7 @@ var ITEMS = [];
       document.getElementById('guestView').style.setProperty('display', 'none', 'important');
       var d = document.getElementById('dashboardView'); for (var p = d; p && p !== document.body; p = p.parentElement) p.style.setProperty('display', 'block', 'important');
       document.querySelectorAll('.dash-section').forEach(function (x) { x.style.setProperty('display', x.id === 'sectionSpeisekarte' ? 'block' : 'none', 'important'); });
-      document.querySelectorAll('.cart-fab, #cartFab, .floating-cart, .bottom-nav').forEach(function (x) { x.style.display = 'none'; });
+      document.querySelectorAll('.cart-fab, #cartFab, .floating-cart, .bottom-nav, #cartPanel, .cart-panel, #cartOverlay, #installBanner, #toastContainer').forEach(function (x) { x.style.setProperty('display', 'none', 'important'); });
       var sel = document.getElementById('menuRestaurantSelect'); var o = document.createElement('option'); o.value = rid; o.textContent = 'Probe'; sel.appendChild(o); sel.value = rid; sel.dispatchEvent(new Event('change'));
     }, RID);
     await s.waitForTimeout(1200);
@@ -70,6 +70,28 @@ var ITEMS = [];
   });
   pruef('Gerichte werden gezeigt', m.gerichte > 0, JSON.stringify(m));
   console.log('INFO | Bedienelemente: ' + m.n + ', davon kleiner als 44 px: ' + m.klein.length + '\n       ' + m.klein.slice(0, 25).join('\n       '));
+  var zuKlein = m.klein.filter(function (x) { return !/^(SELECT|INPUT)/.test(x) && !/Kategorie|Restaurant|Probe/.test(x); });
+  pruef('Knöpfe in der Gerichteliste mindestens 44 px', !m.klein.some(function (x) { return /Bearbeiten|Löschen|nach oben|nach unten|Ausverkauft|verfügbar/.test(x); }), m.klein.filter(function (x) { return /Bearbeiten|Löschen|nach oben|nach unten|Ausverkauft|verfügbar/.test(x); }).slice(0, 5).join(', '));
+  // Kategorie oeffnen, Gericht ausverkauft schalten -> bleibt offen?
+  var offen = await p.s.evaluate(function () {
+    toggleMenuCategory('c2');
+    window.menuSchreiben = function () { return Promise.resolve([{ is_available: false }]); };
+    return toggleSoldOut('i2').then(function () { var k = document.getElementById('category-c2'); return k && k.classList.contains('open'); });
+  });
+  pruef('Kategorie bleibt nach "Ausverkauft" offen', offen === true, offen);
+  var suche = await p.s.evaluate(function () {
+    var e = document.getElementById('menuSuche'); e.value = 'carbo'; e.dispatchEvent(new Event('input', { bubbles: true }));
+    var namen = Array.prototype.map.call(document.querySelectorAll('#menuCategoriesList .menu-item-name'), function (x) { return x.textContent.trim(); });
+    var t = document.getElementById('menuSucheTreffer').textContent;
+    e.value = ''; e.dispatchEvent(new Event('input', { bubbles: true }));
+    return { namen: namen, treffer: t };
+  });
+  pruef('Suche "carbo": nur Spaghetti Carbonara, "1 Treffer"', suche.namen.length === 1 && /Carbonara/.test(suche.namen[0]) && suche.treffer === '1 Treffer', JSON.stringify(suche));
+  var pfeile = await p.s.evaluate(function () { return document.querySelectorAll('#menuCategoriesList [onclick^="kategorieVerschieben"]').length; });
+  pruef('Kategorien haben Pfeile zum Sortieren (iPad)', pfeile === 6, pfeile);
+  var hoehe = await p.s.evaluate(function () { var r = document.querySelector('#category-c2 .menu-item-row'); return r ? Math.round(r.getBoundingClientRect().height) : 0; });
+  pruef('Gericht-Zeile kompakt (unter 110 px, frueher ~190)', hoehe > 0 && hoehe < 110, hoehe);
+  await p.s.evaluate(function () { toggleMenuCategory('c1'); });
   await p.s.locator('#sectionSpeisekarte').screenshot({ path: path.join(AUS, 'speisekarte-ipad.png') }).catch(function () {});
   pruef('kein Seitenfehler', !p.fehler.length, p.fehler.join(' | '));
   await p.ctx.close();
@@ -78,7 +100,9 @@ var ITEMS = [];
     var t = await p.s.evaluate(function () { var w = document.getElementById('menuEditorSection'); return (w ? w.innerText : '').replace(/\s+/g, ' ').slice(0, 400); });
     var toast = await p.s.evaluate(function () { return Array.prototype.map.call(document.querySelectorAll('.toast'), function (x) { return x.textContent.trim(); }).join(' | '); });
     console.log('INFO | ' + modus + ': Editor zeigt: "' + t.slice(0, 220) + '"\n       Meldungen: ' + (toast || '(keine)'));
-    if (modus === 'kaputt') pruef('500: der Wirt sieht, dass die Karte NICHT geladen wurde', /nicht geladen|Fehler/i.test(t + toast), t.slice(0, 120) + ' / ' + toast);
+    var stand = await p.s.evaluate(function () { var e = document.querySelector('[data-ladestand="speisekarte"]'); return e ? e.className + ' | ' + e.textContent.trim() : '(fehlt)'; });
+    if (modus === 'kaputt') pruef('500: rote Zeile bleibt stehen ("Nicht aktuell"), nicht nur ein Toast', /fehler/.test(stand) && /Nicht aktuell/.test(stand), stand);
+    if (modus === 'leer') pruef('leere Antwort: "Zuletzt geprüft HH:MM" -- der Wirt sieht, wann zuletzt nachgesehen wurde', /ok/.test(stand) && /Zuletzt geprüft \d\d:\d\d/.test(stand), stand);
     await p.ctx.close();
   }
   await b.close(); srv.close();
