@@ -113,12 +113,13 @@ var m = finde('Pizza Margherita')[0];
 t('Merkmal vor der Nummer ("V 1. Pizza Margherita") wird abgetrennt',
   !!m && m.name === 'Pizza Margherita', m && m.name);
 t('und wird zum Merkmal vegetarisch', !!m && m.is_vegetarian === true, m && m.is_vegetarian);
-// Ibo, 07.10.2026: "keine Nummer". Erkannt wird sie weiter (sonst stünde
-// "1. Pizza Margherita" im Namen), übernommen wird sie nicht.
-t('Nummer wird erkannt und aus dem Namen genommen', r.gerichte[0].nummer === '1' && !/^\d/.test(r.gerichte[0].name), r.gerichte[0].nummer);
-t('keine Gerichtnummer im Import', items.every(function (i) { return i.dish_number === ''; }),
-  (items.filter(function (i) { return i.dish_number; })[0] || {}).dish_number);
-t('"66 A. Döner XXL" heisst "Döner XXL"', finde('Döner XXL').length === 1, 'fehlt');
+// Ibo, 07.10.2026: "die Nummern der Gerichte sollen bleiben" -- aus dem
+// Namen heraus, als eigenes Feld (wie beim PDF).
+t('Nummer wird erkannt und aus dem Namen genommen', !!m && m.dish_number === '1' && !/^\d/.test(m.name), m && m.dish_number);
+t('jedes Gericht der Karte behält seine Nummer', items.every(function (i) { return /^\d+[A-Z]?$/.test(i.dish_number); }),
+  (items.filter(function (i) { return !i.dish_number; })[0] || {}).name);
+t('"66 A. Döner XXL": Nummer 66A, Name "Döner XXL"', finde('Döner XXL').length === 1 && finde('Döner XXL')[0].dish_number === '66A',
+  JSON.stringify(finde('Döner XXL')[0]));
 t('Hinweiszeile "Extra Zutaten: klein 1,00 €" ist kein Gericht',
   !items.some(function (i) { return /^Zutaten/.test(i.name); }),
   items.filter(function (i) { return /Zutaten/.test(i.name); }).map(function (i) { return i.name; }).join(', '));

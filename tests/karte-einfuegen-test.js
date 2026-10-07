@@ -1,8 +1,8 @@
 // "Karte übernehmen" -> Text einfügen: liest er die Karte gut?
 //
 // Ibo, 07.10.2026: "wenn ich es einfüge beim Karte übernehmen liest er die
-// Karte nicht gut" -- "nur Gerichte und Getränke, keine Nummer oder
-// Unnötiges, besser platziert".
+// Karte nicht gut" -- "nur Gerichte und Getränke, nichts Unnötiges, besser
+// platziert". Die Gerichtnummern bleiben (Nachfrage am selben Tag).
 //
 // Gemessen vorher an drei typischen Texten (tests/daten/einfuegen/):
 //   webseite.txt   Name / Beschreibung / Preis je eigene Zeile: 1 von 7
@@ -73,14 +73,15 @@ t('[Getränke] Cola 0,33l kostet 2,50 € -- keine "Größe 0,33 €"',
   !!g(gt.items, 'Cola 0,33l') && g(gt.items, 'Cola 0,33l').price === 2.5 && !g(gt.items, 'Cola 0,33l').sizes, JSON.stringify(g(gt.items, 'Cola 0,33l')));
 t('[Getränke] kein Getränk mit Preis unter 1 €', !gt.items.some(function (i) { return i.price < 1; }), '');
 
-// --- Keine Nummern --------------------------------------------------------
+// --- Gerichtnummern bleiben (Ibo: "die Nummern der Gerichte sollen bleiben")
 var nr = F.lies('Pizza\n1. Margherita 7,50\n2. Salami 8,00');
-t('Nummern stehen weder im Namen noch im Import', nr.items.length === 2 && nr.items.every(function (i) { return !i.dish_number && !/^\d/.test(i.name); }),
+t('Nummer als eigenes Feld, nicht im Namen', nr.items.length === 2 && nr.items[0].dish_number === '1' && nr.items[1].dish_number === '2'
+  && nr.items.every(function (i) { return !/^\d/.test(i.name); }),
   JSON.stringify(nr.items.map(function (i) { return [i.dish_number, i.name]; })));
 
 // --- Gegenprobe in der Vorschau -------------------------------------------
 t('Vorschau zeigt die Gegenprobe des Textes', /karteGegenprobeHtml\(_gpText\)/.test(schneide('karteTextVorschau')), 'fehlt');
-t('Vorschau ohne Nummernspalte', !/esc\(i\.dish_number\)/.test(schneide('karteTextVorschau')), 'Nummernspalte noch da');
+t('Vorschau zeigt die Nummer', /esc\(i\.dish_number\)/.test(schneide('karteTextVorschau')), 'Nummernspalte fehlt');
 var gpH = F.gp({ preisZeilen: 3, extras: [], rest: [], weggelassen: ['Tel. 0491 1234'] });
 t('Gegenprobe listet weggelassene Zeilen', /weggelassen/.test(gpH) && /Tel\. 0491 1234/.test(gpH), gpH.slice(0, 120));
 t('Prüfliste bekommt die Text-Gegenprobe', /_scanGegenprobe = window\._karteVollGegenprobe \|\| window\._karteTextGegenprobe/.test(H), 'fehlt');

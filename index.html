@@ -74612,7 +74612,7 @@ function karteTextVorschlaege(zeilen) {
 //   - Anschrift, Telefon, Öffnungszeiten, Preis-Hinweise: weggelassen
 //   - Extra-Regeln ("Zutaten: klein 1,00 €"): kein Gericht, keine Beschreibung
 //   - Allergen-Klammern: heraus aus Name und Beschreibung
-//   - Gerichtnummern werden nicht übernommen (Ibo: "keine Nummer")
+//   - Gerichtnummern: aus dem Namen genommen, als eigenes Feld behalten
 // Was einen Preis hat und trotzdem kein Gericht wurde, steht in "rest".
 function karteAusText(text) {
     var zeilen = karteTextZeilen(text);
@@ -74757,8 +74757,10 @@ function karteTextZuItems(gerichte) {
                 // Ohne Preis bleibt er LEER (nicht 0 -- sonst für 0 € bestellbar).
                 price: groessen ? groessen[0].price : (ohnePreis ? null : (Math.round(parseFloat(p) * 100) / 100 || 0)),
                 category: g.kategorie || 'Sonstiges',
-                // Keine Gerichtnummer (Ibo, 07.10.2026: "keine Nummer").
-                dish_number: '',
+                // Gerichtnummer bleibt (Ibo, 07.10.2026: "die Nummern der
+                // Gerichte sollen bleiben") -- aus dem Namen genommen, als
+                // eigenes Feld gespeichert, wie beim PDF.
+                dish_number: g.nummer || '',
                 selected: true,
                 allergens: alg, additives: (g.zusatz || []).filter(function (x) { return /^\d{1,2}$/.test(x); }),
                 is_vegetarian: veg, is_vegan: false,
@@ -75090,9 +75092,10 @@ function karteTextVorschau() {
             html += '<div style="position:sticky;top:0;background:var(--bg-secondary);padding:5px 10px;'
                   + 'font-size:11px;font-weight:800;color:var(--ink-strong);letter-spacing:.03em;">' + esc(letzteKat) + '</div>';
         }
-        // Ohne Nummernspalte (Ibo: "keine Nummer"), dafür mit Beschreibung
-        // und Größen -- was man nicht sieht, hält man für nicht vorhanden.
+        // Mit Nummer, Beschreibung und Größen -- was man nicht sieht, hält
+        // man für nicht vorhanden.
         html += '<div style="display:flex;gap:8px;padding:5px 10px;font-size:12px;border-top:1px solid var(--border-light,#eee);align-items:baseline;">'
+              + '<span style="width:34px;color:var(--text-secondary);flex:none;">' + esc(i.dish_number) + '</span>'
               + '<span style="flex:1;min-width:0;">'
               +   '<span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;">' + esc(i.name) + '</span>'
               +   (i.description ? '<span style="display:block;font-size:11px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(i.description) + '</span>' : '')
