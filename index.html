@@ -46599,11 +46599,17 @@ function _updateMapFloatingCard(r) {
     var isFav = APP_DATA.favorites && APP_DATA.favorites.includes(r.id);
     var z = karteZustand(r, karteWann() || undefined);
 
+    // Foto oder Anfangsbuchstabe. Nie src = '' setzen: das loest den
+    // globalen Bild-Fehler-Ersatz aus, und dessen Stil (contain, Rand,
+    // grauer Grund) blieb danach auch am naechsten echten Foto haengen
+    // (gemessen 07.10.2026). Laedt ein Foto nicht: Anfangsbuchstabe.
     var img = document.getElementById('mapCardImg'), echt = r.image && !/^data:image\/gif/.test(r.image);
-    img.style.display = echt ? '' : 'none';
-    img.src = echt ? r.image : '';
+    var initial = document.getElementById('mapCardInitial'), buchstabe = String(r.name || '?').charAt(0).toUpperCase();
+    img.style.objectFit = ''; img.style.padding = ''; img.style.background = ''; img.dataset.fallback = '1';
+    img.onerror = function () { img.style.display = 'none'; initial.textContent = buchstabe; };
+    img.onload = function () { img.style.display = ''; initial.textContent = ''; };
     img.alt = r.name || '';
-    document.getElementById('mapCardInitial').textContent = echt ? '' : String(r.name || '?').charAt(0).toUpperCase();
+    if (echt) { img.src = r.image; } else { img.removeAttribute('src'); img.style.display = 'none'; initial.textContent = buchstabe; }
     document.getElementById('mapCardName').textContent = r.name || '';
     document.getElementById('mapCardMeta').textContent = kuecheLabel(r.cuisine, 'Restaurant') + ' \u00b7 ' + (r.city || 'Ostfriesland') + (r.rating > 0 ? ' \u00b7 \u2605 ' + Number(r.rating).toFixed(1).replace('.', ',') : '');
 
@@ -48868,7 +48874,7 @@ document.addEventListener('error', function(e) {
         <div id="fullscreenMapCard" style="position:fixed;bottom:104px;left:50%;transform:translateX(-50%);width:92%;max-width:560px;z-index:1040;display:none;">
             <div class="kn-karte">
                 <div class="kn-karte-kopf">
-                    <div class="kn-bild" id="mapCardImage"><img id="mapCardImg" src="" alt=""><b id="mapCardInitial" aria-hidden="true"></b></div>
+                    <div class="kn-bild" id="mapCardImage"><img id="mapCardImg" alt="" data-fallback="1" style="display:none;"><b id="mapCardInitial" aria-hidden="true"></b></div>
                     <div class="kn-karte-text">
                         <div class="kn-karte-name"><h2 id="mapCardName"></h2><button type="button" id="mapCardFav" aria-label="Merken"><span class="material-symbols-outlined">favorite</span></button></div>
                         <p id="mapCardMeta"></p>

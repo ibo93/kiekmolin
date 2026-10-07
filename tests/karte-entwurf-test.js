@@ -56,6 +56,8 @@ var mm = ohneKommentar(fn('updateMapMarkers')), fm = ohneKommentar(fn('updateFul
 t('keine freeTables-Ampel mehr an den Nadeln', !/freeTables/.test(mm) && !/freeTables/.test(fm) && /karteNadel\(r, karteZustand\(r\), false\)/.test(mm), '');
 t('Karte unten: kein erfundener Satz, kein "Tische frei", Bestellen/Reservieren nach features', !/frische Gerichte|Tische frei/.test(card) && /no_reservations/.test(card) && /no_ordering/.test(card), '');
 t('alte 9-px-Regeln fuer die Karte unten sind weg', !/#mapCardMeta \{\s*font-size: 9px/.test(H) && !/#mapCardReserveBtn, #mapCardOrderBtn \{\s*padding: 10px 8px !important;\s*font-size: 10px/.test(H), '');
+t('Kartenbild: nie src = "" (sonst bleibt der Fehler-Stil am naechsten Foto haengen), Fehler -> Anfangsbuchstabe',
+  !/img\.src = echt \? r\.image : ''/.test(card) && /img\.removeAttribute\('src'\)/.test(card) && /img\.style\.objectFit = ''/.test(card) && /img\.onerror = function/.test(card), '');
 t('Messwerkzeug liegt bei', fs.existsSync(path.join(__dirname, '..', 'werkzeug', 'karte-messen.js')), '');
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' Tests FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);

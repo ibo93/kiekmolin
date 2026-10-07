@@ -66,7 +66,7 @@ function flaeche(dunkel) {
       var tage = ['so', 'mo', 'di', 'mi', 'do', 'fr', 'sa'], oh = function (von, bis) { var o = {}; tage.forEach(function (t) { o[t + '_start'] = von; o[t + '_end'] = bis; }); return o; };
       // Fisch offen bis jetzt+60, zu ab dann; Bar offen 24h mit Aktion; Café ohne Zeiten; Pizza heute zu.
       APP_DATA.restaurants = [
-        { id: 'k1', name: 'Hafenkneipe', city: 'Greetsiel', lat: 53.502, lng: 7.096, is_active: true, cuisine_type: ['fisch'], cuisine: 'fisch', opening_hours: oh(hh(m - 120), hh(m + 60)), features: [] },
+        { id: 'k1', name: 'Hafenkneipe', city: 'Greetsiel', lat: 53.502, lng: 7.096, is_active: true, image: '/og-image.png', cuisine_type: ['fisch'], cuisine: 'fisch', opening_hours: oh(hh(m - 120), hh(m + 60)), features: [] },
         { id: 'k2', name: 'Lounge 26', city: 'Greetsiel', lat: 53.5035, lng: 7.099, is_active: true, cuisine_type: ['shisha'], cuisine: 'shisha', opening_hours: oh('00:00', '23:59'), features: [] },
         { id: 'k3', name: 'Teestube', city: 'Greetsiel', lat: 53.5008, lng: 7.093, is_active: true, cuisine_type: ['cafe'], cuisine: 'cafe', features: [] },
         { id: 'k4', name: 'Pizzeria Mare', city: 'Greetsiel', lat: 53.5045, lng: 7.0925, is_active: true, cuisine_type: ['italienisch'], cuisine: 'italienisch', opening_hours: oh(hh(m + 180), hh(m + 240)), features: [] }
@@ -86,7 +86,7 @@ function flaeche(dunkel) {
     pruef(w + ': Symbole sind Zeichen, keine Wörter', pins.every(function (p) { return p.sym < 26; }), JSON.stringify(pins.map(function (p) { return p.sym; })));
     var zahl = await s.evaluate(function () { return document.getElementById('karteZeitText').textContent + ' | ' + document.getElementById('karteZeitZahl').textContent; });
     pruef(w + ': Zeitregler "Jetzt | 2 offen · 1 zu · 1 ohne Zeiten"', zahl === 'Jetzt | 2 offen · 1 zu · 1 ohne Zeiten', zahl);
-    var spaeter = await s.evaluate(function () { var r = document.getElementById('karteZeit'); r.value = 120; r.dispatchEvent(new Event('input')); return new Promise(function (ok) { setTimeout(function () { ok(document.getElementById('karteZeitText').textContent + ' | ' + document.getElementById('karteZeitZahl').textContent + ' | ' + document.querySelector('#fullscreenMapContainer [aria-label^="Hafenkneipe"]').className); }, 120); }); });
+    var spaeter = await s.evaluate(function () { var r = document.getElementById('karteZeit'); r.value = 120; r.dispatchEvent(new Event('input')); return new Promise(function (ok) { setTimeout(function () { ok(document.getElementById('karteZeitText').textContent + ' | ' + document.getElementById('karteZeitZahl').textContent + ' | ' + document.querySelector('#fullscreenMapContainer [aria-label^="Hafenkneipe"]').className); }, 400); }); });
     pruef(w + ': +2 h: Fisch zu, Text "um HH:MM"', /um \d\d:\d\d \| 1 offen · 2 zu · 1 ohne Zeiten \|.*\bzu\b/.test(spaeter), spaeter);
     await s.evaluate(function () { var r = document.getElementById('karteZeit'); r.value = 0; r.dispatchEvent(new Event('input')); });
     await s.waitForTimeout(120);
@@ -111,6 +111,14 @@ function flaeche(dunkel) {
       return { n: n, raus: raus };
     });
     pruef(w + ': Kontrast aller ' + k.n + ' Texte >= 4,5', !k.raus.length, k.raus.join(' | '));
+    // Foto: erst ein Lokal OHNE Foto zeigen (frueher blieb danach der Fehler-Stil haengen), dann eins MIT.
+    var foto = await s.evaluate(function () {
+      _updateMapFloatingCard(APP_DATA.restaurants[2]);
+      var ohne = document.getElementById('mapCardInitial').textContent;
+      _updateMapFloatingCard(APP_DATA.restaurants[0]);
+      return new Promise(function (ok) { setTimeout(function () { var i = document.getElementById('mapCardImg'), c = getComputedStyle(i); ok({ ohne: ohne, fit: c.objectFit, sichtbar: c.display !== 'none', breite: Math.round(i.getBoundingClientRect().width), geladen: i.naturalWidth > 0, buchstabe: document.getElementById('mapCardInitial').textContent }); }, 400); });
+    });
+    pruef(w + ': ohne Foto Anfangsbuchstabe, mit Foto füllend (cover, 84 px)', foto.ohne === 'T' && foto.fit === 'cover' && foto.sichtbar && foto.breite === 84 && foto.geladen && foto.buchstabe === '', JSON.stringify(foto));
     await s.waitForTimeout(600); // Einblenden der Karte abwarten
     await s.screenshot({ path: path.join(AUS, 'karte-' + w + '.png') });
     pruef(w + ': kein Seitenfehler', !fehler.length, fehler.join(' | '));
