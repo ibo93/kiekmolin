@@ -14347,6 +14347,27 @@
     .kmi-haken-auf { animation: kmiStempelAuf 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
 }
 @keyframes kmiStempelAuf { 0% { transform: scale(0.2); opacity: 0; } 70% { transform: scale(1.18); opacity: 1; } 100% { transform: scale(1); } }
+/* DANKE-BILDSCHIRM: Bestellstand als Balken + ein Satz (Entwurf "Stempel").
+   Die alte Leiste hatte 10-px-Beschriftungen mit 40 % Deckkraft. */
+#orderTrackerCard { text-align: left; padding: 14px 16px !important; border-radius: 22px; background: #f3f4f5 !important; border: none !important; }
+.oc-stand-titel { font-size: 12px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #5f6b68; margin-bottom: 10px; }
+#orderStatusTracker { gap: 6px; background: transparent !important; border: 0 !important; padding: 0 !important; }
+#orderStatusTracker .status-step { display: block !important; height: 6px; border-radius: 9999px; background: #c0c8c4; }
+#orderStatusTracker .status-step.active, #orderStatusTracker .status-step.erreicht { background: #003d33; }
+#orderStatusTracker.storniert .status-step { background: #dc2626; }
+#orderStatusTracker .status-icon, #orderStatusTracker .status-connector { display: none !important; }
+#orderStatusTracker .status-step::before, #orderStatusTracker .status-step::after { display: none !important; }
+#orderStatusTracker .status-label { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* Der gelbe/gruene Kasten darunter sagte dasselbe noch einmal -- der Satz unter den Balken reicht. */
+#orderConfirmationModal #liveStatusBanner { display: none !important; }
+.oc-stand-satz { margin: 10px 0 0; font-size: 15px; font-weight: 700; color: #191c1d; }
+.dark-mode #orderTrackerCard { background: #1f2624 !important; }
+.dark-mode .oc-stand-titel { color: #a9b5b1; }
+.dark-mode #orderStatusTracker .status-step { background: #3c4744; }
+.dark-mode #orderStatusTracker .status-step.active, .dark-mode #orderStatusTracker .status-step.erreicht { background: #7fd6bf; }
+.dark-mode #orderTrackerCard .oc-stand-satz { color: #e8eeec !important; }
+.dark-mode #orderStatusTracker.storniert .status-step, .dark-mode #orderStatusTracker.storniert .status-step.erreicht { background: #f87171; }
+#orderStatusTracker.storniert .status-step.erreicht, #orderStatusTracker.storniert .status-step.active { background: #dc2626; }
 .kmi-stempel-moment { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 18px; border-radius: 28px; background: #003d33; color: #ffffff; text-align: center; }
 .kmi-stempel-kopf { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .kmi-stempel-kopf span { display: flex; align-items: center; gap: 8px; font-family: Epilogue, sans-serif; font-size: 17px; font-weight: 800; color: #ffffff; }
@@ -51018,7 +51039,7 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
                 <div class="check-anim" style="width: 64px; height: 64px; background: #dcfce7; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
                     <span class="material-symbols-outlined" style="font-size: 30px; color: #16a34a; font-variation-settings: 'FILL' 1;">check_circle</span>
                 </div>
-                <h2 style="font-family: 'Epilogue', sans-serif; font-size: 24px; font-weight: 900; color: var(--ink-strong); margin: 0 0 8px;">Vielen Dank für deine Bestellung!</h2>
+                <h2 style="font-family: 'Epilogue', sans-serif; font-size: 24px; font-weight: 900; color: var(--ink-strong); margin: 0 0 8px;" id="ocDankeTitel">Vielen Dank für deine Bestellung!</h2>
                 <p id="confirmOrderNumber" style="color: rgba(0,61,51,0.6); font-size: 13px; margin: 0;">XX-0001</p>
             </div>
 
@@ -51030,7 +51051,7 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
 
             <!-- Status Tracker — Live-Fortschritt (sichtbar; wird von updateOrderTrackerUI gesteuert) -->
             <div class="oc-fade-up oc-glass-card" id="orderTrackerCard" style="padding: 20px 12px 16px;">
-                <div style="font-family: 'Epilogue', sans-serif; font-size: 12px; font-weight: 800; color: var(--ink-strong); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 16px; text-align: center; opacity: 0.75;">Live-Status deiner Bestellung</div>
+                <div class="oc-stand-titel">Stand deiner Bestellung</div>
                 <div class="order-status-tracker" id="orderStatusTracker" style="display: flex; justify-content: space-between; padding: 0;">
                     <div class="status-step active" style="display: flex; flex-direction: column; align-items: center; flex: 1; position: relative;">
                         <div class="status-connector" style="position: absolute; top: 16px; left: calc(50% + 21px); width: calc(100% - 42px); height: 3px; background: rgba(0,61,51,0.1); border-radius: 2px; z-index: 0;"></div>
@@ -51067,6 +51088,7 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
                         <div class="status-label" id="profileFinalStep" style="font-size: 10px; color: rgba(0,61,51,0.4); margin-top: 6px; text-align: center; font-weight: 500;">Erledigt</div>
                     </div>
                 </div>
+                <p class="oc-stand-satz" id="ocStandSatz" aria-live="polite">Eingegangen – das Restaurant bestätigt gleich</p>
             </div>
 
             <!-- Live Status Message -->
@@ -57577,8 +57599,17 @@ async function submitOrder() {
     }
 
     // === ZUERST: UI aktualisieren (muss sofort passieren) ===
-    var _ocOrderNum = 'BESTELLUNG #' + orderNumber + ' \u00b7 ' + new Date().toLocaleDateString('de-DE', {day:'numeric',month:'long',year:'numeric'});
+    // DANKE-BILDSCHIRM NACH DEM ENTWURF (07.10.2026): "Danke, Anna!" und
+    // darunter Nummer und Art. Eine Uhrzeit nur, wenn sie feststeht
+    // (Vorbestellung) -- sonst kommt sie mit der Bestaetigung.
+    var _ocTitel = document.getElementById('ocDankeTitel');
+    if (_ocTitel) _ocTitel.textContent = ocDankeTitel(name);
+    var _ocOrderNum = ocDankeZeile(orderNumber, orderType, tableNumber, window._vorbestellungFuer);
     document.getElementById('confirmOrderNumber').textContent = _ocOrderNum;
+    var _ocSatz0 = document.getElementById('ocStandSatz');
+    if (_ocSatz0) _ocSatz0.textContent = OC_STAND_SATZ.received;
+    var _ocTrk0 = document.getElementById('orderStatusTracker');
+    if (_ocTrk0) { _ocTrk0.classList.remove('storniert'); _ocTrk0.querySelectorAll('.status-step').forEach(function (st, i) { st.classList.toggle('erreicht', i === 0); }); }
     var _ocQrNum = document.getElementById('ocQrOrderNumber');
     if (_ocQrNum) _ocQrNum.textContent = '#' + orderNumber;
 
@@ -58025,6 +58056,40 @@ function startOrderTracking(orderId) {
     }, 15000);
 }
 
+var OC_STAND_SATZ = {
+    received: 'Eingegangen – das Restaurant bestätigt gleich',
+    accepted: 'Bestätigt – wird gleich zubereitet',
+    confirmed: 'Bestätigt – wird gleich zubereitet',
+    preparing: 'Wird jetzt frisch zubereitet',
+    ready: 'Fertig',
+    out_for_delivery: 'Unterwegs zu dir',
+    picked_up: 'Abgeholt – guten Appetit!',
+    delivered: 'Geliefert – guten Appetit!',
+    completed: 'Erledigt – guten Appetit!'
+};
+function ocDankeTitel(name) {
+    var vor = String(name || '').trim().split(/\s+/)[0] || '';
+    return vor ? 'Danke, ' + vor + '!' : 'Danke für deine Bestellung!';
+}
+function ocDankeZeile(nummer, art, tisch, vorbestellt) {
+    var teil = ['Bestellung #' + nummer];
+    var um = '';
+    if (vorbestellt) { var d = new Date(vorbestellt); if (!isNaN(d)) um = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }); }
+    if (art === 'delivery') teil.push(um ? 'Lieferung um ' + um : 'Lieferung');
+    else if (art === 'dine_in') teil.push(tisch ? 'Tisch ' + tisch : 'Vor Ort');
+    else teil.push(um ? 'Abholung um ' + um : 'Abholung');
+    return teil.join(' · ');
+}
+// Statustexte enthalten Symbole (<span class="ki">…check…</span>). Einfach
+// alle Tags entfernen liess das WORT stehen ("check Bestätigt!") -- so
+// stand es bisher in jeder Browser-Benachrichtigung.
+function ocOhneSymbol(html) {
+    return String(html || '')
+        .replace(/<span class="ki">(?:<span[^>]*>[^<]*<\/span>|<svg[\s\S]*?<\/svg>)<\/span>\s*/g, '')
+        .replace(/<[^>]*>/g, '').trim();
+}
+window.ocDankeTitel = ocDankeTitel; window.ocDankeZeile = ocDankeZeile; window.ocOhneSymbol = ocOhneSymbol;
+
 function updateOrderTrackerUI(status, estimatedMinutes, trackOrderType) {
     // order_type merken für korrekte Texte (Lieferung vs Abholung)
     if (trackOrderType) window._trackingOrderType = trackOrderType;
@@ -58052,11 +58117,26 @@ function updateOrderTrackerUI(status, estimatedMinutes, trackOrderType) {
             var icon = step.querySelector('.status-icon');
             if (icon) { icon.style.background = '#fecaca'; icon.style.border = '2px solid #ef4444'; icon.style.color = '#ef4444'; }
         });
+        var _trk = document.getElementById('orderStatusTracker');
+        if (_trk) _trk.classList.add('storniert');
+        var _satzS = document.getElementById('ocStandSatz');
+        if (_satzS) _satzS.textContent = 'Storniert – das Restaurant hat die Bestellung abgesagt';
         var _cancelEl = document.getElementById('confirmEstimatedTime');
         if (_cancelEl) _cancelEl.innerHTML = '<span class="ki"><span class="material-symbols-outlined" style="font-size:24px;color:#ef4444;">close</span></span> Bestellung wurde storniert';
         showToast('Bestellung storniert', 'error');
         stopOrderTracking();
         return;
+    }
+
+    var _trkOk = document.getElementById('orderStatusTracker');
+    if (_trkOk) _trkOk.classList.remove('storniert');
+    steps.forEach(function(step, idx) { step.classList.toggle('erreicht', idx <= activeStep); });
+    var _satz = document.getElementById('ocStandSatz');
+    if (_satz) {
+        var _st = OC_STAND_SATZ[status] || ocOhneSymbol(statusMessages[status] || '');
+        if (status === 'ready' && !isDelivery) _st = 'Fertig – du kannst es abholen';
+        if (estimatedMinutes && (status === 'accepted' || status === 'confirmed' || status === 'preparing')) _st += ' · ca. ' + estimatedMinutes + ' Min.';
+        _satz.textContent = _st;
     }
 
     steps.forEach(function(step, idx) {
@@ -58103,7 +58183,7 @@ function updateOrderTrackerUI(status, estimatedMinutes, trackOrderType) {
     // Browser Notification bei Status-Änderung
     if (status !== 'received' && 'Notification' in window && Notification.permission === 'granted') {
         try {
-            var plainMsg = (statusMessages[status] || status).replace(/<[^>]*>/g, '');
+            var plainMsg = ocOhneSymbol(statusMessages[status] || status);
             new Notification('Kiek mol in', { body: plainMsg, icon: 'icon-192.png', tag: 'order-status' });
         } catch(e) {}
     }
