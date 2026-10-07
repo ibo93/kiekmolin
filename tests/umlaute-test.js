@@ -216,8 +216,11 @@ t('es gibt eine gemeinsame Uebersetzung fuer Kuechenarten',
   /function kuecheLabel\(/.test(APP) && /'tuerkisch': 'Türkisch'/.test(APP));
 t('die Kartenkarte zeigt das Label, nicht den Schluessel',
   /mapCardMeta'\)\.textContent = kuecheLabel\(/.test(APP));
-t('die Beschreibung darunter ebenso',
-  /desc = kuecheLabel\(r\.cuisine\)/.test(APP));
+// Die Beschreibung darunter war ein erfundener Satz ("frische Gerichte und
+// regionale Spezialitaeten") -- seit 07.10.2026 ersetzt durch echte Angaben
+// (offen bis, Entfernung, laufende Aktion).
+t('kein erfundener Beschreibungssatz mehr in der Kartenkarte',
+  !/frische Gerichte und regionale Spezialit/.test(APP) && /id="mapCardFakten"/.test(APP));
 t('und servesCuisine im Schema fuer Google',
   /"servesCuisine": kuecheLabel\(/.test(APP));
 t('nirgends wird .cuisine mehr roh in Anzeigetext gehaengt',

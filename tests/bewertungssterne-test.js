@@ -58,8 +58,11 @@ t('dasselbe bei den Sehenswuerdigkeiten',
   /parseFloat\(document\.getElementById\('attractionRating'\)\.value\) \|\| 0/.test(H));
 
 // ---- 3. Ohne Bewertung wird auch keine angezeigt ----------------------------
-t('die Kartenkarte zeigt einen Strich statt einer erfundenen Zahl',
-  /\(r\.rating > 0\) \? Number\(r\.rating\)\.toFixed\(1\) : '–'/.test(H));
+// Seit 07.10.2026 (Karte nach dem Entwurf): ohne Bewertung steht dort
+// gar nichts mehr statt eines Strichs. Entscheidend bleibt: keine Zahl
+// ohne echte Bewertung.
+t('die Kartenkarte zeigt ohne echte Bewertung keine Zahl',
+  /\(r\.rating > 0 \? ' \\u00b7 \\u2605 ' \+ Number\(r\.rating\)/.test(H));
 t('der Google-Block erscheint nur mit echter Bewertung',
   /if \(!rest\.rating \|\| !rest\.googleMapsUrl\) return '';/.test(H));
 t('"(0 Bewertungen)" wird nicht mehr danebengeschrieben',

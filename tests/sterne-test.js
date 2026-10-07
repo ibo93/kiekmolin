@@ -95,8 +95,11 @@ t('index.html zeichnet weiterhin keine aggregateRating aus',
 t('kein 4,5 als Vorgabewert mehr in der App',
   !/rating[^\n]{0,20}\|\|\s*4\.5/.test(A),
   (A.match(/rating[^\n]{0,20}\|\|\s*4\.5[^\n]{0,30}/g) || []).join(' | '));
-t('ohne echte Bewertung steht ein Strich, keine Zahl',
-  /rating > 0\) \? Number\(r\.rating\)\.toFixed\(1\) : '–'/.test(A));
+// Seit 07.10.2026 (Karte nach dem Entwurf): die Bewertung steht nur noch,
+// wenn es eine gibt -- sonst gar nichts (vorher ein Strich). Wichtig ist
+// dasselbe: keine erfundene Zahl.
+t('ohne echte Bewertung steht keine Zahl auf der Karte',
+  /\(r\.rating > 0 \? ' \\u00b7 \\u2605 ' \+ Number\(r\.rating\)\.toFixed\(1\)/.test(A) && !/id="mapCardRating/.test(A));
 
 // ---- 4. Gegenprobe -----------------------------------------------------------
 t('Gegenprobe: mit "|| 5" wuerde der Waechter anschlagen',

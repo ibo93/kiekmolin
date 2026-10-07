@@ -4449,54 +4449,14 @@
         .dark-mode .leaflet-control-attribution { background: rgba(0,37,30,0.6); color: #9fb3ad; }
         .dark-mode .leaflet-control-attribution a { color: #7fc4b4; }
 
-        /* Fullscreen Map Card — Mobile kompakter */
+        /* Fullscreen Map Card -- auf dem Handy nur die Lage. Die alten
+           Regeln hier setzten Schrift auf 9-10 px (unlesbar); die Karte nach
+           dem Entwurf (07.10.2026) bringt ihre Groessen selbst mit (.kn-karte). */
         @media (max-width: 640px) {
             #fullscreenMapCard {
                 bottom: 96px !important;
                 width: calc(100% - 24px) !important;
                 max-width: 100% !important;
-            }
-            #fullscreenMapCardInner {
-                padding: 12px !important;
-                gap: 12px !important;
-                border-radius: 28px !important;
-            }
-            #mapCardImage {
-                width: 88px !important;
-                height: 88px !important;
-                border-radius: 20px !important;
-            }
-            #mapCardRatingBadge {
-                top: 6px !important;
-                left: 6px !important;
-                padding: 3px 8px !important;
-                font-size: 9px !important;
-            }
-            #mapCardName {
-                font-size: 16px !important;
-            }
-            #mapCardMeta {
-                font-size: 9px !important;
-                margin-top: 2px !important;
-            }
-            #mapCardDesc {
-                font-size: 11px !important;
-                -webkit-line-clamp: 2 !important;
-            }
-            #fullscreenMapCardInner > div:last-child {
-                gap: 8px !important;
-            }
-            #mapCardReserveBtn, #mapCardOrderBtn {
-                padding: 10px 8px !important;
-                font-size: 10px !important;
-                letter-spacing: 0.08em !important;
-            }
-            #mapCardShareBtn {
-                width: 36px !important;
-                height: 36px !important;
-            }
-            #mapCardFav {
-                font-size: 20px !important;
             }
         }
 
@@ -14240,7 +14200,7 @@
    Knopf mit halb durchsichtig weisser Flaeche eine sichtbare. Nur in
    Fenstern und im Dashboard -- ueber Fotos bleibt das Glas.
    Gewaehlte Zustaende (dunkelgruen, gold) sind nicht weiss und bleiben. */
-:is(html, #kmi-feld) body:not(.dark-mode) :is(.modal, .modal-content, .dashboard-view) :is(.form-input, .form-select, .form-textarea, select, textarea, input[type="text"], input[type="tel"], input[type="email"], input[type="number"], input[type="search"], input[type="password"], input[type="date"], input[type="time"]):not([style*="color:white"]):not([style*="color: white"]):not([style*="color:#fff"]):not([style*="color: #fff"]) {
+:is(html, #kmi-feld) body:not(.dark-mode) :is(.modal, .modal-content, .dashboard-view) :is(.form-input, .form-select, .form-textarea, select, textarea, input[type="text"], input[type="tel"], input[type="email"], input[type="number"], input[type="search"], input[type="password"], input[type="date"], input[type="time"]):not([style*="color:white"]):not([style*="color: white"]):not([style*="color:#fff"]):not([style*="color: #fff"]):not([style*="background:transparent"]):not([style*="background: transparent"]) {
     background-color: #f4f6f5 !important; background-image: none !important;
     border: 1px solid #b9c3bf !important;
     backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
@@ -14254,7 +14214,7 @@
     outline: 1px solid #ccd5d1 !important; outline-offset: -1px;
     backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
 }
-:is(html, #kmi-feld) body.dark-mode :is(.modal, .modal-content, .dashboard-view) :is(.form-input, .form-select, .form-textarea, select, textarea, input[type="text"], input[type="tel"], input[type="email"], input[type="number"], input[type="search"], input[type="password"], input[type="date"], input[type="time"]) {
+:is(html, #kmi-feld) body.dark-mode :is(.modal, .modal-content, .dashboard-view) :is(.form-input, .form-select, .form-textarea, select, textarea, input[type="text"], input[type="tel"], input[type="email"], input[type="number"], input[type="search"], input[type="password"], input[type="date"], input[type="time"]):not([style*="background:transparent"]):not([style*="background: transparent"]) {
     background-color: #262a29 !important; background-image: none !important;
     border: 1px solid #535b58 !important; color: #f3f4f4 !important;
     backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
@@ -14268,6 +14228,79 @@
     outline: 1px solid #464e4b !important; outline-offset: -1px;
     backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
 }
+
+/* KARTE NACH DEM ENTWURF (07.10.2026) ---------------------------------
+   Claude Design "Die Karte - sechs Ideen". Nadel in Tropfenform: das
+   Zeichen zeigt die Art, die Farbe den Zustand -- nie nur die Farbe.
+   Ohne Schatten (Ibo). Tippflaeche mindestens 44 x 44. */
+.kn-nadel { position: relative; width: 44px; height: 52px; cursor: pointer; }
+.kn-tropfen { position: absolute; left: 50%; top: 6px; width: 36px; height: 36px; margin-left: -18px; box-sizing: border-box; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: #003d33; border: 2.5px solid #ffffff; display: flex; align-items: center; justify-content: center; color: #ffffff; }
+.kn-tropfen > * { transform: rotate(45deg); }
+.kn-tropfen .material-symbols-outlined { font-size: 18px; color: inherit; }
+.kn-tropfen svg { width: 18px; height: 18px; display: block; }
+.kn-nadel.aktion .kn-tropfen { background: #fed65b; color: #00251e; border-color: #ffffff; }
+.kn-nadel.zu .kn-tropfen { width: 26px; height: 26px; margin-left: -13px; top: 16px; background: #8a9692; border-width: 2px; }
+.kn-nadel.zu .kn-tropfen .material-symbols-outlined, .kn-nadel.zu .kn-tropfen svg { font-size: 14px; width: 14px; height: 14px; }
+.kn-nadel.unbekannt .kn-tropfen { background: #5f6b68; }
+.dark-mode .kn-nadel.aktion .kn-tropfen { background: #fed65b; color: #00251e; } /* Gold bleibt Gold */
+.kn-nadel.gewaehlt .kn-tropfen { width: 46px; height: 46px; margin-left: -23px; top: -4px; border: 3px solid #fed65b; }
+.kn-nadel.gewaehlt.aktion .kn-tropfen { border-color: #00251e; }
+.kn-schild { position: absolute; left: 38px; top: 10px; white-space: nowrap; background: #ffffff; color: #191c1d; font: 700 12px Inter, sans-serif; line-height: 1; padding: 6px 9px; border-radius: 9999px; border: 1px solid rgba(0,37,30,0.18); pointer-events: none; }
+.kn-schild.aktion { background: #fed65b; color: #00251e; border-color: #d9b23a; }
+.kn-nadel.gewaehlt .kn-schild { left: 44px; top: 6px; font-size: 13px; }
+.kn-ohne-schilder .kn-schild { display: none; }
+.dark-mode .kn-schild { background: #1a1d1c; color: #f3f4f4; border-color: rgba(255,255,255,0.22); }
+.dark-mode .kn-schild.aktion { background: #fed65b; color: #00251e; border-color: #d9b23a; } /* Gold bleibt Gold: es heisst Aktion */
+.kn-ich { width: 18px; height: 18px; border-radius: 50%; background: #2563eb; border: 3px solid #ffffff; box-sizing: border-box; outline: 6px solid rgba(37,99,235,0.22); }
+
+.kn-leiste { position: fixed; top: 140px; left: 50%; transform: translateX(-50%); width: 92%; max-width: 600px; z-index: 1020; display: flex; flex-direction: column; gap: 8px; }
+.kn-chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+.kn-chips::-webkit-scrollbar { display: none; }
+.kn-chips button { flex-shrink: 0; height: 40px; padding: 0 14px; border-radius: 9999px; border: 1px solid rgba(0,37,30,0.18); background: #ffffff; color: #191c1d; font: 600 14px Inter, sans-serif; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.kn-chips button i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.kn-chips button[aria-pressed="true"] { background: #003d33; color: #ffffff; border-color: #003d33; font-weight: 700; }
+.kn-zeit { background: #ffffff; border: 1px solid rgba(0,37,30,0.18); border-radius: 22px; padding: 10px 16px 4px; }
+.kn-zeit-kopf { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.kn-zeit-kopf b { font-family: Epilogue, sans-serif; font-size: 17px; font-weight: 800; color: #00251e; }
+.kn-zeit-kopf span { font-size: 13px; font-weight: 600; color: #404946; white-space: nowrap; }
+.kn-zeit input[type="range"] { width: 100%; height: 34px; margin: 0; accent-color: #003d33; cursor: pointer; }
+.dark-mode .kn-chips button { background: #1a1d1c; color: #f3f4f4; border-color: rgba(255,255,255,0.22); }
+.dark-mode .kn-chips button[aria-pressed="true"] { background: #b8eddf; color: #00251e; border-color: #b8eddf; }
+.dark-mode .kn-zeit { background: #1a1d1c; border-color: rgba(255,255,255,0.22); }
+.dark-mode .kn-zeit-kopf b { color: #b8eddf; } .dark-mode .kn-zeit-kopf span { color: #c9cfcd; }
+.dark-mode .kn-zeit input[type="range"] { accent-color: #b8eddf; }
+
+.kn-karte { background: #ffffff; border: 1px solid rgba(0,37,30,0.14); border-radius: 28px; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.kn-karte-kopf { display: flex; gap: 14px; align-items: flex-start; }
+.kn-bild { width: 84px; height: 84px; border-radius: 16px; overflow: hidden; flex-shrink: 0; background: #003d33; position: relative; display: flex; align-items: center; justify-content: center; }
+.kn-bild img { width: 100%; height: 100%; object-fit: cover; }
+.kn-bild b { font: 900 34px Epilogue, sans-serif; color: #fed65b; }
+.kn-karte-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.kn-karte-name { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.kn-karte-name h2 { margin: 0; font: 800 20px/1.15 Epilogue, sans-serif; color: #00251e; letter-spacing: -0.02em; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.kn-karte-name button { width: 40px; height: 40px; flex-shrink: 0; margin: -6px -6px 0 0; border: 0; border-radius: 50%; background: transparent; color: #8a5a00; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.kn-karte-text p { margin: 0; font-size: 13px; color: #404946; }
+.kn-fakten { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.kn-fakt { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 9999px; background: #edeeef; color: #191c1d; font: 700 12px Inter, sans-serif; }
+.kn-fakt i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.kn-fakt.offen { background: #dcfce7; color: #166534; }
+.kn-fakt.zu { background: #fef2f2; color: #b91c1c; }
+.kn-aktion { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 14px; background: #fff4cc; color: #5c4600; font: 700 13px Inter, sans-serif; }
+.kn-aktion[hidden] { display: none; }
+.kn-knoepfe { display: flex; gap: 8px; }
+.kn-knoepfe button { height: 48px; border-radius: 9999px; font: 700 14px Inter, sans-serif; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.kn-knoepfe .haupt { flex: 1; background: #00251e; color: #ffffff; border: 0; }
+.kn-knoepfe .neben { flex: 1; background: #ffffff; color: #00251e; border: 1px solid rgba(0,37,30,0.25); }
+.kn-knoepfe .rund { width: 48px; flex-shrink: 0; background: #ffffff; color: #00251e; border: 1px solid rgba(0,37,30,0.25); }
+.dark-mode .kn-karte { background: #1a1d1c; border-color: rgba(255,255,255,0.18); }
+.dark-mode .kn-karte-name h2 { color: #f3f4f4; } .dark-mode .kn-karte-text p { color: #c9cfcd; }
+.dark-mode .kn-karte-name button { color: #fed65b; }
+.dark-mode .kn-fakt { background: #262a29; color: #f3f4f4; }
+.dark-mode .kn-fakt.offen { background: #12321f; color: #86efac; }
+.dark-mode .kn-fakt.zu { background: #3b1414; color: #fecaca; }
+.dark-mode .kn-aktion { background: #3a2f0b; color: #fde68a; }
+.dark-mode .kn-knoepfe .haupt { background: #b8eddf; color: #00251e; }
+.dark-mode .kn-knoepfe .neben, .dark-mode .kn-knoepfe .rund { background: #1a1d1c; color: #f3f4f4; border-color: rgba(255,255,255,0.25); }
 
 /* KLEINE MOMENTE (06.10.2026) ------------------------------------------
    1. Knoepfe geben beim Druecken leicht nach, wie bei iOS. Mit der Eigen-
@@ -45977,147 +46010,19 @@ function updateMapMarkers() {
         return;
     }
 
-    // Review Cards für Map Preview
-    let reviewCardsHtml = '';
-
-    // KIN Design Icons (konsistent mit Fullscreen Map)
-    const cuisineIcons = {
-        'Italienisch': `<span class="material-symbols-outlined" style="font-size:18px;color:white;">face</span>`,
-        'Deutsch': `<span class="material-symbols-outlined" style="font-size:18px;color:white;">bakery_dining</span>`,
-        'Fisch': `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" width="18" height="18"><path d="M6.5 12c3-4 8-4 11 0-3 4-8 4-11 0z"/><circle cx="15" cy="12" r="1" fill="white"/></svg>`,
-        'Café': `<span class="material-symbols-outlined" style="font-size:18px;color:white;">coffee</span>`,
-        'Asiatisch': `<span class="material-symbols-outlined" style="font-size:18px;color:white;">umbrella</span>`,
-        'Griechisch': `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" width="18" height="18"><ellipse cx="12" cy="14" rx="8" ry="5"/><path d="M8 14c0-4 2-6 4-6s4 2 4 6"/></svg>`,
-        'Türkisch': `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" width="18" height="18"><ellipse cx="12" cy="16" rx="7" ry="4"/><path d="M7 12c0-4 2.5-7 5-7s5 3 5 7"/></svg>`,
-        'Imbiss': `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" width="18" height="18"><path d="M4 15h16l-2 5H6l-2-5z"/><ellipse cx="12" cy="11" rx="6" ry="3"/></svg>`,
-        'default': `<span class="material-symbols-outlined" style="font-size:18px;color:white;">equalizer</span>`
-    };
-
-    const cuisineColors = {
-        'Italienisch': 'var(--primary)',
-        'Deutsch': '#d97706',
-        'Fisch': '#0ea5e9',
-        'Café': '#8b5cf6',
-        'Asiatisch': '#10b981',
-        'Griechisch': '#14b8a6',
-        'Türkisch': '#f97316',
-        'Imbiss': '#ec4899',
-        'default': 'var(--primary)'
-    };
-
-    // Neue Marker hinzufügen
-    APP_DATA.restaurants.forEach((r, index) => {
-        if (!r.lat || !r.lng) {
-            return;
-        }
-        // Inaktive Restaurants nicht auf der Karte zeigen
-        if (r.is_active === false) return;
-
-        const iconSvg = cuisineIcons[r.cuisine] || cuisineIcons['default'];
-        const bgColor = cuisineColors[r.cuisine] || cuisineColors['default'];
-
-        // Verfügbarkeits-Ring
-        let ringColor = '#22c55e';
-        if (r.freeTables === 0) ringColor = '#ef4444';
-        else if (r.freeTables <= 2) ringColor = '#f59e0b';
-
-        // Tagesangebot Badge
-        const hasOffer = r.offer || (APP_DATA.dailySpecials && APP_DATA.dailySpecials.find(s => s.restaurant_id === r.id));
-        const offerBadge = hasOffer ? `<div style="
-            position: absolute;
-            top: -6px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: linear-gradient(135deg, #f59e0b, #d97706);
-            color: white;
-            font-size: 8px;
-            font-weight: 700;
-            padding: 2px 6px;
-            border-radius: 12px;
-            white-space: nowrap;
-            box-shadow: 0 2px 6px rgba(217,119,6,0.4);
-            font-family: 'Inter', sans-serif;
-            letter-spacing: 0.3px;
-        ">Angebot</div>` : '';
-
-        // KIN Design Marker
-        const icon = L.divIcon({
-            className: 'kin-map-marker',
-            html: `
-                <div class="map-marker-pin" data-id="${r.id}" style="
-                    width: 40px;
-                    height: 40px;
-                    background: ${bgColor};
-                    border-radius: 50%;
-                    border: 3px solid var(--bg-card);
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    cursor: pointer;
-                    position: relative;
-                ">
-                    ${iconSvg}
-                    ${offerBadge}
-                    <div style="
-                        position: absolute;
-                        bottom: -2px;
-                        right: -2px;
-                        width: 12px;
-                        height: 12px;
-                        background: ${ringColor};
-                        border-radius: 50%;
-                        border: 2px solid var(--bg-card);
-                    "></div>
-                </div>
-            `,
-            iconSize: [44, 50],
-            iconAnchor: [22, 50]
-        });
-
-        const marker = L.marker([r.lat, r.lng], { icon }).addTo(guestMap);
-
-        // Bei Klick: Direkt zur Restaurant Landing Page
+    // Nadeln wie auf der grossen Karte (07.10.2026). Vorher: Ring nach
+    // r.freeTables -- rot fuer jedes Lokal ohne eingetragene Tische --
+    // und "Angebot" aus APP_DATA.dailySpecials, das nirgends befuellt wird.
+    APP_DATA.restaurants.forEach((r) => {
+        if (!r.lat || !r.lng || r.is_active === false) return;
+        const marker = L.marker([r.lat, r.lng], { icon: karteNadel(r, karteZustand(r), false) }).addTo(guestMap);
         marker.on('click', () => {
             var slug = r.slug || r.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '');
             openRestaurantBySlug(slug);
         });
-
         mapMarkers.push(marker);
-
-        // Review Card für Preview (nur erste 5)
-        if (index < 5 && r.freeTables > 0) {
-            var cardSlug = r.slug || r.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/g, '');
-            reviewCardsHtml += `
-                <div onclick="openRestaurantBySlug('${cardSlug}')" style="
-                    flex: 0 0 auto;
-                    width: 200px;
-                    background: rgba(255,255,255,0.7);
-                    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-                    border-radius: 16px;
-                    padding: 12px;
-                    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
-                    cursor: pointer;
-                    border: 1px solid rgba(0,61,51,0.06);
-                ">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <img src="${r.image}" loading="lazy" alt="${r.name}" style="width: 40px; height: 40px; border-radius: 16px; object-fit: cover;">
-                        <div style="flex: 1; min-width: 0;">
-                            <div style="font-size: 13px; font-weight: 700; color: var(--dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${r.name}</div>
-                            <div style="font-size: 11px; color: ${ringColor}; font-weight: 600;">${r.freeTables} Tische frei</div>
-                        </div>
-                        <span class="material-symbols-outlined" style="font-size:16px;color:var(--slate);">chevron_right</span>
-                    </div>
-                </div>
-            `;
-        }
     });
-
-    // Review Cards einfügen
-    const reviewContainer = document.getElementById('mapReviewCards');
-    if (reviewContainer) {
-        reviewContainer.innerHTML = reviewCardsHtml;
-    }
+    if (guestMap.getContainer) guestMap.getContainer().classList.add('kn-ohne-schilder');
 }
 
 // Bottom Sheet für Restaurant öffnen
@@ -46407,8 +46312,14 @@ function initFullscreenMap() {
         zoomControl: false
     }).setView([initLat, initLng], 16);
 
-    window._mapStyleDark = false;
-    window.fullscreenTileLayer = KARTE.ebene(fullscreenMap, false);
+    // Abendmodus: im Dunkelmodus oder nach Sonnenuntergang dunkle Karte.
+    window._mapStyleDark = KARTE.istDunkel() || karteNachSonnenuntergang();
+    window.fullscreenTileLayer = KARTE.ebene(fullscreenMap, window._mapStyleDark);
+    // Schilder erst ab Zoom 14 -- weiter draussen ueberdecken sie sich.
+    function _schilderNachZoom() { var c = fullscreenMap && fullscreenMap.getContainer(); if (c) c.classList.toggle('kn-ohne-schilder', fullscreenMap.getZoom() < 14); }
+    fullscreenMap.on('zoomend', _schilderNachZoom);
+    window._karteVersatz = 0; var _kz = document.getElementById('karteZeit'); if (_kz) _kz.value = 0;
+    karteAktionenNachladen();
 
     // Marker hinzufügen
     updateFullscreenMarkers();
@@ -46425,6 +46336,7 @@ function initFullscreenMap() {
             if (!fullscreenMap) return;
             fullscreenMap.invalidateSize();
             fullscreenMap.setView([initLat, initLng], restWithCoords.length > 1 ? 15 : 16);
+            _schilderNachZoom();
         }, 200);
     }, 100);
 
@@ -46474,33 +46386,172 @@ function updateMapLiveStats() {
 var _mapActiveIndex = 0;
 var _mapRestaurantList = [];
 
-function updateFullscreenMarkers(filter = 'all') {
+// ======================================================================
+// KARTE NACH DEM ENTWURF (07.10.2026) -- Claude Design "Die Karte".
+// ======================================================================
+// Ibo: "die Map Design der Karte noch besser machen".
+//
+// NADEL: das Zeichen zeigt die Art (Fisch, Pizza, Cafe, Bar ...), die
+// Farbe den Zustand: offen dunkelgruen, Aktion laeuft gold, zu klein und
+// grau. Daneben ein Schild "Fisch · bis 22".
+//
+// EHRLICH (Regel 6): Frueher stand an der Nadel ein Ring nach
+// r.freeTables -- das zaehlt nur Tische mit Status "frei". Ein Lokal ohne
+// eingetragene Tische war damit "0 frei", also rot, und fiel beim Filter
+// "verfuegbar" heraus. Raus. Ebenso der erfundene Satz "frische Gerichte
+// und regionale Spezialitaeten" in der Karte unten. Und: ohne
+// eingetragene Oeffnungszeiten sagt die Karte "Zeiten nicht eingetragen"
+// statt der Annahme 11-22 Uhr aus aktiveSchicht.
+var KARTE_SVG = {
+    fisch: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12c3-5 10-6.5 14.5-2L21 7v10l-4-3c-4.5 4.5-11.5 3-14.5-2z"/><circle cx="14.5" cy="11" r="1" fill="currentColor"/></svg>',
+    pizza: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3 3.5 20.5h17z"/><path d="M5.6 16.2h12.8"/><circle cx="11" cy="12" r="1.2" fill="currentColor"/><circle cx="13.5" cy="15" r="1.1" fill="currentColor"/></svg>',
+    imbiss: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 11a8 6 0 0 1 16 0z"/><path d="M3 14.5h18"/><path d="M4.5 18h15"/></svg>',
+    eis: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M7 10a5 5 0 0 1 10 0z"/><path d="M7.5 10 12 21l4.5-11"/></svg>'
+};
+var KARTE_ART = { fisch: 'fisch', norddeutsch: 'fisch', italienisch: 'pizza', pizza: 'pizza', imbiss: 'imbiss', burger: 'imbiss', tuerkisch: 'imbiss', 'türkisch': 'imbiss', eisdiele: 'eis', cafe: 'local_cafe', 'café': 'local_cafe', baeckerei: 'bakery_dining', 'bäckerei': 'bakery_dining', bar: 'local_bar', shisha: 'local_bar' };
+function karteArt(r) {
+    var liste = [].concat(r && r.cuisine_type || [], r && r.cuisine || []).map(function (x) { return String(x).toLowerCase(); });
+    for (var i = 0; i < liste.length; i++) if (KARTE_ART[liste[i]]) return KARTE_ART[liste[i]];
+    return 'restaurant';
+}
+function karteZeichen(art) {
+    return KARTE_SVG[art] || '<span class="material-symbols-outlined" aria-hidden="true">' + art + '</span>';
+}
+function karteZeitenDa(r) {
+    var oh = r && r.opening_hours;
+    if (typeof oh === 'string') { try { oh = JSON.parse(oh); } catch (e) { oh = null; } }
+    if (oh && typeof oh === 'object' && Object.keys(oh).some(function (k) { return /_start$/.test(k) && oh[k]; })) return true;
+    return !!(r && r.opening_time && r.closing_time);
+}
+window._karteAktionen = window._karteAktionen || {};
+// Zustand eines Lokals zu einem Zeitpunkt (Standard: jetzt).
+function karteZustand(r, wann) {
+    wann = wann || new Date();
+    var tag = wann.toLocaleDateString('sv-SE');
+    try { var vac = getVacationInfo(r); if (vac && vac.coversDate(tag)) return { art: 'zu', text: 'Betriebsferien bis ' + vac.toNice }; } catch (e) {}
+    if (!karteZeitenDa(r)) return { art: 'unbekannt', text: 'Zeiten nicht eingetragen' };
+    var s = null; try { s = aktiveSchicht(r, wann); } catch (e) { s = null; }
+    if (!s) return { art: 'zu', text: 'Geschlossen' };
+    var akt = null;
+    (window._karteAktionen[r.id] || []).some(function (a) {
+        if (a && a.gilt_fuer !== 'reservierung' && typeof aktionLaeuftJetzt === 'function' && aktionLaeuftJetzt(a, wann)) { akt = a; return true; }
+        return false;
+    });
+    return { art: akt ? 'aktion' : 'offen', bis: s.ende, text: 'Offen bis ' + s.ende, aktion: akt };
+}
+window.karteZustand = karteZustand;
+function karteSchild(r, z) {
+    if (z.art === 'aktion') return z.aktion.titel || 'Aktion';
+    if (z.art !== 'offen') return '';
+    var k = '';
+    try { k = (kuechenListe(r, ', ') || '').split(',')[0].trim(); } catch (e) {}
+    var bis = String(z.bis || '');
+    bis = /:00$/.test(bis) ? bis.slice(0, 2).replace(/^0/, '') : bis;
+    return (k ? k + ' · ' : '') + 'bis ' + bis;
+}
+function karteNadel(r, z, gewaehlt) {
+    var schild = karteSchild(r, z);
+    var html = '<div class="kn-nadel ' + z.art + (gewaehlt ? ' gewaehlt' : '') + '" role="button" aria-label="' + escapeHtml((r.name || '') + ', ' + z.text) + '">'
+        + '<div class="kn-tropfen">' + karteZeichen(karteArt(r)) + '</div>'
+        + (schild ? '<span class="kn-schild' + (z.art === 'aktion' ? ' aktion' : '') + '">' + escapeHtml(schild) + '</span>' : '')
+        + '</div>';
+    return L.divIcon({ html: html, className: '', iconSize: [44, 52], iconAnchor: [22, 46] });
+}
+// Abendmodus: nach Sonnenuntergang von selbst dunkle Karte. Grobe
+// Sonnenrechnung fuer Ostfriesland (53,4 N, 7,2 O) -- auf eine
+// Viertelstunde genau, das reicht fuer "ist es draussen dunkel".
+function karteNachSonnenuntergang(d) {
+    d = d || new Date();
+    var tag = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 864e5);
+    var breite = 53.4 * Math.PI / 180;
+    var dekl = -23.44 * Math.PI / 180 * Math.cos(2 * Math.PI / 365 * (tag + 10));
+    var cosH = Math.max(-1, Math.min(1, -Math.tan(breite) * Math.tan(dekl)));
+    var halb = Math.acos(cosH) * 180 / Math.PI / 15;
+    var mittag = 12 - 7.2 / 15, h = d.getUTCHours() + d.getUTCMinutes() / 60;
+    return h >= mittag + halb || h < mittag - halb;
+}
+window.karteNachSonnenuntergang = karteNachSonnenuntergang;
+// Zeitregler: 0 = jetzt, sonst Minuten ab der vollen halben Stunde.
+window._karteVersatz = 0;
+window._karteFilter = 'alle';
+function karteWann() {
+    if (!window._karteVersatz) return null;
+    var d = new Date(); d.setSeconds(0, 0);
+    d.setMinutes(Math.floor(d.getMinutes() / 30) * 30 + window._karteVersatz);
+    return d;
+}
+function karteZeitZeichnen(liste) {
+    var w = karteWann(), t = document.getElementById('karteZeitText'), z = document.getElementById('karteZeitZahl');
+    if (t) {
+        if (!w) t.textContent = 'Jetzt';
+        else {
+            var uhr = String(w.getHours()).padStart(2, '0') + ':' + String(w.getMinutes()).padStart(2, '0');
+            t.textContent = (w.toLocaleDateString('sv-SE') === new Date().toLocaleDateString('sv-SE') ? 'Heute um ' : 'Nachts um ') + uhr;
+        }
+    }
+    if (z) {
+        var n = { offen: 0, zu: 0, unbekannt: 0 };
+        (liste || []).forEach(function (r) { var a = karteZustand(r, w || undefined).art; n[a === 'aktion' ? 'offen' : a]++; });
+        z.textContent = n.offen + ' offen · ' + n.zu + ' zu' + (n.unbekannt ? ' · ' + n.unbekannt + ' ohne Zeiten' : '');
+    }
+    var tee = document.getElementById('karteTeetied');
+    if (tee) { var h = (w || new Date()).getHours(); tee.style.display = (h >= 13 && h < 18) || window._karteFilter === 'teetied' ? '' : 'none'; }
+}
+function karteFilterPasst(r, z) {
+    var f = window._karteFilter;
+    if (f === 'offen') return z.art === 'offen' || z.art === 'aktion';
+    if (f === 'aktion') return z.art === 'aktion';
+    if (f === 'teetied') { var a = karteArt(r); return (a === 'local_cafe' || a === 'bakery_dining') && z.art !== 'zu'; }
+    return true;
+}
+function karteAktionenNachladen() {
+    if (typeof aktionenLaden !== 'function') return;
+    var liste = (APP_DATA.restaurants || []).filter(function (r) { return r.lat && r.lng && r.is_active !== false; }).slice(0, 40);
+    Promise.all(liste.map(function (r) {
+        return aktionenLaden(r.id, false).then(function (l) { window._karteAktionen[r.id] = l || []; }).catch(function () {});
+    })).then(function () { if (fullscreenMap) updateFullscreenMarkers(); if (guestMap) updateMapMarkers(); });
+}
+function karteVerbinden() {
+    var chips = document.getElementById('karteChips');
+    if (!chips || chips.dataset.verbunden) return;
+    chips.dataset.verbunden = '1';
+    chips.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-kfilter]'); if (!b) return;
+        window._karteFilter = b.getAttribute('data-kfilter');
+        chips.querySelectorAll('[data-kfilter]').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+        _mapActiveIndex = 0; updateFullscreenMarkers();
+    });
+    var zeit = document.getElementById('karteZeit');
+    var bild = 0;
+    zeit.addEventListener('input', function () {
+        window._karteVersatz = +this.value;
+        if (bild) return;
+        bild = requestAnimationFrame(function () { bild = 0; updateFullscreenMarkers(); });
+    });
+}
+
+function updateFullscreenMarkers(filter) {
     if (!fullscreenMap) return;
+    karteVerbinden();
 
     // Alte Marker entfernen
     fullscreenMarkers.forEach(m => fullscreenMap.removeLayer(m));
     fullscreenMarkers = [];
     _mapRestaurantList = [];
 
-    APP_DATA.restaurants.forEach((r, index) => {
-        if (!r.lat || !r.lng) return;
-        if (r.is_active === false) return;
-
-        // Filter anwenden
-        if (filter === 'available' && r.freeTables === 0) return;
-        if (filter === 'restaurant' && r.cuisine === 'Café') return;
-        if (filter === 'cafe' && r.cuisine !== 'Café') return;
-        if (filter === 'fisch' && r.cuisine !== 'Fisch') return;
-
-        _mapRestaurantList.push(r);
+    var w = karteWann() || undefined;
+    var alle = (APP_DATA.restaurants || []).filter(function (r) { return r.lat && r.lng && r.is_active !== false; });
+    karteZeitZeichnen(alle);
+    var zustaende = [];
+    alle.forEach(function (r) {
+        var z = karteZustand(r, w);
+        if (!karteFilterPasst(r, z)) return;
+        _mapRestaurantList.push(r); zustaende.push(z);
     });
 
-    // Marker erstellen — Stitch Style
     _mapRestaurantList.forEach((r, i) => {
-        var isActive = (i === _mapActiveIndex);
-        var icon = _createStitchMapMarker(isActive);
-
-        var marker = L.marker([r.lat, r.lng], { icon: icon }).addTo(fullscreenMap);
+        var marker = L.marker([r.lat, r.lng], { icon: karteNadel(r, zustaende[i], i === _mapActiveIndex), zIndexOffset: zustaende[i].art === 'zu' ? -100 : (i === _mapActiveIndex ? 1000 : 0) }).addTo(fullscreenMap);
+        marker._kmiZustand = zustaende[i];
         marker.on('click', function() {
             _mapActiveIndex = i;
             _updateMapMarkersStyle();
@@ -46522,29 +46573,11 @@ function updateFullscreenMarkers(filter = 'all') {
     updateMapLiveStats();
 }
 
-function _createStitchMapMarker(isActive) {
-    var size = isActive ? 56 : 44;
-    var bg = isActive ? '#00251e' : '#fed65b';
-    var color = isActive ? '#fed65b' : '#735c00';
-    var iconName = isActive ? 'star' : 'restaurant';
-    var shadow = isActive
-        ? '0 0 0 6px rgba(254,214,91,0.3), 0 8px 32px rgba(0,37,30,0.3)'
-        : '0 4px 20px rgba(0,37,30,0.25)';
-
-    var html = '<div style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + bg + ';display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:' + shadow + ';cursor:pointer;transition:transform 0.3s;">' +
-        '<span class="material-symbols-outlined" style="font-size:' + (isActive ? 24 : 20) + 'px;color:' + color + ';font-variation-settings:\'FILL\' 1;">' + iconName + '</span></div>';
-
-    return L.divIcon({
-        html: html,
-        iconSize: [size, size],
-        iconAnchor: [size / 2, size / 2],
-        className: ''
-    });
-}
-
 function _updateMapMarkersStyle() {
     fullscreenMarkers.forEach(function(m, i) {
-        m.setIcon(_createStitchMapMarker(i === _mapActiveIndex));
+        var r = _mapRestaurantList[i]; if (!r) return;
+        m.setIcon(karteNadel(r, m._kmiZustand || karteZustand(r), i === _mapActiveIndex));
+        m.setZIndexOffset(i === _mapActiveIndex ? 1000 : 0);
     });
 }
 
@@ -46554,27 +46587,49 @@ function _updateMapFloatingCard(r) {
 
     var slug = r.slug || r.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '');
     var isFav = APP_DATA.favorites && APP_DATA.favorites.includes(r.id);
+    var z = karteZustand(r, karteWann() || undefined);
 
-    document.getElementById('mapCardImg').src = r.image || '';
-    document.getElementById('mapCardImg').alt = r.name || '';
-    // Ohne echte Bewertung steht dort ein Strich, keine erfundene 4,5.
-    document.getElementById('mapCardRating').textContent = (r.rating > 0) ? Number(r.rating).toFixed(1) : '–';
-    document.getElementById('mapCardName').textContent = (r.name || '').toUpperCase();
-    document.getElementById('mapCardMeta').textContent = kuecheLabel(r.cuisine, 'Restaurant') + ' \u00b7 ' + (r.city || 'Greetsiel');
+    var img = document.getElementById('mapCardImg'), echt = r.image && !/^data:image\/gif/.test(r.image);
+    img.style.display = echt ? '' : 'none';
+    img.src = echt ? r.image : '';
+    img.alt = r.name || '';
+    document.getElementById('mapCardInitial').textContent = echt ? '' : String(r.name || '?').charAt(0).toUpperCase();
+    document.getElementById('mapCardName').textContent = r.name || '';
+    document.getElementById('mapCardMeta').textContent = kuecheLabel(r.cuisine, 'Restaurant') + ' \u00b7 ' + (r.city || 'Ostfriesland') + (r.rating > 0 ? ' \u00b7 \u2605 ' + Number(r.rating).toFixed(1).replace('.', ',') : '');
 
-    var desc = r.description || r.tagline || '';
-    if (!desc && r.cuisine) desc = kuecheLabel(r.cuisine) + (r.city ? ' in ' + r.city : '') + ' \u2014 frische Gerichte und regionale Spezialit\u00e4ten.';
-    document.getElementById('mapCardDesc').textContent = desc;
+    // Fakten: nur, was stimmt.
+    var f = [];
+    f.push('<span class="kn-fakt ' + (z.art === 'offen' || z.art === 'aktion' ? 'offen' : z.art === 'zu' ? 'zu' : '') + '"><i aria-hidden="true"></i>' + escapeHtml(z.text) + '</span>');
+    if (typeof _userLat === 'number' && typeof _userLng === 'number' && typeof getDistanceKm === 'function') {
+        var km = getDistanceKm(_userLat, _userLng, +r.lat, +r.lng);
+        if (isFinite(km)) f.push('<span class="kn-fakt">' + (km < 2.5 ? Math.max(1, Math.round(km / 4.8 * 60)) + ' Min. zu Fuß' : km.toFixed(1).replace('.', ',') + ' km') + '</span>');
+    }
+    try { var _and = typeof andrangInfo === 'function' ? andrangInfo(r) : null; if (_and && (z.art === 'offen' || z.art === 'aktion')) f.push('<span class="kn-fakt">' + escapeHtml(_and.kurz) + '</span>'); } catch (e) {}
+    document.getElementById('mapCardFakten').innerHTML = f.join('');
+
+    var akt = document.getElementById('mapCardAktion');
+    if (z.aktion) {
+        akt.hidden = false;
+        akt.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;" aria-hidden="true">local_offer</span>'
+            + escapeHtml('Läuft gerade: ' + (z.aktion.titel || 'Aktion') + (z.aktion.bis ? ' · bis ' + String(z.aktion.bis).slice(0, 5) : '') + (z.aktion.vorteil ? ' – ' + z.aktion.vorteil : ''));
+    } else { akt.hidden = true; akt.innerHTML = ''; }
+
+    var noRes = (r.features || []).indexOf('no_reservations') >= 0, noOrd = (r.features || []).indexOf('no_ordering') >= 0;
+    var resBtn = document.getElementById('mapCardReserveBtn'), ordBtn = document.getElementById('mapCardOrderBtn');
+    resBtn.style.display = noRes ? 'none' : '';
+    ordBtn.textContent = noOrd ? 'Speisekarte' : 'Bestellen';
+    ordBtn.className = noRes ? 'haupt' : 'neben';
 
     var favIcon = document.getElementById('mapCardFav');
     if (favIcon) {
-        favIcon.style.fontVariationSettings = isFav ? "'FILL' 1" : "'FILL' 0";
-        favIcon.style.color = isFav ? '#ef4444' : '#735c00';
+        var sym = favIcon.querySelector('.material-symbols-outlined');
+        if (sym) sym.style.fontVariationSettings = isFav ? "'FILL' 1" : "'FILL' 0";
+        favIcon.setAttribute('aria-pressed', isFav ? 'true' : 'false');
         favIcon.onclick = function() { toggleFavorite(r.id); _updateMapFloatingCard(r); };
     }
 
-    document.getElementById('mapCardReserveBtn').onclick = function() { closeModal('fullscreenMapModal'); openReservation(r.id); };
-    document.getElementById('mapCardOrderBtn').onclick = function() { closeModal('fullscreenMapModal'); openMenuModal(r.id); };
+    resBtn.onclick = function() { closeModal('fullscreenMapModal'); openReservation(r.id); };
+    ordBtn.onclick = function() { closeModal('fullscreenMapModal'); openMenuModal(r.id); };
     document.getElementById('mapCardShareBtn').onclick = function() {
         if (navigator.share) navigator.share({ title: r.name, url: window.location.origin + '/' + slug });
     };
@@ -48775,6 +48830,20 @@ document.addEventListener('error', function(e) {
             </div>
         </div>
 
+        <!-- Filter + Zeitregler (07.10.2026, Entwurf "Die Karte") -->
+        <div class="kn-leiste" id="karteLeiste">
+            <div class="kn-chips" id="karteChips" role="group" aria-label="Filter">
+                <button type="button" data-kfilter="alle" aria-pressed="true">Alle</button>
+                <button type="button" data-kfilter="offen" aria-pressed="false"><i style="background:#16a34a" aria-hidden="true"></i>Jetzt offen</button>
+                <button type="button" data-kfilter="aktion" aria-pressed="false"><i style="background:#e5b92e" aria-hidden="true"></i>Aktion läuft</button>
+                <button type="button" data-kfilter="teetied" aria-pressed="false" id="karteTeetied"><span class="material-symbols-outlined" style="font-size:16px;" aria-hidden="true">local_cafe</span>Teetied</button>
+            </div>
+            <div class="kn-zeit">
+                <div class="kn-zeit-kopf"><b id="karteZeitText">Jetzt</b><span id="karteZeitZahl"></span></div>
+                <input type="range" id="karteZeit" min="0" max="720" step="30" value="0" aria-label="Uhrzeit: wer hat dann offen?">
+            </div>
+        </div>
+
         <!-- Quick Action Buttons — Right Side (Stitch) -->
         <div style="position:fixed;right:16px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:12px;z-index:1020;">
             <button onclick="centerOnUserLocation()" style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,rgba(255,255,255,0.45),rgba(255,255,255,0.15));box-shadow:0 8px 32px rgba(0,37,30,0.08);border:1px solid rgba(255,255,255,0.3);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:center;color:#003d33;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.6)'" onmouseout="this.style.background=''">
@@ -48786,33 +48855,21 @@ document.addEventListener('error', function(e) {
         </div>
 
         <!-- Floating Restaurant Card — Liquid Glass (Stitch) -->
-        <div id="fullscreenMapCard" style="position:fixed;bottom:112px;left:50%;transform:translateX(-50%);width:92%;max-width:640px;z-index:1040;display:none;">
-            <div style="background:linear-gradient(135deg,rgba(255,255,255,0.45) 0%,rgba(255,255,255,0.15) 100%);box-shadow:0 48px 96px -24px rgba(0,37,30,0.2);border:1px solid rgba(255,255,255,0.3);border-top:1px solid rgba(255,255,255,0.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:48px;overflow:hidden;padding:20px;display:flex;gap:20px;align-items:center;" id="fullscreenMapCardInner">
-                <!-- Restaurant Image -->
-                <div id="mapCardImage" style="width:180px;height:180px;border-radius:32px;overflow:hidden;flex-shrink:0;box-shadow:inset 0 2px 8px rgba(0,0,0,0.1);position:relative;">
-                    <img id="mapCardImg" src="" alt="" style="width:100%;height:100%;object-fit:cover;transition:transform 0.7s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
-                    <div id="mapCardRatingBadge" style="position:absolute;top:12px;left:12px;background:#fed65b;color:#735c00;font-size:10px;font-weight:900;padding:4px 12px;border-radius:9999px;text-transform:uppercase;letter-spacing:0.15em;box-shadow:0 4px 12px rgba(0,0,0,0.1);display:flex;align-items:center;gap:4px;">
-                        <span class="material-symbols-outlined" style="font-size:12px;font-variation-settings:'FILL' 1;">star</span>
-                        <span id="mapCardRating">4.7</span>
+        <div id="fullscreenMapCard" style="position:fixed;bottom:104px;left:50%;transform:translateX(-50%);width:92%;max-width:560px;z-index:1040;display:none;">
+            <div class="kn-karte">
+                <div class="kn-karte-kopf">
+                    <div class="kn-bild" id="mapCardImage"><img id="mapCardImg" src="" alt=""><b id="mapCardInitial" aria-hidden="true"></b></div>
+                    <div class="kn-karte-text">
+                        <div class="kn-karte-name"><h2 id="mapCardName"></h2><button type="button" id="mapCardFav" aria-label="Merken"><span class="material-symbols-outlined">favorite</span></button></div>
+                        <p id="mapCardMeta"></p>
+                        <div class="kn-fakten" id="mapCardFakten"></div>
                     </div>
                 </div>
-                <!-- Info -->
-                <div style="flex:1;display:flex;flex-direction:column;gap:16px;min-width:0;">
-                    <div>
-                        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-                            <h2 id="mapCardName" style="font-family:'Epilogue',sans-serif;font-weight:900;font-size:24px;color:var(--ink-deep);letter-spacing:-0.03em;line-height:1;margin:0;"></h2>
-                            <span class="material-symbols-outlined" id="mapCardFav" style="color:#735c00;cursor:pointer;font-variation-settings:'FILL' 1;flex-shrink:0;">favorite</span>
-                        </div>
-                        <p id="mapCardMeta" style="font-family:'Inter',sans-serif;font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.15em;font-weight:500;margin-top:4px;"></p>
-                    </div>
-                    <p id="mapCardDesc" style="font-family:'Inter',sans-serif;font-size:13px;color:var(--text-secondary);line-height:1.5;margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;"></p>
-                    <div style="display:flex;align-items:center;gap:12px;">
-                        <button id="mapCardReserveBtn" style="flex:1;background:#00251e;color:white;padding:14px;border-radius:9999px;border:none;font-family:'Epilogue',sans-serif;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:0.15em;box-shadow:0 8px 24px rgba(0,37,30,0.25);cursor:pointer;transition:all 0.2s;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">Reservieren</button>
-                        <button id="mapCardOrderBtn" style="flex:1;background:rgba(255,255,255,0.4);color:var(--ink-deep);padding:14px;border-radius:9999px;border:none;font-family:'Epilogue',sans-serif;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:0.15em;box-shadow:0 4px 12px rgba(0,0,0,0.06);cursor:pointer;transition:all 0.2s;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">Bestellen</button>
-                        <button id="mapCardShareBtn" style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.3);border:none;display:flex;align-items:center;justify-content:center;color:var(--ink-deep);box-shadow:0 4px 12px rgba(0,0,0,0.06);cursor:pointer;flex-shrink:0;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.5)'" onmouseout="this.style.background='rgba(255,255,255,0.3)'">
-                            <span class="material-symbols-outlined">share</span>
-                        </button>
-                    </div>
+                <div class="kn-aktion" id="mapCardAktion" hidden></div>
+                <div class="kn-knoepfe">
+                    <button type="button" class="haupt" id="mapCardReserveBtn">Tisch reservieren</button>
+                    <button type="button" class="neben" id="mapCardOrderBtn">Speisekarte</button>
+                    <button type="button" class="rund" id="mapCardShareBtn" aria-label="Teilen"><span class="material-symbols-outlined">share</span></button>
                 </div>
             </div>
         </div>
