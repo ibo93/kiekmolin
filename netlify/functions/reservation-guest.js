@@ -260,6 +260,26 @@ exports.handler = async function (event) {
                 delete koerper[fehlt[1]];
                 continue;
             }
+            // TISCHWUNSCH (07.10.2026, gemessen in postgres_logs): table_id
+            // verweist in der Datenbank noch auf die alte Tabelle "tables",
+            // der Gast waehlt aber aus restaurant_tables. Ergebnis 409/23503
+            // -- der Gast waere abgewiesen worden. Bis datenbank/40-tisch-
+            // zuordnung.sql eingespielt ist: ohne table_id speichern, der
+            // Wunsch steht in der Notiz. Der Gast bekommt seinen Platz, das
+            // Personal sieht den Wunsch.
+            if (res.status === 409 && koerper.table_id && /reservations_table_id_fkey/.test(rohtext)) {
+                var wunsch = 'Tischwunsch';
+                try {
+                    var tRes = await fetch(SUPABASE_URL + '/rest/v1/restaurant_tables?id=eq.' + encodeURIComponent(koerper.table_id)
+                        + '&select=table_number,table_name', { headers: kopf() });
+                    var tz = tRes.ok ? await tRes.json() : [];
+                    if (Array.isArray(tz) && tz[0]) wunsch = 'Tisch: ' + (tz[0].table_name || ('Tisch ' + tz[0].table_number));
+                } catch (e) {}
+                console.warn('[reservation-guest] table_id verweist noch auf "tables" -- ohne Tisch gespeichert (' + wunsch + ').');
+                delete koerper.table_id;
+                koerper.notes = wunsch + (koerper.notes ? ' · ' + koerper.notes : '');
+                continue;
+            }
             break;
         }
         if (!res.ok) {

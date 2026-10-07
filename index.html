@@ -17288,18 +17288,10 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
 
                     try {
                         // Reservierungen laden mit Tisch-Join - Restaurant-Filter wenn vorhanden
-                        var url = SUPABASE_URL + '/rest/v1/reservations?select=*,tables:table_id(id,table_number,seats)&order=reservation_date.asc,reservation_time.asc';
-                        if (window.resCurrentRestaurant) {
-                            url += '&restaurant_id=eq.' + window.resCurrentRestaurant;
-                        }
-
-
-                        var response = await fetch(url, {
-                            headers: {
-                                'apikey': SUPABASE_KEY,
-                                'Authorization': 'Bearer ' + kmiToken()
-                            }
-                        });
+                        var _rf = window.resCurrentRestaurant ? '&restaurant_id=eq.' + window.resCurrentRestaurant : '';
+                        var response = await resMitTischLaden(function (sel) {
+                            return SUPABASE_URL + '/rest/v1/reservations?select=' + sel + '&order=reservation_date.asc,reservation_time.asc' + _rf;
+                        }, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() } });
 
                         if (response.ok) {
                             var data = await response.json();
@@ -18679,7 +18671,10 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 // ---------- Zustand zu einem Zeitpunkt ----------
                 function zeitpunkt() { return tp.zeit === 'jetzt' ? jetztMin() : minuten(tp.zeit); }
                 function istJetzt() { return tp.zeit === 'jetzt' && tp.datum === heute(); }
-                function resFuerTisch(t) { return tp.res.filter(function (r) { return String(r.table_id || '') === String(t.id); }); }
+                // "Tisch: <Name>" in der Notiz = Reservierung, die ohne table_id
+                // gespeichert werden musste (siehe reservieren()).
+                function tischNotiz(t) { return 'Tisch: ' + t.name; }
+                function resFuerTisch(t) { return tp.res.filter(function (r) { return String(r.table_id || '') === String(t.id) || (!r.table_id && String(r.notes || '').indexOf(tischNotiz(t)) === 0); }); }
                 function zustand(t) {
                     var T = zeitpunkt(), z = { art: 'frei', text: 'frei' };
                     var rs = resFuerTisch(t), aktiv = null;
@@ -19118,12 +19113,29 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     if (!zeit || !pers) { melden('Bitte Uhrzeit und Personen eintragen.', 'fehler'); return; }
                     var a = minuten(zeit), konflikt = resFuerTisch(t).find(function (r) { var b = minuten(r.reservation_time), e = b + (+r.duration_minutes || 120); return a < e && b < a + 120; });
                     if (konflikt) { melden(t.name + ' ist um ' + String(konflikt.reservation_time).slice(0, 5) + ' schon für ' + (konflikt.guest_name || 'einen Gast') + ' reserviert.', 'fehler'); return; }
-                    try {
-                        var r = await sbWrite(SUPABASE_URL + '/rest/v1/reservations', { method: 'POST', headers: kopf({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }),
-                            body: JSON.stringify({ restaurant_id: tp.rid, reservation_date: tp.datum, reservation_time: zeit, guest_name: name, guest_phone: tel || null, party_size: pers, table_id: t.id, status: 'confirmed', source: 'dashboard' }) });
+                    // TISCH-ZUORDNUNG (07.10.2026, gemessen in postgres_logs):
+                    // reservations.table_id verweist in der Datenbank noch auf die
+                    // ALTE Tabelle "tables", der Plan liest aber restaurant_tables.
+                    // Jede Reservierung mit Tisch scheiterte mit 409 (23503).
+                    // Bis datenbank/40-tisch-zuordnung.sql eingespielt ist: ohne
+                    // table_id speichern, der Tisch steht in der Notiz -- und der
+                    // Plan zeigt die Reservierung trotzdem an diesem Tisch.
+                    var daten = { restaurant_id: tp.rid, reservation_date: tp.datum, reservation_time: zeit, guest_name: name, guest_phone: tel || null, party_size: pers, table_id: t.id, status: 'confirmed', source: 'dashboard' };
+                    async function schreiben(d) {
+                        var r = await sbWrite(SUPABASE_URL + '/rest/v1/reservations', { method: 'POST', headers: kopf({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }), body: JSON.stringify(d) });
                         var z = await r.json().catch(function () { return []; });
                         if (!Array.isArray(z) || !z.length) throw new Error('die Datenbank hat die Reservierung nicht angenommen');
-                        melden('');
+                        return z;
+                    }
+                    try {
+                        var ohneTisch = false;
+                        try { await schreiben(daten); }
+                        catch (e1) {
+                            if (!/reservations_table_id_fkey|23503/.test(String(e1 && e1.message))) throw e1;
+                            delete daten.table_id; daten.notes = tischNotiz(t);
+                            await schreiben(daten); ohneTisch = true;
+                        }
+                        melden(ohneTisch ? 'Reserviert – aber noch ohne feste Tischzuordnung in der Datenbank (der Tisch steht in der Notiz, der Plan zeigt sie trotzdem hier). Damit es fest gespeichert wird: datenbank/40-tisch-zuordnung.sql in Supabase einspielen.' : '', ohneTisch ? 'hinweis' : undefined);
                         if (typeof showToast === 'function') showToast('Reserviert: ' + esc(name) + ', ' + zeit + ', ' + esc(t.name), 'success');
                         if (typeof window.resLoadReservations === 'function') try { window.resLoadReservations(); } catch (x) {}
                         await laden();
@@ -30601,6 +30613,27 @@ function generateReservationSlots(restaurantId, datum) {
 // Liefert IMMER ein Objekt. Wichtig ist das Feld "ok": bei einer
 // Stoerung darf die Anzeige NICHT "alles frei" schliessen, sonst bucht
 // der Gast auf einen besetzten Tisch.
+// TISCH ZUR RESERVIERUNG MITLESEN (07.10.2026).
+// Drei Abfragen lasen den Tisch ueber die Verknuepfung table_id -> "tables"
+// mit. datenbank/40-tisch-zuordnung.sql stellt sie auf restaurant_tables
+// um; dort heisst die Spalte max_capacity statt seats. Damit die Listen
+// vorher UND nachher laden (und nicht leer bleiben): erst die alte Form,
+// bei 400 die neue, notfalls ohne Tisch. Die Stufe, die klappt, wird
+// gemerkt.
+var RES_TISCH_EINBETTUNG = ['tables:table_id(id,table_number,seats)', 'tables:table_id(id,table_number,seats:max_capacity)', ''];
+async function resMitTischLaden(baueUrl, opts) {
+    var res = null;
+    for (var i = window._resTischStufe || 0; i < RES_TISCH_EINBETTUNG.length; i++) {
+        var e = RES_TISCH_EINBETTUNG[i];
+        res = await fetch(baueUrl(e ? '*,' + e : '*'), opts);
+        if (res.status === 400 && i < RES_TISCH_EINBETTUNG.length - 1) continue;
+        window._resTischStufe = i;
+        return res;
+    }
+    return res;
+}
+window.resMitTischLaden = resMitTischLaden;
+
 async function belegungHolen(restaurantId, datum) {
     if (!restaurantId || !datum) return { ok: false, belegung: [] };
     try {
@@ -32169,12 +32202,9 @@ async function loadReservationsForRestaurant(restaurantId) {
 
     try {
         var today = todayStrLocal();
-        var response = await fetch(SUPABASE_URL + '/rest/v1/reservations?select=*,tables:table_id(id,table_number,seats)&restaurant_id=eq.' + restaurantId + '&reservation_date=gte.' + today + '&order=reservation_date.asc,reservation_time.asc', {
-            headers: {
-                'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + kmiToken()
-            }
-        });
+        var response = await resMitTischLaden(function (sel) {
+            return SUPABASE_URL + '/rest/v1/reservations?select=' + sel + '&restaurant_id=eq.' + restaurantId + '&reservation_date=gte.' + today + '&order=reservation_date.asc,reservation_time.asc';
+        }, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() } });
 
         if (response.ok) {
             var data = await response.json();
@@ -41981,13 +42011,17 @@ async function loadGastroReservations(restaurantId) {
             return;
         }
 
-        const { data: reservations, error } = await sb
-            .from('reservations')
-            .select('*, tables:table_id(id, table_number, seats)')
-            .eq('restaurant_id', restaurantId)
-            .eq('reservation_date', today)
-            .in('status', ['pending', 'confirmed', 'reminded', 'seated'])
-            .order('reservation_time', { ascending: true });
+        var reservations = null, error = null;
+        for (var _st = window._resTischStufe || 0; _st < RES_TISCH_EINBETTUNG.length; _st++) {
+            var _antw = await sb.from('reservations')
+                .select(RES_TISCH_EINBETTUNG[_st] ? '*,' + RES_TISCH_EINBETTUNG[_st] : '*')
+                .eq('restaurant_id', restaurantId)
+                .eq('reservation_date', today)
+                .in('status', ['pending', 'confirmed', 'reminded', 'seated'])
+                .order('reservation_time', { ascending: true });
+            reservations = _antw.data; error = _antw.error;
+            if (!error || _antw.status !== 400) { window._resTischStufe = _st; break; }
+        }
 
         // Tischnummer aus Join extrahieren
         if (reservations) {
