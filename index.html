@@ -73402,7 +73402,7 @@ function pdfSeiteZuText(items, seitenBreite) {
         (proSpalte[sp] = proSpalte[sp] || []).push(w);
     });
 
-    var abschnitte = Object.keys(proSpalte).map(Number).sort(function (a, b) { return a - b; })
+    var spaltenZeilen = Object.keys(proSpalte).map(Number).sort(function (a, b) { return a - b; })
         .map(function (sp) {
             var ws = proSpalte[sp].slice().sort(function (a, b) { return a.y - b.y || a.x - b.x; });
             var zeilen = [];
@@ -73412,9 +73412,80 @@ function pdfSeiteZuText(items, seitenBreite) {
                 else zeilen.push({ y: w.y, w: [w] });
             });
             return zeilen.map(function (z) {
-                var txt = z.w.sort(function (a, b) { return a.x - b.x; })
-                          .map(function (x) { return x.str; }).join(' ').replace(/\s+/g, ' ').trim();
-                if (!txt) return '';
+                z.w.sort(function (a, b) { return a.x - b.x; });
+                z.txt = z.w.map(function (x) { return x.str; }).join(' ').replace(/\s+/g, ' ').trim();
+                return z;
+            }).filter(function (z) { return z.txt; });
+        });
+
+    // KATEGORIEN AUCH OHNE GRÖSSERE SCHRIFT (07.10.2026).
+    //
+    // Gemessen an echten PDFs (werkzeug/pdf-karte-messen.js): von acht
+    // üblichen Arten, eine Überschrift zu setzen, erkannte der Leser zwei --
+    // größer, oder fett bei normal gesetzten Gerichten. Großbuchstaben,
+    // eine andere Schrift, Farbe, Unterstreichung oder fette Gerichte: alle
+    // Gerichte landeten unter dem Restaurantnamen, und das Wort "Pasta" hing
+    // als Zutat am Gericht davor. Farbe und Unterstreichung stehen gar nicht
+    // im Text, den pdf.js liefert -- also muss es ohne gehen.
+    //
+    // Was eine Überschrift dann doch verrät: Sie ist kurz, hat keinen Preis
+    // und kein Komma, und DIREKT DARUNTER beginnt ein Gericht. Zutatenzeilen
+    // stehen dagegen UNTER einem Gericht. Damit "Salami" als Zutat nicht
+    // wieder zur Kategorie wird (früher 55 statt 10), muss zusätzlich eins
+    // von drei Merkmalen passen:
+    //   - in Großbuchstaben gesetzt ("PIZZA"),
+    //   - in genau der Schrift und Größe der Gerichtnamen (Zutaten stehen
+    //     fast immer kleiner oder in einer anderen Schrift),
+    //   - in einer Schrift, die NUR für solche kurzen Zeilen benutzt wird.
+    function istPreisZeile(t) { return /\d{1,3},\d{2}/.test(t); }
+    function istGerichtZeile(z) {
+        if (!z) return false;
+        if (/^\d{1,3}\s?[A-Za-z]?\.\s+\S/.test(z.txt)) return true;
+        var i = z.txt.search(/\d{1,3},\d{2}/);
+        return i > 0 && /[A-Za-zÄÖÜäöüß]{2}/.test(z.txt.slice(0, i));
+    }
+    function kurzOhnePreis(t) {
+        return t.length <= 40 && t.split(' ').length <= 5 && !/[,;:€\d]/.test(t)
+            && /^[A-ZÄÖÜ]/.test(t) && !/[.]$/.test(t);
+    }
+    // Schrift + Größe der Gerichtnamen: das erste Wort jeder Gerichtzeile.
+    var stilZahl = {};
+    spaltenZeilen.forEach(function (zs) { zs.forEach(function (z) {
+        if (!istGerichtZeile(z)) return;
+        var w = z.w[0]; var k = (w.fn || '') + '|' + Math.round((w.h || 0) * 2);
+        stilZahl[k] = (stilZahl[k] || 0) + 1;
+    }); });
+    var gerichtStil = Object.keys(stilZahl).sort(function (a, b) { return stilZahl[b] - stilZahl[a]; })[0] || '';
+    function imGerichtStil(z) {
+        return !!gerichtStil && z.w.every(function (w) { return ((w.fn || '') + '|' + Math.round((w.h || 0) * 2)) === gerichtStil; });
+    }
+    // Schriften, die ausschliesslich in kurzen Zeilen ohne Preis vorkommen.
+    var schriftZeilen = {};
+    spaltenZeilen.forEach(function (zs) { zs.forEach(function (z) {
+        z.w.forEach(function (w) {
+            if (!w.fn) return;
+            var e = schriftZeilen[w.fn] = schriftZeilen[w.fn] || { n: 0, nurKurz: true };
+            e.n++;
+            if (!kurzOhnePreis(z.txt) || istPreisZeile(z.txt)) e.nurKurz = false;
+        });
+    }); });
+    function inKopfSchrift(z) {
+        return z.w.every(function (w) { var e = w.fn && schriftZeilen[w.fn]; return e && e.nurKurz && e.n >= 2; });
+    }
+
+    // Gegenprobe gegen Zutaten im selben Stil: steht unter fast JEDEM
+    // Gericht so eine Zeile ("1. Margherita 7,50 €" / "Klassisch"), sind es
+    // Beschreibungen, keine Kategorien -- dann zählt dieses Merkmal nicht.
+    var gerichtZeilen = 0, stilKandidaten = 0;
+    spaltenZeilen.forEach(function (zs) { zs.forEach(function (z, zi) {
+        if (istGerichtZeile(z)) gerichtZeilen++;
+        else if (kurzOhnePreis(z.txt) && istGerichtZeile(zs[zi + 1]) && imGerichtStil(z)) stilKandidaten++;
+    }); });
+    var stilZaehlt = !(stilKandidaten >= 3 && stilKandidaten >= gerichtZeilen * 0.8);
+
+    var abschnitte = spaltenZeilen.map(function (zeilen) {
+            return zeilen.map(function (z, zi) {
+                var txt = z.txt;
                 // UEBERSCHRIFTEN AN DER SCHRIFTGROESSE ERKENNEN, nicht raten.
                 //
                 // Vorher wurde geraten: "kurze Zeile ohne Preis, fängt groß an"
@@ -73432,12 +73503,20 @@ function pdfSeiteZuText(items, seitenBreite) {
                 // Eine Zeile mit Preis ist nie eine Überschrift -- das hält
                 // die Regel auch bei Karten sauber, die ihre Preise in
                 // derselben Schrift setzen.
-                var hatPreis = /\d{1,3},\d{2}/.test(txt);
+                var hatPreis = istPreisZeile(txt);
                 var kopf = (hoch >= grundschrift * 1.22)
                         || (nurKopfSchrift && txt.length <= 60 && !hatPreis)
                         || (fett && txt.length <= 42 && !hatPreis);
+                // Spaltenköpfe ("KLEIN GROSS", "IM BROT TELLER") sind keine
+                // Kategorie -- der Parser liest daraus die Größennamen.
+                var nurSpaltenkopf = /^((KLEIN|GROSS|GROß|IM BROT|TELLER|PORTION|SCHALE|BECHER|FLASCHE|GLAS|PREIS)[\s\/·|-]*)+$/i.test(txt);
+                if (!kopf && !hatPreis && !nurSpaltenkopf && kurzOhnePreis(txt) && istGerichtZeile(zeilen[zi + 1])) {
+                    var buchstaben = txt.replace(/[^A-Za-zÄÖÜäöüß]/g, '');
+                    var gross = buchstaben.length >= 3 && buchstaben === buchstaben.toUpperCase();
+                    kopf = gross || (stilZaehlt && imGerichtStil(z)) || inKopfSchrift(z);
+                }
                 return (kopf ? '## ' : '') + txt;
-            }).filter(Boolean).join('\n');
+            }).join('\n');
         }).filter(Boolean);
 
     var text = abschnitte.join('\n');
