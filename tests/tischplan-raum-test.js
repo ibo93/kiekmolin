@@ -117,6 +117,25 @@ t('Licht: 12:00 Tag, 18:15 Abend, 19:00 Nacht (Oktober, Sonne 18:42)', L('12:00'
 t('Licht: im Juni ist 21:00 noch Abend, nicht Nacht', L('21:00', '2026-06-20') === 'abend' && L('20:00', '2026-06-20') === 'tag', [L('20:00', '2026-06-20'), L('21:00', '2026-06-20')].join('/'));
 t('Zeitschieber über den Sonnenuntergang zeichnet neu (Licht gehört zum Stand)', /function standJetzt\(\) \{ return tp\.bereich \+ '#' \+ \(tp\.ansicht === '3d' \? licht\(\) : ''\)/.test(H), '');
 t('Gedeck nur, wo jemand sitzt; reserviert = Kärtchen; nicht beim Bearbeiten', /if \(!tp\.bearbeiten && \(z\.art === 'bes' \|\| z\.art === 'ruft'\)\) o \+= gedecktHtml\(sitze\);/.test(H) && /if \(!tp\.bearbeiten && z\.art === 'res'\) o \+= kaertchenHtml\(g\);/.test(H), '');
+// Einrichtung (Ibo: "mit Küche einbauen, alles mögliche muss drin sein")
+var TEILE = new Function(H.slice(H.indexOf('var TEIL = {'), H.indexOf('};', H.indexOf('var TEIL = {')) + 2) + H.slice(H.indexOf('var KATALOG = ['), H.indexOf('];', H.indexOf('var KATALOG = [')) + 2) + '; return { TEIL: TEIL, KATALOG: KATALOG };')();
+var katArten = [].concat.apply([], TEILE.KATALOG.map(function (g) { return g[1]; }));
+t('Katalog: 24 Teile, jedes hat Name und Maße', katArten.length === 24 && katArten.every(function (a) { return TEILE.TEIL[a] && TEILE.TEIL[a].name && TEILE.TEIL[a].b > 0 && TEILE.TEIL[a].t > 0; }), katArten.filter(function (a) { return !TEILE.TEIL[a]; }).join(','));
+t('Katalog hat Küche, WC, Kasse, Bühne, Strandkorb …', ['kueche', 'wc', 'kasse', 'kuehlung', 'buehne', 'kamin', 'sofa', 'garderobe', 'schirm', 'strandkorb'].every(function (a) { return katArten.indexOf(a) >= 0; }), '');
+var Mb = new Function('var tp = { ppm: 50, ansicht: "oben" };' + ['flach', 'standX', 'standY', 'kreuz', 'scheibe', 'nahKanten', 'seiten', 'kasten', 'fliesen', 'wandRing', 'tuerLuecke'].map(fn).join('\n')
+    + H.slice(H.indexOf("var STAHL = "), H.indexOf(';', H.indexOf("var STAHL = ")) + 1) + H.slice(H.indexOf('var MOEBEL = {'), H.indexOf('\n                };', H.indexOf('var MOEBEL = {')) + 19)
+    + '; return { tp: tp, MOEBEL: MOEBEL, KAT: ' + JSON.stringify(katArten) + ' };')();
+var kue = Mb.MOEBEL.kueche(250, 180, 0);
+t('Küche ist eingerichtet: Fliesen, Herd mit 4 Platten, Spüle, Kühlschrank, Durchreiche', (kue.match(/1\.5px solid #6b7270/g) || []).length === 4 && /--tp3-fliese/.test(kue) && /inset 0 2px 4px/.test(kue) && (kue.match(/--tp3-schnitt/g) || []).length >= 5, (kue.match(/1\.5px solid #6b7270/g) || []).length);
+Mb.tp.ansicht = '3d';
+var ohne = Mb.KAT.filter(function (a) { return ['tuer', 'fenster', 'wand', 'theke', 'pflanze', 'tv'].indexOf(a) < 0 && !Mb.MOEBEL[a]; });
+t('jedes Katalog-Teil wird gezeichnet (eigene Zeichnung oder Kasten)', ohne.length === 0, ohne.join(','));
+var kaputt = Object.keys(Mb.MOEBEL).filter(function (a) { try { return !(Mb.MOEBEL[a](100, 60, -40, false).length > 50); } catch (e) { return true; } });
+t('alle Zeichnungen laufen in 3D ohne Fehler', kaputt.length === 0, kaputt.join(','));
+F.tp.raum = {};
+t('Boden: Gastraum Parkett, Terrasse von selbst draußen', F.raumVon('main').boden === 'parkett' && F.raumVon('terrace').boden === 'draussen' && F.raumVon('garten').boden === 'draussen', [F.raumVon('main').boden, F.raumVon('terrace').boden].join('/'));
+t('draußen: Glasgeländer statt hoher Wände', /var aussen = r\.boden === 'draussen';/.test(H) && /drei && \(aussen \|\|/.test(H), '');
+t('im Live-Plan nur Eingang, Theke, Küche, WC, Lager beschriftet', Object.keys(TEILE.TEIL).filter(function (a) { return !TEILE.TEIL[a].still; }).sort().join(',') === 'kueche,lager,theke,tuer,wc', Object.keys(TEILE.TEIL).filter(function (a) { return !TEILE.TEIL[a].still; }).join(','));
 t('von oben: Schild an der Tischecke, damit Gedeck und Stühle sichtbar bleiben', /var ecke = tp\.ansicht === 'oben' && !gew && !tp\.bearbeiten/.test(H), '');
 t('feste Teile: dezente Schrift, Fenster/Wand/Pflanze im Live-Plan ohne', /\.tp3\[data-bearbeiten="0"\] \.tp3-schild\.teil\.still \{ display: none; \}/.test(H), '');
 

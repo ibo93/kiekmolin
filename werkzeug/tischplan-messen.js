@@ -473,6 +473,61 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
   pruef('kein Seitenfehler im L-Plan', !p.fehler.length, p.fehler.join(' | '));
   await p.ctx.close();
 
+  // ---------- 6b. Eingerichtetes Lokal (07.10.2026) ----------
+  // Ibo: "mit Küche einbauen, alles mögliche muss drin sein".
+  var EINGERICHTET = {
+    main: { breite: 16, tiefe: 10, form: 'L', ecke: 'or', ausB: 6, ausT: 4, teile: [
+      { id: 'tu', art: 'tuer', x: 50, y: 100, b: 1.4, t: 0.3, dreh: 0 },
+      { id: 'th', art: 'theke', x: 20, y: 8, b: 4, t: 0.8, dreh: 0 },
+      { id: 'kb1', art: 'barhocker', x: 12, y: 16, b: 0.4, t: 0.4, dreh: 0 }, { id: 'kb2', art: 'barhocker', x: 18, y: 16, b: 0.4, t: 0.4, dreh: 0 }, { id: 'kb3', art: 'barhocker', x: 24, y: 16, b: 0.4, t: 0.4, dreh: 0 },
+      { id: 'ka', art: 'kasse', x: 38, y: 8, b: 1.2, t: 0.6, dreh: 0 },
+      { id: 'kue', art: 'kuehlung', x: 48, y: 5, b: 1.3, t: 0.7, dreh: 0 },
+      { id: 'tv', art: 'tv', x: 30, y: 0, b: 1.4, t: 0.1, dreh: 0 },
+      { id: 'km', art: 'kamin', x: 58, y: 4, b: 1.2, t: 0.5, dreh: 0 },
+      { id: 'kc', art: 'kueche', x: 81, y: 80, b: 5, t: 3.6, dreh: 0 },
+      { id: 'wc', art: 'wc', x: 92, y: 52, b: 2.2, t: 2, dreh: 0 },
+      { id: 'bu', art: 'buehne', x: 74, y: 52, b: 3, t: 1.8, dreh: 0 },
+      { id: 'so', art: 'sofa', x: 3.5, y: 60, b: 2, t: 0.9, dreh: 90 },
+      { id: 'ga', art: 'garderobe', x: 62, y: 96, b: 1.6, t: 0.5, dreh: 0 },
+      { id: 'sa', art: 'saeule', x: 40, y: 50, b: 0.4, t: 0.4, dreh: 0 },
+      { id: 'pf', art: 'pflanze', x: 3, y: 5, b: 0.6, t: 0.6, dreh: 0 }] },
+    terrace: { breite: 8, tiefe: 5, teile: [
+      { id: 'sc', art: 'schirm', x: 30, y: 45, b: 2.5, t: 2.5, dreh: 0 },
+      { id: 'sk1', art: 'strandkorb', x: 75, y: 25, b: 1.25, t: 0.9, dreh: 0 }, { id: 'sk2', art: 'strandkorb', x: 75, y: 70, b: 1.25, t: 0.9, dreh: 180 }] }
+  };
+  p = await seite({ raum: EINGERICHTET });
+  var ein = await p.s.evaluate(function () {
+    var b = document.getElementById('tp3Boden'), kc = b.querySelector('.tp3-teil[data-teil-id="kc"]');
+    return { teile: b.querySelectorAll('.tp3-teil').length, soll: window.tp3.raum.main.teile.length,
+      herdplatten: kc ? Array.prototype.filter.call(kc.querySelectorAll('.tp3-f'), function (f) { return /1\.5px solid #6b7270/.test(f.getAttribute('style')); }).length : -1,
+      kuecheFlaechen: kc ? kc.querySelectorAll('.tp3-f').length : -1 };
+  });
+  pruef('eingerichtetes Lokal: alle ' + ein.soll + ' Teile stehen im Plan', ein.teile === ein.soll, JSON.stringify(ein));
+  pruef('Küche ist eingerichtet: Herd mit 4 Platten, Arbeitsflächen, Wände', ein.herdplatten === 4 && ein.kuecheFlaechen > 40, JSON.stringify(ein));
+  await p.s.locator('#tp3').screenshot({ path: path.join(AUS, 'tischplan-eingerichtet-3d.png') });
+  await p.s.click('#tp3AnsichtOben'); await p.s.waitForTimeout(150);
+  await p.s.locator('#tp3').screenshot({ path: path.join(AUS, 'tischplan-eingerichtet-oben.png') });
+  await p.s.click('#tp3Ansicht3d'); await p.s.click('#tp3Bereiche [data-bereich="terrace"]'); await p.s.waitForTimeout(150);
+  await p.s.locator('#tp3').screenshot({ path: path.join(AUS, 'tischplan-terrasse-3d.png') });
+  var terr = await p.s.evaluate(function () { var b = document.getElementById('tp3Boden'); return { boden: b.getAttribute('data-boden'), gelaender: Array.prototype.filter.call(b.querySelectorAll('.tp3-wand .tp3-f'), function (f) { return /214,232,240/.test(f.getAttribute('style')); }).length, hoch: Array.prototype.some.call(b.querySelectorAll('.tp3-wand .tp3-f'), function (f) { return /--tp3-wand-hell/.test(f.getAttribute('style')); }) }; });
+  pruef('Terrasse: Holzdeck, Glasgeländer statt hoher Wände', terr.boden === 'draussen' && terr.gelaender === 4 && !terr.hoch, JSON.stringify(terr));
+  await p.s.click('#tp3Bereiche [data-bereich="main"]');
+  // Katalog: beim Bearbeiten rechts, jedes Teil lässt sich anlegen
+  await p.s.click('#tp3Bearbeiten'); await p.s.waitForTimeout(150);
+  await p.s.click('#tp3Leiste #tp3KatalogAuf'); await p.s.waitForTimeout(150);
+  var kat = await p.s.evaluate(function () { return Array.prototype.map.call(document.querySelectorAll('#tp3Seite [data-neu-teil]'), function (x) { return x.getAttribute('data-neu-teil'); }); });
+  pruef('Katalog rechts: 24 Teile in Gruppen (Raum, Gastro, Gäste, Nebenräume, Draußen)', kat.length === 24 && kat.indexOf('kueche') >= 0 && kat.indexOf('strandkorb') >= 0, kat.length);
+  var vorher = await p.s.evaluate(function () { return window.tp3.raum.main.teile.length; });
+  for (var ki = 0; ki < kat.length; ki++) {
+    await p.s.evaluate(function () { window.tp3.teilGewaehlt = null; window.tp3.gewaehlt = null; });
+    await p.s.click('#tp3Bereiche [data-bereich="main"]');
+    await p.s.click('#tp3Seite [data-neu-teil="' + kat[ki] + '"]');
+  }
+  var nachher = await p.s.evaluate(function () { return { n: window.tp3.raum.main.teile.length, tv: (window.tp3.raum.main.teile.filter(function (t) { return t.art === 'tv'; }).pop() || {}).y }; });
+  pruef('jedes Katalog-Teil lässt sich anlegen (+24), der Bildschirm hängt an der Wand', nachher.n === vorher + 24 && nachher.tv === 0, JSON.stringify(nachher) + ' vorher ' + vorher);
+  pruef('kein Seitenfehler mit Einrichtung', !p.fehler.length, p.fehler.join(' | '));
+  await p.ctx.close();
+
   // ---------- 7. 41-tischplan-raum.sql fehlt ----------
   p = await seite({ raum: null, ohneRaum: true });
   await p.s.click('#tp3AnsichtOben'); await p.s.click('#tp3Bearbeiten'); await p.s.waitForTimeout(200);
