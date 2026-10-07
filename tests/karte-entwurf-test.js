@@ -2,18 +2,19 @@
 //
 // Laeuft echt in einer Sandbox: karteZustand, Schild, Art, Filter,
 // Abendmodus. Den Browser (Nadeln, Kontrast, Zeitregler, Karte unten)
-// misst werkzeug/karte-messen.js (28 Pruefungen, hell + dunkel).
+// misst werkzeug/karte-messen.js (72 Pruefungen, hell, Abend, dunkel).
 //
 // Gegenprobe (jede rot): ohne karteZeitenDa (Annahme 11-22 kaeme zurueck),
 // Aktion auch bei "zu", Schild bei "zu", Sonnenrechnung mit falschem
-// Vorzeichen, freeTables-Ring zurueck.
+// Vorzeichen, freeTables-Ring zurueck. (Schild bei "zu" ist seit dem
+// Nachbau 1:1 gewollt: "Café · zu" im Entwurf.)
 'use strict';
 var fs = require('fs'), path = require('path'), vm = require('vm');
 var H = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 var n = 0, ok = 0;
 function t(l, c, x) { n++; if (c === true) ok++; console.log((c === true ? 'OK  ' : 'FAIL') + ' | ' + l + (c === true ? '' : '  -> ' + x)); }
 function fn(name) { var i = H.indexOf('function ' + name + '('); if (i < 0) return ''; var d = 0, j = H.indexOf('{', i); for (var k = j; k < H.length; k++) { if (H[k] === '{') d++; else if (H[k] === '}') { d--; if (!d) return H.slice(i, k + 1); } } return ''; }
-var a = H.indexOf('var KARTE_SVG = {'), b = H.indexOf('function karteArt(');
+var a = H.indexOf('var KARTE_TROPFEN'), b = H.indexOf('function karteArt(');
 var sb = { window: {}, Math: Math, Date: Date, String: String, Object: Object, JSON: JSON, isFinite: isFinite,
   getVacationInfo: function () { return null; },
   kuechenListe: function (r) { return { fisch: 'Fisch', shisha: 'Shisha' }[(r.cuisine_type || [])[0]] || ''; },
@@ -28,7 +29,9 @@ var z = sb.karteZustand(fisch, um(19));
 t('19:00: offen bis 22:00', z.art === 'offen' && z.bis === '22:00', JSON.stringify(z));
 t('Schild "Fisch · bis 22"', sb.karteSchild(fisch, z) === 'Fisch · bis 22', sb.karteSchild(fisch, z));
 z = sb.karteZustand(fisch, um(23));
-t('23:00: zu, kein Schild', z.art === 'zu' && sb.karteSchild(fisch, z) === '', JSON.stringify(z));
+// Seit dem Nachbau 1:1 (07.10.2026, Ibo: "ich will die karte ... aus Claude
+// Design"): auch "zu" hat ein Schild, grau -- im Entwurf "Café · zu".
+t('23:00: zu, Schild "Fisch · zu"', z.art === 'zu' && sb.karteSchild(fisch, z) === 'Fisch · zu', JSON.stringify(z) + ' ' + sb.karteSchild(fisch, z));
 var ohne = { id: 'o', cuisine_type: ['cafe'] };
 t('ohne Zeiten: "unbekannt" -- nicht die Annahme 11-22 Uhr', sb.karteZustand(ohne, um(15)).art === 'unbekannt' && /nicht eingetragen/.test(sb.karteZustand(ohne, um(15)).text), JSON.stringify(sb.karteZustand(ohne, um(15))));
 var bar = { id: 'b', cuisine_type: ['shisha'], opening_hours: oh('18:00', '03:00') };
@@ -41,9 +44,12 @@ sb.window._karteAktionen.b = [{ titel: 'Brunch', gilt_fuer: 'alle', wochentage: 
 t('Aktion laeuft, Lokal aber zu: keine Aktion zeigen', sb.karteZustand(bar, um(11)).art === 'zu', JSON.stringify(sb.karteZustand(bar, um(11))));
 t('nur fuer Reservierung: keine Aktion auf der Karte', (function () { sb.window._karteAktionen.b = [{ titel: 'X', gilt_fuer: 'reservierung', wochentage: [0, 1, 2, 3, 4, 5, 6] }]; return sb.karteZustand(bar, um(20)).art === 'offen'; })(), '');
 t('Art: Fisch, Pizza (italienisch), Bar (shisha), Cafe, sonst Restaurant',
-  sb.karteArt(fisch) === 'fisch' && sb.karteArt({ cuisine_type: ['italienisch'] }) === 'pizza' && sb.karteArt(bar) === 'local_bar' && sb.karteArt(ohne) === 'local_cafe' && sb.karteArt({ cuisine: 'Steakhouse' }) === 'restaurant', '');
+  sb.karteArt(fisch) === 'fisch' && sb.karteArt({ cuisine_type: ['italienisch'] }) === 'pizza' && sb.karteArt(bar) === 'bar' && sb.karteArt(ohne) === 'cafe' && sb.karteArt({ cuisine: 'Steakhouse' }) === 'restaurant', '');
 var inhalt = (H.match(/KIN-SYMBOLSCHRIFT-INHALT: ([a-z_0-9,]+)/) || [, ''])[1].split(',');
-t('Symbole stecken in der eingebauten Schrift (sonst steht das WORT da)', ['local_cafe', 'bakery_dining', 'local_bar', 'restaurant', 'local_offer', 'share', 'favorite'].every(function (s) { return inhalt.indexOf(s) > -1; }), '');
+// Runde Nadel (Ibos Wunsch) nutzt wieder Schrift-Symbole: die muessen in
+// der eingebauten Teilmenge stecken, sonst steht das WORT da.
+t('Nadel-Symbole (restaurant, star) und Herz stecken in der eingebauten Schrift',
+  /'star' : 'restaurant'/.test(fn('karteNadel')) && ['restaurant', 'star', 'favorite'].every(function (x) { return inhalt.indexOf(x) > -1; }), '');
 // Abendmodus: 21. Juni 22:30 MESZ (20:30 UTC) noch hell? Sonnenuntergang Greetsiel ~22:05 MESZ -> dunkel.
 t('Abendmodus: 7. Okt 20:00 MESZ dunkel, 14:00 hell', sb.karteNachSonnenuntergang(new Date(Date.UTC(2026, 9, 7, 18, 0))) === true && sb.karteNachSonnenuntergang(new Date(Date.UTC(2026, 9, 7, 12, 0))) === false, '');
 t('Abendmodus: 21. Juni 21:30 MESZ noch hell, 22:45 dunkel', sb.karteNachSonnenuntergang(new Date(Date.UTC(2026, 5, 21, 19, 30))) === false && sb.karteNachSonnenuntergang(new Date(Date.UTC(2026, 5, 21, 20, 45))) === true, '');
