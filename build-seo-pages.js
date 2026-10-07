@@ -488,7 +488,7 @@ async function fetchMenuItems(restaurantId) {
 }
 
 // Die Felder, die fuer KI-Assistenten und Google dazukommen
-// (datenbank/35 prueft, ob es sie gibt).
+// (datenbank/40 prueft, ob es sie gibt).
 const MENU_FELDER_KI = 'allergens,additives,is_vegan,is_vegetarian';
 
 // Allergene nach LMIV -- dieselbe Zuordnung wie netlify/functions/lib/ki-agent.js,

@@ -1,6 +1,6 @@
--- SCHRITT 36: KI-ASSISTENTEN-SCHICHT ("KIN Agent-Ready").
+-- SCHRITT 41: KI-ASSISTENTEN-SCHICHT ("KIN Agent-Ready").
 --
--- ERST Schritt 35 ausfuehren. Nur weitermachen, wenn dort Teil 1 leer war.
+-- ERST Schritt 40 ausfuehren. Nur weitermachen, wenn dort Teil 1 leer war.
 --
 -- WAS DAS IST
 -- ChatGPT, Claude, Gemini & Co. sollen ueber kiekmolin.de/mcp Restaurants

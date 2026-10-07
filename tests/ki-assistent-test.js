@@ -20,7 +20,7 @@ var KI = require(KMI + '/netlify/functions/lib/ki-agent.js');
 var WZ = require(KMI + '/netlify/functions/lib/ki-werkzeuge.js');
 var mcpQuelle = fs.readFileSync(KMI + '/netlify/functions/mcp.js', 'utf8');
 var toml = fs.readFileSync(KMI + '/netlify.toml', 'utf8');
-var sql = fs.readFileSync(KMI + '/datenbank/36-ki-assistent.sql', 'utf8');
+var sql = fs.readFileSync(KMI + '/datenbank/41-ki-assistent.sql', 'utf8');
 var seo = fs.readFileSync(KMI + '/build-seo-pages.js', 'utf8');
 
 var n = 0, ok = 0, laeuft = [];
@@ -99,6 +99,11 @@ function falscheDb(opt) {
         if (tab === 'reservations') { var z = Object.assign({ id: 'res-' + (db.reservierungen.length + 1) }, zeile); db.reservierungen.push(z); return [z]; }
         throw new Error('unerwartete Tabelle ' + tab);
     };
+    if (opt.sperre) db.zahlsperre = async function (rid) {
+        return opt.sperre[rid] === 'aus'
+            ? { erlaubt: false, stufe: 'aus', text: 'Dieser Betrieb ist gerade nicht über Kiek mol in erreichbar.' }
+            : { erlaubt: true, stufe: opt.sperre[rid] || 'keine', text: '' };
+    };
     return db;
 }
 function ctx(extra) { return Object.assign({ jetzt: JETZT, ipHash: 'ip1', client: 'Claude', ua: 'Claude-User', salz: 's' }, extra || {}); }
@@ -159,6 +164,15 @@ var voll = KI.freieZeiten(haus(), MORGEN, [{ reservation_time: '19:00:00', statu
 t('ist jeder Tisch belegt, ist die Zeit nicht frei', voll.indexOf('19:00') < 0 && voll.indexOf('19:30') >= 0, voll.join(','));
 t('eine Ganztags-Sperre schliesst den Tag',
   KI.freieZeiten(haus(), MORGEN, [{ reservation_time: '00:00:00', status: 'blocked', table_id: null }], 10, JETZT).geschlossen === true, '');
+// Stand #232: die Gast-App nimmt die Zeiten aus den Tagesschichten --
+// auch wenn die frueher beginnen als opening_time.
+var frueh = haus({ opening_hours: { sa_start: '10:00', sa_end: '14:00', pause_enabled: false }, opening_time: '12:00', closing_time: '22:00' });
+var fzFrueh = KI.freieZeiten(frueh, MORGEN, [], 10, JETZT).zeiten;
+t('Tagesschicht ab 10 Uhr bietet 10:00 an, wie die Gast-App seit #232',
+  fzFrueh[0] === '10:00' && fzFrueh[fzFrueh.length - 1] === '13:30', fzFrueh.join(','));
+var nacht = KI.freieZeiten(haus({ opening_time: '18:00', closing_time: '01:00' }), MORGEN, [], 10, JETZT).zeiten;
+t('schliesst das Haus nach Mitternacht, laeuft das Raster bis 23:30 (nicht leer)',
+  nacht[0] === '18:00' && nacht[nacht.length - 1] === '23:30', nacht.join(','));
 t('eine stornierte Reservierung belegt nichts',
   KI.freieZeiten(haus(), MORGEN, [{ reservation_time: '19:00', status: 'cancelled' }], 1, JETZT).zeiten.indexOf('19:00') >= 0, '');
 
@@ -247,6 +261,25 @@ spaeter(async function () {
       KI.GRENZEN.lesen_pro_ip_10min >= 100, KI.GRENZEN.lesen_pro_ip_10min);
     t('+49 176 ... und 0176 ... sind dieselbe Nummer', KI.telefonSchluessel('+49 176 1234567') === KI.telefonSchluessel('0176/1234567'), '');
 });
+
+// ==================== 5b. Zahlsperre (seit #232) ====================
+spaeter(async function () {
+    var sperre = {}; sperre[BOERSE] = 'aus';
+    var db = falscheDb({ sperre: sperre });
+    var w = WZ.werkzeuge(db, ctx());
+    var s1 = await w.search_restaurants({ ort: 'Greetsiel' });
+    t('ein Haus mit Zahlsperre "aus" erscheint nicht in der Suche',
+      s1.restaurants.every(function (x) { return x.restaurant_id !== 'greetsieler-boerse'; }), JSON.stringify(s1.restaurants.map(function (x) { return x.restaurant_id; })));
+    var e = await w.request_reservation(ANFRAGE).catch(function (x) { return x; });
+    t('... und nimmt ueber den Assistenten keine Anfrage an', e instanceof Error && db.reservierungen.length === 0, String(e));
+    t('... ohne ein Wort ueber Rechnungen', !/rechnung|zahl/i.test(String(e && e.message)), String(e && e.message));
+    var p = {}; p[BOERSE] = 'pause';
+    var db2 = falscheDb({ sperre: p });
+    await WZ.werkzeuge(db2, ctx()).request_reservation(ANFRAGE);
+    t('bei "pause" geht der Tisch weiter (wie reservation-guest.js)', db2.reservierungen.length === 1, db2.reservierungen.length);
+});
+t('mcp.js prueft dieselbe Zahlsperre wie die Gast-Reservierung',
+  /ZAHLSPERRE\.pruefe\(restaurantId, 'reservieren', SERVICE_KEY\)/.test(mcpQuelle), '');
 
 // ==================== 6. Nur Sichten, nichts Neues offen ====================
 console.log('\n-- 6. Datenbank und Auslieferung --');

@@ -15,7 +15,7 @@ Karte und können einen Tisch anfragen, ohne dass der Gast die Webseite öffnet.
 | MCP-Server | `netlify/functions/mcp.js` | 4 Werkzeuge, ohne Anmeldung, zustandslos |
 | Werkzeuge | `netlify/functions/lib/ki-werkzeuge.js` | Suche, Karte, freie Zeiten, Anfrage |
 | Regeln | `netlify/functions/lib/ki-agent.js` | Allergene (LMIV A–R), Zeiten (Berlin), Filter, Drossel |
-| Datenbank | `datenbank/35-…pruefen.sql`, `36-ki-assistent.sql` | nur neue Sichten und Tabellen |
+| Datenbank | `datenbank/40-…pruefen.sql`, `41-ki-assistent.sql` | nur neue Sichten und Tabellen |
 | Google & Co. | `build-seo-pages.js` | Allergene, vegetarisch/vegan, Öffnungszeiten, Ausstattung im JSON-LD |
 | llms.txt | `build-seo-pages.js` | Abschnitt „Für KI-Assistenten“ mit MCP-Adresse |
 | Messen | `netlify/functions/weekly-report.js` | „davon über KI-Assistenten: X bestätigt · Y Gäste“ |
@@ -44,7 +44,7 @@ Karte und können einen Tisch anfragen, ohne dass der Gast die Webseite öffnet.
 
 ### 1. Datenbank prüfen: Supabase → SQL Editor
 
-`datenbank/35-ki-assistent-pruefen.sql` ausführen. Diese Datei ändert nichts.
+`datenbank/40-ki-assistent-pruefen.sql` ausführen. Diese Datei ändert nichts.
 
 | Teil | Erwartet | Wenn nicht |
 |---|---|---|
@@ -55,7 +55,7 @@ Karte und können einen Tisch anfragen, ohne dass der Gast die Webseite öffnet.
 
 ### 2. Datenbank anlegen
 
-`datenbank/36-ki-assistent.sql` ausführen. Am Ende muss stehen:
+`datenbank/41-ki-assistent.sql` ausführen. Am Ende muss stehen:
 - **Objekte:** alle sechs vorhanden
 - **Freigabe:** zwei Pilot-Häuser aktiv
 - **Lesezugriff von außen:** überall „nein“

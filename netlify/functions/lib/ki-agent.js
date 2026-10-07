@@ -11,7 +11,7 @@
 // ZWEI GRUNDSAETZE, DIE UEBERALL GELTEN
 // =====================================
 // 1. Nichts Personenbezogenes geht hinaus. Die Eingaben kommen nur aus den
-//    Sichten agent_restaurants_v / agent_menu_v (Schritt 36) -- dort gibt
+//    Sichten agent_restaurants_v / agent_menu_v (Schritt 41) -- dort gibt
 //    es gar keine Gaeste-, Umsatz- oder Kundendaten.
 // 2. Keine Angabe ist keine Zusage. Ein Gericht ohne eingetragene
 //    Allergene ist NICHT allergenfrei, sondern "keine Angabe". Ein Tag,
@@ -249,51 +249,62 @@ function offenJetzt(rest, jetzt) {
 }
 
 // ==================== FREIE ZEITEN ====================
-// Dieselbe Rechnung wie loadAvailableSlots + generateReservationSlots in
-// index.html, damit der Assistent keine Zeit anbietet, die die Seite
-// nicht auch anbieten wuerde:
-//   Raster opening_time .. closing_time-30, Abstand slot_interval_minutes,
-//   Pause (pause_start/pause_end), disabled_slots, Ganztags-Sperre,
-//   Slot-Sperre, gesperrte Tische, Buchungen je Slot < Tische.
+// Dieselbe Rechnung wie generateReservationSlots + loadAvailableSlots in
+// index.html (Stand #232, 07.10.2026), damit der Assistent keine Zeit
+// anbietet, die die Seite nicht auch anbieten wuerde:
+//   * Hat der Tag eigene Schichten (mo_start/mo_end, mo_start2/mo_end2),
+//     kommen die Zeiten NUR aus diesen Schichten -- bis 30 Min vor Schluss.
+//   * Sonst opening_time .. closing_time-30; schliesst das Haus nach
+//     Mitternacht, laeuft das Raster bis hoechstens 23:30.
+//   * Abstand slot_interval_minutes, Pause, disabled_slots,
+//     Ganztags-Sperre, Slot-Sperre, gesperrte Tische, Buchungen < Tische.
 //
-// ZWEI DINGE STRENGER ALS DIE SEITE, bewusst:
-//   * Ruhetag und Betriebsferien -> gar keine Zeiten. (Die Seite prueft
-//     die Ferien auch, den Ruhetag im Raster aber nicht.)
-//   * Stehen fuer den Tag eigene Schichten im flachen Format, fallen
-//     Zeiten ausserhalb davon weg (Start frueher als 30 Min vor Schluss).
-// Ein Assistent, der eine Zeit am Ruhetag anbietet, erzeugt eine Anfrage,
-// die der Wirt nur ablehnen kann -- das ist fuer den Gast schlechter als
-// "an dem Tag geschlossen".
-function rasterFuer(rest) {
+// EIN PUNKT STRENGER ALS DIE SEITE, bewusst:
+//   Stehen im Dashboard-Format Zeiten fuer andere Tage, aber fuer diesen
+//   keine, ist der Tag hier geschlossen (wie auf den Google-Seiten in
+//   build-seo-pages.js). Die App faellt dann aufs allgemeine Raster
+//   zurueck. Ein Assistent, der eine Zeit an einem geschlossenen Tag
+//   anbietet, erzeugt eine Anfrage, die der Wirt nur ablehnen kann.
+function rasterFuer(rest, datum) {
     var o = oh(rest) || {};
     var start = minuten(rest.opening_time || '11:00');
     var ende = rest.closing_time ? minuten(rest.closing_time) - 30 : minuten('21:30');
     var abstand = Number(rest.slot_interval_minutes) > 0 ? Number(rest.slot_interval_minutes) : 30;
     var pause = o.pause_enabled === false ? null : [minuten(o.pause_start || '14:00'), minuten(o.pause_end || '17:00')];
     var aus = Array.isArray(o.disabled_slots) ? o.disabled_slots.map(hhmm) : [];
-    var r = [];
-    if (start == null || ende == null) return r;
-    for (var m = start; m <= ende; m += abstand) {
-        if (pause && m >= pause[0] && m < pause[1]) continue;
-        var t = alsZeit(m);
-        if (aus.indexOf(t) < 0) r.push(t);
+    if (start == null || ende == null) return [];
+
+    // Ueber Mitternacht (auch genau um Mitternacht): bis 23:30, nicht null.
+    var schluss = rest.closing_time ? minuten(rest.closing_time) : null;
+    if (schluss != null && schluss <= start) ende = Math.min(schluss + 1440 - 30, 1439);
+
+    var bereiche = [{ von: start, bis: ende }];
+    var tag = datum ? oeffnungAm(rest, datum) : null;
+    var flach = KUERZEL.some(function (k) { return Object.prototype.hasOwnProperty.call(o, k + '_start'); });
+    if (tag && flach && tag.status === 'offen') {
+        bereiche = tag.schichten.map(function (s) {
+            var a = minuten(s[0]), e = minuten(s[1]);
+            if (e <= a) e += 1440;
+            return { von: a, bis: Math.min(e - 30, 1439) };
+        });
     }
-    return r;
+
+    var r = [];
+    bereiche.forEach(function (b) {
+        for (var m = b.von; m <= b.bis; m += abstand) {
+            if (pause && m >= pause[0] && m < pause[1]) continue;
+            var t = alsZeit(m);
+            if (aus.indexOf(t) < 0 && r.indexOf(t) < 0) r.push(t);
+        }
+    });
+    return r.sort();
 }
 
 function freieZeiten(rest, datum, belegung, tische, jetzt) {
     var tag = oeffnungAm(rest, datum);
     if (tag.status === 'geschlossen') return { geschlossen: true, grund: tag.grund, zeiten: [] };
 
-    var raster = rasterFuer(rest);
-    var o = oh(rest);
-    var flach = o && KUERZEL.some(function (k) { return Object.prototype.hasOwnProperty.call(o, k + '_start'); });
-    if (flach && tag.status === 'offen') {
-        raster = raster.filter(function (t) {
-            var m = minuten(t);
-            return tag.schichten.some(function (s) { return m >= minuten(s[0]) && m <= minuten(s[1]) - 30; });
-        });
-    }
+    var raster = rasterFuer(rest, datum);
 
     var da = (belegung || []).filter(function (r) { return ['confirmed', 'pending', 'blocked'].indexOf(r.status) >= 0; });
     var zeitVon = function (r) { return hhmm(r.reservation_time) || '00:00'; };

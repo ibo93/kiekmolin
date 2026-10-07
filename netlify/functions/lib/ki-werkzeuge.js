@@ -6,7 +6,7 @@
 // ohne npm install -- genau wie die uebrigen ~4000 in tests/.
 //
 // DIE REGELN, DIE HIER DURCHGESETZT WERDEN
-//   * Gelesen wird nur aus den Sichten agent_*_v (datenbank/36).
+//   * Gelesen wird nur aus den Sichten agent_*_v (datenbank/41).
 //   * Ein Haus ist nur sichtbar, wenn es in agent_optin aktiv ist.
 //   * request_reservation legt IMMER status 'pending' an -- auch wenn das
 //     Haus "Reservierungen sofort bestaetigen" eingeschaltet hat. Ein
@@ -66,11 +66,26 @@ function werkzeuge(db, ctx) {
         }
     }
 
+    // ZAHLSPERRE (lib/zahlsperre.js, seit #232). Steht ein Haus auf "aus",
+    // ist es "gerade nicht ueber Kiek mol in erreichbar" -- dann auch nicht
+    // ueber einen Assistenten. Die Pruefung selbst faellt im Zweifel offen
+    // aus (Stoerung sperrt nicht alle Haeuser); das ist dort entschieden
+    // und wird hier nicht anders gemacht. db.zahlsperre fehlt nur in Tests.
+    async function gesperrt(r) {
+        if (typeof db.zahlsperre !== 'function') return null;
+        try {
+            var z = await db.zahlsperre(r.id);
+            return z && z.erlaubt === false ? (z.text || 'Dieser Betrieb ist gerade nicht über Kiek mol in erreichbar.') : null;
+        } catch (e) { return null; }
+    }
+
     async function haeuser() {
         var optin = await db.lesen('agent_optin?aktiv=eq.true&select=restaurant_id');
         var ids = (optin || []).map(function (o) { return o.restaurant_id; }).filter(function (x) { return UUID.test(x); });
         if (!ids.length) return [];
-        return await db.lesen('agent_restaurants_v?id=in.(' + ids.join(',') + ')&select=*') || [];
+        var alle = await db.lesen('agent_restaurants_v?id=in.(' + ids.join(',') + ')&select=*') || [];
+        var sperren = await Promise.all(alle.map(gesperrt));
+        return alle.filter(function (r, i) { return !sperren[i]; });
     }
 
     async function haus(kennung) {

@@ -1,7 +1,7 @@
--- SCHRITT 35: NUR NACHSEHEN. Diese Datei aendert NICHTS.
+-- SCHRITT 40: NUR NACHSEHEN. Diese Datei aendert NICHTS.
 --
--- Vor Schritt 36 (KI-Assistenten-Schicht) ausfuehren und das Ergebnis
--- zurueckmelden. Schritt 36 legt Sichten auf restaurants und menu_items
+-- Vor Schritt 41 (KI-Assistenten-Schicht) ausfuehren und das Ergebnis
+-- zurueckmelden. Schritt 41 legt Sichten auf restaurants und menu_items
 -- an und schreibt Reservierungs-ANFRAGEN mit source = 'ki-assistent'.
 -- Beides geht nur gut, wenn die Spalten wirklich so heissen, wie der
 -- Code sie liest -- und wenn keine Regel in der Datenbank den neuen
@@ -13,9 +13,9 @@
 --   * hat reservations.source einen CHECK, der nur bestimmte Werte zulaesst?
 
 
--- ---- 1. Fehlt eine Spalte, die Schritt 36 braucht? --------------------
+-- ---- 1. Fehlt eine Spalte, die Schritt 41 braucht? --------------------
 -- ERWARTET: keine einzige Zeile. Jede Zeile hier ist eine Spalte, die
--- fehlt -- dann Schritt 36 NICHT ausfuehren, sondern melden.
+-- fehlt -- dann Schritt 41 NICHT ausfuehren, sondern melden.
 with gebraucht(tabelle, spalte) as (values
     ('restaurants', 'id'), ('restaurants', 'slug'), ('restaurants', 'name'),
     ('restaurants', 'city'), ('restaurants', 'street'), ('restaurants', 'zip'),
@@ -58,7 +58,7 @@ select table_name as tabelle, column_name as spalte, data_type as typ, udt_name
 -- ---- 3. Laesst reservations.source den Wert 'ki-assistent' zu? --------
 -- ERWARTET: keine Zeile, oder ein CHECK, in dem 'ki-assistent' steht.
 -- Steht dort ein CHECK mit einer festen Liste OHNE 'ki-assistent', dann
--- bitte melden -- Schritt 36 aendert bestehende Tabellen bewusst nicht.
+-- bitte melden -- Schritt 41 aendert bestehende Tabellen bewusst nicht.
 select conname as regel, pg_get_constraintdef(oid) as bedingung
   from pg_constraint
  where conrelid = 'public.reservations'::regclass

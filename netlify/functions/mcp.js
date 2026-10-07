@@ -33,6 +33,7 @@ const { WebStandardStreamableHTTPServerTransport } = require('@modelcontextproto
 const { z } = require('zod');
 const KI = require('./lib/ki-agent');
 const WZ = require('./lib/ki-werkzeuge');
+const ZAHLSPERRE = require('./lib/zahlsperre');
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
@@ -83,6 +84,10 @@ const db = {
             throw new Error('anlegen ' + tabelle + ' HTTP ' + res.status + ' ' + text);
         }
         return opt && opt.zurueck ? res.json() : null;
+    },
+    // Dieselbe Pruefung wie reservation-guest.js: nur Stufe "aus" sperrt.
+    zahlsperre(restaurantId) {
+        return ZAHLSPERRE.pruefe(restaurantId, 'reservieren', SERVICE_KEY);
     }
 };
 
