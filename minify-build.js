@@ -6,11 +6,44 @@
 
 const fs = require('fs');
 const path = require('path');
-const { minify } = require('terser');
 
 const FILE = process.argv[2] || 'index.html';
 
-(async () => {
+// CSS UND HTML KUERZEN (06.10.2026, gemessen: -54 KB gzip, Slow 4G ~0,3 s).
+//
+// Bewusst nur, was nichts bedeuten kann:
+//   CSS   Kommentare raus, Leerraum-Folgen zu EINEM Leerzeichen, Leerraum
+//         direkt an { } ; weg. NICHT an ":" oder ">" -- "A :is(B)" heisst
+//         etwas anderes als "A:is(B)" (Nachfahre statt dasselbe Element).
+//   HTML  Kommentare raus (ausser <!--[if ...), Einrueckung am Zeilenanfang
+//         weg. <script>, <style>, <pre> und <textarea> bleiben unberuehrt.
+// Gegenprobe: werkzeug/lesbarkeit-messen.js und dunkelmodus-messen.js liefern
+// fuer die gekuerzte Datei dieselben Zahlen wie fuer den Quelltext.
+function cssKuerzen(css) {
+  return css
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\s+/g, ' ')
+    .replace(/\s*([{};])\s*/g, '$1')
+    .replace(/\s*\}\s*/g, '}')
+    .trim();
+}
+function cssUndHtmlKuerzen(html) {
+  const teile = html.split(/(<script[\s\S]*?<\/script>|<style[^>]*>[\s\S]*?<\/style>|<pre[\s\S]*?<\/pre>|<textarea[\s\S]*?<\/textarea>)/);
+  return teile.map(function (t) {
+    if (/^<style/.test(t)) {
+      const m = t.match(/^(<style[^>]*>)([\s\S]*)(<\/style>)$/);
+      return m ? m[1] + cssKuerzen(m[2]) + m[3] : t;
+    }
+    if (/^<(script|pre|textarea)/.test(t)) return t;
+    return t.replace(/<!--(?!\[if)[\s\S]*?-->/g, '').replace(/\n[ \t]+/g, '\n');
+  }).join('');
+}
+
+module.exports = { cssKuerzen, cssUndHtmlKuerzen };
+
+if (require.main === module) (async () => {
+  // terser erst hier: der Test unten laedt diese Datei ohne npm install.
+  const { minify } = require('terser');
   let html;
   try { html = fs.readFileSync(FILE, 'utf8'); }
   catch (e) { console.log('[minify] ' + FILE + ' nicht gefunden – uebersprungen'); return; }
@@ -39,6 +72,7 @@ const FILE = process.argv[2] || 'index.html';
     last = m.index + m[0].length;
   }
   out += html.slice(last);
+  out = cssUndHtmlKuerzen(out);
 
   fs.writeFileSync(FILE, out);
   const saved = before - out.length;

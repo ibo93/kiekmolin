@@ -70,6 +70,7 @@ var TABELLEN = [
   { name: 'menu_cross_sells',   stufe: 'betrieb',     was: 'Passt-dazu-Vorschlaege' },
   { name: 'daily_specials',     stufe: 'betrieb',     was: 'Tagesangebote' },
   { name: 'offers',             stufe: 'betrieb',     was: 'Angebote' },
+  { name: 'aktionen',           stufe: 'betrieb',     was: 'Aktionen & Events (SQL 38)' },
   { name: 'rewards',            stufe: 'betrieb',     was: 'Praemien-Katalog' },
   { name: 'restaurant_tables',  stufe: 'betrieb',     was: 'Tischplan' },
   { name: 'tables',             stufe: 'betrieb',     was: 'Tischplan (alt)' },

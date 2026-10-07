@@ -26,6 +26,7 @@
 var crypto = require('crypto');
 var ZAHLART = require('./lib/zahlart');
 var BESTELLART = require('./lib/bestellart');
+var PROBE = require('./lib/probe');
 
 var SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co';
 var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cmdtYmRva2R6bXVtZHllemhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1NjEyOTgsImV4cCI6MjA4MTEzNzI5OH0.7Ciwa2UKUHwtorvq3p6sN69XmVvPg0Kvg5lgrovxpDw';
@@ -291,7 +292,11 @@ exports.handler = async function (event) {
                     return json(200, { OrderList: { CreateDateTime: new Date().toISOString(), Order: [] } });
                 }
             }
-            var out = { OrderList: { CreateDateTime: new Date().toISOString(), Order: orders.map(function (o) { return mapOrder(o, rest); }) } };
+            // Proben der Gastweg-Wache: oben MIT markiert, damit sie nie
+            // wieder in der Warteschlange stehen -- aber nicht an die Kasse
+            // geschickt. Siehe lib/probe.js.
+            var echte = orders.filter(function (o) { return !PROBE.istProbe(o); });
+            var out = { OrderList: { CreateDateTime: new Date().toISOString(), Order: echte.map(function (o) { return mapOrder(o, rest); }) } };
             return json(200, out);
         }
 

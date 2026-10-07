@@ -170,9 +170,12 @@ console.log('\n-- 8. Bei Stoerung kein falsches "alles frei" --');
 // Gast steht vor vollem Haus.
 var bv = h.indexOf('async function loadAvailableSlots');
 var bloc = h.slice(bv, bv + 3000);
-t('loadAvailableSlots prueft _bel.ok', /if \(!_bel\.ok\)/.test(bloc), 'ungeprueft');
-t('und meldet es dem Gast statt Zeiten anzubieten',
-  bloc.indexOf('nicht abrufen') > -1, 'keine Meldung');
+t('loadAvailableSlots prueft _bel.ok', /if \(!_bel\.ok \|\| window\._tischZahlUnbekannt\)/.test(bloc), 'ungeprueft');
+// Seit 07.10.2026: statt Sackgasse "Nur Anfrage" -- deutlich gesagt, und
+// gespeichert wird dann immer "pending" (siehe verfuegbarkeit-ehrlich-test).
+t('und meldet es dem Gast, statt Zeiten als frei anzubieten',
+  /slotsNurAnfrage\(generateReservationSlots\(restaurantId, date\), date\);\s*return;/.test(bloc)
+  && h.indexOf('Freie Plätze gerade nicht prüfbar.') > -1, 'keine Meldung');
 
 console.log('\n-- 9. Das Geheimnis wird beim Anlegen gemerkt --');
 t('nach der Bestellung', /verfolgMerken\('b', _neueZeile\.track_token\)/.test(h), 'fehlt');

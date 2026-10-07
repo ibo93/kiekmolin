@@ -186,8 +186,14 @@ t('und danach auch', zweiteS > versuchS, zweiteS);
 t('das sind genau zwei Male, nicht eins',
   (w.match(/await aufraeumen\(\);/g) || []).length === 2,
   (w.match(/await aufraeumen\(\);/g) || []).length);
+// Seit dem 06.10.2026 steht der Name in lib/probe.js: Bondrucker, Kassen
+// und Dashboard pruefen auf denselben, und zwei Stellen, die ihn
+// festlegen, laufen irgendwann auseinander. Die Absicht ist dieselbe
+// geblieben -- ein Name, an dem jede Probe sofort zu erkennen ist.
+var _probeLib = (function () { try { return fs.readFileSync(path.join(__dirname, '..', 'netlify', 'functions', 'lib', 'probe.js'), 'utf8'); } catch (e) { return ''; } })();
 t('die Probe traegt einen eindeutigen Namen',
-  /var PROBE_NAME = '\[Probe\] Gastweg-Wache';/.test(w), 'kein Kennzeichen');
+  /var PROBE_NAME = '\[Probe\] Gastweg-Wache';/.test(_probeLib)
+  && /var PROBE_NAME = PROBE\.PROBE_NAME;/.test(w), 'kein Kennzeichen');
 // Aufraeumen, das nur den eigenen Pfad kennt, laesst irgendwann etwas
 // liegen -- deshalb immer beide Tabellen, auch wenn nur eine Pruefung lief.
 t('und aufgeraeumt werden BEIDE Tabellen',
@@ -309,6 +315,13 @@ var geloescht = 0, angelegt = 0;
 // Die Tuer gibt genau das zurueck -- nicht einfach 'ja, steht drin'.
 // Sonst waere die siebte Pruefung ein Stempel ohne Inhalt.
 var vbGespeichert = null;
+// WAS DIE TISCH-PROBE GESCHICKT HAT -- und was eine heile Datenbank
+// zurueckgaebe. Bis zum 06.10.2026 beantwortete dieser Nachbau JEDES
+// Nachlesen mit { scheduled_at }, weil es nur eines gab. Fuer die
+// Tisch-Probe hiess das: Tischnummer "verloren", obwohl nur der Nachbau
+// sie nicht kannte. Jetzt antwortet er wie eine Datenbank: mit den
+// Spalten, nach denen gefragt wurde.
+var tiGespeichert = null;
 
 // DAS GEDAECHTNIS DER WACHE, IM SPEICHER NACHGEBAUT.
 //
@@ -372,6 +385,10 @@ function tuerenBauen(welt) {
             return { ok: true, json: async function () {
                 return [{ id: 'haus-1', min_order_value: welt.mindest === undefined ? 15 : welt.mindest }]; } };
         }
+        if (url.indexOf('/orders') > -1 && url.indexOf('id=eq.') > -1 && url.indexOf('select=order_type,table_number') > -1) {
+            if (tiGespeichert === 'weg') return { ok: true, status: 200, json: async function () { return []; } };
+            return { ok: true, status: 200, json: async function () { return [tiGespeichert || {}]; } };
+        }
         if (url.indexOf('/orders') > -1 && url.indexOf('id=eq.') > -1) {
             if (vbGespeichert === 'weg') return { ok: true, status: 200, json: async function () { return []; } };
             return { ok: true, status: 200,
@@ -407,6 +424,17 @@ function tuerenBauen(welt) {
                 if (f === null) throw new Error('ECONNREFUSED');
                 return { status: f.status, json: async function () { return f.body; } };
             }
+            if (nr.indexOf('PTI-') === 0) {
+                // Eine heile Datenbank speichert, was kam. Mit welt.tisch
+                // laesst sich der Fall nachstellen, fuer den es diese Probe
+                // gibt: der selbstheilende Insert wirft table_number weg.
+                tiGespeichert = ('tisch' in welt)
+                    ? welt.tisch
+                    : { order_type: rumpf.order.order_type, table_number: rumpf.order.table_number };
+                f = ('tischAntwort' in welt) ? welt.tischAntwort : welt.ord;
+                if (f === null) throw new Error('ECONNREFUSED');
+                return { status: f.status, json: async function () { return f.body; } };
+            }
             if (nr.indexOf('PMB-') === 0) {
                 f = ('mindestAntwort' in welt) ? welt.mindestAntwort : GUT_MINDEST;
             }
@@ -427,7 +455,7 @@ var GUT_MINDEST = { status: 422, body: { ok: false, preis_abgelehnt: true,
 
 var wachePfad = path.join(F, 'gastweg-wache.js');
 async function laufen(welt, gedaechtnisBehalten) {
-    alarme.length = 0; geloescht = 0; angelegt = 0; vbGespeichert = null;
+    alarme.length = 0; geloescht = 0; angelegt = 0; vbGespeichert = null; tiGespeichert = null;
     // Jeder Fall faengt bei null an -- ausser dort, wo genau der
     // Verlauf ueber mehrere Durchlaeufe geprueft wird.
     if (!gedaechtnisBehalten) tabelle = {};
@@ -520,8 +548,11 @@ async function laufen(welt, gedaechtnisBehalten) {
     t('und alle drei Wege stehen in der Meldung',
       /Reservieren:/.test(alles.alarme[0]) && /Bestellen:/.test(alles.alarme[0])
       && /Preis-Schutz:/.test(alles.alarme[0]), alles.alarme[0]);
+    // Seit dem 06.10.2026 sieben: die Tisch-Bestellung ist dazugekommen.
     t('die Meldung sagt, wie viele Wege klemmen',
-      /^6 Gastwege klemmen/.test(alles.alarme[0]), alles.alarme[0]);
+      /^7 Gastwege klemmen/.test(alles.alarme[0]), alles.alarme[0]);
+    t('und die Tisch-Bestellung ist einer davon',
+      /Bestellen am Tisch:/.test(alles.alarme[0]), alles.alarme[0]);
     t('und der Mindestbestellwert ist einer davon',
       /Mindestbestellwert:/.test(alles.alarme[0]), alles.alarme[0]);
     t('und die Vorbestellung auch', /Vorbestellung:/.test(alles.alarme[0]), alles.alarme[0]);
@@ -554,6 +585,39 @@ async function laufen(welt, gedaechtnisBehalten) {
     t('Vorbestellung verschwunden -> eigener Satz',
       vbNichtDa.alarme.length === 1 && /nicht auffindbar/.test(vbNichtDa.alarme[0] || ''),
       vbNichtDa.alarme[0]);
+
+    // h3) DER TISCH GEHT VERLOREN -- durch die GANZE Wache, nicht nur die
+    //     eine Pruefung. Seit dem 06.10.2026.
+    //
+    //     order-save sagt {ok:true, id:...}, die Bestellart stimmt -- nur
+    //     die Tischnummer fehlt, weil der selbstheilende Insert sie
+    //     weggeworfen hat. In der Kueche steht eine Bestellung ohne Tisch.
+    //     Genau EIN Alarm, und es muss DIESER sein.
+    var tischWeg = await laufen({ res: GUT_RES, ord: GUT_ORD, billig: GUT_BILLIG,
+                                  tisch: { order_type: 'dine_in', table_number: null } });
+    t('Tischnummer weg -> Alarm, obwohl gespeichert',
+      tischWeg.code === 200 && tischWeg.alarme.length === 1, JSON.stringify(tischWeg.alarme));
+    t('und der Alarm nennt den Tisch und die Kueche',
+      /Tischnummer/.test(tischWeg.alarme[0] || '') && /Kueche/.test(tischWeg.alarme[0] || ''),
+      tischWeg.alarme[0]);
+    t('und kein anderer Weg wird dabei faelschlich rot',
+      !/Reservieren:|Bestellen:|Vorbestellung:|Preis-Schutz:/.test(tischWeg.alarme[0] || ''),
+      tischWeg.alarme[0]);
+
+    // h4) Aus "vor Ort" wurde unterwegs eine Abholung.
+    var tischAbholung = await laufen({ res: GUT_RES, ord: GUT_ORD, billig: GUT_BILLIG,
+                                       tisch: { order_type: 'pickup', table_number: 99 } });
+    t('aus vor Ort wurde Abholung -> eigener Satz',
+      tischAbholung.alarme.length === 1 && /vor Ort/.test(tischAbholung.alarme[0] || ''),
+      tischAbholung.alarme[0]);
+
+    // h5) Nur die Tisch-Tuer klemmt, Abholung geht -- das muss auffallen,
+    //     und zwar ohne dass "Bestellen" mit rot wird.
+    var nurTischZu = await laufen({ res: GUT_RES, ord: GUT_ORD, billig: GUT_BILLIG,
+                                    tischAntwort: { status: 500, body: { ok: false, error: 'kaputt' } } });
+    t('nur Bestellen am Tisch klemmt -> genau dieser Alarm',
+      nurTischZu.alarme.length === 1 && /Bestellen am Tisch:/.test(nurTischZu.alarme[0] || '')
+      && !/(^| )Bestellen: /.test(nurTischZu.alarme[0] || ''), nurTischZu.alarme[0]);
 
     // i) RESEND_API_KEY fehlt: Bestellungen kommen an, aber kein Gast
     //    bekommt eine Bestaetigung. Auch das sieht von aussen heil aus.

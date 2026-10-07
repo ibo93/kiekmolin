@@ -54,6 +54,7 @@
 
 var alarmModul = require('./lib/alarm');
 var ZAHLSPERRE = require('./lib/zahlsperre');
+var AKTIONEN = require('./lib/aktionen');
 
 var SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co';
 var SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY || '';
@@ -211,6 +212,20 @@ exports.handler = async function (event) {
             }
         }
 
+        // ---- 3b. GILT EINE AKTION FUER DIESEN TERMIN?
+        //
+        // "10 % bei Online-Reservierung", "Ladies Night: Gratis-Cocktail".
+        // Der SERVER schlaegt nach, nicht der Browser -- sonst traegt sich
+        // jeder Gast den Rabatt selbst ein. Was gilt, steht danach an der
+        // Reservierung (aktion_text), und das Personal sieht es im Dashboard.
+        //
+        // Faellt offen aus: keine Tabelle, kein Netz -> keine Aktion, aber
+        // die Reservierung geht durch. Siehe lib/aktionen.js.
+        var _aktionen = await AKTIONEN.lesen(r.restaurant_id, SERVICE_KEY, SUPABASE_URL);
+        var _passend = AKTIONEN.fuerReservierung(_aktionen, r.reservation_date, r.reservation_time);
+        var _aktionText = AKTIONEN.textFuerReservierung(_passend);
+        if (_aktionText) r.aktion_text = _aktionText;
+
         // ---- 4. Schreiben
         //
         // Selbst-heilend, wie bei order-save. Fehlt eine Spalte in der
@@ -274,6 +289,18 @@ exports.handler = async function (event) {
         }
         var zeile = (await res.json())[0] || {};
 
+        // KAM DER VORTEIL AUCH AN?
+        // Fehlt die Spalte aktion_text (SQL 38 noch nicht eingespielt), hat
+        // der selbstheilende Insert sie still herausgenommen. Die
+        // Reservierung ist da -- aber an der Kasse weiss niemand vom
+        // Rabatt, den der Gast gerade gelesen hat. Das soll nicht still
+        // bleiben: Protokoll, und der Gast bekommt es in der Antwort
+        // gesagt, damit er es selbst erwaehnen kann.
+        var _aktionGespeichert = !!(_aktionText && Object.prototype.hasOwnProperty.call(koerper, 'aktion_text'));
+        if (_aktionText && !_aktionGespeichert) {
+            console.warn('[reservation-guest] Aktion "' + _aktionText + '" galt, aber aktion_text fehlt in reservations (SQL 38).');
+        }
+
         // ---- 5. Zurueck geht NUR, was dem Gast gehoert
         // Kein fremder Name, keine Nachbarzeile. Genau die drei Angaben,
         // die die App braucht: die Kennung fuer die Bestaetigungsmail,
@@ -282,7 +309,11 @@ exports.handler = async function (event) {
             ok: true,
             id: zeile.id || null,
             track_token: zeile.track_token || null,
-            status: zeile.status || r.status
+            status: zeile.status || r.status,
+            // Was fuer diesen Termin gilt -- damit der Gast es auf der
+            // Bestaetigung liest. gespeichert:false heisst: bitte im Lokal
+            // erwaehnen, das Personal sieht es nicht.
+            aktion: _aktionText ? { text: _aktionText, gespeichert: _aktionGespeichert } : null
         });
     } catch (e) {
         console.error('[reservation-guest]', e && e.message);

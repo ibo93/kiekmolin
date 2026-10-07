@@ -111,7 +111,7 @@ var ohneNamen = felder.filter(function (f) {
 // Schreiben: 123 von 302. Wer neue Felder OHNE Beschriftung einbaut,
 // laeuft hier auf.
 t('die Luecke im Verwaltungsbereich waechst nicht',
-  ohneNamen.length <= 125, ohneNamen.length + ' ohne, zuletzt 123');
+  ohneNamen.length <= 125, ohneNamen.length + ' ohne, erlaubt sind hoechstens 125');
 
 // DIE SPAM-FALLE DARF KEINEN NAMEN HABEN.
 // Sie liegt ausserhalb des Bildes und faengt Bots, die jedes Feld
