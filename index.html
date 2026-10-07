@@ -18404,6 +18404,24 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 .tp3-meldung.hinweis { background: #fff4cc; color: #5c4600; border: 1px solid #f5d77a; }
                 .dark-mode .tp3-meldung.fehler { background: #3b1414; color: #fecaca; border-color: #7f1d1d; }
                 .dark-mode .tp3-meldung.hinweis { background: #3a2f0b; color: #fde68a; border-color: #6b5413; }
+                /* Zeitschieber (07.10.2026): welche Tische sind um 19:30 belegt? Die Balken zeigen
+                   je halbe Stunde, wie viele Tische des Bereichs reserviert sind -- orange = fast voll. */
+                .tp3-zeitleiste { display: flex; align-items: center; gap: 16px; padding: 10px 16px 8px; border-radius: 22px; background: var(--tp3-karte); border: 1px solid var(--tp3-rand); }
+                .tp3[data-bearbeiten="1"] .tp3-zeitleiste { display: none; }
+                .tp3-zeitwahl { display: flex; flex-direction: column; gap: 2px; min-width: 132px; }
+                .tp3-zeitwahl output { font-family: Epilogue, sans-serif; font-size: 26px; font-weight: 800; color: var(--tp3-tief); line-height: 1.1; }
+                .tp3-zeitwahl span { font-size: 13px; font-weight: 600; color: var(--tp3-leise); }
+                .tp3-schieber { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+                .tp3-balken { display: flex; align-items: flex-end; gap: 3px; height: 30px; padding: 0 11px; }
+                .tp3-balken i { flex: 1; min-height: 3px; border-radius: 4px 4px 1px 1px; background: #93b4ef; }
+                .tp3-balken i.eng { background: #b45309; }
+                .tp3-balken i.hier { box-shadow: inset 0 0 0 2px var(--tp3-tief); }
+                .dark-mode .tp3-balken i { background: #3b5bab; }
+                .dark-mode .tp3-balken i.eng { background: #fdba74; }
+                .tp3-schieber input[type="range"] { width: 100%; height: 44px; margin: 0; accent-color: #003d33; cursor: pointer; }
+                .dark-mode .tp3-schieber input[type="range"] { accent-color: #b8eddf; }
+                .tp3-skala { position: relative; height: 16px; margin: 0 11px; font-size: 12px; font-weight: 600; color: var(--tp3-sehrleise); }
+                .tp3-skala span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
                 .tp3-ruft-hof { position: absolute; border-radius: 20px; background: rgba(180,83,9,0.24); animation: tp3Puls 1.6s ease-in-out infinite; }
                 @keyframes tp3Puls { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
                 @media (prefers-reduced-motion: reduce) { .tp3-ruft-hof { animation: none; } }
@@ -18412,7 +18430,6 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 <div class="tp3-kopf">
                     <div class="tp3-titel"><b id="tp3Titel">Tischplan</b><span id="tp3Unter">wird geladen …</span></div>
                     <input type="date" id="tp3Datum" aria-label="Tag">
-                    <div class="tp3-pille" id="tp3Zeiten" role="group" aria-label="Uhrzeit"></div>
                     <div class="tp3-pille" role="group" aria-label="Ansicht">
                         <button type="button" id="tp3Ansicht3d" aria-pressed="true">3D</button>
                         <button type="button" id="tp3AnsichtOben" aria-pressed="false">Von oben</button>
@@ -18425,6 +18442,15 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 <div class="tp3-zeile2">
                     <div class="tp3-bereiche" id="tp3Bereiche" role="group" aria-label="Bereich"></div>
                     <div class="tp3-zahlen" id="tp3Zahlen"></div>
+                </div>
+                <div class="tp3-zeitleiste" id="tp3Zeitleiste">
+                    <div class="tp3-zeitwahl"><output id="tp3ZeitAnzeige" for="tp3Schieber">--:--</output><span id="tp3ZeitInfo"></span></div>
+                    <button type="button" class="tp3-knopf" id="tp3Jetzt">Jetzt</button>
+                    <div class="tp3-schieber">
+                        <div class="tp3-balken" id="tp3Balken" aria-hidden="true"></div>
+                        <input type="range" id="tp3Schieber" min="660" max="1380" step="15" value="1140" aria-label="Uhrzeit">
+                        <div class="tp3-skala" id="tp3Skala" aria-hidden="true"></div>
+                    </div>
                 </div>
                 <div class="tp3-haupt">
                     <div class="tp3-buehne" id="tp3Buehne">
@@ -18714,6 +18740,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         var n = $('tp3Neu'); if (n) n.onclick = laden;
                     }
                     bodenStellen(); entzerren(); zahlenZeichnen(); seiteZeichnen();
+                    tp.gezeichnet = tp.bearbeiten ? null : standJetzt();
                     if (tp.bearbeiten && tp.ohnePosSpalten) melden('Die Lage der Tische kann erst gespeichert werden, wenn die Datei datenbank/39-tischplan.sql in Supabase eingespielt ist. Name, Plätze und Bereich werden schon gespeichert.', 'hinweis');
                 }
                 // Schilder, die sich ueberdecken (in 3D stehen Tische hintereinander),
@@ -18736,19 +18763,57 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         if (!treffer) break;
                     }
                 }
+                // ---------- Zeitschieber (07.10.2026) ----------
+                // Spanne aus den Reservierungszeiten des Lokals (erste bis letzte
+                // Zeit + 2 h Aufenthalt). Ohne Einstellungen: 11 bis 23 Uhr.
+                function zeitSpanne() {
+                    var slots = [];
+                    try { if (typeof generateReservationSlots === 'function') slots = generateReservationSlots(tp.rid, tp.datum) || []; } catch (e) { slots = []; }
+                    if (!slots.length) return { von: 660, bis: 1380 };
+                    var von = Math.floor(minuten(slots[0]) / 30) * 30;
+                    var bis = Math.min(1425, Math.ceil((minuten(slots[slots.length - 1]) + 120) / 30) * 30);
+                    return { von: von, bis: Math.max(bis, von + 120) };
+                }
+                // Wie viele Tische des Bereichs sind um T reserviert/besetzt?
+                // Dieselbe Regel wie zustand(): ab 30 Min. vorher bis Ende.
+                function belegtUm(T, liste) {
+                    var n = 0;
+                    liste.forEach(function (t) {
+                        if (resFuerTisch(t).some(function (r) { var a = minuten(r.reservation_time); return T >= a - 30 && T < a + (+r.duration_minutes || 120); })) n++;
+                    });
+                    return n;
+                }
+                // Was der Boden gerade zeigt -- zeichnen() merkt es sich in tp.gezeichnet.
+                function standJetzt() { return tp.bereich + '#' + tp.tische.filter(function (t) { return t.bereich === tp.bereich; }).map(function (t) { var z = zustand(t); return t.id + z.art + z.text; }).join('|'); }
                 function zeitenZeichnen() {
-                    var z = $('tp3Zeiten'); if (!z) return;
-                    var opt = [];
-                    if (tp.datum === heute()) {
-                        opt.push(['jetzt', 'Jetzt · ' + hhmm(jetztMin())]);
-                        var start = Math.ceil((jetztMin() + 1) / 30) * 30;
-                        for (var i = 0; i < 4; i++) opt.push([hhmm(start + i * 30), hhmm(start + i * 30)]);
-                    } else ['12:00', '18:00', '19:00', '20:00', '21:00'].forEach(function (x) { opt.push([x, x]); });
-                    if (tp.zeit !== 'jetzt' && !opt.some(function (o) { return o[0] === tp.zeit; })) tp.zeit = opt[0][0];
-                    z.innerHTML = opt.map(function (o) { return '<button type="button" data-zeit="' + o[0] + '" aria-pressed="' + (tp.zeit === o[0]) + '">' + o[1] + '</button>'; }).join('');
-                    z.style.display = tp.bearbeiten ? 'none' : '';
                     $('tp3Datum').style.display = tp.bearbeiten ? 'none' : '';
                     $('tp3Datum').value = tp.datum;
+                    var sch = $('tp3Schieber'); if (!sch) return;
+                    var sp = zeitSpanne(), T = zeitpunkt();
+                    sch.min = sp.von; sch.max = sp.bis;
+                    var wert = Math.max(sp.von, Math.min(sp.bis, Math.round(T / 15) * 15));
+                    if (+sch.value !== wert) sch.value = wert;
+                    sch.setAttribute('aria-valuetext', hhmm(T) + ' Uhr');
+                    var jetztKnopf = $('tp3Jetzt');
+                    jetztKnopf.style.display = tp.datum === heute() ? '' : 'none';
+                    jetztKnopf.setAttribute('aria-pressed', istJetzt() ? 'true' : 'false');
+                    jetztKnopf.classList.toggle('haupt', istJetzt());
+                    var liste = tp.tische.filter(function (t) { return t.bereich === tp.bereich; });
+                    $('tp3ZeitAnzeige').textContent = istJetzt() ? 'Jetzt · ' + hhmm(T) : hhmm(T) + ' Uhr';
+                    $('tp3ZeitInfo').textContent = liste.length ? belegtUm(T, liste) + ' von ' + liste.length + ' Tischen reserviert' : '';
+                    // Balken je halbe Stunde. Zeichnen nur, wenn sich etwas
+                    // geaendert hat -- waehrend des Ziehens laeuft das oft.
+                    var b = '', schritte = [];
+                    for (var m = sp.von; m < sp.bis; m += 30) schritte.push(m);
+                    schritte.forEach(function (m) {
+                        var n = liste.length ? belegtUm(m, liste) : 0, anteil = liste.length ? n / liste.length : 0;
+                        var hier = T >= m && T < m + 30;
+                        b += '<i class="' + (anteil >= 0.8 ? 'eng' : '') + (hier ? ' hier' : '') + '" style="height:' + Math.round(3 + anteil * 27) + 'px" title="' + hhmm(m) + ' · ' + n + ' von ' + liste.length + ' reserviert"></i>';
+                    });
+                    var balken = $('tp3Balken'); if (balken.innerHTML !== b) balken.innerHTML = b;
+                    var s = '', breite = sp.bis - sp.von;
+                    for (var u = Math.ceil(sp.von / 120) * 120; u <= sp.bis; u += 120) s += '<span style="left:' + ((u - sp.von) / breite * 100).toFixed(2) + '%">' + hhmm(u) + '</span>';
+                    var skala = $('tp3Skala'); if (skala.innerHTML !== s) skala.innerHTML = s;
                 }
                 function bereicheZeichnen() {
                     var b = $('tp3Bereiche'); if (!b) return;
@@ -18771,7 +18836,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     var s = $('tp3Seite'); if (!s) return;
                     var t = tischVon(tp.gewaehlt);
                     if (!t) {
-                        s.innerHTML = '<h3>' + (tp.bearbeiten ? 'Tisch wählen' : 'Heute') + '</h3><div class="tp3-unter">'
+                        s.innerHTML = '<h3>' + (tp.bearbeiten ? 'Tisch wählen' : tp.datum === heute() ? 'Heute' : esc(new Date(tp.datum + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' }))) + '</h3><div class="tp3-unter">'
                             + (tp.bearbeiten ? 'Tippe einen Tisch an, um Name, Plätze, Form und Bereich zu ändern. Ziehen verschiebt ihn.' : 'Tippe einen Tisch an für Reservierungen, Status und Schnell-Reservierung.') + '</div>'
                             + (tp.bearbeiten ? '' : heuteListe(null));
                         return;
@@ -18959,7 +19024,20 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     $('tp3DrehLinks').onclick = function () { tp.drehung -= 90; zeichnen(); };
                     $('tp3DrehRechts').onclick = function () { tp.drehung += 90; zeichnen(); };
                     $('tp3Datum').onchange = function () { tp.datum = this.value || heute(); tp.zeit = tp.datum === heute() ? 'jetzt' : '19:00'; tp.gewaehlt = null; laden(); };
-                    $('tp3Zeiten').onclick = function (e) { var b = e.target.closest('[data-zeit]'); if (!b) return; tp.zeit = b.getAttribute('data-zeit'); zeichnen(); };
+                    // Schieber: beim Ziehen hoechstens einmal pro Bild neu zeichnen.
+                    // Aendert sich an keinem Tisch etwas (meist so), reicht die Zeitleiste
+                    // -- der 3D-Boden bleibt stehen. Gemessen: ganzer Plan ~15 ms je Bild.
+                    var _schBild = 0;
+                    $('tp3Schieber').addEventListener('input', function () {
+                        tp.zeit = hhmm(+this.value);
+                        if (_schBild) return;
+                        _schBild = requestAnimationFrame(function () {
+                            _schBild = 0;
+                            if (standJetzt() === tp.gezeichnet) { zeitenZeichnen(); seiteZeichnen(); return; }
+                            zeichnen();
+                        });
+                    });
+                    $('tp3Jetzt').onclick = function () { tp.zeit = 'jetzt'; zeichnen(); };
                     $('tp3Bereiche').onclick = function (e) { var b = e.target.closest('[data-bereich]'); if (!b) return; tp.bereich = b.getAttribute('data-bereich'); tp.gewaehlt = null; zeichnen(); };
                     $('tp3Bearbeiten').onclick = function () { tp.bearbeiten = true; tp.ansichtVorBearbeiten = tp.ansicht; tp.ansicht = 'oben'; tp.verlauf = []; tp.gewaehlt = null; melden(''); zeichnen(); };
                     $('tp3Rueck').onclick = function () { var v = tp.verlauf.pop(); if (!v) return; var alt = JSON.parse(v); alt.forEach(function (t) { geaendert(t); }); tp.tische = alt; zeichnen(); };

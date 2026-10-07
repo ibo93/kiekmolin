@@ -43,7 +43,9 @@ TISCHE.push({ id: uuid(20), table_number: '20', table_name: 'Terrasse 1', max_ca
 var RES = [
   { id: 'r-4', guest_name: 'Familie Janssen', guest_phone: '0491 123', party_size: 4, reservation_time: hh(nowMin + 10), duration_minutes: 120, status: 'confirmed', table_id: uuid(4), notes: 'Fensterplatz' },
   { id: 'r-2', guest_name: 'Meyer', guest_phone: null, party_size: 2, reservation_time: hh(nowMin - 20), duration_minutes: 120, status: 'confirmed', table_id: uuid(2), notes: null },
-  { id: 'r-7', guest_name: 'Stammtisch', guest_phone: null, party_size: 8, reservation_time: hh(nowMin - 40), duration_minutes: 180, status: 'seated', table_id: uuid(7), notes: null }
+  { id: 'r-7', guest_name: 'Stammtisch', guest_phone: null, party_size: 8, reservation_time: hh(nowMin - 40), duration_minutes: 180, status: 'seated', table_id: uuid(7), notes: null },
+  // feste Uhrzeit, fuer den Zeitschieber (Terrasse -- stoert die Gastraum-Pruefungen nicht)
+  { id: 'r-20', guest_name: 'Abendgast', guest_phone: null, party_size: 4, reservation_time: '19:00:00', duration_minutes: 120, status: 'confirmed', table_id: uuid(20), notes: null }
 ];
 var ORDERS = [{ table_number: '3', total: '48.50', created_at: new Date(Date.now() - 38 * 60000).toISOString() }];
 var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
@@ -92,7 +94,7 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
     await s.goto('http://localhost:' + PORT + '/', { waitUntil: 'load' }); await s.waitForTimeout(2000);
     await s.evaluate(function (rid) {
       document.getElementById('guestView').style.setProperty('display', 'none', 'important');
-      var d = document.getElementById('dashboardView'); var p = d; while (p && p !== document.body) { p.style.setProperty('display', p === d ? 'flex' : 'block', 'important'); p = p.parentElement; }
+      var d = document.getElementById('dashboardView'); var p = d; while (p && p !== document.body) { p.style.setProperty('display', 'block', 'important'); /* wie .dashboard-view.active (frueher 'flex': schrumpfte den Plan) */ p = p.parentElement; }
       document.querySelectorAll('.dash-section').forEach(function (x) { x.style.setProperty('display', x.id === 'sectionReservations' ? 'block' : 'none', 'important'); });
       window.resCurrentRestaurant = rid;
       // Gaeste-Elemente mit position:fixed (Warenkorb ...) liegen sonst ueber dem
@@ -172,6 +174,42 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
   await p.s.waitForTimeout(800);
   var post = p.geschrieben.filter(function (g) { return g.m === 'POST' && /rest\/v1\/reservations/.test(g.u); });
   pruef('Schnell-Reservierung schickt die echte Tisch-ID (uuid)', post.length === 1 && JSON.parse(post[0].body).table_id === uuid(1), post[0] && post[0].body);
+  pruef('Plan wirft keinen Fehler', !p.fehler.length, p.fehler.join(' | '));
+  await p.ctx.close();
+
+  // ---------- 1b. Zeitschieber ----------
+  p = await seite();
+  var zs = await p.s.evaluate(function () { var j = document.getElementById('tp3Jetzt'), r = document.getElementById('tp3Schieber'); return { jetzt: j && j.getAttribute('aria-pressed'), da: !!r, alt: !!document.getElementById('tp3Zeiten') }; });
+  pruef('Zeitschieber da, "Jetzt" gewählt, alte Zeit-Knöpfe weg', zs.da && zs.jetzt === 'true' && !zs.alt, JSON.stringify(zs));
+  var morgen = new Date(Date.now() + 86400000).toLocaleDateString('sv-SE');
+  await p.s.evaluate(function (d) { var e = document.getElementById('tp3Datum'); e.value = d; e.dispatchEvent(new Event('change')); }, morgen);
+  await p.s.waitForTimeout(600);
+  await p.s.evaluate(function () { document.querySelector('#tp3Bereiche [data-bereich="terrace"]').click(); });
+  async function schieben(min) {
+    await p.s.evaluate(function (m) { var r = document.getElementById('tp3Schieber'); r.value = m; r.dispatchEvent(new Event('input')); }, min);
+    await p.s.waitForTimeout(150);
+    return p.s.evaluate(function (id) {
+      var t = document.querySelector('#tp3Boden .tp3-schild[data-id="' + id + '"]') || document.querySelector('#tp3Boden .tp3-schild span[data-id="' + id + '"]');
+      var sch = t ? (t.classList.contains('tp3-schild') ? t : t.closest('.tp3-schild')) : null;
+      return { art: sch ? ['frei', 'res', 'bes', 'ruft'].filter(function (k) { return sch.classList.contains(k); })[0] : null,
+               anzeige: document.getElementById('tp3ZeitAnzeige').textContent, info: document.getElementById('tp3ZeitInfo').textContent };
+    }, uuid(20));
+  }
+  var um19 = await schieben(19 * 60);
+  pruef('Schieber auf 19:00: Terrassen-Tisch reserviert, "1 von 1"', um19.art === 'res' && /19:00 Uhr/.test(um19.anzeige) && /^1 von 1/.test(um19.info), JSON.stringify(um19));
+  var um22 = await schieben(22 * 60);
+  pruef('Schieber auf 22:00: wieder frei, "0 von 1"', um22.art === 'frei' && /22:00/.test(um22.anzeige) && /^0 von 1/.test(um22.info), JSON.stringify(um22));
+  var balken = await p.s.evaluate(function () { return Array.prototype.map.call(document.querySelectorAll('#tp3Balken i'), function (i) { return i.title + '|' + i.className; }); });
+  pruef('Balken 19:00 orange (voll), 17:00 leer', balken.some(function (x) { return /^19:00 · 1 von 1/.test(x) && /eng/.test(x); }) && balken.some(function (x) { return /^17:00 · 0 von 1/.test(x) && !/eng/.test(x); }), balken.join(', '));
+  var dauer = await p.s.evaluate(function () { document.querySelector('#tp3Bereiche [data-bereich="main"]').click(); var r = document.getElementById('tp3Schieber'), t0 = performance.now(); for (var i = 0; i < 20; i++) { document.getElementById('tp3Jetzt').click(); } return (performance.now() - t0) / 20; });
+  var leicht = await p.s.evaluate(function () { var r = document.getElementById('tp3Schieber'); r.value = 1215; r.dispatchEvent(new Event('input')); return new Promise(function (ok) { requestAnimationFrame(function () { requestAnimationFrame(function () { var b = document.getElementById('tp3Boden').firstElementChild, t0 = performance.now(); r.value = 1230; r.dispatchEvent(new Event('input')); requestAnimationFrame(function () { ok({ ms: performance.now() - t0, gleich: document.getElementById('tp3Boden').firstElementChild === b, anz: document.getElementById('tp3ZeitAnzeige').textContent }); }); }); }); }); });
+  pruef('Ziehen ohne Zustandswechsel: Boden bleibt stehen, nur die Zeit wechselt', leicht.gleich && /20:30/.test(leicht.anz), JSON.stringify(leicht));
+  pruef('Neuzeichnen beim Ziehen schnell genug (< 16 ms je Bild): ' + dauer.toFixed(1) + ' ms', dauer < 16, dauer);
+  k = await p.s.evaluate(kontrast); pruef('hell mit Schieber: Kontrast aller ' + k.n + ' Texte >= 4,5', !k.raus.length, k.raus.join(' | '));
+  await p.s.setViewportSize({ width: 820, height: 1180 }); await p.s.waitForTimeout(300);
+  var quer = await p.s.evaluate(function () { var z = document.getElementById('tp3Zeitleiste'); return z.scrollWidth <= z.clientWidth + 1 && document.documentElement.scrollWidth <= window.innerWidth + 1; });
+  pruef('iPad hochkant: Zeitleiste passt, nichts ragt raus', quer === true, quer);
+  await p.s.locator('#tp3').screenshot({ path: path.join(AUS, 'tischplan-zeitschieber.png') });
   pruef('Plan wirft keinen Fehler', !p.fehler.length, p.fehler.join(' | '));
   await p.ctx.close();
 
