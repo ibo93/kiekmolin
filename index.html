@@ -72819,13 +72819,23 @@ async function leseKartePdf(pdfData) {
     }
     ergebnis.rohtext = seiten.join('\n\n');
 
-    var gerichte = [], letzteKat = '', rohExtras = [];
+    var gerichte = [], letzteKat = '', rohExtras = [], rest = [], preisZeilen = 0;
     seiten.forEach(function (txt) {
         var teil = parseKartenText(txt, letzteKat);
         if (teil.length) letzteKat = teil[teil.length - 1].kat;
         rohExtras = rohExtras.concat(teil.extras || []);
+        rest = rest.concat(teil.rest || []);
+        preisZeilen += teil.preisZeilen || 0;
         gerichte = gerichte.concat(teil);
     });
+    // GEGENPROBE fürs Anzeigen: jede Zeile mit Preis ist entweder ein
+    // Gericht, ein Extra -- oder steht hier in "rest". Nichts verschwindet
+    // still.
+    ergebnis.gegenprobe = {
+        preisZeilen: preisZeilen,
+        extras: rohExtras.map(function (e) { return e.text; }),
+        rest: rest
+    };
 
     // Ein einziges gefundenes Gericht reicht als Beweis, dass der Text
     // lesbar ist. Früher mussten es fünf sein -- eine kleine Karte fiel
@@ -73001,6 +73011,7 @@ async function startMenuScan() {
     window._scanExtras = null;
     window._scanPruefung = null;
     window._scanRohtext = null;
+    window._scanGegenprobe = null;
 
     try {
         // ---------- WEG 1: PDF mit Text ----------
@@ -73011,6 +73022,7 @@ async function startMenuScan() {
 
             if (pdf.ok) {
                 window._scanExtras = pdf.extras;
+                window._scanGegenprobe = pdf.gegenprobe || null;
                 scannedMenuItems = pdf.items;
                 scannedMenuItems.forEach(function (i) { i.selected = true; });
                 window.scannedMenuItems = scannedMenuItems;
@@ -73435,14 +73447,43 @@ function pdfSeiteZuText(items, seitenBreite) {
 // es beim bisherigen Weg mit der KI.
 // ---------------------------------------------------------------------------
 function parseKartenText(text, startKategorie) {
-    var PREIS = /(\d{1,3},\d{2})\s*€/g;
     var zeilen = String(text || '').split('\n').map(function (z) { return z.replace(/\s+/g, ' ').trim(); })
                  .filter(Boolean);
 
-    function preiseIn(z) {
-        var m = z.match(/(\d{1,3},\d{2})\s*€/g);
-        return m ? m.map(function (x) { return x.replace(/\s*€/, '').replace(',', '.'); }) : [];
+    // PREISE ERKENNEN -- AUCH OHNE €-ZEICHEN.
+    //
+    // Hier stand /(\d{1,3},\d{2})\s*€/: nur ein Preis MIT Eurozeichen
+    // zählte. Viele Karten drucken aber "Margherita 7,50" ohne Zeichen. So
+    // eine Zeile galt als Beschreibung des Gerichts darüber -- das Gericht
+    // war weg, ohne Meldung. Ebenso "7.50 €", "7,- €", "8 €", "1.250,00 €".
+    //
+    // Ohne Zeichen zählt nur die eindeutige Form mit Komma und zwei Stellen
+    // ("7,50"), und auch die nicht, wenn eine Einheit folgt: "0,33 l",
+    // "11,30 Uhr" und "26 cm" sind keine Preise.
+    var EINHEIT = /^\s*(l|cl|ml|ltr|liter|g|gr|kg|cm|mm|%|stk|stück|pers|personen|uhr|x)(?![a-zäöüß])/i;
+    function preisTreffer(z) {
+        var re = /(\+\s*)?(€\s*)?(\d{1,3}(?:\.\d{3})+,\d{2}|\d{1,4},\d{2}|\d{1,4},-{1,2}|\d{1,4}\.\d{2}|\d{1,4})(\s*(?:€|EUR\b|Euro\b))?/gi;
+        var m, treffer = [];
+        while ((m = re.exec(z))) {
+            var vorher = m.index > 0 ? z.charAt(m.index - 1) : ' ';
+            if (!m[1] && !m[2] && /[0-9A-Za-zÄÖÜäöüß.,]/.test(vorher)) continue;   // mitten in Wort oder Zahl
+            var euro = !!(m[2] || m[4]);
+            var zahl = m[3];
+            var nachher = z.slice(m.index + m[0].length);
+            var mitKomma = /,(\d{2}|-+)$/.test(zahl);
+            if (EINHEIT.test(nachher) && !euro) continue;
+            if (!mitKomma && !euro) continue;               // "12" oder "7.50" ohne € ist keine sichere Angabe
+            if (!euro && /^\.\s/.test(nachher)) continue;  // Gerichtnummer "12."
+            var wert = zahl.replace(/,-+$/, ',00');
+            wert = /,\d{2}$/.test(wert) ? wert.replace(/\./g, '').replace(',', '.') : wert;
+            if (wert.indexOf('.') < 0) wert += '.00';
+            treffer.push({ wert: wert, ab: m.index, plus: !!m[1] });
+        }
+        return treffer;
     }
+    function preiseIn(z) { return preisTreffer(z).map(function (t) { return t.wert; }); }
+    // "12. Pizza Salami" -- eine Zeile, die wie ein Gericht beginnt.
+    var MIT_NUMMER = /^(\d{1,3}\s?[A-Za-z]?)\.\s+([A-ZÄÖÜ0-9].{1,80})$/;
     // SPALTENKOEPFE SIND DIE NAMEN DER GROESSEN.
     //
     // Die Karte schreibt über jede Preisspalte, was sie bedeutet:
@@ -73474,7 +73515,11 @@ function parseKartenText(text, startKategorie) {
     // (größere oder fette Schrift), nicht aus einer Vermutung.
     function istUeberschrift(z) { return z.slice(0, 3) === '## '; }
 
-    var out = [], extras = [], kat = startKategorie || '', letztes = null, spalten = null;
+    // GEGENPROBE: was einen Preis hatte und trotzdem kein Gericht wurde, steht
+    // hier -- mit Text und Grund. Vorher fiel so etwas still heraus, und die
+    // Karte sah vollständig aus, obwohl Gerichte fehlten.
+    var out = [], extras = [], rest = [], kat = startKategorie || '', letztes = null, spalten = null;
+    var preisZeilen = 0, angehaengt = null;   // angehaengt: Zeile, die zuletzt an eine Beschreibung ging
     for (var i = 0; i < zeilen.length; i++) {
         var z = zeilen[i];
         if (istUeberschrift(z)) {
@@ -73483,32 +73528,61 @@ function parseKartenText(text, startKategorie) {
             var sp = spaltenNamenAus(roh);
             if (sp) spalten = sp;                 // "Pizza (Forts.) KLEIN GROSS"
             if (k) { kat = k; letztes = null; if (!sp) spalten = null; }
+            angehaengt = null;
             continue;
         }
         // Eigene Zeile mit den Spaltenköpfen ("KLEIN GROSS", "IM BROT TELLER")
-        if (istNurSpaltenkopf(z)) { spalten = spaltenNamenAus(z); continue; }
-        var pr = preiseIn(z);
+        if (istNurSpaltenkopf(z)) { spalten = spaltenNamenAus(z); angehaengt = null; continue; }
+        var treffer = preisTreffer(z);
+        var pr = treffer.map(function (t) { return t.wert; });
 
         if (!pr.length) {
+            // "12. Pizza Salami" ohne Preis in der Zeile: der Preis steht in
+            // der nächsten Zeile oder fehlt auf der Karte. Beides ist ein
+            // GERICHT, keine Beschreibung -- vorher hing es still am
+            // Gericht darüber. Nur bei Karten, die nummerieren (das Gericht
+            // davor hat eine Nummer, oder es ist das erste).
+            var mn = z.match(MIT_NUMMER);
+            if (mn && (!letztes || letztes.nr)) {
+                letztes = { nr: mn[1].replace(/\s+/g, ''), name: mn[2].trim(), besch: '', preise: [],
+                            kat: kat, spalten: spalten };
+                out.push(letztes);
+                angehaengt = null;
+                continue;
+            }
             // Beschreibung zum letzten Gericht
             if (letztes) {
                 letztes.besch = (letztes.besch ? letztes.besch + ' ' : '') + z;
             }
+            angehaengt = { text: z, an: letztes };
             continue;
         }
+        preisZeilen++;
 
         // Zeile mit Preis -> Gericht. Name = alles vor dem ersten Preis.
         // Füllzeichen abschneiden: viele Karten setzen "Apfelkuchen ........
         // 3,80 €". Ohne das heißt das Gericht in der App
         // "Apfelkuchen ......................".
-        var vor = z.slice(0, z.search(/\d{1,3},\d{2}\s*€/))
+        var vor = z.slice(0, treffer[0].ab)
                    .replace(/[.\u2026\-_\s]+$/, '').trim();
         var nr = '';
         var m = vor.match(/^(\d+\s?[A-Za-z]?)\.\s*(.*)$/);
         if (m) { nr = m[1].replace(/\s+/g, ''); vor = m[2].trim(); }
         // Hinweiszeilen sind keine Gerichte: "Extra Zutaten: klein 1,00 €",
         // "Menü-Upgrade: ... +5,00 €", "mit einer Zutat nach Wahl kostenlos".
-        if (/[:+]/.test(vor) || /^[a-zäöüß]/.test(vor) || /\b(Zutat|Upgrade|erhältlich|kostenlos)\b/i.test(vor)) {
+        //
+        // Vorher reichte EIN Doppelpunkt oder ein kleiner Anfangsbuchstabe:
+        // "Pizza Hawaii: Schinken, Ananas 8,50 €", "Döner + Pommes 9,50 €"
+        // und "cola 0,33l 2,50 €" wurden zu Extras, das Gericht war weg.
+        // Jetzt zählt, was eine Hinweiszeile wirklich ausmacht: ein "+" vor
+        // dem Preis, ein Anfang wie "Extra"/"Zutaten"/"Aufpreis", oder
+        // klein geschrieben UND ein Hinweiswort.
+        var plusPreis = treffer.some(function (t) { return t.plus; });
+        var hinweisAnfang = /^(extra|zutat|aufpreis|zuschlag|jede\b|alle\b|menü-upgrade|menue-upgrade|upgrade)/i.test(vor);
+        var kleinHinweis = /^[a-zäöüß]/.test(vor)
+            && (/\b(zutat\w*|extra\w*|kostenlos|erhältlich|aufpreis|zuschlag|nach wahl|jede)\b/i.test(vor)
+                || /^(mit|dazu|ohne|als|oder|und|auch|auf wunsch)\b/i.test(vor));
+        if (!nr && (plusPreis || hinweisAnfang || kleinHinweis)) {
             // Kein Gericht -- aber auch kein Müll: das sind die EXTRAS.
             // "Extra Zutaten: klein 1,00 €, groß 1,50 €" heißt, dass der Gast
             // bei jeder Pizza dieser Kategorie eine Zutat dazubestellen kann.
@@ -73526,11 +73600,34 @@ function parseKartenText(text, startKategorie) {
         }
         if (!vor) {
             // Preis ohne Namen (Name stand eine Zeile vorher, ohne Preis)
-            if (letztes && !letztes.preise.length) { letztes.preise = pr; continue; }
+            if (letztes && !letztes.preise.length) { letztes.preise = pr; angehaengt = null; continue; }
+            // Name in der Zeile darüber, und das Gericht davor hatte schon
+            // seinen Preis ("Margherita" / "7,50 €" / "Salami" / "8,00 €").
+            // Die Zeile darüber war deshalb an dessen Beschreibung gegangen
+            // -- zurückholen. Nur wenn die Karte durchgehend so gesetzt ist
+            // (erstes Gericht oder das davor kam genauso zustande); sonst
+            // ist "8,50 €" eher eine zweite Größe, und dann wird nicht
+            // geraten, sondern unten gemeldet.
+            var a = angehaengt;
+            var passt = a && a.an === letztes && /^[A-ZÄÖÜ0-9]/.test(a.text) && a.text.length <= 60
+                        && (!letztes || letztes.ausVorzeile);
+            if (passt) {
+                if (letztes) {
+                    var b = letztes.besch, t = a.text;
+                    if (b.slice(-t.length) === t) letztes.besch = b.slice(0, b.length - t.length).trim();
+                }
+                letztes = { nr: '', name: a.text, besch: '', preise: pr, kat: kat, spalten: spalten, ausVorzeile: true };
+                out.push(letztes);
+                angehaengt = null;
+                continue;
+            }
+            rest.push({ kat: kat, text: z, grund: 'Preis ohne erkennbares Gericht' });
+            angehaengt = null;
             continue;
         }
         letztes = { nr: nr, name: vor, besch: '', preise: pr, kat: kat, spalten: spalten };
         out.push(letztes);
+        angehaengt = null;
     }
 
     // Allergen-/Zusatzstoffklammern holen -- aus der Beschreibung UND aus dem
@@ -73552,7 +73649,15 @@ function parseKartenText(text, startKategorie) {
         g.besch = klammern(g.besch);
         g.allergene = alg; g.zusatz = zus;
     });
+    // Gerichte ohne Preis auch melden: sie werden angelegt, aber
+    // ausgeblendet, bis ein Preis drinsteht.
+    out.forEach(function (g) {
+        if (!g.preise.length) rest.push({ kat: g.kat, text: (g.nr ? g.nr + '. ' : '') + g.name,
+                                          grund: 'Gericht ohne Preis — wird ausgeblendet angelegt' });
+    });
     out.extras = extras;
+    out.rest = rest;
+    out.preisZeilen = preisZeilen;
     return out;
 }
 
@@ -73815,7 +73920,11 @@ function pdfGerichteZuItems(liste) {
             g.name = String(g.name).replace(/\sV$/, '').trim();
         }
         var zus = (g.zusatz || []).filter(function (x) { return /^\d{1,2}$/.test(x); });
-        var preise = g.preise && g.preise.length ? g.preise : ['0'];
+        // Ohne Preis bleibt der Preis LEER, nicht 0. Mit 0 wäre das Gericht
+        // nach dem Import für 0 € bestellbar gewesen; leer legt der Import
+        // es ausgeblendet an und nennt es am Ende.
+        var ohnePreis = !(g.preise && g.preise.length);
+        var preise = ohnePreis ? ['0'] : g.preise;
 
         // EIN Gericht, mehrere GROESSEN -- nicht zwei Gerichte.
         //
@@ -73853,7 +73962,7 @@ function pdfGerichteZuItems(liste) {
                 name: g.name,
                 sizes: groessen,
                 description: g.besch || '',
-                price: groessen ? groessen[0].price : (Math.round(parseFloat(p) * 100) / 100 || 0),
+                price: groessen ? groessen[0].price : (ohnePreis ? null : (Math.round(parseFloat(p) * 100) / 100 || 0)),
                 category: g.kat || '',
                 dish_number: g.nr || '',
                 selected: true,
@@ -74454,11 +74563,61 @@ async function karteVollLies(datei) {
 
         window._karteTextItems = e.items;
         window._karteVollExtras = e.extras || null;
+        window._karteVollGegenprobe = e.gegenprobe || null;
         karteVollSage(e.items.length + ' Einträge aus „' + datei.name + '" gelesen — ohne KI.');
         karteVollZeige(e);
     } catch (fehler) {
         karteVollSage('Fehler: ' + fehler.message, 'fehler');
     }
+}
+
+// GEGENPROBE ANZEIGEN.
+//
+// "Was ich hochlade, muss zu 100 % ankommen" (Ibo, 07.10.2026). Ob das so
+// ist, darf man nicht glauben müssen -- es muss dastehen. Grün nur, wenn
+// jede Zeile mit Preis ein Gericht oder ein Extra geworden ist. Sonst stehen
+// die übrigen Zeilen wörtlich da, mit Grund. Die Extras sind aufklappbar
+// aufgelistet: ist dort ein Gericht hineingeraten, sieht man es.
+function karteGegenprobeHtml(gp) {
+    if (!gp) return '';
+    var esc = function (x) { return String(x == null ? '' : x).replace(/[<>&"]/g, function (c) {
+        return { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]; }); };
+    var rest = gp.rest || [], extras = gp.extras || [];
+    var html = '';
+    if (!rest.length) {
+        html += '<div class="karte-gegenprobe ok" style="display:flex;gap:8px;align-items:flex-start;margin:0 0 10px;'
+              + 'padding:9px 12px;border-radius:12px;background:rgba(21,128,61,0.08);border:1px solid rgba(21,128,61,0.3);'
+              + 'font-size:12px;color:#14532d;font-family:Inter,sans-serif;">'
+              + '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:18px;color:#15803d;">verified</span>'
+              + '<span><strong>Vollständig:</strong> alle ' + gp.preisZeilen + ' Zeilen mit Preis übernommen'
+              + (extras.length ? ' — davon ' + extras.length + ' als Extra' : '') + '.</span></div>';
+    } else {
+        html += '<div class="karte-gegenprobe offen" role="alert" style="margin:0 0 10px;padding:10px 12px;border-radius:12px;'
+              + 'background:rgba(245,158,11,0.12);border:1px solid #f59e0b;font-size:12px;color:#78350f;font-family:Inter,sans-serif;">'
+              + '<div style="font-weight:800;margin-bottom:4px;">' + rest.length + (rest.length === 1 ? ' Zeile' : ' Zeilen')
+              + ' bitte ansehen:</div>'
+              + '<ul style="margin:0;padding-left:18px;line-height:1.55;">'
+              + rest.slice(0, 60).map(function (r) {
+                    return '<li><strong>' + esc(r.text) + '</strong>'
+                         + (r.kat ? ' <span style="opacity:.75;">(' + esc(r.kat) + ')</span>' : '')
+                         + ' — ' + esc(r.grund) + '</li>';
+                }).join('')
+              + (rest.length > 60 ? '<li>… und ' + (rest.length - 60) + ' weitere</li>' : '')
+              + '</ul>'
+              + (rest.some(function (r) { return /^Preis ohne/.test(r.grund); })
+                 ? '<div style="margin-top:6px;">Ein Preis ohne Gericht wird nicht erraten. Gehört er zu einem Gericht, nach dem Import in der Speisekarte nachtragen.</div>'
+                 : '')
+              + '</div>';
+    }
+    if (extras.length) {
+        html += '<details style="margin:0 0 10px;font-size:12px;color:var(--text-secondary);font-family:Inter,sans-serif;">'
+              + '<summary style="cursor:pointer;">' + extras.length + (extras.length === 1 ? ' Zeile' : ' Zeilen')
+              + ' als Extra erkannt (zum Dazubestellen) — ansehen</summary>'
+              + '<ul style="margin:6px 0 0;padding-left:18px;line-height:1.55;">'
+              + extras.slice(0, 40).map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('')
+              + '</ul></details>';
+    }
+    return html;
 }
 
 // Ergebnis anzeigen -- dieselbe Kachel wie beim Text, damit es an einer Stelle
@@ -74487,6 +74646,8 @@ function karteVollZeige(e) {
         + ' · direkt aus dem PDF gelesen, ohne KI'
         + (e.bericht && e.bericht.ms ? ' · ' + (e.bericht.ms / 1000).toFixed(1) + ' s' : '')
         + '</div></div></div>';
+
+    html += karteGegenprobeHtml(e.gegenprobe);
 
     html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">';
     folge.forEach(function (k) {
@@ -74549,6 +74710,8 @@ function karteTextVorschau() {
     var r = karteAusText(text);
     var items = karteTextZuItems(r.gerichte);
     window._karteTextItems = items;
+    // Die Gegenprobe gehört zum PDF -- jetzt kommt die Liste aus dem Text.
+    window._karteVollGegenprobe = null;
 
     var kats = {}, reihenfolge = [];
     items.forEach(function (i) {
@@ -74653,6 +74816,7 @@ function karteTextUebernehmen() {
     window.scannedMenuItems = scannedMenuItems;
     window._scanQuelleOCR = null;
     window._scanExtras = window._karteVollExtras || null;
+    window._scanGegenprobe = window._karteVollGegenprobe || null;
     window._scanPruefung = null;
     window._scanBericht = {
         dauer: '—', bilder: 0, seitenOhneErgebnis: 0,
@@ -74989,6 +75153,7 @@ function showScannedResults() {
           + (_ohnePreis ? ' · <strong style="color:#b45309;">' + _ohnePreis + ' ohne Preis</strong>' : ' · alle mit Preis')
           + (_b.dauer ? ' · ' + _b.dauer : '') + '</div>'
           + '</div></div>';
+    if (_weg === 'pdf' && window._scanGegenprobe) html += karteGegenprobeHtml(window._scanGegenprobe);
 
     // Warnbanner, wenn NICHT die KI gelesen hat. Das muss unübersehbar sein:
     // ein OCR-Ergebnis sieht auf den ersten Blick aus wie ein KI-Ergebnis, ist
