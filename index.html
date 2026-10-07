@@ -16009,8 +16009,8 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         <!-- Hier stand fest "2 Restaurants in Greetsiel" und "Italienisch &
                              Norddeutsche Kueche" -- kein Skript hat es je angepasst. Jetzt
                              zaehlt heuteAbendZeichnen() echte Haeuser. -->
-                        <p style="font-family:'Epilogue',sans-serif;font-weight:800;font-size:15px;color:var(--ink-strong);" id="heroRestCount">Restaurants in Ostfriesland</p>
-                        <p style="font-size:12px;color:var(--text-secondary);margin-top:2px;" id="heroTagline">Essen gehen, bestellen, reservieren</p>
+                        <p style="font-family:'Epilogue',sans-serif;font-weight:800;font-size:15px;color:var(--ink-strong);" id="heroRestCount">Moin! Wo essen wir heute?</p>
+                        <p style="font-size:12px;color:var(--text-secondary);margin-top:2px;" id="heroTagline">Tisch reservieren oder Essen bestellen</p>
                     </div>
                     <button style="background:linear-gradient(135deg,#00251e,#003d33);color:white;border:none;padding:12px 20px;border-radius:50px;font-family:'Inter',sans-serif;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;transition:transform 0.2s,opacity 0.2s;" onclick="document.getElementById('searchInput').focus(); document.getElementById('searchInput').scrollIntoView({behavior:'smooth', block:'center'});" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">
                         <span class="material-symbols-outlined" style="font-size:16px;">explore</span>
@@ -24316,6 +24316,7 @@ const translations = {
 function setLanguage(lang) {
     currentLanguage = lang;
     localStorage.setItem('kmi_language', lang);
+    try { if (typeof heroGrussSetzen === 'function') heroGrussSetzen(); } catch (e) {}
 
     const t = translations[lang] || translations.de;
 
@@ -28800,26 +28801,37 @@ function renderRestaurants(filter) {
 // dort koennte erfunden sein -- ein Gast, der deshalb losgeht, steht vor
 // einem vollen Haus. Gezeigt wird nur, was stimmt: offen bis, laufende
 // Aktion, Entfernung.
+// KARTE OBEN AUF DER STARTSEITE (07.10.2026).
+// Hier stand fest "2 Restaurants in Greetsiel", danach kurz die echte Zahl.
+// Ibo: die Zahl kann weg. Gleich darunter zeigt "Jetzt geöffnet", wer offen
+// hat -- eine Zahl hier waere doppelt. Stattdessen ein Gruss zur Tageszeit:
+// kann nie falsch sein und passt zu "Kiek mol in".
+var HERO_GRUSS = {
+    de: [[6, 'Moin! Wo frühstücken wir?'], [11, 'Moin! Zeit fürs Mittagessen.'], [14, 'Moin! Lust auf Kaffee und Kuchen?'], [17, 'Moin! Wo essen wir heute Abend?'], [22, 'Moin! Noch Hunger?']],
+    en: [[6, 'Moin! Where shall we have breakfast?'], [11, 'Moin! Time for lunch.'], [14, 'Moin! Coffee and cake?'], [17, 'Moin! Where shall we eat tonight?'], [22, 'Moin! Still hungry?']],
+    nl: [[6, 'Moin! Waar gaan we ontbijten?'], [11, 'Moin! Tijd voor de lunch.'], [14, 'Moin! Zin in koffie en gebak?'], [17, 'Moin! Waar eten we vanavond?'], [22, 'Moin! Nog trek?']]
+};
+var HERO_UNTER = { de: 'Tisch reservieren oder Essen bestellen', en: 'Book a table or order food', nl: 'Tafel reserveren of eten bestellen' };
+function heroGruss(stunde, sprache) {
+    var liste = HERO_GRUSS[sprache] || HERO_GRUSS.de, text = liste[liste.length - 1][1];
+    for (var i = 0; i < liste.length; i++) if (stunde >= liste[i][0]) text = liste[i][1];
+    if (stunde < liste[0][0]) text = liste[liste.length - 1][1];
+    return text;
+}
+function heroGrussSetzen() {
+    var sprache = (typeof currentLanguage !== 'undefined' && HERO_GRUSS[currentLanguage]) ? currentLanguage : 'de';
+    var kopf = document.getElementById('heroRestCount'), unter = document.getElementById('heroTagline');
+    if (kopf) kopf.textContent = heroGruss(new Date().getHours(), sprache);
+    if (unter) unter.textContent = HERO_UNTER[sprache];
+}
+setInterval(function () { if (!document.hidden) heroGrussSetzen(); }, 10 * 60 * 1000);
+
 var _heuteAbendLauf = 0;
 function heuteAbendZeichnen() {
     var alle = (APP_DATA.restaurants || []).filter(function (r) { return r && r.is_active !== false; });
     var offen = alle.filter(function (r) { try { return checkIfOpen(r); } catch (e) { return false; } });
 
-    // Kopf: echte Zahl statt "2 Restaurants in Greetsiel"
-    var kopf = document.getElementById('heroRestCount');
-    if (kopf && alle.length) {
-        var orte = []; alle.forEach(function (r) { if (r.city && orte.indexOf(r.city) < 0) orte.push(r.city); });
-        kopf.textContent = alle.length + (alle.length === 1 ? ' Restaurant' : ' Restaurants') + ' in ' + (orte.length === 1 ? orte[0] : 'Ostfriesland')
-            + (offen.length ? ' · ' + offen.length + ' jetzt offen' : '');
-    }
-    var tag = document.getElementById('heroTagline');
-    if (tag && alle.length) {
-        var zaehl = {};
-        alle.forEach(function (r) { (Array.isArray(r.cuisine_type) && r.cuisine_type.length ? r.cuisine_type : (r.cuisine ? [r.cuisine] : [])).forEach(function (k) { if (k) zaehl[k] = (zaehl[k] || 0) + 1; }); });
-        var top = Object.keys(zaehl).sort(function (a, b) { return zaehl[b] - zaehl[a]; }).slice(0, 3)
-            .map(function (k) { return kuecheLabel(k) || k; });
-        if (top.length) tag.textContent = top.join(' · ');
-    }
+    heroGrussSetzen();
 
     var sek = document.getElementById('heuteAbend'), reihe = document.getElementById('heuteAbendReihe'), zahl = document.getElementById('heuteAbendZahl');
     if (!sek || !reihe) return;

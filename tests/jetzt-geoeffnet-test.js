@@ -15,7 +15,7 @@ var n = 0, ok = 0;
 function t(l, c, x) { n++; if (c === true) ok++; console.log((c === true ? 'OK  ' : 'FAIL') + ' | ' + l + (c === true ? '' : '  -> ' + x)); }
 function fn(name) { var i = H.indexOf('function ' + name + '('); if (i < 0) return ''; var d = 0, j = H.indexOf('{', i); for (var k = j; k < H.length; k++) { if (H[k] === '{') d++; else if (H[k] === '}') { d--; if (!d) return H.slice(i, k + 1); } } return ''; }
 
-t('keine feste Zahl mehr im Kopf', !/>2 Restaurants in Greetsiel</.test(H) && !/data-i18n="tagline">Italienisch & Norddeutsche Küche/.test(H), '');
+t('keine Zahl mehr im Kopf (auch nicht die echte)', !/>2 Restaurants in Greetsiel</.test(H) && !/' jetzt offen'/.test(H) && !/data-i18n="tagline">Italienisch & Norddeutsche Küche/.test(H), '');
 t('Leiste "Jetzt geöffnet" vorhanden', /<section id="heuteAbend" class="heute-abend"/.test(H), '');
 t('wird nach jeder Liste neu gezeichnet', /try \{ heuteAbendZeichnen\(\); \} catch \(e\)/.test(H), '');
 
@@ -42,10 +42,20 @@ var sb = {
   Promise: Promise, Date: Date, Math: Math, String: String, Object: Object, console: console
 };
 vm.createContext(sb);
-vm.runInContext('var _heuteAbendLauf = 0;\n' + fn('heuteAbendZeichnen'), sb);
+var grussCode = H.slice(H.indexOf('var HERO_GRUSS = {'), H.indexOf('setInterval(function () { if (!document.hidden) heroGrussSetzen(); }'));
+vm.runInContext(grussCode + '\nvar _heuteAbendLauf = 0;\n' + fn('heuteAbendZeichnen'), sb);
 sb.heuteAbendZeichnen();
-t('Kopf zaehlt nur aktive Haeuser und die offenen', E('heroRestCount').textContent === '3 Restaurants in Greetsiel · 2 jetzt offen', E('heroRestCount').textContent);
-t('Unterzeile aus echten Kuechen', /Fisch/.test(E('heroTagline').textContent) && /Bar/.test(E('heroTagline').textContent), E('heroTagline').textContent);
+// Seit 07.10.2026: keine Zahl mehr im Kopf (Ibo), sondern ein Gruss zur Tageszeit.
+t('Kopf: keine Zahl, ein Gruss', /^Moin! /.test(E('heroRestCount').textContent) && !/\d/.test(E('heroRestCount').textContent), E('heroRestCount').textContent);
+t('Unterzeile: "Tisch reservieren oder Essen bestellen"', E('heroTagline').textContent === 'Tisch reservieren oder Essen bestellen', E('heroTagline').textContent);
+var G = sb.heroGruss;
+t('Gruss zu jeder Stunde, Grenzen richtig',
+  G(5, 'de') === 'Moin! Noch Hunger?' && G(6, 'de') === 'Moin! Wo frühstücken wir?' && G(10, 'de') === 'Moin! Wo frühstücken wir?'
+  && G(11, 'de') === 'Moin! Zeit fürs Mittagessen.' && G(14, 'de') === 'Moin! Lust auf Kaffee und Kuchen?'
+  && G(17, 'de') === 'Moin! Wo essen wir heute Abend?' && G(22, 'de') === 'Moin! Noch Hunger?' && G(0, 'de') === 'Moin! Noch Hunger?',
+  [5, 6, 11, 14, 17, 22, 0].map(function (h) { return h + ':' + G(h, 'de'); }).join(' | '));
+t('Englisch und Niederlaendisch uebersetzt, Unbekanntes faellt auf Deutsch', /tonight/.test(G(19, 'en')) && /vanavond/.test(G(19, 'nl')) && G(19, 'fr') === G(19, 'de'), '');
+t('Sprachwechsel setzt den Gruss neu', /function setLanguage\(lang\) \{\s*currentLanguage = lang;\s*localStorage\.setItem\('kmi_language', lang\);\s*try \{ if \(typeof heroGrussSetzen === 'function'\) heroGrussSetzen\(\); \}/.test(H), '');
 var html = E('heuteAbendReihe').innerHTML;
 t('nur offene Lokale in der Leiste', /Zum Fischkutter/.test(html) && /Hafenbar/.test(html) && !/Teestube/.test(html), html.slice(0, 120));
 t('"Offen bis 22:00" auf der Karte', /Offen bis 22:00/.test(html), '');

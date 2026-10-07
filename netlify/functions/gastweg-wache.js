@@ -80,7 +80,7 @@ var UNPRUEFBAR = 'unpruefbar';
 //
 // tests/wache-test.js vergleicht beide Zahlen und wird rot, wenn eine
 // stehenbleibt.
-var CACHE_MINDESTENS = 66;
+var CACHE_MINDESTENS = 67;
 
 var SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co';
 var SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY || '';
