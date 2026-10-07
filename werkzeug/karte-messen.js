@@ -22,6 +22,18 @@ var DATEI = path.resolve(process.argv[2] || path.join(WURZEL, 'index.html'));
 var AUS = path.join(__dirname, 'ausgabe'); try { fs.mkdirSync(AUS); } catch (e) {}
 var PORT = +(process.env.PORT || 8886);
 
+// 256x256 einfarbiges PNG (hell #e6e8e3, dunkel #1e2422), ohne Bibliothek.
+var zlib = require('zlib');
+function flaeche(dunkel) {
+  var c = dunkel ? [30, 36, 34] : [230, 232, 227], zeile = Buffer.alloc(1 + 256 * 3), roh = [];
+  for (var x = 0; x < 256; x++) { zeile[1 + x * 3] = c[0]; zeile[2 + x * 3] = c[1]; zeile[3 + x * 3] = c[2]; }
+  for (var y = 0; y < 256; y++) roh.push(zeile);
+  function stueck(typ, daten) { var l = Buffer.alloc(4); l.writeUInt32BE(daten.length); var td = Buffer.concat([Buffer.from(typ), daten]); var crc = Buffer.alloc(4); crc.writeUInt32BE(zlib.crc32 ? zlib.crc32(td) >>> 0 : crc32(td)); return Buffer.concat([l, td, crc]); }
+  function crc32(b) { var t = crc32.t || (crc32.t = Array.from({ length: 256 }, function (_, n) { for (var k = 0; k < 8; k++) n = n & 1 ? 0xedb88320 ^ (n >>> 1) : n >>> 1; return n >>> 0; })); var c2 = 0xffffffff; for (var i = 0; i < b.length; i++) c2 = t[(c2 ^ b[i]) & 255] ^ (c2 >>> 8); return (c2 ^ 0xffffffff) >>> 0; }
+  var kopf = Buffer.alloc(13); kopf.writeUInt32BE(256, 0); kopf.writeUInt32BE(256, 4); kopf[8] = 8; kopf[9] = 2;
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), stueck('IHDR', kopf), stueck('IDAT', zlib.deflateSync(Buffer.concat(roh))), stueck('IEND', Buffer.alloc(0))]);
+}
+
 (async function () {
   var srv = http.createServer(function (q, r) {
     var p = q.url.split('?')[0]; if (p === '/') p = '/index.html';
@@ -32,18 +44,22 @@ var PORT = +(process.env.PORT || 8886);
   var b = await chromium.launch({ executablePath: CHROM, args: ['--no-sandbox'] });
   var rot = 0, n = 0;
   function pruef(t, ok, x) { n++; if (!ok) rot++; console.log((ok ? 'OK  ' : 'FAIL') + ' | ' + t + (ok ? '' : '  -> ' + x)); }
-  for (var dunkel of [false, true]) {
-    var w = dunkel ? 'dunkel' : 'hell';
+  // hell = Tag, abend = heller Modus nach Sonnenuntergang (dunkle Kacheln), dunkel = Dunkelmodus
+  for (var fall of ['hell', 'abend', 'dunkel']) {
+    var dunkel = fall === 'dunkel', w = fall;
     var ctx = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
     await ctx.addInitScript(function (d) { try { localStorage.setItem('kmi_onboarded', 'true'); localStorage.setItem('kmi_consent', 'essential'); localStorage.setItem('kmi_theme', d ? 'dark' : 'light'); } catch (e) {} }, dunkel);
     await ctx.route(/^https?:\/\/(?!localhost)/, function (rt) {
       var u = rt.request().url(), lf = u.match(/unpkg\.com\/leaflet@[^/]+\/dist\/(leaflet\.(js|css))$/);
       // Leaflet kommt in der App vom CDN, das der Proxy sperrt: hier aus node_modules (npm i --no-save leaflet@1.9.4).
       if (lf) { var f = path.join(WURZEL, 'node_modules', 'leaflet', 'dist', lf[1]); if (fs.existsSync(f)) return rt.fulfill({ status: 200, contentType: lf[2] === 'js' ? 'application/javascript' : 'text/css', body: fs.readFileSync(f) }); }
+      // Kacheln sperrt der Proxy: einfarbige Flaeche statt grauer Bildzeichen (keine erfundenen Strassen).
+      if (/arcgisonline\.com\/.*\/tile\//.test(u)) return rt.fulfill({ status: 200, contentType: 'image/png', body: flaeche(/Dark/.test(u)) });
       return /supabase\.co/.test(u) ? rt.fulfill({ status: 200, contentType: 'application/json', body: '[]' }) : rt.abort();
     });
     var s = await ctx.newPage(); var fehler = []; s.on('pageerror', function (e) { fehler.push(e.message); });
     await s.goto('http://localhost:' + PORT + '/', { waitUntil: 'load' }); await s.waitForTimeout(1500);
+    await s.evaluate(function (abend) { window.karteNachSonnenuntergang = function () { return abend; }; }, fall === 'abend');
     await s.evaluate(function () {
       var d = new Date(), m = d.getHours() * 60 + d.getMinutes();
       function hh(x) { x = ((x % 1440) + 1440) % 1440; return String(Math.floor(x / 60)).padStart(2, '0') + ':' + String(x % 60).padStart(2, '0'); }
@@ -87,7 +103,7 @@ var PORT = +(process.env.PORT || 8886);
       function L(c) { return [c.r, c.g, c.b].map(function (v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }).reduce(function (s, v, i) { return s + v * [0.2126, 0.7152, 0.0722][i]; }, 0); }
       function grund(e) { for (; e; e = e.parentElement) { var f = z(getComputedStyle(e).backgroundColor); if (f && f.a > 0.9) return f; } return { r: 255, g: 255, b: 255 }; }
       var raus = [], n = 0;
-      document.querySelectorAll('#fullscreenMapContainer .kn-schild, .kn-leiste button, .kn-zeit b, .kn-zeit span, #fullscreenMapCard h2, #fullscreenMapCard p, #fullscreenMapCard .kn-fakt, #fullscreenMapCard .kn-aktion, #fullscreenMapCard button').forEach(function (e) {
+      document.querySelectorAll('#mapSearchInput, #fullscreenMapContainer .kn-schild, .kn-leiste button, .kn-zeit b, .kn-zeit span, #fullscreenMapCard h2, #fullscreenMapCard p, #fullscreenMapCard .kn-fakt, #fullscreenMapCard .kn-aktion, #fullscreenMapCard button').forEach(function (e) {
         var r = e.getBoundingClientRect(); if (r.width < 4 || getComputedStyle(e).display === 'none' || !e.textContent.trim()) return; n++;
         var a = L(z(getComputedStyle(e).color)), c = L(grund(e)), kk = (Math.max(a, c) + 0.05) / (Math.min(a, c) + 0.05);
         if (kk < 4.5) raus.push(e.textContent.trim().slice(0, 20) + ' ' + kk.toFixed(2));

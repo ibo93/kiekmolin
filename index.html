@@ -14253,6 +14253,16 @@
 .dark-mode .kn-schild.aktion { background: #fed65b; color: #00251e; border-color: #d9b23a; } /* Gold bleibt Gold: es heisst Aktion */
 .kn-ich { width: 18px; height: 18px; border-radius: 50%; background: #2563eb; border: 3px solid #ffffff; box-sizing: border-box; outline: 6px solid rgba(37,99,235,0.22); }
 
+/* Ueber der Karte deckend statt Glas: im Abendmodus liegt hellgraues Glas
+   auf dunklen Kacheln, die Suche war darauf kaum lesbar (gemessen). */
+#fullscreenMapModal div:has(> #mapSearchInput) { background: #ffffff !important; border: 1px solid rgba(0,37,30,0.18) !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; box-shadow: none !important; }
+#fullscreenMapModal :is(button[onclick="centerOnUserLocation()"], button[onclick="toggleMapStyle()"]) { background: #ffffff !important; border: 1px solid rgba(0,37,30,0.18) !important; color: #00251e !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; box-shadow: none !important; }
+#fullscreenMapModal #mapSearchInput { color: #191c1d !important; }
+#fullscreenMapModal #mapSearchInput::placeholder { color: #5f6b68; opacity: 1; }
+.dark-mode #fullscreenMapModal div:has(> #mapSearchInput) { background: #1a1d1c !important; border-color: rgba(255,255,255,0.22) !important; }
+.dark-mode #fullscreenMapModal :is(button[onclick="centerOnUserLocation()"], button[onclick="toggleMapStyle()"]) { background: #1a1d1c !important; border-color: rgba(255,255,255,0.22) !important; color: #f3f4f4 !important; }
+.dark-mode #fullscreenMapModal #mapSearchInput { color: #f3f4f4 !important; }
+.dark-mode #fullscreenMapModal #mapSearchInput::placeholder { color: #a9b2af; }
 .kn-leiste { position: fixed; top: 140px; left: 50%; transform: translateX(-50%); width: 92%; max-width: 600px; z-index: 1020; display: flex; flex-direction: column; gap: 8px; }
 .kn-chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
 .kn-chips::-webkit-scrollbar { display: none; }
