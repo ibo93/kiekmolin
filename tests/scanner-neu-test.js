@@ -59,6 +59,7 @@ async function lauf(o) {
         + 'var startMenuScanTesseract = umw.startMenuScanTesseract;\n'
         + 'var showMenuScanWarningIfAny = function () {};\n'
         + 'var currentMenuRestaurant = null, RESTAURANT_ID = null;\n'
+        + 'function menuRestaurantWahl() { return null; }\n'
         + quelle + '\n'
         + 'await startMenuScan();\n'
         + 'return { items: scannedMenuItems, fenster: window };\n})();');

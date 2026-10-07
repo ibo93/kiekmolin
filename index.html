@@ -21866,7 +21866,8 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 });
                 document.getElementById('addMenuItemBtn2').addEventListener('click', async function() {
 
-                    var restaurantId = currentMenuRestaurant || window.currentMenuRestaurant || RESTAURANT_ID;
+                    var restaurantId = menuRestaurantWahl();
+                    if (!restaurantId) { showToast('Bitte zuerst oben ein Restaurant wählen', 'error'); return; }
 
                     var catSelect = document.getElementById('menuItemCategory');
                     catSelect.innerHTML = '<option value="">Lädt Kategorien...</option>';
@@ -21891,11 +21892,15 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                                 catSelect.appendChild(opt);
                             });
                         } else {
-                            catSelect.innerHTML = '<option value="' + KATEGORIE_ID + '">Vorspeisen</option>';
+                            // Frueher: eine fest eingebaute Kategorie-ID ("Vorspeisen")
+                            // eines ANDEREN Lokals. Jetzt: leer -- beim Speichern legt
+                            // saveMenuItem selbst "Sonstige" fuer DIESES Lokal an.
+                            catSelect.innerHTML = '<option value="">Noch keine Kategorie – wird als „Sonstige“ angelegt</option>';
                         }
                     } catch(e) {
                         console.error('Fehler:', e);
-                        catSelect.innerHTML = '<option value="' + KATEGORIE_ID + '">Vorspeisen</option>';
+                        catSelect.innerHTML = '<option value="">Kategorien nicht geladen – bitte Fenster schließen und neu öffnen</option>';
+                        showToast('Kategorien konnten nicht geladen werden: ' + e.message, 'error');
                     }
 
                     var modal = document.getElementById('addMenuItemModal');
@@ -50359,7 +50364,8 @@ document.addEventListener('error', function(e) {
 document.getElementById('saveCategoryBtn').addEventListener('click', async function() {
     var name = document.getElementById('newCategoryName').value;
     if (!name) { showToast('Bitte Kategorie-Name eingeben', 'error'); return; }
-    var rid = (typeof currentMenuRestaurant !== 'undefined' && currentMenuRestaurant) ? currentMenuRestaurant : RESTAURANT_ID;
+    var rid = menuRestaurantWahl();
+    if (!rid) { showToast('Bitte zuerst oben ein Restaurant wählen', 'error'); return; }
     this.disabled = true; this.textContent = 'Speichert...';
     try {
         var client = sb || window.sb;
@@ -50755,7 +50761,8 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
         // Automatisch erste Kategorie nehmen oder "Sonstige" erstellen
         var client2 = sb || window.sb;
         if (client2) {
-            var rid = currentMenuRestaurant || window.currentMenuRestaurant || RESTAURANT_ID;
+            var rid = menuRestaurantWahl();
+            if (!rid) { showToast('Bitte zuerst oben ein Restaurant wählen', 'error'); return; }
             var { data: existCats } = await client2.from('menu_categories').select('id').eq('restaurant_id', rid).limit(1);
             if (existCats && existCats.length > 0) {
                 categoryId = existCats[0].id;
@@ -50766,13 +50773,15 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
         }
     }
 
-    var price = parseFloat(priceStr.replace(',', '.'));
-    if (isNaN(price) || price <= 0) {
-        showToast('Bitte gültigen Preis eingeben', 'error');
+    var price = menuPreisLesen(priceStr);
+    // 0 ist erlaubt (z. B. "Brot gratis"); leer/vertippt nicht.
+    if (price === null) {
+        showToast('Bitte gültigen Preis eingeben (z. B. 12,50)', 'error');
         return;
     }
 
-    var restaurantId = currentMenuRestaurant || window.currentMenuRestaurant || RESTAURANT_ID;
+    var restaurantId = menuRestaurantWahl();
+    if (!restaurantId) { showToast('Bitte zuerst oben ein Restaurant wählen', 'error'); return; }
 
     var client = sb || window.sb;
     if (!client) {
@@ -72444,7 +72453,7 @@ async function startMenuScan() {
         var fehlerGrund = null;
         if (images.length) {
             var vorhandeneKats = await ladeVorhandeneKategorien(
-                window.currentMenuRestaurant || currentMenuRestaurant || RESTAURANT_ID);
+                menuRestaurantWahl());
             var ki = await leseKarteKI(images, vorhandeneKats, statusEl, false);
             window._scanBericht = ki.bericht;
             window._scanPruefung = ki.pruefung;
@@ -74807,7 +74816,8 @@ function zeigeKartenAbgleich(d) {
 async function wendeKartenAbgleichAn() {
     var d = window._kartenAbgleich;
     if (!d) return;
-    var restaurantId = currentMenuRestaurant || window.currentMenuRestaurant || RESTAURANT_ID;
+    var restaurantId = menuRestaurantWahl();
+    if (!restaurantId) { showToast('Bitte zuerst oben ein Restaurant wählen', 'error'); return; }
     var wahl = (document.querySelector('input[name="kartenAbgleichEntfallen"]:checked') || {}).value || 'ausverkauft';
 
     var knopf = document.getElementById('kartenAbgleichKnopf');
@@ -75312,8 +75322,7 @@ async function extrasPdfUebernehmen() {
     });
     if (!gewaehlt.length) { showToast('Keine Gruppe ausgewählt', 'error'); return; }
 
-    var rid = window._gastroOnlyRestaurantId || currentMenuRestaurant
-           || window.currentMenuRestaurant || RESTAURANT_ID;
+    var rid = menuRestaurantWahl();
     if (!rid) { _extrasPdfSage('Kein Restaurant ausgewählt.', 'fehler'); return; }
 
     var kn = document.getElementById('extrasPdfKnopf');
@@ -75489,7 +75498,7 @@ async function legeExtrasAn(restaurantId, SUPA_H) {
 
 async function importScannedMenu() {
 
-    var restaurantId = currentMenuRestaurant || window.currentMenuRestaurant || RESTAURANT_ID;
+    var restaurantId = menuRestaurantWahl();
     
     if (!restaurantId) {
         showToast('Bitte zuerst ein Restaurant auswählen!', 'error');
@@ -75595,6 +75604,7 @@ async function importScannedMenu() {
     }
 
     // Schritt 3: Items importieren
+    var _ohnePreisListe = [];
     for (var j = 0; j < selectedItems.length; j++) {
         var item = selectedItems[j];
         var catId = categoryMap[(item.category || 'Sonstiges').toLowerCase()];
@@ -75612,16 +75622,24 @@ async function importScannedMenu() {
             continue;
         }
 
+        // PREIS (07.10.2026): parseFloat("12,50") ist 12, und ein fehlender
+        // Preis wurde 0 -- das Gericht war sofort fuer 0 € bestellbar.
+        // Jetzt: Komma verstanden; ohne Preis (und ohne Groessen) wird es
+        // angelegt, aber AUSVERKAUFT, und am Ende genannt.
+        var _preis = menuPreisLesen(item.price);
+        var _mitGroessen = Array.isArray(item.sizes) && item.sizes.length;
+        var _ohnePreis = _preis === null && !_mitGroessen;
+        if (_ohnePreis) _ohnePreisListe.push(item.name);
         var itemData = {
             restaurant_id: restaurantId,
             category_id: catId,
             name: item.name,
             description: item.description || '',
-            base_price: parseFloat(item.price) || 0,
+            base_price: _preis === null ? 0 : _preis,
             // Größen als JSON mitschreiben. Die Gast-Ansicht macht daraus
             // die Auswahl "klein / groß" und zeigt "ab <günstigster Preis>".
             sizes: (Array.isArray(item.sizes) && item.sizes.length) ? item.sizes : null,
-            is_available: true,
+            is_available: !_ohnePreis,
             is_vegetarian: !!item.is_vegetarian,
             is_vegan: !!item.is_vegan,
             is_spicy: scharfWert(item.is_spicy),
@@ -75811,6 +75829,10 @@ async function importScannedMenu() {
         }
     }
 
+    if (_ohnePreisListe.length) {
+        showToast(_ohnePreisListe.length + ' Gericht' + (_ohnePreisListe.length > 1 ? 'e' : '') + ' ohne Preis angelegt – noch NICHT bestellbar (ausverkauft), bis ein Preis drinsteht: '
+            + _ohnePreisListe.slice(0, 4).join(', ') + (_ohnePreisListe.length > 4 ? ' …' : ''), 'warning');
+    }
     if (errors.length > 0 && importedCount === 0) {
         showToast('Import fehlgeschlagen! Prüfe Browser-Konsole (F12).', 'error');
     } else if (errors.length > 0) {
@@ -75984,6 +76006,14 @@ function menuPreisLesen(text) {
     return isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
 }
 window.menuPreisLesen = menuPreisLesen;
+// Welches Lokal wird gerade bearbeitet? Frueher fiel jede Stelle auf
+// RESTAURANT_ID zurueck -- ein fest eingebautes Lokal. Ohne Auswahl
+// waere in DESSEN Karte geschrieben worden. Jetzt: null, und der Aufrufer
+// sagt "bitte zuerst ein Restaurant waehlen".
+function menuRestaurantWahl() {
+    return (typeof currentMenuRestaurant !== 'undefined' && currentMenuRestaurant) || window.currentMenuRestaurant || window._gastroOnlyRestaurantId || null;
+}
+window.menuRestaurantWahl = menuRestaurantWahl;
 async function menuSitzungAuffrischen() {
     if (kmiToken() !== SUPABASE_KEY) return true;
     try {

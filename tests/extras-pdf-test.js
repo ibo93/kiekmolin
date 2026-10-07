@@ -94,7 +94,7 @@ var F = new Function('pdfTextSeiten', 'window', 'SEITEN',
     var f2 = new Function('document', 'window', 'showToast', 'closeModal', 'loadOptionGroups',
         'openModal', 'currentMenuRestaurant', 'RESTAURANT_ID', 'SUPA_URL', 'SUPA_KEY', 'SUPABASE_URL',
         'SUPABASE_KEY', 'sbRead', '_extrasPdfGefunden',
-        KMI_STUB + schneide('_extrasPdfSage') + '\n' + schneide('legeExtrasAn') + '\n' + schneide('extrasPdfUebernehmen')
+        KMI_STUB + schneide('menuRestaurantWahl') + '\n' + schneide('_extrasPdfSage') + '\n' + schneide('legeExtrasAn') + '\n' + schneide('extrasPdfUebernehmen')
         + '; return extrasPdfUebernehmen();');
     await f2(doc, win, function (m) { toasts.push(m); }, function () {}, function () {}, function () {},
         null, null, 'https://x', 'k', 'https://x', 'k', function (u, o) { return fetch(u, o); }, gruppen);
@@ -151,7 +151,7 @@ var F = new Function('pdfTextSeiten', 'window', 'SEITEN',
             KMI_STUB + schneide('escapeHtml') + '\n'
             + schneide('fehlerKlartext') + '\n' + schneide('istRechteFehler') + '\n'
             + H.slice(H.indexOf('var _RECHTE_SQL ='), H.indexOf('function _zeigeRechteHilfe', H.indexOf('var _RECHTE_SQL ='))) + '\n'
-            + schneide('_zeigeRechteHilfe') + '\n' + schneide('_extrasPdfSage') + '\n'
+            + schneide('_zeigeRechteHilfe') + '\n' + schneide('menuRestaurantWahl') + '\n' + schneide('_extrasPdfSage') + '\n'
             + schneide('legeExtrasAn') + '\n' + schneide('extrasPdfUebernehmen')
             + '; return extrasPdfUebernehmen();');
         return f3(doc2, { _gastroOnlyRestaurantId: 'r1' }, function (m) { toasts2.push(m); },
