@@ -65,13 +65,23 @@ t('nah beieinander (< 40 px) -> eine Gruppe, weit weg -> eigene', g.length === 2
 t('ab Zoom 16 nie gruppieren', sb.karteGruppieren([p(100, 100), p(101, 101)], 16).length === 2, '');
 t('das gewaehlte Lokal wird nie in einen Kreis gesteckt (egal an welcher Stelle)', sb.karteGruppieren([p(100, 100, true), p(105, 100), p(108, 100)], 13).map(function (x) { return x.liste.length; }).join() === '1,2'
   && sb.karteGruppieren([p(105, 100), p(108, 100), p(100, 100, true)], 13).map(function (x) { return x.liste.length; }).join() === '2,1', '');
-t('Kreis mit Zahl, 44 px, antippbar', /class="kd-mehrere" role="button"[^>]*>5</.test(sb.karteGruppe(5).html) && sb.karteGruppe(5).iconSize.join() === '44,44', '');
+t('Kreis mit Zahl, 44 px, antippbar', /class="kd-mehrere" data-kgruppe="[^"]*" role="button"[^>]*>5</.test(sb.karteGruppe(5).html) && sb.karteGruppe(5).iconSize.join() === '44,44', '');
 
 // --- Blatt ---
 var card = fn('_updateMapFloatingCard'), frei = fn('karteFreieZeiten');
 t('Name / "Zum Lokal" oeffnen die Seite des Lokals', /\['mapCardImage', 'mapCardName'\]\.forEach/.test(card) && /closeModal\('fullscreenMapModal'\); openRestaurantBySlug\(r\.slug \|\| r\.id\)/.test(card), '');
 t('freie Zeiten: nur kuenftige, Fehler -> nichts (kein Raten), ohne Tischplan "Heute reservierbar"', /s\.time > jetzt/.test(frei) && /catch\(function \(\) \{ \/\* nicht pruefbar/.test(frei) && /'Heute reservierbar'/.test(frei), '');
-t('Route zum Lokal, X schliesst, Tipp auf freie Karte schliesst', /maps\/dir\/\?api=1&destination=/.test(card) && /addEventListener\('click', karteBlattZu\)/.test(fn('karteVerbinden')) && /fullscreenMap\.on\('click', function \(\) \{ if \(window\._mapAktivId\) karteBlattZu\(\); \}\)/.test(init), '');
+t('Route zum Lokal, X schliesst, Tipp auf freie Karte schliesst', /maps\/dir\/\?api=1&destination=/.test(card) && /karteBlattZu\('X gedrückt'\)/.test(fn('karteVerbinden')) && /fullscreenMap\.on\('click', function \(\) \{ if \(window\._mapAktivId && Date\.now\(\)[^}]*karteBlattZu\('Tipp auf die freie Karte'\)/.test(init), '');
+// TIPPEN (07.10.2026): Leaflets Klick kam beim echten Mausklick auf das
+// Schild nicht an (mouseup/click auf dem Kartenrahmen). Eigener Weg:
+// pointerdown merken, pointerup an derselben Stelle -> oeffnen.
+var tipp = H.slice(H.indexOf('var _kartePunkte = {}'), H.indexOf('function karteLokalWaehlen('));
+t('eigener Tipp-Weg: pointerdown merkt Nadel/Kreis, pointerup <= 12 px / < 0,8 s oeffnet', /addEventListener\('pointerdown'/.test(tipp) && /addEventListener\('pointerup'/.test(tipp) && /> 12 \|\| Math\.abs\(e\.clientY - d\.y\) > 12 \|\| Date\.now\(\) - d\.t > 800/.test(tipp), '');
+var tippCode = tipp.split('\n').map(function (z) { return z.replace(/\/\/.*$/, ''); }).join('\n');
+t('let-Variable fullscreenMap NICHT ueber window abgefragt (waere immer undefined)', !/window\.fullscreenMap/.test(tippCode) && /if \(!d \|\| !fullscreenMap\) return;/.test(tipp), '');
+t('kein Doppel-Ausloesen (Leaflet-Klick + eigener Tipp)', /if \(Date\.now\(\) - \(window\._karteTippUm \|\| 0\) < 700\) return;/.test(tipp) && /karteTippen\(\{ id: String\(x\.r\.id\) \}, 'Leaflet'\)/.test(H), '');
+t('Nadel traegt ihre Kennung (data-kid), Fokus verschiebt die Karte nicht', / data-kid="' \+ escapeHtml\(String\(r\.id\)\)/.test(fn('karteNadel')) && /autoPanOnFocus: false/.test(H), '');
+t('Protokoll nur mit ?karteprotokoll=1', /if \(!\/\[\?&\]karteprotokoll=1\\b\/\.test\(location\.search\)\) return;/.test(fn('karteProtokoll')), fn('karteProtokoll').slice(0, 160));
 t('Markup: Suche oben, Seitenleiste, Zeitregler unten, Blatt', /class="kd-oben" id="karteLeiste"/.test(H) && /class="kd-seite"/.test(H) && /class="kd-zeit" id="karteZeitKarte"/.test(H) && /id="fullscreenMapCard" class="kd-blatt"/.test(H), '');
 
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' Tests FEHLGESCHLAGEN.'));

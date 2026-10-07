@@ -129,6 +129,34 @@ function flaeche(dunkel) {
     pruef(w + ': Zeit antippen: "HH:MM reservieren"; Name antippen öffnet das Lokal', wahl.knopf === probeZeit + ' reservieren' && wahl.offen === 'k2', JSON.stringify(wahl));
     await s.evaluate(function () { openFullscreenMap(); });
     await s.waitForTimeout(500);
+    // ECHTER MAUSKLICK auf das Schild neben einer Nadel (vorher ging der Tipp
+    // dort ins Leere) und Protokoll mit ?karteprotokoll=1.
+    await s.evaluate(function () { history.replaceState(null, '', '/?karteprotokoll=1'); karteProtokoll('Messung beginnt'); });
+    await s.waitForTimeout(300);
+    var schildPos = await s.evaluate(function () { var e = document.querySelector('#fullscreenMapContainer .kd-nadel.offen .kd-schild'); if (!e) return null; var r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+    if (schildPos) await s.mouse.click(schildPos.x, schildPos.y);
+    await s.waitForTimeout(900);
+    var proto = await s.evaluate(function () { return { blatt: getComputedStyle(document.getElementById('fullscreenMapCard')).display, name: document.getElementById('mapCardName').textContent, log: (document.getElementById('karteProtokoll') || {}).textContent || '' }; });
+    pruef(w + ': echter Klick auf das Schild "Fisch · bis …" öffnet das Blatt', !!schildPos && proto.blatt === 'flex' && proto.name === 'Hafenkneipe', JSON.stringify(proto).slice(0, 200));
+    pruef(w + ': Protokoll (?karteprotokoll=1) zeigt "Nadel angetippt" und "Blatt auf"', /Nadel angetippt: Hafenkneipe/.test(proto.log) && /Blatt auf: Hafenkneipe/.test(proto.log), proto.log.slice(0, 200));
+    // Echter Klick auf die Nadel selbst (Lounge), dann Karte ZIEHEN, das Blatt darf dabei nicht neu aufgehen.
+    await s.evaluate(function () { karteBlattZu('Messung'); window._karteTippUm = 0; });
+    await s.waitForTimeout(800);
+    var lp = await s.evaluate(function () { var e = document.querySelector('#fullscreenMapContainer .kd-nadel[aria-label^="Lounge 26"] svg'); var r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height * 0.35 }; });
+    await s.mouse.click(lp.x, lp.y);
+    await s.waitForTimeout(900);
+    var nd = await s.evaluate(function () { return { blatt: getComputedStyle(document.getElementById('fullscreenMapCard')).display, name: document.getElementById('mapCardName').textContent, log: document.getElementById('karteProtokoll').textContent }; });
+    pruef(w + ': echter Klick auf die Nadel öffnet das Blatt (Lounge 26)', nd.blatt === 'flex' && nd.name === 'Lounge 26' && /Nadel angetippt: Lounge 26/.test(nd.log), JSON.stringify(nd).slice(0, 220));
+    await s.evaluate(function () { karteBlattZu('Messung'); window._karteTippUm = 0; });
+    await s.waitForTimeout(800);
+    lp = await s.evaluate(function () { var e = document.querySelector('#fullscreenMapContainer .kd-nadel[aria-label^="Lounge 26"] svg'); var r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height * 0.35 }; });
+    await s.mouse.move(lp.x, lp.y); await s.mouse.down(); await s.mouse.move(lp.x + 40, lp.y + 30, { steps: 6 }); await s.mouse.up();
+    await s.waitForTimeout(700);
+    var zieh = await s.evaluate(function () { return getComputedStyle(document.getElementById('fullscreenMapCard')).display; });
+    pruef(w + ': Karte ziehen (von einer Nadel aus) öffnet nichts', zieh === 'none', zieh);
+    await s.evaluate(function () { history.replaceState(null, '', '/'); var b = document.getElementById('karteProtokoll'); if (b) b.remove(); });
+    await s.evaluate(function () { openFullscreenMap(); });
+    await s.waitForTimeout(500);
     await s.evaluate(function () { window._karteAktionen = { k2: [{ titel: 'Happy Hour', gilt_fuer: 'alle', wochentage: [0, 1, 2, 3, 4, 5, 6], von: '00:00', bis: '23:59' }] }; updateFullscreenMarkers(); var r = APP_DATA.restaurants[0]; karteLokalWaehlen(r); });
     await s.waitForTimeout(900);
     var k = await s.evaluate(function (fall) {
