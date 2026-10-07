@@ -28796,11 +28796,10 @@ function renderRestaurants(filter) {
 
 // JETZT GEOEFFNET + KOPFZEILE (06.10.2026)
 //
-// Bewusst OHNE "Tisch frei": getTableAvailabilityByTime nimmt bei einem
-// Ladefehler 13 Tische und null Reservierungen an. Ein "Tisch frei" von
-// dort koennte erfunden sein -- ein Gast, der deshalb losgeht, steht vor
-// einem vollen Haus. Gezeigt wird nur, was stimmt: offen bis, laufende
-// Aktion, Entfernung.
+// Bewusst OHNE "Tisch frei": die Leiste soll schnell und ruhig sein, eine
+// Abfrage pro Lokal waere hier zu viel. (getTableAvailabilityByTime
+// erfindet seit 07.10.2026 nichts mehr, wirft aber bei Stoerung.)
+// Gezeigt wird nur, was stimmt: offen bis, laufende Aktion, Entfernung.
 // KARTE OBEN AUF DER STARTSEITE (07.10.2026).
 // Hier stand fest "2 Restaurants in Greetsiel", danach kurz die echte Zahl.
 // Ibo: die Zahl kann weg. Gleich darunter zeigt "Jetzt geöffnet", wer offen
@@ -28932,8 +28931,13 @@ async function _slotEinerKarte(rid, infoEl) {
     var html;
     try {
         var slots = await getTableAvailabilityByTime(rid);
-        var freeSlots = slots ? slots.filter(function (s) { return s.free > 0; }) : [];
-        if (freeSlots.length === 0) {
+        // free === null: keine Tische eingetragen -- Zeit waehlbar, ohne Ampel.
+        var freeSlots = slots ? slots.filter(function (s) { return s.free === null || s.free > 0; }) : [];
+        if (freeSlots.length && freeSlots[0].free === null) {
+            html = '<span class="material-symbols-outlined" style="font-size:14px;color:var(--text-secondary);">schedule</span>'
+                 + '<span style="color:var(--ink-strong);font-weight:600;">' + freeSlots.length + ' Uhrzeiten wählbar</span>'
+                 + '<span style="color:var(--text-secondary);">· Nächste: <strong style="color:var(--ink-strong);">' + freeSlots[0].time + '</strong></span>';
+        } else if (freeSlots.length === 0) {
             html = '<span class="material-symbols-outlined" style="font-size:14px;color:#ef4444;">event_busy</span>'
                  + '<span style="color:#ef4444;font-weight:600;">Heute ausgebucht</span>';
         } else {
@@ -28944,8 +28948,9 @@ async function _slotEinerKarte(rid, infoEl) {
                  + '<span style="color:var(--text-secondary);">· Nächster: <strong style="color:var(--ink-strong);">' + next.time + '</strong></span>';
         }
     } catch (e) {
-        html = '<span class="material-symbols-outlined" style="font-size:14px;color:#c0c8c4;">schedule</span>'
-             + '<span style="color:var(--text-secondary);">Reservierung möglich</span>';
+        // Stoerung: NICHT "frei", NICHT "ausgebucht" -- beides waere geraten.
+        html = '<span class="material-symbols-outlined" style="font-size:14px;color:var(--text-secondary);">cloud_off</span>'
+             + '<span class="slot-nicht-pruefbar" style="color:var(--text-secondary);">Freie Plätze gerade nicht prüfbar · Anfrage möglich</span>';
     }
     _slotSpeicher[rid] = html;
     // Nur schreiben, wenn sich wirklich etwas geaendert hat -- sonst blinkt
@@ -30048,12 +30053,18 @@ function openReservation(restaurantId) {
         reservationRestaurantName.textContent = restaurant.name + (rCity ? ' \u00B7 ' + rCity : '');
     }
 
-    // Echte Tischanzahl aus Supabase laden
+    // Echte Tischanzahl aus Supabase laden. Kommt sie nicht an, zaehlt
+    // das als "nicht pruefbar" (_tischZahlUnbekannt) -- frueher galten
+    // dann still 30 Tische.
+    window._tischZahlUnbekannt = false;
     fetch(SUPABASE_URL + '/rest/v1/restaurant_tables?select=id&restaurant_id=eq.' + restaurantId + '&is_active=eq.true', {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
-    }).then(function(r) { return r.json(); }).then(function(tables) {
-        window._realTableCount = (tables && tables.length) ? tables.length : 30;
-    }).catch(function() { window._realTableCount = 30; });
+    }).then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function(tables) {
+        if (!Array.isArray(tables)) throw new Error('keine Liste');
+        // Keine Tische eingetragen: wie bisher 30 -- das Restaurant hat
+        // dann bewusst keinen Tischplan und bestaetigt selbst.
+        window._realTableCount = tables.length ? tables.length : 30;
+    }).catch(function() { window._realTableCount = 30; window._tischZahlUnbekannt = true; });
 
     // Set default date to today
     const today = todayStrLocal();
@@ -30377,27 +30388,33 @@ async function getTableAvailabilityByTime(restaurantId) {
     var allTimes = generateReservationSlots(restaurantId, today);
     if (!allTimes || allTimes.length === 0) return [];
 
-    // Tische zählen
-    var totalTables = 0;
-    try {
-        var tResp = await sbRead(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restaurantId + '&is_active=eq.true&select=id', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
-        });
-        var tables = await tResp.json();
-        totalTables = Array.isArray(tables) ? tables.length : 0;
-    } catch(e) { totalTables = 13; }
-    if (totalTables === 0) totalTables = 13;
+    // NICHTS ERFINDEN (07.10.2026).
+    //
+    // Bis hierher galt: Tische nicht ladbar -> 13 Tische; Belegung nicht
+    // ladbar -> keine Reservierung. Zusammen hiess eine kurze Stoerung
+    // "alles frei" -- auf der Karte, im Assistenten. Gemessen am selben
+    // Tag: ein Betrieb hat gar keine Tische eingetragen und bekam
+    // ebenfalls 13 untergeschoben.
+    //
+    // Jetzt: Stoerung -> Fehler werfen (der Aufrufer zeigt "nicht
+    // pruefbar"). Keine Tische eingetragen -> free/total = null, also
+    // "Zeit waehlbar, Anzahl unbekannt" statt einer ausgedachten Zahl.
+    var tResp = await sbRead(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restaurantId + '&is_active=eq.true&select=id', {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
+    });
+    var tables = await tResp.json();
+    if (!Array.isArray(tables)) throw new Error('Tische: unerwartete Antwort');
+    var totalTables = tables.length;
+    var ohneTische = totalTables === 0;
 
     // Reservierungen + Sperren für heute laden
-    var existing = [];
-    try {
-        var _bel = await belegungHolen(restaurantId, today);
-        // Der Endpunkt liefert alles ausser Storniertem; hier zaehlen wie
-        // bisher nur bestaetigt, angefragt und gesperrt.
-        existing = _bel.belegung.filter(function (r) {
-            return ['confirmed', 'pending', 'blocked'].indexOf(r.status) !== -1;
-        });
-    } catch(e) { existing = []; }
+    var _bel = await belegungHolen(restaurantId, today);
+    if (!_bel.ok) throw new Error('Belegung nicht abrufbar');
+    // Der Endpunkt liefert alles ausser Storniertem; hier zaehlen wie
+    // bisher nur bestaetigt, angefragt und gesperrt.
+    var existing = _bel.belegung.filter(function (r) {
+        return ['confirmed', 'pending', 'blocked'].indexOf(r.status) !== -1;
+    });
 
     // Ganztags-Sperre?
     var fullDayBlock = existing.some(function(r) {
@@ -30437,6 +30454,7 @@ async function getTableAvailabilityByTime(restaurantId) {
         if (slotH < currentHour || (slotH === currentHour && slotM <= currentMin)) return null;
 
         var bookingsAtTime = bookedTimes.filter(function(bt) { return bt === t; }).length;
+        if (ohneTische) return { time: t, free: null, total: null, booked: bookingsAtTime };
         var maxTables = totalTables - (blockedTablesPerSlot[t] || 0);
         if (maxTables < 1) maxTables = 1;
         var free = maxTables - bookingsAtTime;
@@ -30665,6 +30683,7 @@ async function loadAvailableSlots() {
     if (typeof updateResSummary === 'function') updateResSummary();
 
     if (!date || !partySize) return;
+    window._resNurAnfrage = false;
 
     var container = document.getElementById('availableSlotsContainer');
     container.innerHTML = '<div style="color:var(--text-secondary);font-size:13px;">Verfügbarkeit prüfen...</div>';
@@ -30695,10 +30714,8 @@ async function loadAvailableSlots() {
         // Kommt die Belegung nicht an, ist die ehrliche Antwort "weiss ich
         // gerade nicht" -- NICHT "alles frei". Sonst waehlt der Gast eine
         // Uhrzeit, die laengst vergeben ist, und steht vor vollem Haus.
-        if (!_bel.ok) {
-            container.innerHTML = '<div style="text-align:center;padding:20px;">' +
-                '<span class="material-symbols-outlined" style="font-size:32px;color:var(--text-secondary);opacity:0.6;">cloud_off</span>' +
-                '<p style="color:var(--text-secondary);font-size:13px;margin-top:8px;">Freie Zeiten lassen sich gerade nicht abrufen.<br>Bitte gleich nochmal versuchen – oder kurz im Restaurant anrufen.</p></div>';
+        if (!_bel.ok || window._tischZahlUnbekannt) {
+            slotsNurAnfrage(generateReservationSlots(restaurantId, date), date);
             return;
         }
 
@@ -30885,7 +30902,39 @@ function renderFallbackSlots() {
     var restaurantId = document.getElementById('reservationRestaurantId').value;
     var _fDatum = (document.getElementById('reservationDate') || {}).value || '';
     var times = generateReservationSlots(restaurantId, _fDatum);
-    renderSlots(times);
+    // Frueher: alle Zeiten als frei. Ein Fehler beim Rechnen ist aber
+    // genauso "weiss ich nicht" wie eine fehlende Belegung.
+    slotsNurAnfrage(times, _fDatum);
+}
+
+// NUR ANFRAGE (07.10.2026). Die Belegung ist gerade nicht pruefbar.
+// Statt "alles frei" oder einer Sackgasse: die Zeiten aus den
+// Oeffnungszeiten, deutlich als Anfrage. submitReservation speichert
+// dann IMMER "pending" -- auch bei automatischer Bestaetigung --, und
+// das Restaurant entscheidet.
+function slotsNurAnfrage(times, date) {
+    window._resNurAnfrage = true;
+    var container = document.getElementById('availableSlotsContainer');
+    if (!container) return;
+    var jetzt = new Date(), heute = localDayStr(jetzt);
+    var minJetzt = jetzt.getHours() * 60 + jetzt.getMinutes();
+    var frei = (times || []).filter(function (t) {
+        if (date !== heute) return true;
+        var p = t.split(':'); return parseInt(p[0]) * 60 + parseInt(p[1]) > minJetzt;
+    });
+    var html = '<div class="slot-nur-anfrage" role="status" style="display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:16px;background:var(--bg-secondary);border:1px solid var(--border-color);margin-bottom:14px;">'
+        + '<span class="material-symbols-outlined" style="font-size:20px;color:var(--text-secondary);">cloud_off</span>'
+        + '<div style="font-size:13px;line-height:1.45;color:var(--text-primary);"><strong>Freie Plätze gerade nicht prüfbar.</strong><br>'
+        + 'Du kannst trotzdem anfragen – das Restaurant bestätigt deine Uhrzeit.</div></div>';
+    if (!frei.length) {
+        container.innerHTML = html + '<div style="color:var(--text-secondary);font-size:13px;">An diesem Tag gibt es keine Zeiten mehr.</div>';
+        return;
+    }
+    html += '<div style="display:flex;flex-wrap:wrap;gap:8px;">';
+    frei.forEach(function (t) {
+        html += '<button type="button" data-time="' + t + '" data-bg="var(--bg-secondary)" data-rand="var(--border-color)" onclick="selectSlot(this, \'' + t + ':00\', null, \'\')" class="slot-btn" style="padding:10px 16px;border:1px solid var(--border-color);border-radius:16px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;font-weight:600;cursor:pointer;min-width:60px;text-align:center;">' + t + '</button>';
+    });
+    container.innerHTML = html + '</div>';
 }
 
 function selectSlot(btn, time, tables, areas) {
@@ -31196,6 +31245,11 @@ async function loadCustomerTablePlan() {
         var reservedTableIds = [];
         if (date && time) {
             var _bel = await belegungHolen(restId, date);
+            // Ohne Belegung waere jeder Tisch "frei" -- auch der besetzte.
+            if (!_bel.ok) {
+                grid.innerHTML = '<p style="color:var(--text-secondary);font-size:12px;text-align:center;grid-column:1/-1;">Welche Tische frei sind, lässt sich gerade nicht prüfen. Reservieren geht trotzdem – ohne Tischwunsch.</p>';
+                return;
+            }
             var reservations = _bel.belegung;
             if (reservations) {
                 var selMinutes = parseInt(time.split(':')[0]) * 60 + parseInt(time.split(':')[1]);
@@ -31255,7 +31309,8 @@ function submitReservation(e) {
     // Prüfen ob Auto-Confirm aktiviert ist
     var resFeatures = (restaurant && restaurant.features) ? restaurant.features : [];
     var isAutoConfirm = resFeatures.indexOf('auto_confirm_reservations') >= 0;
-    var resStatus = isAutoConfirm ? 'confirmed' : 'pending';
+    // Nur-Anfrage-Modus: Belegung war nicht pruefbar -> nie automatisch bestaetigen.
+    var resStatus = (isAutoConfirm && !window._resNurAnfrage) ? 'confirmed' : 'pending';
 
     const reservation = {
         id: Date.now(),
@@ -46474,9 +46529,10 @@ async function handleAsyncTableQuery() {
     for (var i = 0; i < Math.min(sorted.length, 4); i++) {
         var r = sorted[i];
         var slots = [];
+        var _ungeprueft = false;
         try {
             slots = await getTableAvailabilityByTime(r.id);
-        } catch(e) { slots = []; }
+        } catch(e) { slots = []; _ungeprueft = true; }
 
         var cuisine = r.cuisine || '';
         var cuisineLabel = kuecheLabel(cuisine);   // eine Tabelle fuer alle, siehe KUECHE_LABEL
@@ -46486,9 +46542,9 @@ async function handleAsyncTableQuery() {
         response += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
         response += '<div><strong style="font-size:14px;">' + r.name + '</strong>';
         response += '<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">' + cuisineLabel + ' · ' + (r.city || '') + ' · ' + stars + '</div></div>';
-        var freeSlots = slots.filter(function(s) { return s.free > 0; });
-        var slotColor = freeSlots.length > 3 ? '#22c55e' : (freeSlots.length > 0 ? '#f59e0b' : '#ef4444');
-        var slotText = freeSlots.length > 0 ? freeSlots.length + ' Uhrzeiten frei' : 'Ausgebucht';
+        var freeSlots = slots.filter(function(s) { return s.free === null || s.free > 0; });
+        var slotColor = _ungeprueft ? 'var(--text-secondary)' : freeSlots.length > 3 ? '#22c55e' : (freeSlots.length > 0 ? '#f59e0b' : '#ef4444');
+        var slotText = _ungeprueft ? 'Gerade nicht prüfbar' : freeSlots.length > 0 ? freeSlots.length + ' Uhrzeiten frei' : 'Ausgebucht';
         response += '<div style="font-size:12px;font-weight:700;color:' + slotColor + ';">' + slotText + '</div>';
         response += '</div>';
 
@@ -46496,14 +46552,16 @@ async function handleAsyncTableQuery() {
         if (freeSlots.length > 0) {
             response += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
             freeSlots.slice(0, 8).forEach(function(s) {
-                var color = s.free > 3 ? '#22c55e' : (s.free > 1 ? '#f59e0b' : '#ef4444');
-                var bg = s.free > 3 ? 'rgba(34,197,94,0.08)' : (s.free > 1 ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)');
+                var color = s.free === null ? '#003d33' : s.free > 3 ? '#22c55e' : (s.free > 1 ? '#f59e0b' : '#ef4444');
+                var bg = s.free === null ? 'rgba(0,61,51,0.06)' : s.free > 3 ? 'rgba(34,197,94,0.08)' : (s.free > 1 ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)');
                 response += '<button onclick="closeAssistant(); setTimeout(function(){ openReservation(\'' + r.id + '\'); setTimeout(function(){ var sel=document.getElementById(\'reservationDate\'); if(sel) sel.value=\'' + todayStrLocal() + '\'; var tSel=document.getElementById(\'resTime\'); if(tSel){ tSel.value=\'' + s.time + '\'; tSel.dispatchEvent(new Event(\'change\')); } },500); },300);" style="padding:5px 12px;border-radius:9999px;border:1px solid ' + color + '30;background:' + bg + ';font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:' + color + ';cursor:pointer;transition:all 0.2s;">';
-                response += s.time + ' <span style="font-size:10px;opacity:0.7;">(' + s.free + ')</span>';
+                response += s.time + (s.free === null ? '' : ' <span style="font-size:10px;opacity:0.7;">(' + s.free + ')</span>');
                 response += '</button>';
             });
             if (freeSlots.length > 8) response += '<span style="font-size:11px;color:var(--text-secondary);align-self:center;">+' + (freeSlots.length - 8) + '</span>';
             response += '</div>';
+        } else if (_ungeprueft) {
+            response += '<div style="font-size:12px;color:var(--text-secondary);">Die Belegung lässt sich gerade nicht abrufen. Eine Anfrage geht trotzdem – das Restaurant bestätigt sie.</div>';
         } else {
             response += '<div style="font-size:12px;color:var(--text-secondary);">Heute ausgebucht — morgen anrufen</div>';
         }
