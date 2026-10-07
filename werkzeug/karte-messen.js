@@ -78,18 +78,17 @@ function flaeche(dunkel) {
     await s.waitForTimeout(1500);
     await s.evaluate(function () { window._karteAktionen = { k2: [{ titel: 'Happy Hour', gilt_fuer: 'alle', wochentage: [0, 1, 2, 3, 4, 5, 6], von: '00:00', bis: '23:59' }] }; updateFullscreenMarkers(); });
     await s.waitForTimeout(300);
-    var TROPFEN = 'M20 50C20 50 4 33 4 19a16 16 0 1 1 32 0c0 14-16 31-16 31z';
-    var nadeln = function () { return Array.prototype.map.call(document.querySelectorAll('#fullscreenMapContainer .kd-nadel'), function (e) { var sv = e.querySelector('svg'), r = sv.getBoundingClientRect(), f = e.querySelector('.kd-form'); return { k: e.className.replace('kd-nadel ', ''), label: e.getAttribute('aria-label'), schild: (e.querySelector('.kd-schild') || {}).textContent || '', badge: (e.querySelector('.kd-badge') || {}).textContent || '', b: Math.round(r.width), form: f.getAttribute('d'), farbe: getComputedStyle(f).fill, spitze: { x: Math.round(r.left + r.width / 2), y: Math.round(r.bottom) } }; }); };
+    // RUNDE NADEL WIE FRUEHER (Ibo: "meine alte Nadel war besser, konnte besser drauf gehen").
+    var nadeln = function () { return Array.prototype.map.call(document.querySelectorAll('#fullscreenMapContainer .kd-nadel'), function (e) { var r = e.getBoundingClientRect(), c = getComputedStyle(e), sym = e.querySelector('.material-symbols-outlined'); return { k: e.className.replace('kd-nadel kd-rund ', ''), label: e.getAttribute('aria-label'), badge: (e.querySelector('.kd-badge') || {}).textContent || '', b: Math.round(r.width), rund: c.borderRadius === '50%', farbe: c.backgroundColor, zeichen: sym ? sym.textContent : '', sym: sym ? Math.round(sym.getBoundingClientRect().width) : 0, schatten: c.boxShadow, mitte: { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) } }; }); };
     var pins = await s.evaluate(nadeln);
     var bei = function (name) { return pins.filter(function (p) { return p.label.indexOf(name) === 0; })[0] || {}; };
-    pruef(w + ': 4 Nadeln, Form 1:1 aus dem Entwurf (Tropfen)', pins.length === 4 && pins.every(function (p) { return p.form === TROPFEN; }), JSON.stringify(pins.map(function (p) { return p.label + '/' + p.form.slice(0, 12); })));
-    pruef(w + ': Fisch offen 40 px, GELB, Schild "Fisch · bis HH"', /^offen/.test(bei('Hafenkneipe').k) && bei('Hafenkneipe').b === 40 && /254, 214, 91/.test(bei('Hafenkneipe').farbe) && /^Fisch · bis \d/.test(bei('Hafenkneipe').schild), JSON.stringify(bei('Hafenkneipe')));
-    pruef(w + ': Bar mit Aktion gold, Schild "Happy Hour" darüber', /^aktion/.test(bei('Lounge 26').k) && bei('Lounge 26').badge === 'Happy Hour' && /254, 214, 91/.test(bei('Lounge 26').farbe), JSON.stringify(bei('Lounge 26')));
-    pruef(w + ': Café ohne Zeiten: klein, grau, kein "offen"', /^unbekannt/.test(bei('Teestube').k) && bei('Teestube').b === 28 && /Zeiten nicht eingetragen/.test(bei('Teestube').label), JSON.stringify(bei('Teestube')));
-    pruef(w + ': Pizza zu: klein, Schild "… · zu"', /^zu/.test(bei('Pizzeria Mare').k) && bei('Pizzeria Mare').b === 28 && / · zu$/.test(bei('Pizzeria Mare').schild), JSON.stringify(bei('Pizzeria Mare')));
+    pruef(w + ': 4 runde gelbe Nadeln, 44 px, Besteck, ohne Schatten', pins.length === 4 && pins.every(function (p) { return p.rund && p.b === 44 && /254, 214, 91/.test(p.farbe) && p.zeichen === 'restaurant' && p.schatten === 'none'; }), JSON.stringify(pins.map(function (p) { return [p.label, p.b, p.farbe, p.zeichen]; })));
+    pruef(w + ': Symbole sind Zeichen, keine Wörter', pins.every(function (p) { return p.sym > 0 && p.sym < 30; }), JSON.stringify(pins.map(function (p) { return p.sym; })));
+    pruef(w + ': Aktion: Schild "Happy Hour" über der Nadel', bei('Lounge 26').badge === 'Happy Hour' && /^aktion/.test(bei('Lounge 26').k), JSON.stringify(bei('Lounge 26')));
+    pruef(w + ': Vorleser hören den Zustand (offen / zu / ohne Zeiten)', /^Hafenkneipe, Offen bis/.test(bei('Hafenkneipe').label) && /^Pizzeria Mare, Geschlossen/.test(bei('Pizzeria Mare').label) && /^Teestube, Zeiten nicht eingetragen/.test(bei('Teestube').label), JSON.stringify(pins.map(function (p) { return p.label; })));
     var spitzen = await s.evaluate(function () { return (APP_DATA.restaurants).map(function (r) { var p = fullscreenMap.latLngToContainerPoint([r.lat, r.lng]), c = fullscreenMap.getContainer().getBoundingClientRect(); return { name: r.name, x: Math.round(p.x + c.left), y: Math.round(p.y + c.top) }; }); });
-    var daneben = spitzen.filter(function (sp) { var pn = bei(sp.name); return !pn.spitze || Math.abs(pn.spitze.x - sp.x) > 3 || Math.abs(pn.spitze.y - sp.y) > 4; });
-    pruef(w + ': Spitze jeder Nadel steht genau auf dem Ort (±4 px)', !daneben.length, JSON.stringify(daneben));
+    var daneben = spitzen.filter(function (sp) { var pn = bei(sp.name); return !pn.mitte || Math.abs(pn.mitte.x - sp.x) > 3 || Math.abs(pn.mitte.y - sp.y) > 3; });
+    pruef(w + ': Mitte jeder Nadel steht genau auf dem Ort (±3 px)', !daneben.length, JSON.stringify(daneben));
     // Zeitregler unten (Entwurf "Zeitregler")
     var zeit = await s.evaluate(function () { var k = document.getElementById('karteZeitKarte'); return { sicht: getComputedStyle(k).display !== 'none', wort: document.getElementById('karteZeitWort').textContent, uhr: document.getElementById('karteZeitText').textContent, zahl: document.getElementById('karteZeitZahl').textContent, stunden: document.querySelectorAll('#karteStunden span').length, jetzt: document.getElementById('karteJetzt').hidden, blatt: getComputedStyle(document.getElementById('fullscreenMapCard')).display }; });
     pruef(w + ': Start: Zeitregler unten sichtbar, kein Blatt', zeit.sicht && zeit.blatt === 'none', JSON.stringify(zeit));
@@ -116,12 +115,14 @@ function flaeche(dunkel) {
       m.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       return new Promise(function (ok) { setTimeout(function () {
         var c = document.getElementById('fullscreenMapCard'), g = document.querySelector('#fullscreenMapContainer .kd-nadel.gewaehlt');
-        ok({ sicht: getComputedStyle(c).display, zeitkarte: getComputedStyle(document.getElementById('karteZeitKarte')).display, name: document.getElementById('mapCardName').textContent, fakten: document.getElementById('mapCardFakten').textContent, aktion: document.getElementById('mapCardAktion').textContent, zeiten: document.getElementById('mapCardZeiten').textContent, gewaehlt: g ? g.getAttribute('aria-label') + '|' + Math.round(g.querySelector('svg').getBoundingClientRect().width) + '|' + !!g.querySelector('.kd-hof') : '', route: document.getElementById('mapCardRoute').getAttribute('href') });
+        ok({ sicht: getComputedStyle(c).display, zeitkarte: getComputedStyle(document.getElementById('karteZeitKarte')).display, name: document.getElementById('mapCardName').textContent, fakten: document.getElementById('mapCardFakten').textContent, aktion: document.getElementById('mapCardAktion').textContent, zeiten: document.getElementById('mapCardZeiten').textContent, gewaehlt: g ? g.getAttribute('aria-label') + '|' + Math.round(g.getBoundingClientRect().width) + '|' + g.querySelector('.material-symbols-outlined').textContent : '', route: document.getElementById('mapCardRoute').getAttribute('href') });
       }, 900); });
     });
-    pruef(w + ': Tipp auf Nadel: Blatt auf, Zeitregler weg, Nadel groß mit Hof', blatt.sicht === 'flex' && blatt.zeitkarte === 'none' && /^Lounge 26.*\|52\|true$/.test(blatt.gewaehlt), JSON.stringify(blatt));
-    var gewFarbe = await s.evaluate(function () { var g = document.querySelector('#fullscreenMapContainer .kd-nadel.gewaehlt .kd-form'); return g ? getComputedStyle(g).fill : ''; });
-    pruef(w + ': gewählte Nadel dunkelgrün (hebt sich vom Gelb ab)', /0, 37, 30/.test(gewFarbe), gewFarbe);
+    pruef(w + ': Tipp auf Nadel: Blatt auf, Zeitregler weg, Nadel 56 px mit Stern', blatt.sicht === 'flex' && blatt.zeitkarte === 'none' && /^Lounge 26.*\|56\|star$/.test(blatt.gewaehlt), JSON.stringify(blatt));
+    var gewFarbe = await s.evaluate(function () { var g = document.querySelector('#fullscreenMapContainer .kd-nadel.gewaehlt'); return g ? getComputedStyle(g).backgroundColor : ''; });
+    var ueber = await s.evaluate(function () { var g = document.querySelector('#fullscreenMapContainer .kd-nadel.gewaehlt').getBoundingClientRect(), b = document.getElementById('fullscreenMapCard').getBoundingClientRect(), o = document.getElementById('karteLeiste').getBoundingClientRect(); return { unten: Math.round(g.bottom), blatt: Math.round(b.top), oben: Math.round(g.top), leiste: Math.round(o.bottom) }; });
+    pruef(w + ': gewählte Nadel steht frei über dem Blatt (nicht an der Kante)', ueber.unten < ueber.blatt - 16 && ueber.oben > ueber.leiste, JSON.stringify(ueber));
+    pruef(w + ': gewählte Nadel dunkelgrün (wie früher)', /0, 37, 30/.test(gewFarbe), gewFarbe);
     pruef(w + ': Blatt: Name, "Offen bis 23:59", "Läuft gerade: Happy Hour", Route', blatt.name === 'Lounge 26' && /Offen bis 23:59/.test(blatt.fakten) && /Läuft gerade: Happy Hour/.test(blatt.aktion) && /destination=53\.5035,7\.099/.test(blatt.route || ''), JSON.stringify(blatt));
     var probeZeit = await s.evaluate(function () { return window._probeZeit; });
     pruef(w + ': freie Zeiten nur in der Zukunft, Titel "Freie Tische heute"', blatt.zeiten === 'Freie Tische heute' + probeZeit, blatt.zeiten);
@@ -133,23 +134,24 @@ function flaeche(dunkel) {
     // dort ins Leere) und Protokoll mit ?karteprotokoll=1.
     await s.evaluate(function () { history.replaceState(null, '', '/?karteprotokoll=1'); karteProtokoll('Messung beginnt'); });
     await s.waitForTimeout(300);
-    var schildPos = await s.evaluate(function () { var e = document.querySelector('#fullscreenMapContainer .kd-nadel.offen .kd-schild'); if (!e) return null; var r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+    // Rand statt Mitte: 6 px innerhalb des Kreises -- dort rutschte man beim Tropfen ab.
+    var schildPos = await s.evaluate(function () { var e = document.querySelector('#fullscreenMapContainer .kd-nadel[aria-label^="Hafenkneipe"]'); if (!e) return null; var r = e.getBoundingClientRect(); return { x: r.left + 6, y: r.top + r.height / 2 }; });
     if (schildPos) await s.mouse.click(schildPos.x, schildPos.y);
     await s.waitForTimeout(900);
     var proto = await s.evaluate(function () { return { blatt: getComputedStyle(document.getElementById('fullscreenMapCard')).display, name: document.getElementById('mapCardName').textContent, log: (document.getElementById('karteProtokoll') || {}).textContent || '' }; });
-    pruef(w + ': echter Klick auf das Schild "Fisch · bis …" öffnet das Blatt', !!schildPos && proto.blatt === 'flex' && proto.name === 'Hafenkneipe', JSON.stringify(proto).slice(0, 200));
+    pruef(w + ': echter Klick auf den Rand der Nadel öffnet das Blatt', !!schildPos && proto.blatt === 'flex' && proto.name === 'Hafenkneipe', JSON.stringify(proto).slice(0, 200));
     pruef(w + ': Protokoll (?karteprotokoll=1) zeigt "Nadel angetippt" und "Blatt auf"', /Nadel angetippt: Hafenkneipe/.test(proto.log) && /Blatt auf: Hafenkneipe/.test(proto.log), proto.log.slice(0, 200));
     // Echter Klick auf die Nadel selbst (Lounge), dann Karte ZIEHEN, das Blatt darf dabei nicht neu aufgehen.
-    await s.evaluate(function () { karteBlattZu('Messung'); window._karteTippUm = 0; });
+    await s.evaluate(function () { karteBlattZu('Messung'); window._karteTippUm = 0; var r = APP_DATA.restaurants[1]; fullscreenMap.setView([r.lat, r.lng], 15, { animate: false }); });
     await s.waitForTimeout(800);
-    var lp = await s.evaluate(function () { var e = document.querySelector('#fullscreenMapContainer .kd-nadel[aria-label^="Lounge 26"] svg'); var r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height * 0.35 }; });
+    var lp = await s.evaluate(function () { var e = document.querySelector('#fullscreenMapContainer .kd-nadel[aria-label^="Lounge 26"]'); var r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height * 0.35 }; });
     await s.mouse.click(lp.x, lp.y);
     await s.waitForTimeout(900);
     var nd = await s.evaluate(function () { return { blatt: getComputedStyle(document.getElementById('fullscreenMapCard')).display, name: document.getElementById('mapCardName').textContent, log: document.getElementById('karteProtokoll').textContent }; });
     pruef(w + ': echter Klick auf die Nadel öffnet das Blatt (Lounge 26)', nd.blatt === 'flex' && nd.name === 'Lounge 26' && /Nadel angetippt: Lounge 26/.test(nd.log), JSON.stringify(nd).slice(0, 220));
     await s.evaluate(function () { karteBlattZu('Messung'); window._karteTippUm = 0; });
     await s.waitForTimeout(800);
-    lp = await s.evaluate(function () { var e = document.querySelector('#fullscreenMapContainer .kd-nadel[aria-label^="Lounge 26"] svg'); var r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height * 0.35 }; });
+    lp = await s.evaluate(function () { var e = document.querySelector('#fullscreenMapContainer .kd-nadel[aria-label^="Lounge 26"]'); var r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height * 0.35 }; });
     await s.mouse.move(lp.x, lp.y); await s.mouse.down(); await s.mouse.move(lp.x + 40, lp.y + 30, { steps: 6 }); await s.mouse.up();
     await s.waitForTimeout(700);
     var zieh = await s.evaluate(function () { return getComputedStyle(document.getElementById('fullscreenMapCard')).display; });
@@ -213,7 +215,7 @@ function flaeche(dunkel) {
         var c = document.getElementById('fullscreenMapContainer').getBoundingClientRect();
         var leiste = document.getElementById('karteLeiste').getBoundingClientRect().bottom;
         var unten = document.getElementById('karteZeitKarte').getBoundingClientRect().top;
-        var nadeln = Array.prototype.map.call(document.querySelectorAll('#fullscreenMapContainer .kd-nadel svg'), function (m) { var r = m.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.bottom) }; });
+        var nadeln = Array.prototype.map.call(document.querySelectorAll('#fullscreenMapContainer .kd-nadel'), function (m) { var r = m.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; });
         var drin = nadeln.filter(function (p) { return p.x > c.left + 8 && p.x < c.right - 64 && p.y > leiste && p.y < unten; });
         ok({ nadeln: nadeln.length, drin: drin.length, zoom: fullscreenMap.getZoom() });
       }, 900); });

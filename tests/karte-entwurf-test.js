@@ -46,8 +46,10 @@ t('nur fuer Reservierung: keine Aktion auf der Karte', (function () { sb.window.
 t('Art: Fisch, Pizza (italienisch), Bar (shisha), Cafe, sonst Restaurant',
   sb.karteArt(fisch) === 'fisch' && sb.karteArt({ cuisine_type: ['italienisch'] }) === 'pizza' && sb.karteArt(bar) === 'bar' && sb.karteArt(ohne) === 'cafe' && sb.karteArt({ cuisine: 'Steakhouse' }) === 'restaurant', '');
 var inhalt = (H.match(/KIN-SYMBOLSCHRIFT-INHALT: ([a-z_0-9,]+)/) || [, ''])[1].split(',');
-t('Nadel-Zeichen sind SVG aus dem Entwurf (kein Schrift-Symbol, das als WORT erscheinen kann); Herz steckt in der Schrift',
-  Object.keys(sb.KARTE_ZEICHEN).length === 6 && !/material-symbols/.test(fn('karteNadel')) && inhalt.indexOf('favorite') > -1, '');
+// Runde Nadel (Ibos Wunsch) nutzt wieder Schrift-Symbole: die muessen in
+// der eingebauten Teilmenge stecken, sonst steht das WORT da.
+t('Nadel-Symbole (restaurant, star) und Herz stecken in der eingebauten Schrift',
+  /'star' : 'restaurant'/.test(fn('karteNadel')) && ['restaurant', 'star', 'favorite'].every(function (x) { return inhalt.indexOf(x) > -1; }), '');
 // Abendmodus: 21. Juni 22:30 MESZ (20:30 UTC) noch hell? Sonnenuntergang Greetsiel ~22:05 MESZ -> dunkel.
 t('Abendmodus: 7. Okt 20:00 MESZ dunkel, 14:00 hell', sb.karteNachSonnenuntergang(new Date(Date.UTC(2026, 9, 7, 18, 0))) === true && sb.karteNachSonnenuntergang(new Date(Date.UTC(2026, 9, 7, 12, 0))) === false, '');
 t('Abendmodus: 21. Juni 21:30 MESZ noch hell, 22:45 dunkel', sb.karteNachSonnenuntergang(new Date(Date.UTC(2026, 5, 21, 19, 30))) === false && sb.karteNachSonnenuntergang(new Date(Date.UTC(2026, 5, 21, 20, 45))) === true, '');

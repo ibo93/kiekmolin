@@ -7,12 +7,13 @@
 //    sah EINE Nadel. Jetzt Kreis mit Zahl (karteGruppieren).
 //  - Start auf dem MITTELWERT aller Lokale (Zoom 15) = freies Land.
 //    Jetzt fitBounds ueber alle aktiven, zwischen Leiste und Zeitregler.
-//  - Nadel: eigene Nachbildung -> jetzt Tropfen-Form und Zeichen 1:1.
+//  - Nadel: erst Tropfen 1:1 aus dem Entwurf, dann auf Ibos Wunsch wieder
+//    der alte runde gelbe Punkt (leichter zu treffen).
 //  - Tipp: Blatt unten mit Fakten, freien Zeiten, Route; Name oeffnet.
 //
 // Gegenprobe (jede rot): Gruppier-Abstand 0, Gruppen auch ab Zoom 16,
-// gewaehltes Lokal mitgruppiert, setView auf die Mitte, Spitze nicht auf dem
-// Ort (iconAnchor h/2), freie Zeiten auch aus der Vergangenheit.
+// gewaehltes Lokal mitgruppiert, setView auf die Mitte, Nadel nicht mittig
+// auf dem Ort, freie Zeiten auch aus der Vergangenheit.
 // Im Browser: werkzeug/karte-messen.js (72 Pruefungen).
 'use strict';
 var fs = require('fs'), path = require('path'), vm = require('vm');
@@ -51,11 +52,12 @@ var offen = sb.karteNadel({ name: 'Börse', k: 'Fisch', cuisine_type: ['fisch'] 
 var zu = sb.karteNadel({ name: 'Teestube', cuisine_type: ['cafe'] }, { art: 'zu', text: 'Geschlossen' }, false);
 var gew = sb.karteNadel({ name: 'Börse', cuisine_type: ['fisch'] }, { art: 'offen', bis: '22:00', text: 'Offen bis 22:00' }, true);
 var akt = sb.karteNadel({ name: 'Lounge', cuisine_type: ['shisha'] }, { art: 'aktion', bis: '02:00', text: 'Offen bis 02:00', aktion: { titel: 'Happy Hour' } }, false);
-t('Tropfen-Form 1:1 aus dem Entwurf', offen.html.indexOf('d="M20 50C20 50 4 33 4 19a16 16 0 1 1 32 0c0 14-16 31-16 31z"') > -1, offen.html.slice(0, 200));
-t('Groessen wie im Entwurf: offen 40x52, zu 28x36, gewaehlt 52x68', offen.iconSize.join() === '40,52' && zu.iconSize.join() === '28,36' && gew.iconSize.join() === '52,68', [offen.iconSize, zu.iconSize, gew.iconSize].join(' / '));
-t('Spitze steht auf dem Ort (iconAnchor unten Mitte)', offen.iconAnchor.join() === '20,51' && zu.iconAnchor.join() === '14,35', offen.iconAnchor.join());
-t('Schild "Fisch · bis 22" / "Café · zu"; Aktion als Schild darueber', /class="kd-schild">Fisch · bis 22</.test(offen.html) && /class="kd-schild">Café · zu</.test(zu.html) && /class="kd-badge">Happy Hour</.test(akt.html) && !/kd-schild/.test(akt.html), '');
-t('Zeichen = Art (Fisch, Café, Bar aus dem Entwurf), gewaehlt mit Hof', offen.html.indexOf('M10 19c3-4.5') > -1 && zu.html.indexOf('M12 15h11v5') > -1 && akt.html.indexOf('M12 12h16l-8 9z') > -1 && /kd-hof/.test(gew.html), '');
+// Seit 07.10.2026 wieder RUND (Ibo: "meine alte Nadel war besser, konnte
+// besser drauf gehen") -- der Tropfen war an der Spitze nur 4 px breit.
+t('runde Nadel 44 px, Mitte auf dem Ort; gewaehlt 56 px', offen.iconSize.join() === '44,44' && offen.iconAnchor.join() === '22,22' && gew.iconSize.join() === '56,56' && gew.iconAnchor.join() === '28,28', [offen.iconSize, offen.iconAnchor, gew.iconSize].join(' / '));
+t('Besteck auf gelb, gewaehlt Stern (wie frueher)', /class="kd-nadel kd-rund offen"/.test(offen.html) && />restaurant</.test(offen.html) && /kd-rund offen gewaehlt/.test(gew.html) && />star</.test(gew.html), offen.html);
+t('Aktion: Titel als Schild darueber, sonst kein Schild', /class="kd-badge">Happy Hour</.test(akt.html) && !/kd-badge|kd-schild/.test(offen.html) && !/kd-badge|kd-schild/.test(zu.html), '');
+t('Farben: gelb #fed65b / Besteck #735c00, gewaehlt #00251e / Stern gelb, ohne Schatten', /\.kd-rund \{[^}]*background: #fed65b; color: #735c00;/.test(H) && /\.kd-rund\.gewaehlt \{ background: #00251e; color: #fed65b;/.test(H) && !/\.kd-rund[^{]*\{[^}]*box-shadow/.test(H), '');
 t('Vorleser: Name und Zustand', /aria-label="Börse, Offen bis 22:00"/.test(offen.html), '');
 
 // --- Mehrere ---
