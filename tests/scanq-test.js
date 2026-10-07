@@ -331,7 +331,8 @@ t('Spalten kommen aus den linken Kanten, nicht aus Luecken-Schwellen',
   && /staerkste \* 0\.55/.test(html));
 t('Preisspalten werden nicht mit Textspalten verwechselt',
   /grenzen\.push\(gruppen\[gi\]\.x - 2\)/.test(html));
-t('Hinweiszeilen mit Preis sind keine Gerichte', /Zutat\|Upgrade\|erhältlich\|kostenlos/.test(html));
+// Verhalten prueft tests/pdf-vollstaendig-test.js; hier nur, dass die Regel noch da ist.
+t('Hinweiszeilen mit Preis sind keine Gerichte', /zutat\\w\*\|extra\\w\*\|kostenlos\|erhältlich/.test(html));
 
 // Der Parser läuft hier wirklich -- an genau den Zeilen, die auf der echten
 // Karte Ärger gemacht haben.
