@@ -49,25 +49,39 @@ var WURZEL = path.join(__dirname, '..');
 var H = fs.readFileSync(path.join(WURZEL, 'index.html'), 'utf8');
 var WZ = require(path.join(WURZEL, 'tools', 'symbolschrift-holen.js'));
 
-// ---- 1. Keine Symbolschrift mehr von Google --------------------------------
+// ---- 1. Gar keine Schrift mehr von Google -----------------------------------
+//
+// HIER STAND BIS ZUM 05.10.2026 DAS GEGENTEIL.
+//
+// Diese Datei forderte, dass mindestens zwei Links auf
+// fonts.googleapis.com stehen bleiben ("es gibt ueberhaupt noch
+// Schrift-Links") -- mit der Begruendung, bei einer Textschrift sei swap
+// richtig. Das Argument stimmt, nur hat es nichts mit Google zu tun:
+// font-display:swap gibt es auch bei einer Schrift, die im Haus liegt.
+//
+// Die Folge: ein Test, der ein Rechtsrisiko EINFORDERTE. Wer die Links
+// entfernt haette, waere rot geworden und haette sie zurueckgesetzt.
+// Genau die Sorte Test, vor der CLAUDE.md Regel 5 warnt.
+//
+// Jetzt liegen Epilogue und Inter als woff2 im Projekt, mit swap. Der
+// vollstaendige Nachweis steht in tests/schriften-im-haus-test.js; hier
+// bleibt nur, was zur Symbolschrift gehoert.
 (function () {
     var links = [];
     var re = /https:\/\/fonts\.googleapis\.com\/css2\?[^"'\s>]+/g, m;
     while ((m = re.exec(H))) links.push(m[0]);
 
-    t('es gibt ueberhaupt noch Schrift-Links (die Textschriften)', links.length >= 2, links.length + '');
-    t('aber keinen mehr fuer die Symbolschrift',
-      links.filter(function (l) { return /Material\+Symbols/.test(l); }).length === 0,
-      links.filter(function (l) { return /Material\+Symbols/.test(l); }).join(' '));
+    t('kein einziger Schrift-Link mehr zu Google', links.length === 0, links.join(' '));
 
-    // Die Textschriften duerfen weiter von Google kommen und sollen swap
-    // behalten: bei einer TEXTschrift ist "zeig sofort die Ersatzschrift"
-    // richtig -- lieber Text in der falschen Schrift als gar kein Text.
-    // Faellt Google aus, liest der Gast trotzdem alles, nur anders gesetzt.
-    var text = links.filter(function (l) { return !/Material\+Symbols/.test(l); });
+    // swap gehoert jetzt in die @font-face-Regeln der Textschriften --
+    // lieber Text in der Ersatzschrift als gar kein Text. Dass sie dabei
+    // im Haus liegen, prueft schriften-im-haus-test.js.
+    var textFaces = (H.match(/@font-face\s*\{[^}]*font-family\s*:\s*'(?:Epilogue|Inter)'[^}]*\}/g) || []);
+    t('es gibt @font-face-Regeln fuer Epilogue und Inter', textFaces.length >= 2, textFaces.length + '');
     t('die Textschriften behalten swap -- dort ist swap das Richtige',
-      text.length > 0 && text.every(function (l) { return /[?&]display=swap/.test(l); }),
-      text.join(' '));
+      textFaces.length > 0 && textFaces.every(function (f) { return /font-display\s*:\s*swap/.test(f); }),
+      textFaces.length + ' Regeln, davon ohne swap: '
+        + textFaces.filter(function (f) { return !/font-display\s*:\s*swap/.test(f); }).length);
 })();
 
 // ---- 2. Die Schrift steckt wirklich in der Seite ---------------------------

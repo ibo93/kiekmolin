@@ -85,6 +85,7 @@ async function resilientInsert(payload) {
 // ---------------------------------------------------------------------------
 var preisPruefung = require('./lib/preis-pruefung');
 var WARTEZEIT = require('./lib/wartezeit');
+var ZAHLSPERRE = require('./lib/zahlsperre');
 
 function kopf() {
     return { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY };
@@ -218,6 +219,22 @@ exports.handler = async function (event) {
     }
     if (!order.restaurant_id) {
         return json(400, { ok: false, error: 'restaurant_id fehlt' });
+    }
+
+    // ZAHLSPERRE -- vor allem anderen.
+    //
+    // Vor der Preis-Pruefung, weil die drei Abfragen auf die Karte schickt,
+    // die bei einem gesperrten Betrieb niemand braucht. Und vor dem Insert,
+    // weil danach eine Bestellung in der Kueche steht.
+    //
+    // Die App zeigt die Sperre schon vorher an. Hier landet nur, wer sie
+    // nicht gesehen hat: eine alte Fassung im Zwischenspeicher, der
+    // Notweg, oder ein Aufruf der Adresse von aussen.
+    var _sperre = await ZAHLSPERRE.pruefe(order.restaurant_id, 'bestellen', KEY);
+    if (!_sperre.erlaubt) {
+        console.warn('[order-save] Zahlsperre ' + _sperre.stufe + ' -- Bestellung '
+            + order.order_number + ' abgewiesen.');
+        return ZAHLSPERRE.abweisung(_sperre, CORS);
     }
 
     try {

@@ -1,0 +1,170 @@
+# Telefon-Retter v2: die iOS-App auf einem GitHub-Mac bauen (Xcode 27,
+# iOS-27-Simulator), im Simulator starten und fotografieren — hell und
+# dunkel, iPhone und iPad.
+#
+# Warum hier: Die Cloud-Sitzungen laufen auf Linux, dort gibt es kein Xcode.
+# Die Bilder landen im Zweig `simulator-bilder` (nur Bilder + STAND.md, wird
+# bei jedem Lauf ersetzt). Von dort holt die Cloud-Sitzung sie in den Chat —
+# Artefakte gehen nicht, deren Download-Server sperrt der Proxy der Sitzung.
+#
+# STAND.md nennt den Commit. Ein Bild gilt nur als Beleg, wenn dieser Commit
+# der ist, über den gerade gesprochen wird.
+name: iOS-Simulator
+
+on:
+  push:
+    branches-ignore: [simulator-bilder]
+    paths:
+      - 'telefon-retter-v2/ios/**'
+      - '.github/workflows/ios-simulator.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Ein neuer Push ersetzt einen laufenden Durchgang desselben Zweigs.
+concurrency:
+  group: ios-simulator-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  simulator:
+    runs-on: xcode-27
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: telefon-retter-v2/ios
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Werkzeuge
+        run: |
+          sw_vers
+          xcodebuild -version
+          xcrun simctl list runtimes
+          brew install xcodegen
+
+      - name: Projekt aus project.yml erzeugen
+        run: xcodegen generate
+
+      - name: Geräte wählen (iPhone und iPad mit iOS 27)
+        run: |
+          json=$(xcrun simctl list devices available -j)
+          waehle() {
+            echo "$json" | jq -r --arg p "$1" '
+              [.devices | to_entries[] | select(.key | test("iOS-27")) | .value[]
+               | select(.name | startswith($p))] as $alle
+              | ([$alle[] | select(.name | test("Pro")) | select(.name | test("Max") | not)] + $alle)
+              | .[0].udid // empty'
+          }
+          IPHONE=$(waehle "iPhone")
+          IPAD=$(waehle "iPad")
+          if [ -z "$IPHONE" ]; then
+            echo "::error::Kein iPhone-Simulator mit iOS 27 auf diesem Mac"
+            xcrun simctl list devices available
+            exit 1
+          fi
+          echo "IPHONE=$IPHONE" >> "$GITHUB_ENV"
+          echo "IPAD=$IPAD" >> "$GITHUB_ENV"
+
+      - name: Bauen
+        run: |
+          if ! xcodebuild build \
+              -project TelefonRetter.xcodeproj \
+              -scheme TelefonRetter \
+              -destination "id=$IPHONE" \
+              -derivedDataPath build \
+              CODE_SIGNING_ALLOWED=NO > build.log 2>&1; then
+            echo "::error::Build fehlgeschlagen"
+            grep -E "error:|fatal" build.log | head -50
+            tail -60 build.log
+            exit 1
+          fi
+          grep -c "warning:" build.log || true
+          tail -5 build.log
+
+      # Erster Lauf am 01.10.2026: dieser Schritt hing ueber 15 Minuten, ohne
+      # dass man sah, an welchem Befehl. Darum jetzt: jeder simctl-Befehl mit
+      # Uhrzeit und eigener Zeitgrenze (perl-alarm, macOS hat kein timeout).
+      # Bricht einer ab, steht im Protokoll genau welcher.
+      - name: Im Simulator starten und fotografieren
+        timeout-minutes: 20
+        run: |
+          mkdir -p bilder
+          APP=build/Build/Products/Debug-iphonesimulator/TelefonRetter.app
+          BUNDLE=de.kuranidesign.telefonretter
+          mit_frist() {
+            local frist=$1; shift
+            echo "[$(date -u +%H:%M:%S)] $* (max ${frist}s)"
+            perl -e 'alarm shift; exec @ARGV' "$frist" "$@"
+            local rc=$?
+            [ $rc -eq 142 ] && echo "::error::Zeitgrenze ${frist}s: $*"
+            echo "[$(date -u +%H:%M:%S)] fertig, Code $rc"
+            return $rc
+          }
+          fotografiere() {
+            local id=$1 name=$2
+            mit_frist 120 xcrun simctl boot "$id" || true
+            mit_frist 600 xcrun simctl bootstatus "$id" || return 1
+            mit_frist 60 xcrun simctl status_bar "$id" override --time "9:41" \
+              --batteryState charged --batteryLevel 100 --wifiBars 3 --cellularBars 4 || true
+            mit_frist 180 xcrun simctl install "$id" "$APP" || return 1
+            for modus in light dark; do
+              local datei="bilder/$name-$( [ "$modus" = light ] && echo hell || echo dunkel ).png"
+              mit_frist 60 xcrun simctl ui "$id" appearance "$modus" || true
+              mit_frist 30 xcrun simctl terminate "$id" "$BUNDLE" 2>/dev/null || true
+              mit_frist 120 xcrun simctl launch "$id" "$BUNDLE" -AppleLanguages "(de)" -AppleLocale de_DE || return 1
+              sleep 6
+              mit_frist 60 xcrun simctl io "$id" screenshot "$datei" || return 1
+            done
+            mit_frist 120 xcrun simctl shutdown "$id" || true
+          }
+          fotografiere "$IPHONE" iphone || echo "::error::iPhone-Bilder unvollstaendig"
+          if [ -n "$IPAD" ]; then fotografiere "$IPAD" ipad || echo "::error::iPad-Bilder unvollstaendig"; fi
+          ls -la bilder
+          ls bilder/*.png >/dev/null 2>&1 || { echo "::error::Kein einziges Bild"; exit 1; }
+
+      # Auch wenn das iPad scheitert: was da ist, wird gezeigt.
+      - name: Bilder in den Zweig simulator-bilder legen
+        if: always() && hashFiles('telefon-retter-v2/ios/bilder/*.png') != ''
+        env:
+          TOKEN: ${{ github.token }}
+          QUELLE: ${{ github.ref_name }}
+        run: |
+          name_von() { xcrun simctl list devices -j | jq -r --arg id "$1" '.devices[][] | select(.udid==$id) | .name'; }
+          OUT="$RUNNER_TEMP/simulator-bilder"
+          mkdir -p "$OUT"
+          cp bilder/*.png "$OUT/"
+          {
+            echo "# Simulator-Bilder"
+            echo
+            echo "- Zweig: $QUELLE"
+            echo "- Commit: $GITHUB_SHA"
+            echo "- Lauf: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo "- Zeit (UTC): $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "- Xcode: $(xcodebuild -version | tr '\n' ' ')"
+            echo "- macOS: $(sw_vers -productVersion)"
+            echo "- iPhone: $(name_von "$IPHONE")"
+            [ -n "$IPAD" ] && echo "- iPad: $(name_von "$IPAD")"
+            echo
+            echo "Bilder:"
+            for f in "$OUT"/*.png; do echo "- $(basename "$f")"; done
+          } > "$OUT/STAND.md"
+          cat "$OUT/STAND.md"
+          cd "$OUT"
+          git init -q -b simulator-bilder
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -q -m "Simulator-Bilder: $QUELLE @ ${GITHUB_SHA::7}"
+          git push -q -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" simulator-bilder
+
+      - name: Bilder und Build-Protokoll auch als Artefakt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulator-bilder
+          path: |
+            telefon-retter-v2/ios/bilder/*.png
+            telefon-retter-v2/ios/build.log
+          if-no-files-found: ignore

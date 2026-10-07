@@ -26,6 +26,7 @@
 
 var preisPruefung = require('./lib/preis-pruefung');
 var WARTEZEIT = require('./lib/wartezeit');
+var ZAHLSPERRE = require('./lib/zahlsperre');
 
 var SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co';
 var KEY = process.env.SUPABASE_SERVICE_KEY || '';
@@ -428,6 +429,23 @@ exports.handler = async function (event) {
             if (!order.restaurant_id) return json(400, { ok: false, error: 'restaurant_id fehlt.' });
             var betrag = Number(order.total);
             if (!isFinite(betrag) || betrag <= 0) return json(400, { ok: false, error: 'Betrag fehlt.' });
+
+            // ZAHLSPERRE -- HIER, UND NUR HIER.
+            //
+            // Vor dem Anlegen der PayPal-Zahlung, also bevor sich das
+            // PayPal-Fenster ueberhaupt oeffnet. Es bewegt sich kein Geld.
+            //
+            // BEIM BUCHEN ABSICHTLICH NICHT. Dort ist der Gast schon
+            // durch PayPal durch; eine Sperre, die zwischen Anlegen und
+            // Buchen gesetzt wird, trifft ein Fenster von Sekunden. Dort
+            // abzuweisen hiesse entweder Geld ohne Bestellung oder eine
+            // Bestellung ohne Geld. Diese Sekunden sind es nicht wert --
+            // die Sperre greift beim naechsten Gast.
+            var _sperre = await ZAHLSPERRE.pruefe(order.restaurant_id, 'bestellen', KEY);
+            if (!_sperre.erlaubt) {
+                console.warn('[paypal-zahlung] Zahlsperre ' + _sperre.stufe + ' -- nicht angelegt.');
+                return ZAHLSPERRE.abweisung(_sperre, CORS);
+            }
 
             var k = await konto(order.restaurant_id);
             if (!k) return json(409, { ok: false, error: 'Für dieses Restaurant ist PayPal nicht eingerichtet.', code: 'kein_konto' });

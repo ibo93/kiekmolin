@@ -20,6 +20,22 @@
 -- das, was sonst immer passiert: man sitzt beim Wirt, es ist eng, und er
 -- unterschreibt etwas, das noch kein Anwalt gelesen hat.
 --
+-- AM 25.09.2026: UMLAUTE UND NEUE FASSUNGSNUMMER
+-- -----------------------------------------------
+-- Die Texte standen durchgehend ohne Umlaute da -- "Gaeste", "fuer",
+-- "Verguetung", 157 Stellen. In einem Papier, das ein Kunde
+-- unterschreibt, sieht das schlecht aus. Korrigiert mit
+-- werkzeug/vertrag-umlaute.js: Wort fuer Wort aus einer festen Liste,
+-- nicht per Muster -- "Dauer", "aktuell", "vertrauen" und
+-- "Umsatzsteuer" enthalten die Buchstabenfolge zufaellig und waeren
+-- sonst zu "Daür", "aktüll" und "vertraün" geworden.
+--
+-- Die Fassung heisst deshalb jetzt 2026-09-2 statt -1. Der Insert
+-- unten hat "on conflict (art, fassung) do nothing": mit der alten
+-- Nummer waere der korrigierte Text bei niemandem angekommen, der die
+-- Datei schon einmal eingespielt hat. Die alte Fassung bleibt als
+-- Entwurf liegen und stoert nicht.
+--
 -- DIESE TEXTE SIND EIN ENTWURF. Sie enthalten die Punkte, die reingehoeren,
 -- und sind nach bestem Wissen geschrieben -- aber sie sind nicht
 -- anwaltlich geprueft. Stellen, die nur der Betreiber kennt, stehen als
@@ -120,7 +136,7 @@ create policy "Angemeldete duerfen unterschreiben"
 -- ---- TEIL D: DIE TEXTE (ENTWURF) --------------------------------------
 
 insert into public.vertrag_fassungen (art, fassung, titel, inhalt, status)
-values ('dienstleistung', '2026-09-1',
+values ('dienstleistung', '2026-09-2',
 'Nutzungsvertrag Kiek mol in',
 $text$
 NUTZUNGSVERTRAG
@@ -136,13 +152,13 @@ und dem im Unterschriftenblock genannten Gastronomiebetrieb
 
 § 1 Gegenstand des Vertrages
 
-(1) Kiek mol in betreibt unter kiekmolin.de eine Online-Plattform, ueber die
-Gaeste die Speisekarte eines Betriebes ansehen, Bestellungen aufgeben und
-Tische reservieren koennen.
+(1) Kiek mol in betreibt unter kiekmolin.de eine Online-Plattform, über die
+Gäste die Speisekarte eines Betriebes ansehen, Bestellungen aufgeben und
+Tische reservieren können.
 
 (2) Kiek mol in stellt dem Betrieb diese Plattform zur Nutzung bereit.
-Kiek mol in wird nicht Partei der Vertraege zwischen Gast und Betrieb. Der
-Vertrag ueber Speisen, Getraenke und deren Lieferung kommt ausschliesslich
+Kiek mol in wird nicht Partei der Verträge zwischen Gast und Betrieb. Der
+Vertrag über Speisen, Getränke und deren Lieferung kommt ausschließlich
 zwischen dem Gast und dem Betrieb zustande. Kiek mol in schuldet weder die
 Zubereitung noch die Lieferung.
 
@@ -151,117 +167,117 @@ Zubereitung noch die Lieferung.
 
 § 2 Leistungen von Kiek mol in
 
-Kiek mol in stellt dem Betrieb waehrend der Vertragslaufzeit zur Verfuegung:
+Kiek mol in stellt dem Betrieb während der Vertragslaufzeit zur Verfügung:
 
 a) eine eigene Seite des Betriebes auf kiekmolin.de mit Stammdaten,
-   Oeffnungszeiten und Speisekarte,
+   Öffnungszeiten und Speisekarte,
 b) die Annahme von Online-Bestellungen zur Abholung, Lieferung und zum
    Verzehr vor Ort, soweit der Betrieb die jeweilige Bestellart aktiviert,
 c) die Annahme von Tischreservierungen,
 d) ein Dashboard zur Verwaltung von Bestellungen, Reservierungen und
    Speisekarte,
-e) Bestaetigungs-E-Mails an Gaeste,
-f) die Uebergabe eingehender Bestellungen an einen Bondrucker oder ein
-   Kassensystem, soweit der Betrieb ein unterstuetztes Geraet einsetzt,
-g) die erstmalige Einrichtung einschliesslich der Erfassung der
+e) Bestätigungs-E-Mails an Gäste,
+f) die Übergabe eingehender Bestellungen an einen Bondrucker oder ein
+   Kassensystem, soweit der Betrieb ein unterstütztes Gerät einsetzt,
+g) die erstmalige Einrichtung einschließlich der Erfassung der
    Speisekarte.
 
 Der Funktionsumfang wird fortlaufend weiterentwickelt. Einzelne Funktionen
-koennen hinzukommen oder ersetzt werden, solange der Vertragszweck nach
+können hinzukommen oder ersetzt werden, solange der Vertragszweck nach
 Absatz 1 gewahrt bleibt.
 
 
-§ 3 Verguetung
+§ 3 Vergütung
 
-(1) Die Verguetung betraegt 59,90 EUR je angefangenem Kalendermonat.
+(1) Die Vergütung beträgt 59,90 EUR je angefangenem Kalendermonat.
 [[UMSATZSTEUER: "zzgl. gesetzlicher Umsatzsteuer" ODER "Es wird keine
 Umsatzsteuer ausgewiesen (Kleinunternehmer nach § 19 UStG)" -- eines von
 beiden muss hier stehen]]
 
 (2) Kiek mol in erhebt KEINE Provision und keine Beteiligung am Umsatz des
-Betriebes. Der Betrag nach Absatz 1 ist unabhaengig von der Anzahl der
-Bestellungen und der Hoehe des ueber die Plattform erzielten Umsatzes.
+Betriebes. Der Betrag nach Absatz 1 ist unabhängig von der Anzahl der
+Bestellungen und der Höhe des über die Plattform erzielten Umsatzes.
 
-(3) Der erste Kalendermonat ist verguetungsfrei.
+(3) Der erste Kalendermonat ist vergütungsfrei.
 
-(4) Die Verguetung ist monatlich im Voraus faellig.
+(4) Die Vergütung ist monatlich im Voraus fällig.
 
-(5) Kiek mol in kann die Verguetung mit einer Ankuendigungsfrist von acht
+(5) Kiek mol in kann die Vergütung mit einer Ankündigungsfrist von acht
 Wochen zum Monatsende anpassen. Der Betrieb kann den Vertrag in diesem Fall
-bis zum Wirksamwerden der Anpassung zum selben Zeitpunkt kuendigen; darauf
-wird in der Ankuendigung hingewiesen.
+bis zum Wirksamwerden der Anpassung zum selben Zeitpunkt kündigen; darauf
+wird in der Ankündigung hingewiesen.
 
 
 § 4 Pflichten des Betriebes
 
-(1) Der Betrieb haelt die von ihm eingestellten Angaben aktuell und
-zutreffend, insbesondere Preise, Oeffnungszeiten, Liefergebiet,
+(1) Der Betrieb hält die von ihm eingestellten Angaben aktuell und
+zutreffend, insbesondere Preise, Öffnungszeiten, Liefergebiet,
 Mindestbestellwert sowie Angaben zu Zutaten, Allergenen und
 Zusatzstoffen.
 
 (2) Die Einhaltung lebensmittel-, preis- und gewerberechtlicher Pflichten
-obliegt allein dem Betrieb. Das gilt insbesondere fuer die Kennzeichnung
+obliegt allein dem Betrieb. Das gilt insbesondere für die Kennzeichnung
 nach der Lebensmittelinformationsverordnung und die Preisangabenverordnung.
-Kiek mol in prueft die Angaben des Betriebes nicht auf inhaltliche
+Kiek mol in prüft die Angaben des Betriebes nicht auf inhaltliche
 Richtigkeit.
 
 (3) Der Betrieb bearbeitet eingehende Bestellungen und Reservierungen in
-angemessener Zeit und haelt waehrend seiner Oeffnungszeiten ein geeignetes
-Geraet zum Empfang bereit.
+angemessener Zeit und hält während seiner Öffnungszeiten ein geeignetes
+Gerät zum Empfang bereit.
 
 (4) Zugangsdaten zum Dashboard sind vertraulich zu behandeln und nicht an
-Dritte ausserhalb des Betriebes weiterzugeben.
+Dritte außerhalb des Betriebes weiterzugeben.
 
 
-§ 5 Laufzeit und Kuendigung
+§ 5 Laufzeit und Kündigung
 
-(1) Der Vertrag laeuft auf unbestimmte Zeit. Eine Mindestlaufzeit besteht
+(1) Der Vertrag läuft auf unbestimmte Zeit. Eine Mindestlaufzeit besteht
 nicht.
 
-(2) Beide Seiten koennen mit einer Frist von einem Tag zum Ende eines
-Kalendermonats kuendigen.
+(2) Beide Seiten können mit einer Frist von einem Tag zum Ende eines
+Kalendermonats kündigen.
 
-(3) Die Kuendigung bedarf der Textform; eine E-Mail genuegt.
+(3) Die Kündigung bedarf der Textform; eine E-Mail genügt.
 
-(4) Das Recht zur ausserordentlichen Kuendigung aus wichtigem Grund bleibt
-unberuehrt.
+(4) Das Recht zur außerordentlichen Kündigung aus wichtigem Grund bleibt
+unberührt.
 
-(5) Nach Vertragsende wird die Seite des Betriebes abgeschaltet. Fuer die
+(5) Nach Vertragsende wird die Seite des Betriebes abgeschaltet. Für die
 Behandlung personenbezogener Daten gilt die Anlage 1 (Auftragsverarbeitung).
 
 
-§ 6 Verfuegbarkeit
+§ 6 Verfügbarkeit
 
 (1) Kiek mol in betreibt die Plattform mit der Sorgfalt eines ordentlichen
-Kaufmanns, schuldet aber keine ununterbrochene Verfuegbarkeit.
-Unterbrechungen durch Wartung, Stoerungen bei Vorleistern oder hoehere
-Gewalt begruenden keinen Anspruch auf Minderung, soweit sie einen
-unerheblichen Umfang nicht ueberschreiten.
+Kaufmanns, schuldet aber keine ununterbrochene Verfügbarkeit.
+Unterbrechungen durch Wartung, Störungen bei Vorleistern oder höhere
+Gewalt begründen keinen Anspruch auf Minderung, soweit sie einen
+unerheblichen Umfang nicht überschreiten.
 
-(2) Kiek mol in sagt KEINE bestimmte Anzahl von Bestellungen, Gaesten oder
-Umsaetzen zu. Angaben hierzu sind unverbindlich.
+(2) Kiek mol in sagt KEINE bestimmte Anzahl von Bestellungen, Gästen oder
+Umsätzen zu. Angaben hierzu sind unverbindlich.
 
 
 § 7 Haftung
 
-(1) Kiek mol in haftet unbeschraenkt bei Vorsatz und grober Fahrlaessigkeit
-sowie bei der Verletzung von Leben, Koerper oder Gesundheit.
+(1) Kiek mol in haftet unbeschränkt bei Vorsatz und grober Fahrlässigkeit
+sowie bei der Verletzung von Leben, Körper oder Gesundheit.
 
-(2) Bei einfacher Fahrlaessigkeit haftet Kiek mol in nur bei Verletzung
-einer Pflicht, deren Erfuellung die ordnungsgemaesse Durchfuehrung des
-Vertrages ueberhaupt erst ermoeglicht und auf deren Einhaltung der Betrieb
-regelmaessig vertrauen darf (Kardinalpflicht). Die Haftung ist in diesem
+(2) Bei einfacher Fahrlässigkeit haftet Kiek mol in nur bei Verletzung
+einer Pflicht, deren Erfüllung die ordnungsgemäße Durchführung des
+Vertrages überhaupt erst ermöglicht und auf deren Einhaltung der Betrieb
+regelmäßig vertrauen darf (Kardinalpflicht). Die Haftung ist in diesem
 Fall auf den vertragstypischen, vorhersehbaren Schaden begrenzt.
 
-(3) Eine Haftung fuer entgangenen Gewinn oder ausgebliebene Bestellungen
+(3) Eine Haftung für entgangenen Gewinn oder ausgebliebene Bestellungen
 ist im Rahmen des Absatzes 2 ausgeschlossen.
 
-(4) Ansprueche nach dem Produkthaftungsgesetz bleiben unberuehrt.
+(4) Ansprüche nach dem Produkthaftungsgesetz bleiben unberührt.
 
 
 § 8 Personenbezogene Daten
 
-(1) Verantwortlicher im Sinne der DSGVO fuer die Daten der Gaeste des
+(1) Verantwortlicher im Sinne der DSGVO für die Daten der Gäste des
 Betriebes ist der Betrieb. Kiek mol in verarbeitet diese Daten
 weisungsgebunden als Auftragsverarbeiter.
 
@@ -271,15 +287,15 @@ nach Art. 28 DSGVO). Sie ist wesentlicher Bestandteil dieses Vertrages.
 
 § 9 Schlussbestimmungen
 
-(1) Aenderungen und Ergaenzungen dieses Vertrages beduerfen der Textform.
+(1) Änderungen und Ergänzungen dieses Vertrages bedürfen der Textform.
 
-(2) Sollte eine Bestimmung unwirksam sein, bleibt der Vertrag im Uebrigen
+(2) Sollte eine Bestimmung unwirksam sein, bleibt der Vertrag im Übrigen
 wirksam.
 
 (3) Es gilt deutsches Recht.
 
-(4) Ist der Betrieb Kaufmann, juristische Person des oeffentlichen Rechts
-oder oeffentlich-rechtliches Sondervermoegen, ist Gerichtsstand
+(4) Ist der Betrieb Kaufmann, juristische Person des öffentlichen Rechts
+oder öffentlich-rechtliches Sondervermögen, ist Gerichtsstand
 [[GERICHTSSTAND: Ort]].
 $text$,
 'entwurf')
@@ -287,7 +303,7 @@ on conflict (art, fassung) do nothing;
 
 
 insert into public.vertrag_fassungen (art, fassung, titel, inhalt, status)
-values ('avv', '2026-09-1',
+values ('avv', '2026-09-2',
 'Anlage 1 – Auftragsverarbeitung (Art. 28 DSGVO)',
 $text$
 VERTRAG ZUR AUFTRAGSVERARBEITUNG
@@ -313,8 +329,8 @@ der Laufzeit des Nutzungsvertrages.
 
 Betrieb einer Online-Plattform zur Darstellung der Speisekarte, zur
 Entgegennahme und Weiterleitung von Bestellungen und Tischreservierungen,
-zur Benachrichtigung der Gaeste sowie zur Bereitstellung eines Dashboards
-fuer den Verantwortlichen. Die Verarbeitung erfolgt ausschliesslich in
+zur Benachrichtigung der Gäste sowie zur Bereitstellung eines Dashboards
+für den Verantwortlichen. Die Verarbeitung erfolgt ausschließlich in
 Mitgliedstaaten der EU, im EWR oder auf Grundlage von Ziffer 8.
 
 
@@ -325,7 +341,7 @@ Mitgliedstaaten der EU, im EWR oder auf Grundlage von Ziffer 8.
 - E-Mail-Adresse
 - Lieferanschrift
 - Inhalt und Zeitpunkt der Bestellung, Bestellart, Zahlungsart
-- Hinweise und Sonderwuensche des Gastes zur Bestellung
+- Hinweise und Sonderwünsche des Gastes zur Bestellung
 - Daten der Tischreservierung (Datum, Uhrzeit, Personenzahl, Anmerkungen)
 - abgegebene Bewertungen
 - technische Kennungen zur Auslieferung von Benachrichtigungen
@@ -333,20 +349,20 @@ Mitgliedstaaten der EU, im EWR oder auf Grundlage von Ziffer 8.
 
 4. Kategorien betroffener Personen
 
-- Gaeste des Verantwortlichen
-- Beschaeftigte des Verantwortlichen, soweit sie Zugaenge zum Dashboard
+- Gäste des Verantwortlichen
+- Beschäftigte des Verantwortlichen, soweit sie Zugänge zum Dashboard
   nutzen
 
 
 5. Weisungen
 
-(1) Der Auftragsverarbeiter verarbeitet die Daten ausschliesslich auf
+(1) Der Auftragsverarbeiter verarbeitet die Daten ausschließlich auf
 dokumentierte Weisung des Verantwortlichen. Dieser Vertrag und der
-Nutzungsvertrag stellen die urspruengliche Weisung dar. Weitere Weisungen
+Nutzungsvertrag stellen die ursprüngliche Weisung dar. Weitere Weisungen
 ergehen in Textform.
 
-(2) Haelt der Auftragsverarbeiter eine Weisung fuer rechtswidrig, teilt er
-dies unverzueglich mit und darf die Ausfuehrung bis zur Bestaetigung
+(2) Hält der Auftragsverarbeiter eine Weisung für rechtswidrig, teilt er
+dies unverzüglich mit und darf die Ausführung bis zur Bestätigung
 aussetzen.
 
 
@@ -357,27 +373,27 @@ Vertraulichkeit verpflichtet wurden oder einer angemessenen gesetzlichen
 Verschwiegenheitspflicht unterliegen.
 
 
-7. Technische und organisatorische Massnahmen (Art. 32 DSGVO)
+7. Technische und organisatorische Maßnahmen (Art. 32 DSGVO)
 
-Der Auftragsverarbeiter trifft insbesondere folgende Massnahmen:
+Der Auftragsverarbeiter trifft insbesondere folgende Maßnahmen:
 
-a) Verschluesselung saemtlicher Uebertragungen (TLS),
-b) Verschluesselung der Daten im Ruhezustand beim Datenbankanbieter,
-c) Zugriffsbeschraenkung auf Datenbankebene, sodass ein Betrieb
-   ausschliesslich die ihm zugeordneten Daten lesen kann
+a) Verschlüsselung sämtlicher Übertragungen (TLS),
+b) Verschlüsselung der Daten im Ruhezustand beim Datenbankanbieter,
+c) Zugriffsbeschränkung auf Datenbankebene, sodass ein Betrieb
+   ausschließlich die ihm zugeordneten Daten lesen kann
    (Mandantentrennung),
-d) personenbezogene Zugaenge zum Dashboard, keine Sammelkonten auf
+d) personenbezogene Zugänge zum Dashboard, keine Sammelkonten auf
    Anbieterseite,
-e) getrennte Schluessel fuer oeffentliche und administrative Zugriffe,
-   administrative Schluessel ausschliesslich serverseitig,
+e) getrennte Schlüssel für öffentliche und administrative Zugriffe,
+   administrative Schlüssel ausschließlich serverseitig,
 f) Protokollierung der Zugriffe auf die Schnittstelle,
-g) regelmaessige automatisierte Pruefung der Gastwege und Meldung von
-   Stoerungen,
+g) regelmäßige automatisierte Prüfung der Gastwege und Meldung von
+   Störungen,
 h) automatisierte Sicherungen durch den Datenbankanbieter,
-i) Loeschkonzept nach Ziffer 10.
+i) Löschkonzept nach Ziffer 10.
 
-Die Massnahmen werden dem Stand der Technik angepasst. Eine Verringerung
-des Schutzniveaus ist unzulaessig.
+Die Maßnahmen werden dem Stand der Technik angepasst. Eine Verringerung
+des Schutzniveaus ist unzulässig.
 
 
 8. Unterauftragsverarbeiter
@@ -386,58 +402,58 @@ des Schutzniveaus ist unzulaessig.
 Unterauftragsverarbeiter zu:
 
 [[UNTERAUFTRAGSVERARBEITER: die folgende Liste vor dem Freischalten
-pruefen und je Anbieter Firmierung, Sitz, Verarbeitungsort und
-Uebermittlungsgrundlage ergaenzen]]
+prüfen und je Anbieter Firmierung, Sitz, Verarbeitungsort und
+Übermittlungsgrundlage ergänzen]]
 
 - Supabase – Datenbank, Authentifizierung, Datei-Speicher
 - Netlify – Auslieferung der Website und serverseitige Funktionen
-- Resend – Versand von Bestaetigungs-E-Mails an Gaeste
-- Stripe – Abwicklung der Verguetung nach § 3 des Nutzungsvertrages
+- Resend – Versand von Bestätigungs-E-Mails an Gäste
+- Stripe – Abwicklung der Vergütung nach § 3 des Nutzungsvertrages
 - PayPal – Abwicklung von Gastzahlungen, soweit der Betrieb diese Zahlart
   aktiviert
 
-(2) Der Auftragsverarbeiter schliesst mit jedem Unterauftragsverarbeiter
+(2) Der Auftragsverarbeiter schließt mit jedem Unterauftragsverarbeiter
 Vereinbarungen, die den Anforderungen des Art. 28 DSGVO entsprechen.
 
-(3) Erfolgt eine Verarbeitung ausserhalb der EU oder des EWR, stellt der
-Auftragsverarbeiter eine Uebermittlungsgrundlage nach Kapitel V DSGVO
+(3) Erfolgt eine Verarbeitung außerhalb der EU oder des EWR, stellt der
+Auftragsverarbeiter eine Übermittlungsgrundlage nach Kapitel V DSGVO
 sicher, insbesondere Standardvertragsklauseln oder einen
 Angemessenheitsbeschluss.
 
-(4) Wechsel oder Hinzufuegung eines Unterauftragsverarbeiters teilt der
+(4) Wechsel oder Hinzufügung eines Unterauftragsverarbeiters teilt der
 Auftragsverarbeiter mindestens vier Wochen im Voraus in Textform mit. Der
 Verantwortliche kann aus wichtigem Grund widersprechen; in diesem Fall
-koennen beide Seiten den Nutzungsvertrag zum Wirksamwerden der Aenderung
-kuendigen.
+können beide Seiten den Nutzungsvertrag zum Wirksamwerden der Änderung
+kündigen.
 
 
-9. Unterstuetzung des Verantwortlichen
+9. Unterstützung des Verantwortlichen
 
-(1) Der Auftragsverarbeiter unterstuetzt den Verantwortlichen bei der
-Beantwortung von Antraegen betroffener Personen (Art. 12 bis 23 DSGVO).
+(1) Der Auftragsverarbeiter unterstützt den Verantwortlichen bei der
+Beantwortung von Anträgen betroffener Personen (Art. 12 bis 23 DSGVO).
 Wendet sich eine betroffene Person unmittelbar an den
-Auftragsverarbeiter, leitet dieser den Antrag unverzueglich weiter.
+Auftragsverarbeiter, leitet dieser den Antrag unverzüglich weiter.
 
-(2) Der Auftragsverarbeiter unterstuetzt den Verantwortlichen bei den
+(2) Der Auftragsverarbeiter unterstützt den Verantwortlichen bei den
 Pflichten nach Art. 32 bis 36 DSGVO.
 
 (3) Der Auftragsverarbeiter meldet dem Verantwortlichen eine Verletzung des
-Schutzes personenbezogener Daten unverzueglich, spaetestens innerhalb von
+Schutzes personenbezogener Daten unverzüglich, spätestens innerhalb von
 24 Stunden nach Kenntnis, in Textform mit den ihm bekannten Angaben nach
 Art. 33 Abs. 3 DSGVO.
 
 
-10. Loeschung und Rueckgabe
+10. Löschung und Rückgabe
 
-(1) Nach Beendigung des Nutzungsvertrages loescht der Auftragsverarbeiter
+(1) Nach Beendigung des Nutzungsvertrages löscht der Auftragsverarbeiter
 die im Auftrag verarbeiteten personenbezogenen Daten innerhalb von 90
 Tagen, sofern nicht eine gesetzliche Aufbewahrungspflicht entgegensteht.
 
 (2) Der Verantwortliche kann vor Ablauf dieser Frist die Herausgabe der
-Daten in einem gaengigen Format verlangen.
+Daten in einem gängigen Format verlangen.
 
 (3) Daten, die einer gesetzlichen Aufbewahrungspflicht unterliegen, werden
-bis zum Ablauf der Frist gesperrt und danach geloescht.
+bis zum Ablauf der Frist gesperrt und danach gelöscht.
 
 
 11. Nachweise und Kontrollen
@@ -446,17 +462,17 @@ bis zum Ablauf der Frist gesperrt und danach geloescht.
 Vertrag auf Anforderung nach, insbesondere durch Auskunft in Textform oder
 durch Vorlage von Nachweisen der Unterauftragsverarbeiter.
 
-(2) Der Verantwortliche ist berechtigt, sich nach vorheriger Ankuendigung
-mit angemessener Frist von der Einhaltung zu ueberzeugen. Die Kontrolle hat
-den Betriebsablauf des Auftragsverarbeiters moeglichst wenig zu stoeren.
+(2) Der Verantwortliche ist berechtigt, sich nach vorheriger Ankündigung
+mit angemessener Frist von der Einhaltung zu überzeugen. Die Kontrolle hat
+den Betriebsablauf des Auftragsverarbeiters möglichst wenig zu stören.
 
 
 12. Schlussbestimmungen
 
-(1) Diese Anlage geht dem Nutzungsvertrag im Fall von Widerspruechen in
+(1) Diese Anlage geht dem Nutzungsvertrag im Fall von Widersprüchen in
 Fragen des Datenschutzes vor.
 
-(2) Aenderungen beduerfen der Textform.
+(2) Änderungen bedürfen der Textform.
 
 (3) Es gilt deutsches Recht.
 $text$,

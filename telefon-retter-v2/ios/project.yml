@@ -1,0 +1,48 @@
+# Bauplan des Xcode-Projekts. Das .xcodeproj wird daraus erzeugt
+# (xcodegen generate) und NICHT eingecheckt.
+#
+# Warum so: Die Cloud-Sitzungen laufen auf Linux ohne Xcode. Eine lesbare
+# Textdatei kann ich dort sicher ändern; eine project.pbxproj nicht.
+# Gebaut und im Simulator geprüft wird auf dem GitHub-Mac
+# (.github/workflows/ios-simulator.yml) oder auf Ibos Mac.
+
+name: TelefonRetter
+
+options:
+  bundleIdPrefix: de.kuranidesign
+  developmentLanguage: de
+  deploymentTarget:
+    iOS: "26.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.0.1"
+    CURRENT_PROJECT_VERSION: "1"
+
+targets:
+  TelefonRetter:
+    type: application
+    platform: iOS
+    scheme: {}
+    sources:
+      - path: TelefonRetter
+    info:
+      path: Support/Info.plist
+      properties:
+        CFBundleDisplayName: Telefon-Retter
+        CFBundleDevelopmentRegion: de
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: de.kuranidesign.telefonretter
+        TARGETED_DEVICE_FAMILY: "1,2"

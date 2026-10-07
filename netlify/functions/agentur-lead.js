@@ -114,6 +114,19 @@ exports.handler = async function (event) {
         return json(400, { ok: false, fehler: 'Bitte Betrieb und eine Rueckrufnummer oder E-Mail angeben.' });
     }
 
+    /* Der dritte Schritt der Strecke: gesehen -> geklickt -> GESENDET.
+       Hier, nicht im Browser: eine abgeschickte Anfrage ist eine Tatsache,
+       kein Klick, der auch ein Versehen sein kann. Gezaehlt wird, sobald
+       die Eingaben vollstaendig sind -- unabhaengig davon, ob die Mail
+       spaeter durchgeht. Ob wir sie verschicken konnten, ist unser
+       Problem; angekommen ist sie so oder so.
+
+       Der Zaehler wirft nie und wird bewusst NICHT abgewartet: er darf
+       eine Anfrage weder aufhalten noch verhindern. */
+    try {
+        require('./lead-zaehler').hoch(quelle, 'gesendet');
+    } catch (e) { /* ein Zaehler ist nie Grund, eine Anfrage zu verlieren */ }
+
     var zeilen = [
         'Neue Anfrage ueber ' + HERKUNFT[quelle].pfad,
         '',
