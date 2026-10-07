@@ -54933,7 +54933,7 @@ async function loadOptionGroups() {
 
                 html += '<div style="padding:16px;border-bottom:1px solid var(--border-color);">';
                 html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">';
-                html += '<div><strong style="font-size:15px;color:var(--dark);">' + g.name + '</strong> ' + requiredLabel + ' ' + activeLabel;
+                html += '<div><strong style="font-size:15px;color:var(--dark);">' + escapeHtml(g.name) + '</strong> ' + requiredLabel + ' ' + activeLabel;
                 html += '<div style="font-size:12px;color:var(--slate);margin-top:4px;">' + typeLabel + ' | ' + scopeLabel + '</div></div>';
                 html += '<div style="display:flex;gap:8px;">';
                 html += '<button onclick="openEditOptionGroupModal(\'' + g.id + '\')" style="padding:6px 12px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:9999px;font-size:12px;cursor:pointer;">Bearbeiten</button>';
@@ -54947,7 +54947,7 @@ async function loadOptionGroups() {
                         var o = opts[j];
                         var priceStr = o.price > 0 ? (o.price_type === 'replace' ? formatPrice(o.price) : '+' + formatPrice(o.price)) : 'inkl.';
                         var defaultBadge = o.is_default ? ' *' : '';
-                        html += '<span style="padding:6px 12px;background:var(--cream);border-radius:9999px;font-size:13px;color:var(--dark);">' + o.name + defaultBadge + ' <span style="color:var(--primary);font-weight:600;">' + priceStr + '</span></span>';
+                        html += '<span style="padding:6px 12px;background:var(--cream);border-radius:9999px;font-size:13px;color:var(--dark);">' + escapeHtml(o.name) + defaultBadge + ' <span style="color:var(--primary);font-weight:600;">' + priceStr + '</span></span>';
                     }
                     html += '</div>';
                 }
@@ -55565,7 +55565,7 @@ async function loadMenuOptionGroups(restId) {
 
             html += '<div style="padding:16px;' + (i < groups.length - 1 ? 'border-bottom:1px solid var(--border-color);' : '') + '">';
             html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">';
-            html += '<div><strong style="font-size:15px;color:var(--dark);">' + g.name + '</strong> ' + requiredBadge;
+            html += '<div><strong style="font-size:15px;color:var(--dark);">' + escapeHtml(g.name) + '</strong> ' + requiredBadge;
             html += '<div style="font-size:12px;color:var(--slate);margin-top:3px;">' + typeLabel + ' | ' + scopeLabel + '</div></div>';
             html += '<div style="display:flex;gap:6px;">';
             html += '<button onclick="openEditOptionGroupModal(\'' + g.id + '\')" style="padding:6px 12px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:9999px;font-size:12px;cursor:pointer;">Bearbeiten</button>';
@@ -55577,7 +55577,7 @@ async function loadMenuOptionGroups(restId) {
                 for (var j = 0; j < opts.length; j++) {
                     var o = opts[j];
                     var priceStr = o.price > 0 ? (o.price_type === 'replace' ? formatPrice(o.price) : '+' + formatPrice(o.price)) : 'inkl.';
-                    html += '<span style="padding:5px 10px;background:var(--cream);border-radius:9999px;font-size:12px;color:var(--dark);">' + o.name + ' <span style="color:var(--primary);font-weight:600;">' + priceStr + '</span></span>';
+                    html += '<span style="padding:5px 10px;background:var(--cream);border-radius:9999px;font-size:12px;color:var(--dark);">' + escapeHtml(o.name) + ' <span style="color:var(--primary);font-weight:600;">' + priceStr + '</span></span>';
                 }
                 html += '</div>';
             }
@@ -69949,10 +69949,14 @@ async function kombiAnlegen(restaurantId, kategorieId, name, kombiPreis, baustei
         name: name,
         base_price: Number(kombiPreis),
         description: bausteine.map(function (b) { return b.name; }).join(' + '),
-        is_available: true,
+        // ERST VERSTECKT (07.10.2026): scheiterte vorher eine Auswahl-Gruppe,
+        // stand das Menue schon bestellbar in der Karte -- mit fehlender
+        // Auswahl. Jetzt wird es erst sichtbar, wenn alle Teile da sind.
+        is_available: false,
         sort_order: 1
     });
 
+    try {
     for (var i = 0; i < bausteine.length; i++) {
         var b = bausteine[i];
         var gruppe = await sendeMitRueckfall('menu_option_groups', {
@@ -69976,6 +69980,19 @@ async function kombiAnlegen(restaurantId, kategorieId, name, kombiPreis, baustei
             });
         }
     }
+    } catch (e) {
+        // Halbes Menue wieder wegnehmen. Klappt das nicht, bleibt es
+        // versteckt (is_available false) -- Gaeste koennen es nicht bestellen.
+        var weg = false;
+        try {
+            var del = await fetch(SUPABASE_URL + '/rest/v1/menu_items?id=eq.' + encodeURIComponent(gericht.id), { method: 'DELETE', headers: H });
+            if (del.ok) { var dz = await del.json(); weg = Array.isArray(dz) && dz.length > 0; }
+        } catch (e2) {}
+        throw new Error((e && e.message ? e.message : 'Fehler') + (weg ? ' — nichts angelegt.' : ' — das halbe Menü ist ausgeblendet, bitte in der Karte löschen.'));
+    }
+    var sichtbar = await fetch(SUPABASE_URL + '/rest/v1/menu_items?id=eq.' + encodeURIComponent(gericht.id), { method: 'PATCH', headers: H, body: JSON.stringify({ is_available: true }) });
+    var sz = sichtbar.ok ? await sichtbar.json() : null;
+    if (!Array.isArray(sz) || !sz.length) throw new Error('Menü angelegt, aber noch ausgeblendet — in der Karte auf „Wieder verfügbar“ tippen.');
     return gericht;
 }
 window.kombiAnlegen = kombiAnlegen;
@@ -70671,67 +70688,72 @@ function addMenuItemOption() {
 }
 
 // Gericht löschen
+// UMGEBAUT (07.10.2026). Vorher: drei Wege nacheinander, und wenn eine
+// Leseprobe danach [] lieferte, galt das Gericht als "schon weg" -- auch
+// wenn nur das Leserecht fehlte. Jetzt: ein DELETE mit Zeilen-Pruefung,
+// und 10 Sekunden lang "Rückgängig" (das geloeschte Gericht kommt mit der
+// Antwort zurueck und wird unveraendert wieder eingefuegt).
 async function deleteMenuItem(itemId) {
-    if (!await kinConfirm('Gericht wirklich löschen?')) return;
-
-    var deleted = false;
-
+    var item = menuItems.find(function (i) { return i.id === itemId; });
+    if (!await kinConfirm(item && item.name ? '„' + item.name + '“ löschen?' : 'Gericht wirklich löschen?')) return;
+    var weg = null;
     try {
-        // Methode 1: Supabase JS Client (nutzt aktive Session)
-        var client = sb || window.sb;
-        if (client) {
-            try {
-                var result = await client.from('menu_items').delete().eq('id', itemId).select();
-                if (!result.error && result.data && result.data.length > 0) {
-                    deleted = true;
-                }
-            } catch(e) { console.warn('JS Client delete fehlgeschlagen:', e); }
-        }
+        weg = await menuSchreiben('menu_items?id=eq.' + encodeURIComponent(itemId), 'DELETE');
+    } catch (e) {
+        // 0 Zeilen: kein Recht ODER schon von einem anderen Geraet geloescht.
+        // Nur wenn die (oeffentliche) Speisekarte es sicher nicht mehr hat,
+        // gilt es als weg -- ein Lesefehler ist KEIN "weg".
+        var schonWeg = false;
+        try {
+            var pr = await sbRead(SUPABASE_URL + '/rest/v1/menu_items?id=eq.' + encodeURIComponent(itemId) + '&select=id', { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() } });
+            if (pr.ok) { var pz = await pr.json(); schonWeg = Array.isArray(pz) && pz.length === 0; }
+        } catch (e2) {}
+        if (!schonWeg) { showToast('Nicht gelöscht: ' + e.message, 'error'); return; }
+        menuItems = menuItems.filter(function (i) { return i.id !== itemId; });
+        window.menuItems = menuItems;
+        renderMenuCategories(); updateMenuStats();
+        showToast('War schon gelöscht (anderes Gerät?)', 'warning');
+        return;
+    }
+    menuItems = menuItems.filter(function (i) { return i.id !== itemId; });
+    window.menuItems = menuItems;
+    renderMenuCategories();
+    updateMenuStats();
+    menuRueckgaengigAnbieten('„' + ((weg[0] && weg[0].name) || 'Gericht') + '“ gelöscht', function () { return gerichtWiederherstellen(weg[0]); });
+}
+window.deleteMenuItem = deleteMenuItem;
 
-        // Methode 2: REST API mit return=representation
-        if (!deleted) {
-            var resp = await fetch(`${SUPABASE_URL}/rest/v1/menu_items?id=eq.${itemId}`, {
-                method: 'DELETE',
-                headers: {
-                    'apikey': SUPABASE_KEY,
-                    'Authorization': 'Bearer ' + kmiToken(),
-                    'Prefer': 'return=representation',
-                    'Content-Type': 'application/json'
-                }
-            });
-            if (resp.ok) {
-                var data = await resp.json();
-                if (data && data.length > 0) deleted = true;
-            }
-        }
-
-        // Methode 3: Verifizieren ob gelöscht — wenn nicht, nochmal per RPC
-        if (!deleted) {
-            // Prüfen ob Item noch existiert
-            var checkResp = await sbRead(`${SUPABASE_URL}/rest/v1/menu_items?id=eq.${itemId}&select=id`, {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
-            });
-            var checkData = await checkResp.json();
-            if (!checkData || checkData.length === 0) {
-                deleted = true; // Ist schon weg
-            }
-        }
-
-        if (deleted) {
-            menuItems = menuItems.filter(item => item.id !== itemId);
-            window.menuItems = menuItems;
-            renderMenuCategories();
-            updateMenuStats();
-            showToast('Gericht gelöscht');
-        } else {
-            console.error('DELETE fehlgeschlagen: Item existiert noch in DB');
-            showToast('Löschen fehlgeschlagen — RLS-Berechtigung prüfen', 'error');
-        }
-    } catch(e) {
-        console.error('Delete error:', e);
-        showToast('Fehler beim Löschen: ' + e.message, 'error');
+async function gerichtWiederherstellen(zeile) {
+    try {
+        var z = await menuSchreiben('menu_items', 'POST', zeile);
+        menuItems.push(z[0]);
+        window.menuItems = menuItems;
+        renderMenuCategories(); updateMenuStats();
+        showToast('„' + (z[0].name || 'Gericht') + '“ ist wieder da', 'success');
+    } catch (e) {
+        showToast('Wiederherstellen fehlgeschlagen: ' + e.message, 'error');
     }
 }
+window.gerichtWiederherstellen = gerichtWiederherstellen;
+
+// Hinweis mit Knopf "Rückgängig", 10 Sekunden. Ein Tipp genuegt, zweimal geht nicht.
+function menuRueckgaengigAnbieten(text, rueck) {
+    var box = document.getElementById('toastContainer');
+    if (!box) { showToast(text); return; }
+    var el = document.createElement('div');
+    el.className = 'toast';
+    el.setAttribute('role', 'status');
+    el.style.cssText = 'display:flex;align-items:center;gap:14px;';
+    var t = document.createElement('span'); t.textContent = text;
+    var k = document.createElement('button');
+    k.type = 'button'; k.textContent = 'Rückgängig';
+    k.style.cssText = 'min-height:44px;padding:0 16px;border-radius:9999px;border:none;background:#ffffff;color:#1c1c1e;font-weight:700;font-size:14px;cursor:pointer;';
+    var fertig = false;
+    k.onclick = function () { if (fertig) return; fertig = true; el.remove(); rueck(); };
+    el.appendChild(t); el.appendChild(k); box.appendChild(el);
+    setTimeout(function () { fertig = true; el.remove(); }, 10000);
+}
+window.menuRueckgaengigAnbieten = menuRueckgaengigAnbieten;
 
 // Kategorie löschen
 async function deleteCategory(categoryId) {
@@ -76167,22 +76189,25 @@ async function toggleSoldOut(itemId) {
 }
 
 function editMenuItem(itemId) {
+    // ESCAPING (07.10.2026): eine Beschreibung mit "&lt;" oder "</textarea>"
+    // kam vorher veraendert zurueck in die Datenbank (Browser dekodiert beim
+    // Einlesen) bzw. zerbrach den Dialog.
     var item = menuItems.find(function(i) { return i.id === itemId; });
     if (!item) { showToast('Gericht nicht gefunden', 'error'); return; }
     
     var cats = menuCategories.map(function(c) {
-        return '<option value="' + c.id + '"' + (c.id === item.category_id ? ' selected' : '') + '>' + c.name + '</option>';
+        return '<option value="' + c.id + '"' + (c.id === item.category_id ? ' selected' : '') + '>' + escapeHtml(c.name) + '</option>';
     }).join('');
 
     var dishNr = getDishNumber(item);
     var html = '<div style="display:flex;flex-direction:column;gap:14px;">' +
         '<div style="display:flex;gap:10px;">' +
         '<div style="width:80px;flex-shrink:0;"><label style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:4px;">Nr.</label>' +
-        '<input type="text" id="editItemNr" value="' + (dishNr || '') + '" placeholder="z.B. 42" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:14px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;text-align:center;"></div>' +
+        '<input type="text" id="editItemNr" value="' + escapeHtml(dishNr || '') + '" placeholder="z.B. 42" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:14px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;text-align:center;"></div>' +
         '<div style="flex:1;"><label style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:4px;">Name</label>' +
-        '<input type="text" id="editItemName" value="' + (item.name || '').replace(/"/g, '&quot;') + '" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:14px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;"></div></div>' +
+        '<input type="text" id="editItemName" value="' + escapeHtml(item.name || '') + '" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:14px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;"></div></div>' +
         '<div><label style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:4px;">Beschreibung</label>' +
-        '<textarea id="editItemDesc" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:13px;min-height:60px;resize:vertical;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' + (item.description || '') + '</textarea></div>' +
+        '<textarea id="editItemDesc" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:13px;min-height:60px;resize:vertical;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' + escapeHtml(item.description || '') + '</textarea></div>' +
         // GROESSEN -- DAS FEHLENDE STUECK.
         //
         // Gemeldet am 04.09.2026: bei der Familienpizza fehlten die
@@ -76205,7 +76230,7 @@ function editMenuItem(itemId) {
         '<p style="font-size:11px;color:var(--slate);margin-top:4px;">Leer lassen = ein Preis für alle. Sonst wählt der Gast die Größe, und der Preis oben gilt nicht mehr. Genau diese Namen trägst du dann bei den Optionsgruppen unter „Gilt nur für Größe" ein.</p></div>' +
 
         '<div><label style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:4px;">Zutaten zum Abwählen (optional)</label>' +
-        '<input type="text" id="editItemOhne" aria-label="Zutaten, die der Gast abwählen kann" value="' + (typeof zutatenEingetragen === 'function' ? zutatenEingetragen(item).join(', ') : '').replace(/"/g, '&quot;') + '" placeholder="z.B. Gyros, Tzatziki, Pommes, Salat" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:13px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' +
+        '<input type="text" id="editItemOhne" aria-label="Zutaten, die der Gast abwählen kann" value="' + escapeHtml(typeof zutatenEingetragen === 'function' ? zutatenEingetragen(item).join(', ') : '') + '" placeholder="z.B. Gyros, Tzatziki, Pommes, Salat" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:13px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' +
         '<p style="font-size:11px;color:var(--slate);margin-top:4px;">Mit Komma trennen. Der Gast sieht sie als „Bitte ohne"-Kästchen und muss nichts tippen. Leer lassen = wird aus der Beschreibung gelesen, wenn die wie eine Zutatenliste aussieht.</p></div>' +
 
         '<div style="display:flex;gap:12px;">' +
@@ -76226,8 +76251,8 @@ function editMenuItem(itemId) {
         '</div>' +
         '<div><label style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:4px;"><span class="material-symbols-outlined" style="font-size:18px;">change_history</span>Bild URL (optional)</label>' +
         '<div style="display:flex;gap:8px;align-items:center;">' +
-        '<input type="url" id="editItemImage" value="' + (item.image_url || '') + '" placeholder="https://beispiel.de/gericht.jpg" style="flex:1;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:13px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' +
-        (item.image_url ? '<img src="' + item.image_url + '" alt="' + (item.name || 'Gericht') + '" loading="lazy" style="width:44px;height:44px;border-radius:16px;object-fit:cover;border:1px solid var(--border-color);">' : '<div style="width:44px;height:44px;border-radius:16px;background:var(--bg-secondary);border:1px solid var(--border-color);display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="font-size:18px;color:var(--slate);">change_history</span></div>') +
+        '<input type="url" id="editItemImage" value="' + escapeHtml(item.image_url || '') + '" placeholder="https://beispiel.de/gericht.jpg" style="flex:1;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:13px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' +
+        (item.image_url ? '<img src="' + escapeHtml(item.image_url) + '" alt="' + escapeHtml(item.name || 'Gericht') + '" loading="lazy" style="width:44px;height:44px;border-radius:16px;object-fit:cover;border:1px solid var(--border-color);">' : '<div style="width:44px;height:44px;border-radius:16px;background:var(--bg-secondary);border:1px solid var(--border-color);display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="font-size:18px;color:var(--slate);">change_history</span></div>') +
         '</div></div>' +
         buildAllergenChipsHtml(item.allergens || [], 'editMenuItemAllergens', { name: item.name, description: item.description }) +
         '<button onclick="saveEditedItem(\'' + itemId + '\')" style="width:100%;padding:14px;background:var(--primary);color:white;border:none;border-radius:9999px;font-size:15px;font-weight:700;cursor:pointer;">Speichern</button>' +
@@ -76250,7 +76275,7 @@ function groessenZeile(name, preis) {
     zeile.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:8px;';
     zeile.innerHTML =
         '<input type="text" class="groesse-name" aria-label="Name der Größe" placeholder="z.B. 40 cm" value="'
-        + String(name == null ? '' : name).replace(/"/g, '&quot;')
+        + escapeHtml(name == null ? '' : name)
         + '" style="flex:2;padding:8px 10px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:13px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">'
         + '<input type="number" step="0.10" min="0" class="groesse-preis" aria-label="Preis dieser Größe" placeholder="Preis" value="'
         + (preis == null ? '' : preis)
