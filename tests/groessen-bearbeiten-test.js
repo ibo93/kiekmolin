@@ -32,7 +32,8 @@ t('mit einer Liste', /id="editSizesList"/.test(h));
 t('und einem Knopf zum Hinzufuegen', /groessenZeile\(\)/.test(h));
 t('vorhandene Groessen werden eingetragen',
   /_vorhanden\.forEach\(function \(g\) \{ groessenZeile\(g && g\.name, g && g\.price\); \}\);/.test(h));
-t('beim Speichern gehen sie mit', /sizes: groessenAusMaske\(\)/.test(h));
+// Seit 07.10.2026 einmal gelesen (fuer die Preis-Pruefung) und dann mitgeschickt.
+t('beim Speichern gehen sie mit', /var _groessen = groessenAusMaske\(\);/.test(h) && /sizes: _groessen,/.test(h));
 
 console.log('\n-- 2. Was aus der Maske herauskommt --');
 

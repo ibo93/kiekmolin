@@ -39,7 +39,9 @@ function bauen() {
         ],
         showToast: function (txt, art) { gesagt.push({ text: txt, art: art }); },
         renderMenuCategories: function () {},
-        saveItemOrder: function (bewegt, liste) { gespeichert.push({ bewegt: bewegt.id, liste: liste.map(function (i) { return i.id; }) }); },
+        // Seit 07.10.2026 meldet saveItemOrder den neuen Platz erst NACH dem
+        // Speichern (opt.text). Hier: Speichern klappt -> Meldung kommt.
+        saveItemOrder: function (bewegt, liste, opt) { gespeichert.push({ bewegt: bewegt.id, liste: liste.map(function (i) { return i.id; }), opt: opt }); if (opt && opt.text) gesagt.push({ text: opt.text, art: 'success' }); },
         Array: Array, console: console
     };
     ctx.window = ctx;
@@ -67,8 +69,8 @@ t('und es wurde gespeichert', w.gespeichert.length === 1 && w.gespeichert[0].bew
   JSON.stringify(w.gespeichert));
 t('gespeichert wird die GANZE Kategorie, nicht nur das Gericht',
   w.gespeichert[0].liste.join(',') === 'a,c,b', w.gespeichert[0].liste.join(','));
-t('und der Wirt erfaehrt den neuen Platz',
-  /Platz 2/.test(w.gesagt[w.gesagt.length - 1].text), w.gesagt[w.gesagt.length - 1].text);
+t('und der Wirt erfaehrt den neuen Platz -- erst nach dem Speichern',
+  w.gesagt.length > 0 && /Platz 2/.test(w.gesagt[w.gesagt.length - 1].text) && /Platz 2/.test((w.gespeichert[0].opt || {}).text || ''), JSON.stringify(w.gesagt));
 
 // ---- 2. Nach unten ---------------------------------------------------
 console.log('\n-- Und zurueck --');

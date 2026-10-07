@@ -21723,8 +21723,9 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     fetch(SUPA_URL + '/rest/v1/menu_categories?restaurant_id=eq.' + restaurantId + '&order=sort_order', {
                         headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken() }
                     })
-                    .then(function(res) { return res.json(); })
+                    .then(function(res) { if (!res.ok) throw new Error('Kategorien: Fehler ' + res.status); return res.json(); })
                     .then(function(cats) {
+                        if (!Array.isArray(cats)) throw new Error('Kategorien: unerwartete Antwort');
                         if (typeof menuCategories !== 'undefined') {
                             menuCategories = cats || [];
                             window.menuCategories = menuCategories;
@@ -21735,8 +21736,9 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken() }
                         });
                     })
-                    .then(function(res) { return res.json(); })
+                    .then(function(res) { if (!res.ok) throw new Error('Gerichte: Fehler ' + res.status); return res.json(); })
                     .then(function(items) {
+                        if (!Array.isArray(items)) throw new Error('Gerichte: unerwartete Antwort');
                         if (typeof menuItems !== 'undefined') {
                             menuItems = items || [];
                             window.menuItems = menuItems;
@@ -31281,9 +31283,9 @@ var selectedResArea = 'main';
 var _areaConfig = {
     main:    { name: 'Innenbereich', desc: 'Gemütlich, traditionelles Ambiente', icon: 'restaurant' },
     window:  { name: 'Fensterplatz', desc: 'Blick nach draußen', icon: 'visibility' },
-    terrace: { name: 'Terrasse', desc: 'Draußen, frische Luft', icon: 'deck' },
+    terrace: { name: 'Terrasse', desc: 'Draußen, frische Luft', icon: 'wb_sunny' },
     bar:     { name: 'Bar', desc: 'Lounge-Bereich', icon: 'local_bar' },
-    vip:     { name: 'VIP', desc: 'Privater Bereich', icon: 'diamond' }
+    vip:     { name: 'VIP', desc: 'Privater Bereich', icon: 'star' }
 };
 
 async function loadResAreas(restaurantId) {
@@ -31313,7 +31315,7 @@ async function loadResAreas(restaurantId) {
 
     var html = '';
     areas.forEach(function(area) {
-        var cfg = _areaConfig[area] || { name: area, desc: '', icon: 'place' };
+        var cfg = _areaConfig[area] || { name: area, desc: '', icon: 'location_on' };
         var isActive = area === selectedResArea ? ' active-area' : '';
         html += '<button type="button" class="res-area-btn' + isActive + '" data-area="' + area + '" onclick="selectResArea(this)">' +
             '<div>' +
@@ -35333,7 +35335,7 @@ function renderTables() {
 
     APP_DATA.tables.forEach(table => {
         var statusColors = {
-            free: { bg: 'rgba(52,211,153,0.15)', dot: '#34d399', icon: 'event_available', label: table.seats + ' Pl\u00e4tze', btnText: 'Zuweisen', btnBg: 'rgba(236,253,245,1)', btnColor: '#047857' },
+            free: { bg: 'rgba(52,211,153,0.15)', dot: '#34d399', icon: 'check_circle', label: table.seats + ' Pl\u00e4tze', btnText: 'Zuweisen', btnBg: 'rgba(236,253,245,1)', btnColor: '#047857' },
             reserved: { bg: 'rgba(254,214,91,0.15)', dot: '#FED65B', icon: 'payments', label: 'Reserviert', btnText: 'Bearbeiten', btnBg: '#FED65B', btnColor: '#00251e' },
             occupied: { bg: 'rgba(251,146,60,0.15)', dot: '#fb923c', icon: 'group', label: 'Besetzt', btnText: '', btnBg: '', btnColor: '' }
         };
@@ -40641,7 +40643,7 @@ function renderProfileContent() {
             { icon: 'loyalty', title: 'Meine Stempelkarten', sub: 'Alle Häuser auf einen Blick', action: "openMeineStempelkarten(); closeModal('profileModal');" },
             { icon: 'calendar_month', title: 'Meine Reservierungen', sub: 'Aktuelle & vergangene Reservierungen', action: "showMyReservations(); closeModal('profileModal');" },
             { icon: 'notifications_active', title: 'Benachrichtigungen', sub: 'Reservierungen & Angebote', action: "openModal('notificationModal'); closeModal('profileModal');" },
-            { icon: 'security', title: 'Datenschutz', sub: 'Passwort & Sicherheit', action: "openModal('datenschutzModal'); closeModal('profileModal');" }
+            { icon: 'shield', title: 'Datenschutz', sub: 'Passwort & Sicherheit', action: "openModal('datenschutzModal'); closeModal('profileModal');" }
         ]);
         html += '</div>';
 
@@ -52374,10 +52376,11 @@ async function allergenLueckenSpeichern() {
             var res = await sbWrite(SUPABASE_URL + '/rest/v1/menu_items?id=eq.' + encodeURIComponent(g.id), {
                 method: 'PATCH',
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(),
-                           'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                           'Content-Type': 'application/json', 'Prefer': 'return=representation' },
                 body: JSON.stringify({ allergens: g.allergens })
             });
-            if (res && res.ok) {
+            // Pflichtangabe (LMIV): "ergaenzt" nur mit geaenderter Zeile zurueck.
+            if (await menuZeilenOk(res)) {
                 fertig++;
                 // Den lokalen Bestand mitziehen, sonst zeigt der Knopf
                 // gleich wieder die alte Zahl.
@@ -68981,8 +68984,9 @@ function gerichtVerschieben(itemId, catId, richtung) {
 
     renderMenuCategories();
     // Dieselbe Speicherung wie beim Ziehen -- eine Wahrheit, nicht zwei.
-    saveItemOrder(bewegt, inKat);
-    showToast('„' + (bewegt.name || 'Gericht') + '" ist jetzt auf Platz ' + (ziel + 1) + '.', 'success');
+    // Die Meldung kommt erst NACH dem Speichern (vorher sofort, auch wenn
+    // es danach scheiterte).
+    saveItemOrder(bewegt, inKat, { text: '„' + (bewegt.name || 'Gericht') + '" ist jetzt auf Platz ' + (ziel + 1) + '.' });
 }
 window.gerichtVerschieben = gerichtVerschieben;
 
@@ -69002,36 +69006,49 @@ async function saveCategoryOrder() {
             // Der Supabase-Client wirft NICHT bei Fehlern, er liefert { error }.
             // Ohne diese Prüfung meldete das Dashboard Erfolg, obwohl die
             // Reihenfolge nach dem Neuladen wieder die alte war.
-            var _cr = await client.from('menu_categories').update({ sort_order: c.sort_order }).eq('id', c.id);
+            var _cr = await client.from('menu_categories').update({ sort_order: c.sort_order }).eq('id', c.id).select('id');
             if (_cr && _cr.error) throw new Error(_cr.error.message);
+            // Ohne Recht: kein Fehler, nur keine Zeile -- frueher "sortiert".
+            if (!_cr || !Array.isArray(_cr.data) || !_cr.data.length) throw new Error(menuKeinRechtText());
         }
         showToast('Kategorien sortiert', 'success');
     } catch(e) {
-        showToast('Fehler beim Speichern', 'error');
+        showToast('Reihenfolge nicht gespeichert: ' + e.message, 'error');
+        menuNeuLaden();
     }
 }
 
-async function saveItemOrder(movedItem, catItems) {
+async function saveItemOrder(movedItem, catItems, opt) {
     try {
         var client = sb || window.sb;
         if (!client) return;
         // Der Supabase-Client wirft NICHT bei Fehlern, er liefert { error }.
         // Ohne Prüfung meldete das Dashboard Erfolg, obwohl die Reihenfolge
         // nach dem Neuladen wieder die alte war.
-        var _mr = await client.from('menu_items').update({ category_id: movedItem.category_id, sort_order: movedItem.sort_order }).eq('id', movedItem.id);
+        var _mr = await client.from('menu_items').update({ category_id: movedItem.category_id, sort_order: movedItem.sort_order }).eq('id', movedItem.id).select('id');
         if (_mr && _mr.error) throw new Error(_mr.error.message);
+        if (!_mr || !Array.isArray(_mr.data) || !_mr.data.length) throw new Error(menuKeinRechtText());
         // Andere items in Kategorie updaten
         for (var i = 0; i < catItems.length; i++) {
             var it = catItems[i];
             if (it.id === movedItem.id) continue;
-            var _ir = await client.from('menu_items').update({ sort_order: it.sort_order }).eq('id', it.id);
+            var _ir = await client.from('menu_items').update({ sort_order: it.sort_order }).eq('id', it.id).select('id');
             if (_ir && _ir.error) throw new Error(_ir.error.message);
+            if (!_ir || !Array.isArray(_ir.data) || !_ir.data.length) throw new Error(menuKeinRechtText());
         }
-        showToast('Gericht sortiert', 'success');
+        if (!opt || !opt.leise) showToast(opt && opt.text ? opt.text : 'Gericht sortiert', 'success');
     } catch(e) {
-        showToast('Fehler beim Speichern', 'error');
+        showToast('Reihenfolge nicht gespeichert: ' + e.message, 'error');
+        menuNeuLaden();
     }
 }
+// Nach einem Fehler: Stand der Datenbank holen, statt eine Reihenfolge
+// stehen zu lassen, die es nur im Dashboard gibt.
+function menuNeuLaden() {
+    var sel = document.getElementById('menuRestaurantSelect');
+    if (sel && sel.value) sel.dispatchEvent(new Event('change'));
+}
+window.menuNeuLaden = menuNeuLaden;
 
 // KATEGORIEN-LEISTE AM RECHNER BEDIENBAR MACHEN
 //
@@ -70608,60 +70625,37 @@ async function deleteMenuItem(itemId) {
 
 // Kategorie löschen
 async function deleteCategory(categoryId) {
-    const itemsInCategory = menuItems.filter(i => i.category_id === categoryId).length;
-    if (itemsInCategory > 0) {
-        if (!await kinConfirm('Diese Kategorie enthält ' + itemsInCategory + ' Gerichte. Trotzdem löschen?')) return;
-    }
-
-    var catDeleted = false;
-    var client = sb || window.sb;
-
+    // UMGEBAUT (07.10.2026). Vorher wurden ERST alle Gerichte geloescht,
+    // dann die Kategorie -- scheiterte der zweite Schritt (Recht), waren
+    // die Gerichte weg, die Kategorie blieb, und es gab keine Sicherung.
+    // Eine leere Kategorie ging ohne Rueckfrage.
+    var cat = menuCategories.find(function (c) { return c.id === categoryId; }) || {};
+    var itemsInCategory = menuItems.filter(function (i) { return i.category_id === categoryId; });
+    var frage = itemsInCategory.length
+        ? 'Kategorie „' + (cat.name || '') + '“ mit ' + itemsInCategory.length + ' Gerichten löschen? Die Gerichte werden mitgelöscht.'
+        : 'Leere Kategorie „' + (cat.name || '') + '“ löschen?';
+    if (!await kinConfirm(frage)) return;
     try {
-        // Methode 1: Supabase JS Client
-        if (client) {
-            try {
-                var r1 = await client.from('menu_items').delete().eq('category_id', categoryId);
-                var r2 = await client.from('menu_categories').delete().eq('id', categoryId).select();
-                if (!r2.error && r2.data && r2.data.length > 0) catDeleted = true;
-            } catch(e) { console.warn('JS delete Kategorie:', e); }
+        if (itemsInCategory.length) {
+            var gesichert = false;
+            try { gesichert = await sichereKarte(currentMenuRestaurant || window.currentMenuRestaurant, 'Kategorie löschen: ' + (cat.name || '')); } catch (e) {}
+            if (!gesichert && !await kinConfirm('Die Sicherung der Karte ist fehlgeschlagen. Ohne Sicherung gibt es kein Zurück. Trotzdem löschen?')) return;
+            // Erst die Gerichte ausblenden statt loeschen? Nein: erst pruefen,
+            // ob wir die KATEGORIE aendern duerfen (harmloser Schreibtest auf
+            // dieselbe Zeile). Ohne Recht bricht es hier ab, bevor ein
+            // einziges Gericht weg ist.
+            await menuSchreiben('menu_categories?id=eq.' + categoryId, 'PATCH', { name: cat.name });
+            await menuSchreiben('menu_items?category_id=eq.' + categoryId, 'DELETE');
         }
-
-        // Methode 2: REST API Fallback
-        if (!catDeleted) {
-            await sbWrite(`${SUPABASE_URL}/rest/v1/menu_items?category_id=eq.${categoryId}`, {
-                method: 'DELETE',
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Prefer': 'return=representation' }
-            });
-            var resp = await fetch(`${SUPABASE_URL}/rest/v1/menu_categories?id=eq.${categoryId}`, {
-                method: 'DELETE',
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Prefer': 'return=representation' }
-            });
-            if (resp.ok) {
-                var data = await resp.json();
-                if (data && data.length > 0) catDeleted = true;
-            }
-        }
-
-        // Verifizieren
-        if (!catDeleted) {
-            var check = await sbRead(`${SUPABASE_URL}/rest/v1/menu_categories?id=eq.${categoryId}&select=id`, {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
-            });
-            var cd = await check.json();
-            if (!cd || cd.length === 0) catDeleted = true;
-        }
-
-        if (catDeleted) {
-            menuCategories = menuCategories.filter(cat => cat.id !== categoryId);
-            menuItems = menuItems.filter(item => item.category_id !== categoryId);
-            renderMenuCategories();
-            updateMenuStats();
-            showToast('Kategorie gelöscht');
-        } else {
-            showToast('Kategorie löschen fehlgeschlagen', 'error');
-        }
-    } catch(e) {
-        showToast('Fehler: ' + e.message, 'error');
+        await menuSchreiben('menu_categories?id=eq.' + categoryId, 'DELETE');
+        menuCategories = menuCategories.filter(function (c) { return c.id !== categoryId; });
+        menuItems = menuItems.filter(function (i) { return i.category_id !== categoryId; });
+        window.menuCategories = menuCategories; window.menuItems = menuItems;
+        renderMenuCategories();
+        updateMenuStats();
+        showToast('Kategorie gelöscht');
+    } catch (e) {
+        showToast('Kategorie nicht gelöscht: ' + e.message + '. Bitte die Karte neu laden und prüfen.', 'error');
     }
 }
 
@@ -74821,8 +74815,10 @@ async function wendeKartenAbgleichAn() {
 
     await sichereKarte(restaurantId, 'Karte abgleichen');
 
+    // return=representation: gezaehlt wird nur, was die Datenbank mit einer
+    // Zeile bestaetigt (frueher return=minimal -- jedes 204 galt als Erfolg).
     var H = { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken(),
-              'Content-Type': 'application/json', 'Prefer': 'return=minimal' };
+              'Content-Type': 'application/json', 'Prefer': 'return=representation' };
     var geaendert = 0, angelegt = 0, stillgelegt = 0, geloescht = 0, fehler = 0;
 
     // 1) Geänderte Gerichte
@@ -74861,7 +74857,7 @@ async function wendeKartenAbgleichAn() {
                 r = await fetch(SUPA_URL + '/rest/v1/menu_items?id=eq.' + g.alt.id,
                     { method: 'PATCH', headers: H, body: JSON.stringify(neuerStand) });
             }
-            if (r.ok) geaendert++; else fehler++;
+            if (await menuZeilenOk(r)) geaendert++; else { fehler++; if (r.ok) _gruende.push(menuKeinRechtText()); }
         } catch (e) { fehler++; _gruende.push(e.message); }
     }
 
@@ -74872,11 +74868,11 @@ async function wendeKartenAbgleichAn() {
             var r2;
             if (wahl === 'loeschen') {
                 r2 = await fetch(SUPA_URL + '/rest/v1/menu_items?id=eq.' + e.id, { method: 'DELETE', headers: H });
-                if (r2.ok) geloescht++; else fehler++;
+                if (await menuZeilenOk(r2)) geloescht++; else fehler++;
             } else {
                 r2 = await fetch(SUPA_URL + '/rest/v1/menu_items?id=eq.' + e.id,
                     { method: 'PATCH', headers: H, body: JSON.stringify({ is_available: false }) });
-                if (r2.ok) stillgelegt++; else fehler++;
+                if (await menuZeilenOk(r2)) stillgelegt++; else fehler++;
             }
         } catch (e2) { fehler++; }
     }
@@ -75971,26 +75967,72 @@ async function kategorieSpeichern(categoryId) {
 window.editCategory = editCategory;
 window.kategorieSpeichern = kategorieSpeichern;
 
+// SPEISEKARTE SPEICHERN -- NUR MIT BELEG (07.10.2026).
+//
+// Durchsicht des Editors: mehrere Wege zeigten "gespeichert", ohne zu
+// pruefen, ob die Datenbank eine Zeile geaendert hat. Bei fehlendem Recht
+// (RLS) antwortet sie 200 mit [] oder 204 -- das sah aus wie Erfolg:
+// "ausverkauft" im Dashboard, fuer Gaeste weiter bestellbar.
+//
+// menuSchreiben(): immer return=representation, Erfolg nur mit
+// mindestens einer Zeile zurueck. Ist die Anmeldung abgelaufen, wird sie
+// zuerst erneuert; scheitert das Speichern dann, sagt die Meldung es.
+function menuPreisLesen(text) {
+    var s = String(text == null ? '' : text).replace(/[€\s]/g, '').replace(',', '.');
+    if (!s) return null;
+    var n = Number(s);
+    return isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
+}
+window.menuPreisLesen = menuPreisLesen;
+async function menuSitzungAuffrischen() {
+    if (kmiToken() !== SUPABASE_KEY) return true;
+    try {
+        var c = window.supabaseClient || window.sb;
+        if (c && c.auth && c.auth.refreshSession) {
+            var r = await c.auth.refreshSession();
+            if (r && r.data && r.data.session && typeof kmiTokenSetzen === 'function') kmiTokenSetzen(r.data.session);
+        }
+    } catch (e) {}
+    return kmiToken() !== SUPABASE_KEY;
+}
+function menuKeinRechtText() {
+    return kmiToken() === SUPABASE_KEY ? 'Anmeldung abgelaufen – bitte neu anmelden und nochmal versuchen' : 'keine Berechtigung – nichts gespeichert';
+}
+async function menuSchreiben(pfad, methode, daten) {
+    await menuSitzungAuffrischen();
+    var res = await fetch(SUPA_URL + '/rest/v1/' + pfad, {
+        method: methode,
+        headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+        body: daten === undefined ? undefined : JSON.stringify(daten)
+    });
+    var roh = ''; try { roh = await res.text(); } catch (e) {}
+    var z = null; try { z = roh ? JSON.parse(roh) : null; } catch (e) {}
+    if (!res.ok) throw new Error('Fehler ' + res.status + (z && z.message ? ': ' + z.message : ''));
+    if (!Array.isArray(z) || !z.length) throw new Error(menuKeinRechtText());
+    return z;
+}
+window.menuSchreiben = menuSchreiben;
+// Fuer Stellen mit eigener fetch-Logik: Erfolg nur mit Zeilen zurueck.
+async function menuZeilenOk(res) {
+    if (!res || !res.ok) return false;
+    try { var z = await res.clone().json(); return Array.isArray(z) && z.length > 0; } catch (e) { return false; }
+}
+window.menuZeilenOk = menuZeilenOk;
+
 async function toggleSoldOut(itemId) {
     var item = menuItems.find(function(i) { return i.id === itemId; });
     if (!item) return;
     var newAvail = item.is_available === false ? true : false;
     try {
-        var res = await fetch(SUPA_URL + '/rest/v1/menu_items?id=eq.' + itemId, {
-            method: 'PATCH',
-            headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
-            body: JSON.stringify({ is_available: newAvail })
-        });
-        if (res.ok) {
-            item.is_available = newAvail;
-            renderMenuCategories();
-            showToast(newAvail ? item.name + ' wieder verfügbar' : item.name + ' als ausverkauft markiert', newAvail ? 'success' : 'warning');
-        } else {
-            // Fehlte komplett: ein 400/403 blieb unsichtbar, das Gericht sah im
-            // Dashboard unverändert aus und war für Gäste weiter bestellbar.
-            showToast('Konnte nicht gespeichert werden (Fehler ' + res.status + ') – Gericht ist für Gäste weiter bestellbar', 'error');
-        }
-    } catch(e) { showToast('Fehler: ' + e.message, 'error'); }
+        var z = await menuSchreiben('menu_items?id=eq.' + itemId, 'PATCH', { is_available: newAvail });
+        item.is_available = z[0].is_available !== false;
+        renderMenuCategories();
+        showToast(newAvail ? item.name + ' wieder verfügbar' : item.name + ' als ausverkauft markiert', newAvail ? 'success' : 'warning');
+    } catch(e) {
+        // Vorher reichte res.ok: bei fehlendem Recht kam 200 mit [] -- das
+        // Dashboard zeigte "ausverkauft", Gaeste konnten weiter bestellen.
+        showToast('Nicht gespeichert (' + e.message + ') – ' + (newAvail ? 'Gericht bleibt ausverkauft' : 'Gericht ist für Gäste weiter bestellbar'), 'error');
+    }
 }
 
 function editMenuItem(itemId) {
@@ -76118,7 +76160,9 @@ window.groessenAusMaske = groessenAusMaske;
 async function saveEditedItem(itemId) {
     var name = document.getElementById('editItemName').value.trim();
     var desc = document.getElementById('editItemDesc').value.trim();
-    var price = parseFloat(document.getElementById('editItemPrice').value) || 0;
+    // Vorher: parseFloat(...) || 0 -- ein geleertes oder vertipptes Feld
+    // speicherte das Gericht fuer 0,00 €. "12,50" wurde zu 12.
+    var price = menuPreisLesen(document.getElementById('editItemPrice').value);
     var catId = document.getElementById('editItemCat').value;
     var isVeg = document.getElementById('editItemVeg').checked;
     var isVegan = document.getElementById('editItemVegan').checked;
@@ -76134,6 +76178,9 @@ async function saveEditedItem(itemId) {
     } catch(_e) { editAllergens = []; }
 
     if (!name) { showToast('Name ist Pflichtfeld', 'error'); return; }
+    var _groessen = groessenAusMaske();
+    if (price === null && !(Array.isArray(_groessen) && _groessen.length)) { showToast('Bitte einen gültigen Preis eintragen (z. B. 12,50). 0 nur, wenn es wirklich gratis ist.', 'error'); return; }
+    if (price === null) price = 0;
 
     // Gerichtenummer in additives speichern
     var currentItem = menuItems.find(function(i) { return i.id === itemId; });
@@ -76150,34 +76197,22 @@ async function saveEditedItem(itemId) {
     if (_ohneRoh.length) additives.push('ohne:' + _ohneRoh.join(','));
 
     try {
-        var res = await fetch(SUPA_URL + '/rest/v1/menu_items?id=eq.' + itemId, {
-            method: 'PATCH',
-            headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
-            body: JSON.stringify({
+        var updated = await menuSchreiben('menu_items?id=eq.' + itemId, 'PATCH', {
                 name: name, description: desc, base_price: price, category_id: catId,
                 // Groessen aus der Maske. null = keine, dann gilt base_price.
-                sizes: groessenAusMaske(),
+                sizes: _groessen,
                 is_vegetarian: isVeg, is_vegan: isVegan, is_spicy: scharfWert(isSpicy), is_available: isAvail,
                 daily_limit: dailyLimit,
                 image_url: imageUrl,
                 additives: additives,
                 allergens: editAllergens
-            })
-        });
-        if (res.ok) {
-            var updated = await res.json();
-            if (updated && updated[0]) {
-                var idx = menuItems.findIndex(function(i) { return i.id === itemId; });
-                if (idx >= 0) menuItems[idx] = updated[0];
-            }
-            closeGenericModal();
-            renderMenuCategories();
-            showToast('Gericht gespeichert!', 'success');
-        } else {
-            var err = await res.text();
-            showToast('Fehler: ' + err.substring(0, 80), 'error');
-        }
-    } catch(e) { showToast('Fehler: ' + e.message, 'error'); }
+            });
+        var idx = menuItems.findIndex(function(i) { return i.id === itemId; });
+        if (idx >= 0) menuItems[idx] = updated[0];
+        closeGenericModal();
+        renderMenuCategories();
+        showToast('Gericht gespeichert!', 'success');
+    } catch(e) { showToast('Nicht gespeichert: ' + e.message, 'error'); }
 }
 
 // ==================== GENERIC MODAL ====================
@@ -76327,62 +76362,58 @@ async function applyBulkPrice(type) {
     if (isNaN(value)) { showToast('Bitte Wert eingeben', 'error'); return; }
 
     var items = menuItems.filter(function(i) { return bulkSelectedItems[i.id]; });
-    var updated = 0;
-    var headers = { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json' };
+    var updated = 0, fehlgeschlagen = [], grund = '';
 
     for (var k = 0; k < items.length; k++) {
         var item = items[k];
         var newPrice = calcNewPrice(item.base_price || 0, type, value);
         try {
-            var res = await fetch(SUPA_URL + '/rest/v1/menu_items?id=eq.' + item.id, {
-                method: 'PATCH', headers: headers,
-                body: JSON.stringify({ base_price: newPrice })
-            });
-            if (res.ok) {
-                updated++;
-                var idx = menuItems.findIndex(function(i) { return i.id === item.id; });
-                if (idx >= 0) menuItems[idx].base_price = newPrice;
-            }
-        } catch(e) { console.error('Bulk update:', e); }
+            // Vorher ohne Antwort und nur res.ok: das Dashboard zeigte neue
+            // Preise, die Datenbank behielt die alten.
+            var z = await menuSchreiben('menu_items?id=eq.' + item.id, 'PATCH', { base_price: newPrice });
+            updated++;
+            var idx = menuItems.findIndex(function(i) { return i.id === item.id; });
+            if (idx >= 0) menuItems[idx].base_price = Number(z[0].base_price);
+        } catch(e) { fehlgeschlagen.push(item.name); grund = e.message; }
     }
 
     closeGenericModal();
     bulkSelectedItems = {};
     renderMenuCategories();
     updateBulkCounter();
-    showToast(updated + ' Preise aktualisiert!', 'success');
+    if (fehlgeschlagen.length) showToast(updated + ' Preise geändert, ' + fehlgeschlagen.length + ' NICHT (' + grund + '): ' + fehlgeschlagen.slice(0, 3).join(', ') + (fehlgeschlagen.length > 3 ? ' …' : ''), 'error');
+    else showToast(updated + ' Preise aktualisiert!', 'success');
 }
 
 async function bulkDeleteItems() {
-    // Sicherung zuerst. Über "alle auswählen" ist hier die ganze Karte weg,
-    // und bis hierher gab es dafür kein Zurück.
-    try {
-        await sichereKarte(currentMenuRestaurant || window.currentMenuRestaurant || RESTAURANT_ID,
-                           'Gerichte löschen');
-    } catch (e) {}
     var count = Object.keys(bulkSelectedItems).length;
     if (count === 0) return;
     if (!await kinConfirm(count + ' Gerichte wirklich löschen?')) return;
+    // Sicherung zuerst. Über "alle auswählen" ist hier die ganze Karte weg.
+    // Vorher wurde ein Scheitern der Sicherung verschluckt und trotzdem
+    // geloescht -- jetzt wird gefragt.
+    var gesichert = false;
+    try { gesichert = await sichereKarte(currentMenuRestaurant || window.currentMenuRestaurant, 'Gerichte löschen'); } catch (e) { gesichert = false; }
+    if (!gesichert && !await kinConfirm('Die Sicherung der Karte ist fehlgeschlagen. Ohne Sicherung gibt es kein Zurück. Trotzdem löschen?')) return;
 
-    var headers = { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken() };
-    var deleted = 0;
+    var deleted = 0, fehlgeschlagen = 0, grund = '';
     var ids = Object.keys(bulkSelectedItems);
 
     for (var k = 0; k < ids.length; k++) {
         try {
-            var res = await fetch(SUPA_URL + '/rest/v1/menu_items?id=eq.' + ids[k], { method: 'DELETE', headers: headers });
-            if (res.ok) {
-                deleted++;
-                menuItems = menuItems.filter(function(i) { return i.id !== ids[k]; });
-            }
-        } catch(e) { console.error("Löschen fehlgeschlagen:", ids[k], e); }
+            await menuSchreiben('menu_items?id=eq.' + ids[k], 'DELETE');
+            deleted++;
+            menuItems = menuItems.filter(function(i) { return i.id !== ids[k]; });
+        } catch(e) { fehlgeschlagen++; grund = e.message; }
     }
+    window.menuItems = menuItems;
 
     bulkSelectedItems = {};
     renderMenuCategories();
     updateBulkCounter();
     if (typeof updateMenuStats === 'function') updateMenuStats();
-    showToast(deleted + ' Gerichte gelöscht', 'success');
+    if (fehlgeschlagen) showToast(deleted + ' gelöscht, ' + fehlgeschlagen + ' NICHT gelöscht (' + grund + ')', 'error');
+    else showToast(deleted + ' Gerichte gelöscht', 'success');
 }
 
 // ==================== GROESSEN MANAGER ====================
