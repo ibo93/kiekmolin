@@ -84,7 +84,7 @@ for (let i = 1; i <= 10; i++) gerichte.push({ name:'Pizza '+i, price:7, category
 
 (async () => {
   const f = new Function(...Object.keys(umw), 'GERICHTE',
-    KMI_STUB + 'var scannedMenuItems = GERICHTE;\n' + cut('importScannedMenu')
+    KMI_STUB + cut('menuRestaurantWahl') + '\n' + cut('menuPreisLesen') + '\nvar scannedMenuItems = GERICHTE;\n' + cut('importScannedMenu')
     + '\nreturn importScannedMenu();');
   await f(...Object.values(umw), gerichte);
   console.log('Datenbank kennt diese Spalten nicht: ' + FEHLT.join(', '));

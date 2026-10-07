@@ -81,6 +81,9 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
       if (/supabase\.co\/rest\/v1\/reservations/.test(u)) {
         if (m === 'GET') return json(RES);
         geschrieben.push({ m: m, u: u, body: rt.request().postData() });
+        // Wie die echte Datenbank bis datenbank/40: table_id zeigt noch auf "tables" -> 409 / 23503.
+        if (opt.altFk && m === 'POST' && JSON.parse(rt.request().postData() || '{}').table_id)
+          return json({ code: '23503', details: 'Key is not present in table "tables".', message: 'insert or update on table "reservations" violates foreign key constraint "reservations_table_id_fkey"' }, 409);
         return json(opt.rlsLeer ? [] : [Object.assign({ id: 'neu' }, JSON.parse(rt.request().postData() || '{}'))], 201);
       }
       if (/supabase\.co\/rest\/v1\/orders/.test(u)) return json(ORDERS);
@@ -174,6 +177,30 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
   await p.s.waitForTimeout(800);
   var post = p.geschrieben.filter(function (g) { return g.m === 'POST' && /rest\/v1\/reservations/.test(g.u); });
   pruef('Schnell-Reservierung schickt die echte Tisch-ID (uuid)', post.length === 1 && JSON.parse(post[0].body).table_id === uuid(1), post[0] && post[0].body);
+  pruef('Plan wirft keinen Fehler', !p.fehler.length, p.fehler.join(' | '));
+  await p.ctx.close();
+
+  // ---------- 1a. Alte Tisch-Regel in der Datenbank (gemessen 07.10.2026) ----------
+  p = await seite({ altFk: true });
+  await p.s.evaluate(function (id) { window.tp3.gewaehlt = id; document.getElementById('tp3Bereiche').click(); }, uuid(1));
+  await p.s.evaluate(function (id) { document.querySelector('#tp3Boden .tp3-schild span[data-id="' + id + '"]').click(); }, uuid(1));
+  await p.s.waitForTimeout(200);
+  await p.s.fill('#tp3sName', 'Celina Probe'); await p.s.fill('#tp3sPers', '2');
+  await p.s.evaluate(function () { document.querySelector('#tp3Seite [data-aktion="reservieren"]').click(); });
+  await p.s.waitForTimeout(900);
+  post = p.geschrieben.filter(function (g) { return g.m === 'POST' && /rest\/v1\/reservations/.test(g.u); });
+  var zweiter = post[1] ? JSON.parse(post[1].body) : {};
+  pruef('409 wegen alter Tisch-Regel: zweiter Versuch ohne table_id, Tisch in der Notiz', post.length === 2 && !('table_id' in zweiter) && zweiter.notes === 'Tisch: Tisch 1', JSON.stringify(post.map(function (g) { return g.body; })));
+  var mel = await p.s.evaluate(function () { var m = document.getElementById('tp3Meldung'); return m.className + ' | ' + m.textContent; });
+  pruef('... und sagt es ehrlich (Hinweis mit 40-tisch-zuordnung.sql), kein roter Fehler', /hinweis/.test(mel) && /40-tisch-zuordnung\.sql/.test(mel) && !/fehler/.test(mel), mel);
+  var amTisch = await p.s.evaluate(function (id) {
+    var d = new Date(Date.now() + 10 * 60000), z = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ':00';
+    window.tp3.res.push({ id: 'nur-notiz', guest_name: 'Celina Probe', party_size: 2, reservation_time: z, status: 'confirmed', table_id: null, notes: 'Tisch: Tisch 1' });
+    window.tp3.gewaehlt = null; document.getElementById('tp3Jetzt').click();
+    var sch = document.querySelector('#tp3Boden .tp3-schild span[data-id="' + id + '"]'); sch = sch && sch.closest('.tp3-schild');
+    return sch ? sch.className : '(kein Schild)';
+  }, uuid(1));
+  pruef('Reservierung nur mit "Tisch: Tisch 1" in der Notiz steht im Plan an Tisch 1', /\bres\b/.test(amTisch), amTisch);
   pruef('Plan wirft keinen Fehler', !p.fehler.length, p.fehler.join(' | '));
   await p.ctx.close();
 

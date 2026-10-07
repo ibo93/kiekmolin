@@ -4449,54 +4449,14 @@
         .dark-mode .leaflet-control-attribution { background: rgba(0,37,30,0.6); color: #9fb3ad; }
         .dark-mode .leaflet-control-attribution a { color: #7fc4b4; }
 
-        /* Fullscreen Map Card — Mobile kompakter */
+        /* Fullscreen Map Card -- auf dem Handy nur die Lage. Die alten
+           Regeln hier setzten Schrift auf 9-10 px (unlesbar); die Karte nach
+           dem Entwurf (07.10.2026) bringt ihre Groessen selbst mit (.kn-karte). */
         @media (max-width: 640px) {
             #fullscreenMapCard {
                 bottom: 96px !important;
                 width: calc(100% - 24px) !important;
                 max-width: 100% !important;
-            }
-            #fullscreenMapCardInner {
-                padding: 12px !important;
-                gap: 12px !important;
-                border-radius: 28px !important;
-            }
-            #mapCardImage {
-                width: 88px !important;
-                height: 88px !important;
-                border-radius: 20px !important;
-            }
-            #mapCardRatingBadge {
-                top: 6px !important;
-                left: 6px !important;
-                padding: 3px 8px !important;
-                font-size: 9px !important;
-            }
-            #mapCardName {
-                font-size: 16px !important;
-            }
-            #mapCardMeta {
-                font-size: 9px !important;
-                margin-top: 2px !important;
-            }
-            #mapCardDesc {
-                font-size: 11px !important;
-                -webkit-line-clamp: 2 !important;
-            }
-            #fullscreenMapCardInner > div:last-child {
-                gap: 8px !important;
-            }
-            #mapCardReserveBtn, #mapCardOrderBtn {
-                padding: 10px 8px !important;
-                font-size: 10px !important;
-                letter-spacing: 0.08em !important;
-            }
-            #mapCardShareBtn {
-                width: 36px !important;
-                height: 36px !important;
-            }
-            #mapCardFav {
-                font-size: 20px !important;
             }
         }
 
@@ -11705,6 +11665,28 @@
             background: var(--primary);
             color: white;
         }
+        /* iPad (07.10.2026): gemessen 49 von 64 Bedienelementen unter 44 px;
+           Bearbeiten und Loeschen je 32 px, 6 px auseinander. */
+        #sectionSpeisekarte .menu-item-btn, #sectionSpeisekarte .menu-category-btn { width: 44px; height: 44px; min-width: 44px; }
+        #sectionSpeisekarte .menu-item-btn .material-symbols-outlined, #sectionSpeisekarte .menu-category-btn .material-symbols-outlined { font-size: 20px !important; }
+        #sectionSpeisekarte .menu-item-actions, #sectionSpeisekarte .menu-category-actions { gap: 8px; }
+        #sectionSpeisekarte .menu-item-btn.delete, #sectionSpeisekarte .menu-category-btn.delete { margin-left: 14px; }
+        #sectionSpeisekarte .bulk-action-btn, #bulkActionsBar button { min-height: 44px; }
+        /* Namensgleiche Regel der GAESTE-Karte (.menu-item-image: min-height 192px,
+           .menu-item-info: padding 20px) galt auch hier -- jede Zeile wurde ~190 px hoch. */
+        #sectionSpeisekarte .menu-item-image { width: 56px; height: 56px; min-height: 56px; flex-shrink: 0; border-radius: 16px; }
+        #sectionSpeisekarte .menu-item-info { padding: 0; }
+        @media (max-width: 760px) {
+            #sectionSpeisekarte .menu-item-row { flex-wrap: wrap; }
+            #sectionSpeisekarte .menu-item-actions { width: 100%; justify-content: flex-end; padding-top: 8px; }
+        }
+        .menu-suche { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; padding: 0 16px; min-height: 52px; border-radius: 9999px; background: #ffffff; border: 1px solid #b9c3bf; }
+        .menu-suche input { flex: 1; min-width: 0; border: 0 !important; outline: none; background: transparent !important; font: 500 16px Inter, sans-serif; color: var(--ink-deep); height: 48px; }
+        .menu-suche .material-symbols-outlined { color: #404946; }
+        .menu-suche small { font: 600 13px Inter, sans-serif; color: #404946; white-space: nowrap; }
+        .dark-mode .menu-suche { background: #1a1d1c; border-color: #535b58; }
+        .dark-mode .menu-suche input { color: #f3f4f4; }
+        .dark-mode .menu-suche .material-symbols-outlined, .dark-mode .menu-suche small { color: #c9cfcd; }
 
         .menu-item-btn.delete:hover {
             background: #ef4444;
@@ -14230,6 +14212,128 @@
 
     </style>
 <style>
+/* FELDER SICHTBAR (07.10.2026) -----------------------------------------
+   Ibo, Foto vom Handy: beim Reservieren sah man Name, Telefon, E-Mail,
+   Uhrzeiten und Gaestezahl nicht -- weiss auf weiss. Der Glas-Umbau hat
+   Fenster und Dashboard-Karten deckend gemacht; Felder und Knoepfe darin
+   blieben halb durchsichtig weiss (frueher schimmerte der Hintergrund
+   durch). Gemessen mit werkzeug/felder-messen.js.
+   Hier bekommt jedes Feld eine eigene Flaeche und einen Rand, und jeder
+   Knopf mit halb durchsichtig weisser Flaeche eine sichtbare. Nur in
+   Fenstern und im Dashboard -- ueber Fotos bleibt das Glas.
+   Gewaehlte Zustaende (dunkelgruen, gold) sind nicht weiss und bleiben. */
+:is(html, #kmi-feld) body:not(.dark-mode) :is(.modal, .modal-content, .dashboard-view) :is(.form-input, .form-select, .form-textarea, select, textarea, input[type="text"], input[type="tel"], input[type="email"], input[type="number"], input[type="search"], input[type="password"], input[type="date"], input[type="time"]):not([style*="color:white"]):not([style*="color: white"]):not([style*="color:#fff"]):not([style*="color: #fff"]):not([style*="background:transparent"]):not([style*="background: transparent"]) {
+    background-color: #f4f6f5 !important; background-image: none !important;
+    border: 1px solid #b9c3bf !important;
+    backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+}
+:is(html, #kmi-feld) body:not(.dark-mode) :is(.modal, .modal-content, .dashboard-view) :is(.form-input, .form-select, .form-textarea, select, textarea, input):focus {
+    border-color: #003d33 !important; background-color: #ffffff !important;
+}
+:is(html, #kmi-feld) body:not(.dark-mode) :is(.modal, .modal-content, .dashboard-view) :is(button, [role="button"]):is([style*="background:rgba(255,255,255,0.3)"], [style*="background: rgba(255,255,255,0.3)"], [style*="background:rgba(255,255,255,0.35)"], [style*="background: rgba(255,255,255,0.35)"], [style*="background:rgba(255,255,255,0.4)"], [style*="background: rgba(255,255,255,0.4)"], [style*="background:rgba(255,255,255,0.45)"], [style*="background: rgba(255,255,255,0.45)"], [style*="background:rgba(255,255,255,0.5)"], [style*="background: rgba(255,255,255,0.5)"], [style*="background:rgba(255,255,255,0.55)"], [style*="background: rgba(255,255,255,0.55)"], [style*="background:rgba(255,255,255,0.6)"], [style*="background: rgba(255,255,255,0.6)"], [style*="background:rgba(255,255,255,0.65)"], [style*="background: rgba(255,255,255,0.65)"], [style*="background:rgba(255,255,255,0.7)"], [style*="background: rgba(255,255,255,0.7)"], [style*="background:rgba(255,255,255,0.75)"], [style*="background: rgba(255,255,255,0.75)"], [style*="background:rgba(255,255,255,0.8)"], [style*="background: rgba(255,255,255,0.8)"], [style*="background:rgba(255,255,255,0.85)"], [style*="background: rgba(255,255,255,0.85)"], [style*="background:rgba(255,255,255,0.9)"], [style*="background: rgba(255,255,255,0.9)"]),
+:is(html, #kmi-feld) body:not(.dark-mode) #reservationModal :is(.slot-btn:not(.selected), .modal-close) {
+    background: #e9edeb !important;
+    outline: 1px solid #ccd5d1 !important; outline-offset: -1px;
+    backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+}
+:is(html, #kmi-feld) body.dark-mode :is(.modal, .modal-content, .dashboard-view) :is(.form-input, .form-select, .form-textarea, select, textarea, input[type="text"], input[type="tel"], input[type="email"], input[type="number"], input[type="search"], input[type="password"], input[type="date"], input[type="time"]):not([style*="background:transparent"]):not([style*="background: transparent"]) {
+    background-color: #262a29 !important; background-image: none !important;
+    border: 1px solid #535b58 !important; color: #f3f4f4 !important;
+    backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+}
+:is(html, #kmi-feld) body.dark-mode :is(.modal, .modal-content, .dashboard-view) :is(.form-input, .form-select, .form-textarea, select, textarea, input):focus {
+    border-color: #9cd1c3 !important;
+}
+:is(html, #kmi-feld) body.dark-mode :is(.modal, .modal-content, .dashboard-view) :is(button, [role="button"]):is([style*="background:rgba(255,255,255,0.3)"], [style*="background: rgba(255,255,255,0.3)"], [style*="background:rgba(255,255,255,0.35)"], [style*="background: rgba(255,255,255,0.35)"], [style*="background:rgba(255,255,255,0.4)"], [style*="background: rgba(255,255,255,0.4)"], [style*="background:rgba(255,255,255,0.45)"], [style*="background: rgba(255,255,255,0.45)"], [style*="background:rgba(255,255,255,0.5)"], [style*="background: rgba(255,255,255,0.5)"], [style*="background:rgba(255,255,255,0.55)"], [style*="background: rgba(255,255,255,0.55)"], [style*="background:rgba(255,255,255,0.6)"], [style*="background: rgba(255,255,255,0.6)"], [style*="background:rgba(255,255,255,0.65)"], [style*="background: rgba(255,255,255,0.65)"], [style*="background:rgba(255,255,255,0.7)"], [style*="background: rgba(255,255,255,0.7)"], [style*="background:rgba(255,255,255,0.75)"], [style*="background: rgba(255,255,255,0.75)"], [style*="background:rgba(255,255,255,0.8)"], [style*="background: rgba(255,255,255,0.8)"], [style*="background:rgba(255,255,255,0.85)"], [style*="background: rgba(255,255,255,0.85)"], [style*="background:rgba(255,255,255,0.9)"], [style*="background: rgba(255,255,255,0.9)"]),
+:is(html, #kmi-feld) body.dark-mode #reservationModal :is(.slot-btn:not(.selected), .modal-close) {
+    background: #2b302e !important; color: #f3f4f4 !important;
+    outline: 1px solid #464e4b !important; outline-offset: -1px;
+    backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+}
+
+/* KARTE NACH DEM ENTWURF (07.10.2026) ---------------------------------
+   Claude Design "Die Karte - sechs Ideen". Nadel in Tropfenform: das
+   Zeichen zeigt die Art, die Farbe den Zustand -- nie nur die Farbe.
+   Ohne Schatten (Ibo). Tippflaeche mindestens 44 x 44. */
+.kn-nadel { position: relative; width: 44px; height: 52px; cursor: pointer; }
+.kn-tropfen { position: absolute; left: 50%; top: 6px; width: 36px; height: 36px; margin-left: -18px; box-sizing: border-box; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: #003d33; border: 2.5px solid #ffffff; display: flex; align-items: center; justify-content: center; color: #ffffff; }
+.kn-tropfen > * { transform: rotate(45deg); }
+.kn-tropfen .material-symbols-outlined { font-size: 18px; color: inherit; }
+.kn-tropfen svg { width: 18px; height: 18px; display: block; }
+.kn-nadel.aktion .kn-tropfen { background: #fed65b; color: #00251e; border-color: #ffffff; }
+.kn-nadel.zu .kn-tropfen { width: 26px; height: 26px; margin-left: -13px; top: 16px; background: #8a9692; border-width: 2px; }
+.kn-nadel.zu .kn-tropfen .material-symbols-outlined, .kn-nadel.zu .kn-tropfen svg { font-size: 14px; width: 14px; height: 14px; }
+.kn-nadel.unbekannt .kn-tropfen { background: #5f6b68; }
+.dark-mode .kn-nadel.aktion .kn-tropfen { background: #fed65b; color: #00251e; } /* Gold bleibt Gold */
+.kn-nadel.gewaehlt .kn-tropfen { width: 46px; height: 46px; margin-left: -23px; top: -4px; border: 3px solid #fed65b; }
+.kn-nadel.gewaehlt.aktion .kn-tropfen { border-color: #00251e; }
+.kn-schild { position: absolute; left: 38px; top: 10px; white-space: nowrap; background: #ffffff; color: #191c1d; font: 700 12px Inter, sans-serif; line-height: 1; padding: 6px 9px; border-radius: 9999px; border: 1px solid rgba(0,37,30,0.18); pointer-events: none; }
+.kn-schild.aktion { background: #fed65b; color: #00251e; border-color: #d9b23a; }
+.kn-nadel.gewaehlt .kn-schild { left: 44px; top: 6px; font-size: 13px; }
+.kn-ohne-schilder .kn-schild { display: none; }
+.dark-mode .kn-schild { background: #1a1d1c; color: #f3f4f4; border-color: rgba(255,255,255,0.22); }
+.dark-mode .kn-schild.aktion { background: #fed65b; color: #00251e; border-color: #d9b23a; } /* Gold bleibt Gold: es heisst Aktion */
+.kn-ich { width: 18px; height: 18px; border-radius: 50%; background: #2563eb; border: 3px solid #ffffff; box-sizing: border-box; outline: 6px solid rgba(37,99,235,0.22); }
+
+/* Ueber der Karte deckend statt Glas: im Abendmodus liegt hellgraues Glas
+   auf dunklen Kacheln, die Suche war darauf kaum lesbar (gemessen). */
+#fullscreenMapModal div:has(> #mapSearchInput) { background: #ffffff !important; border: 1px solid rgba(0,37,30,0.18) !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; box-shadow: none !important; }
+#fullscreenMapModal button[onclick="centerOnUserLocation()"], #fullscreenMapModal button[onclick="toggleMapStyle()"] { background: #ffffff !important; border: 1px solid rgba(0,37,30,0.18) !important; color: #00251e !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; box-shadow: none !important; }
+#fullscreenMapModal #mapSearchInput { color: #191c1d !important; }
+#fullscreenMapModal #mapSearchInput::placeholder { color: #5f6b68; opacity: 1; }
+.dark-mode #fullscreenMapModal div:has(> #mapSearchInput) { background: #1a1d1c !important; border-color: rgba(255,255,255,0.22) !important; }
+.dark-mode #fullscreenMapModal button[onclick="centerOnUserLocation()"], .dark-mode #fullscreenMapModal button[onclick="toggleMapStyle()"] { background: #1a1d1c !important; border-color: rgba(255,255,255,0.22) !important; color: #f3f4f4 !important; }
+.dark-mode #fullscreenMapModal #mapSearchInput { color: #f3f4f4 !important; }
+.dark-mode #fullscreenMapModal #mapSearchInput::placeholder { color: #a9b2af; }
+.kn-leiste { position: fixed; top: 140px; left: 50%; transform: translateX(-50%); width: 92%; max-width: 600px; z-index: 1020; display: flex; flex-direction: column; gap: 8px; }
+.kn-chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+.kn-chips::-webkit-scrollbar { display: none; }
+.kn-chips button { flex-shrink: 0; height: 40px; padding: 0 14px; border-radius: 9999px; border: 1px solid rgba(0,37,30,0.18); background: #ffffff; color: #191c1d; font: 600 14px Inter, sans-serif; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.kn-chips button i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.kn-chips button[aria-pressed="true"] { background: #003d33; color: #ffffff; border-color: #003d33; font-weight: 700; }
+.kn-zeit { background: #ffffff; border: 1px solid rgba(0,37,30,0.18); border-radius: 22px; padding: 10px 16px 4px; }
+.kn-zeit-kopf { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.kn-zeit-kopf b { font-family: Epilogue, sans-serif; font-size: 17px; font-weight: 800; color: #00251e; }
+.kn-zeit-kopf span { font-size: 13px; font-weight: 600; color: #404946; white-space: nowrap; }
+.kn-zeit input[type="range"] { width: 100%; height: 34px; margin: 0; accent-color: #003d33; cursor: pointer; }
+.dark-mode .kn-chips button { background: #1a1d1c; color: #f3f4f4; border-color: rgba(255,255,255,0.22); }
+.dark-mode .kn-chips button[aria-pressed="true"] { background: #b8eddf; color: #00251e; border-color: #b8eddf; }
+.dark-mode .kn-zeit { background: #1a1d1c; border-color: rgba(255,255,255,0.22); }
+.dark-mode .kn-zeit-kopf b { color: #b8eddf; } .dark-mode .kn-zeit-kopf span { color: #c9cfcd; }
+.dark-mode .kn-zeit input[type="range"] { accent-color: #b8eddf; }
+
+.kn-karte { background: #ffffff; border: 1px solid rgba(0,37,30,0.14); border-radius: 28px; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.kn-karte-kopf { display: flex; gap: 14px; align-items: flex-start; }
+.kn-bild { width: 84px; height: 84px; border-radius: 16px; overflow: hidden; flex-shrink: 0; background: #003d33; position: relative; display: flex; align-items: center; justify-content: center; }
+.kn-bild img { width: 100%; height: 100%; object-fit: cover; }
+.kn-bild b { font: 900 34px Epilogue, sans-serif; color: #fed65b; }
+.kn-karte-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.kn-karte-name { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.kn-karte-name h2 { margin: 0; font: 800 20px/1.15 Epilogue, sans-serif; color: #00251e; letter-spacing: -0.02em; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.kn-karte-name button { width: 40px; height: 40px; flex-shrink: 0; margin: -6px -6px 0 0; border: 0; border-radius: 50%; background: transparent; color: #8a5a00; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.kn-karte-text p { margin: 0; font-size: 13px; color: #404946; }
+.kn-fakten { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.kn-fakt { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 9999px; background: #edeeef; color: #191c1d; font: 700 12px Inter, sans-serif; }
+.kn-fakt i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.kn-fakt.offen { background: #dcfce7; color: #166534; }
+.kn-fakt.zu { background: #fef2f2; color: #b91c1c; }
+.kn-aktion { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 14px; background: #fff4cc; color: #5c4600; font: 700 13px Inter, sans-serif; }
+.kn-aktion[hidden] { display: none; }
+.kn-knoepfe { display: flex; gap: 8px; }
+.kn-knoepfe button { height: 48px; border-radius: 9999px; font: 700 14px Inter, sans-serif; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.kn-knoepfe .haupt { flex: 1; background: #00251e; color: #ffffff; border: 0; }
+.kn-knoepfe .neben { flex: 1; background: #ffffff; color: #00251e; border: 1px solid rgba(0,37,30,0.25); }
+.kn-knoepfe .rund { width: 48px; flex-shrink: 0; background: #ffffff; color: #00251e; border: 1px solid rgba(0,37,30,0.25); }
+.dark-mode .kn-karte { background: #1a1d1c; border-color: rgba(255,255,255,0.18); }
+.dark-mode .kn-karte-name h2 { color: #f3f4f4; } .dark-mode .kn-karte-text p { color: #c9cfcd; }
+.dark-mode .kn-karte-name button { color: #fed65b; }
+.dark-mode .kn-fakt { background: #262a29; color: #f3f4f4; }
+.dark-mode .kn-fakt.offen { background: #12321f; color: #86efac; }
+.dark-mode .kn-fakt.zu { background: #3b1414; color: #fecaca; }
+.dark-mode .kn-aktion { background: #3a2f0b; color: #fde68a; }
+.dark-mode .kn-knoepfe .haupt { background: #b8eddf; color: #00251e; }
+.dark-mode .kn-knoepfe .neben, .dark-mode .kn-knoepfe .rund { background: #1a1d1c; color: #f3f4f4; border-color: rgba(255,255,255,0.25); }
+
 /* KLEINE MOMENTE (06.10.2026) ------------------------------------------
    1. Knoepfe geben beim Druecken leicht nach, wie bei iOS. Mit der Eigen-
       schaft "scale" statt "transform": sie verrechnet sich mit vorhandenen
@@ -14243,6 +14347,27 @@
     .kmi-haken-auf { animation: kmiStempelAuf 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
 }
 @keyframes kmiStempelAuf { 0% { transform: scale(0.2); opacity: 0; } 70% { transform: scale(1.18); opacity: 1; } 100% { transform: scale(1); } }
+/* DANKE-BILDSCHIRM: Bestellstand als Balken + ein Satz (Entwurf "Stempel").
+   Die alte Leiste hatte 10-px-Beschriftungen mit 40 % Deckkraft. */
+#orderTrackerCard { text-align: left; padding: 14px 16px !important; border-radius: 22px; background: #f3f4f5 !important; border: none !important; }
+.oc-stand-titel { font-size: 12px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #5f6b68; margin-bottom: 10px; }
+#orderStatusTracker { gap: 6px; background: transparent !important; border: 0 !important; padding: 0 !important; }
+#orderStatusTracker .status-step { display: block !important; height: 6px; border-radius: 9999px; background: #c0c8c4; }
+#orderStatusTracker .status-step.active, #orderStatusTracker .status-step.erreicht { background: #003d33; }
+#orderStatusTracker.storniert .status-step { background: #dc2626; }
+#orderStatusTracker .status-icon, #orderStatusTracker .status-connector { display: none !important; }
+#orderStatusTracker .status-step::before, #orderStatusTracker .status-step::after { display: none !important; }
+#orderStatusTracker .status-label { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* Der gelbe/gruene Kasten darunter sagte dasselbe noch einmal -- der Satz unter den Balken reicht. */
+#orderConfirmationModal #liveStatusBanner { display: none !important; }
+.oc-stand-satz { margin: 10px 0 0; font-size: 15px; font-weight: 700; color: #191c1d; }
+.dark-mode #orderTrackerCard { background: #1f2624 !important; }
+.dark-mode .oc-stand-titel { color: #a9b5b1; }
+.dark-mode #orderStatusTracker .status-step { background: #3c4744; }
+.dark-mode #orderStatusTracker .status-step.active, .dark-mode #orderStatusTracker .status-step.erreicht { background: #7fd6bf; }
+.dark-mode #orderTrackerCard .oc-stand-satz { color: #e8eeec !important; }
+.dark-mode #orderStatusTracker.storniert .status-step, .dark-mode #orderStatusTracker.storniert .status-step.erreicht { background: #f87171; }
+#orderStatusTracker.storniert .status-step.erreicht, #orderStatusTracker.storniert .status-step.active { background: #dc2626; }
 .kmi-stempel-moment { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 18px; border-radius: 28px; background: #003d33; color: #ffffff; text-align: center; }
 .kmi-stempel-kopf { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .kmi-stempel-kopf span { display: flex; align-items: center; gap: 8px; font-family: Epilogue, sans-serif; font-size: 17px; font-weight: 800; color: #ffffff; }
@@ -17206,18 +17331,10 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
 
                     try {
                         // Reservierungen laden mit Tisch-Join - Restaurant-Filter wenn vorhanden
-                        var url = SUPABASE_URL + '/rest/v1/reservations?select=*,tables:table_id(id,table_number,seats)&order=reservation_date.asc,reservation_time.asc';
-                        if (window.resCurrentRestaurant) {
-                            url += '&restaurant_id=eq.' + window.resCurrentRestaurant;
-                        }
-
-
-                        var response = await fetch(url, {
-                            headers: {
-                                'apikey': SUPABASE_KEY,
-                                'Authorization': 'Bearer ' + kmiToken()
-                            }
-                        });
+                        var _rf = window.resCurrentRestaurant ? '&restaurant_id=eq.' + window.resCurrentRestaurant : '';
+                        var response = await resMitTischLaden(function (sel) {
+                            return SUPABASE_URL + '/rest/v1/reservations?select=' + sel + '&order=reservation_date.asc,reservation_time.asc' + _rf;
+                        }, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() } });
 
                         if (response.ok) {
                             var data = await response.json();
@@ -18597,7 +18714,10 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 // ---------- Zustand zu einem Zeitpunkt ----------
                 function zeitpunkt() { return tp.zeit === 'jetzt' ? jetztMin() : minuten(tp.zeit); }
                 function istJetzt() { return tp.zeit === 'jetzt' && tp.datum === heute(); }
-                function resFuerTisch(t) { return tp.res.filter(function (r) { return String(r.table_id || '') === String(t.id); }); }
+                // "Tisch: <Name>" in der Notiz = Reservierung, die ohne table_id
+                // gespeichert werden musste (siehe reservieren()).
+                function tischNotiz(t) { return 'Tisch: ' + t.name; }
+                function resFuerTisch(t) { return tp.res.filter(function (r) { return String(r.table_id || '') === String(t.id) || (!r.table_id && String(r.notes || '').indexOf(tischNotiz(t)) === 0); }); }
                 function zustand(t) {
                     var T = zeitpunkt(), z = { art: 'frei', text: 'frei' };
                     var rs = resFuerTisch(t), aktiv = null;
@@ -19036,12 +19156,29 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     if (!zeit || !pers) { melden('Bitte Uhrzeit und Personen eintragen.', 'fehler'); return; }
                     var a = minuten(zeit), konflikt = resFuerTisch(t).find(function (r) { var b = minuten(r.reservation_time), e = b + (+r.duration_minutes || 120); return a < e && b < a + 120; });
                     if (konflikt) { melden(t.name + ' ist um ' + String(konflikt.reservation_time).slice(0, 5) + ' schon für ' + (konflikt.guest_name || 'einen Gast') + ' reserviert.', 'fehler'); return; }
-                    try {
-                        var r = await sbWrite(SUPABASE_URL + '/rest/v1/reservations', { method: 'POST', headers: kopf({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }),
-                            body: JSON.stringify({ restaurant_id: tp.rid, reservation_date: tp.datum, reservation_time: zeit, guest_name: name, guest_phone: tel || null, party_size: pers, table_id: t.id, status: 'confirmed', source: 'dashboard' }) });
+                    // TISCH-ZUORDNUNG (07.10.2026, gemessen in postgres_logs):
+                    // reservations.table_id verweist in der Datenbank noch auf die
+                    // ALTE Tabelle "tables", der Plan liest aber restaurant_tables.
+                    // Jede Reservierung mit Tisch scheiterte mit 409 (23503).
+                    // Bis datenbank/40-tisch-zuordnung.sql eingespielt ist: ohne
+                    // table_id speichern, der Tisch steht in der Notiz -- und der
+                    // Plan zeigt die Reservierung trotzdem an diesem Tisch.
+                    var daten = { restaurant_id: tp.rid, reservation_date: tp.datum, reservation_time: zeit, guest_name: name, guest_phone: tel || null, party_size: pers, table_id: t.id, status: 'confirmed', source: 'dashboard' };
+                    async function schreiben(d) {
+                        var r = await sbWrite(SUPABASE_URL + '/rest/v1/reservations', { method: 'POST', headers: kopf({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }), body: JSON.stringify(d) });
                         var z = await r.json().catch(function () { return []; });
                         if (!Array.isArray(z) || !z.length) throw new Error('die Datenbank hat die Reservierung nicht angenommen');
-                        melden('');
+                        return z;
+                    }
+                    try {
+                        var ohneTisch = false;
+                        try { await schreiben(daten); }
+                        catch (e1) {
+                            if (!/reservations_table_id_fkey|23503/.test(String(e1 && e1.message))) throw e1;
+                            delete daten.table_id; daten.notes = tischNotiz(t);
+                            await schreiben(daten); ohneTisch = true;
+                        }
+                        melden(ohneTisch ? 'Reserviert – aber noch ohne feste Tischzuordnung in der Datenbank (der Tisch steht in der Notiz, der Plan zeigt sie trotzdem hier). Damit es fest gespeichert wird: datenbank/40-tisch-zuordnung.sql in Supabase einspielen.' : '', ohneTisch ? 'hinweis' : undefined);
                         if (typeof showToast === 'function') showToast('Reserviert: ' + esc(name) + ', ' + zeit + ', ' + esc(t.name), 'success');
                         if (typeof window.resLoadReservations === 'function') try { window.resLoadReservations(); } catch (x) {}
                         await laden();
@@ -21235,7 +21372,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 <!-- KOHLE-RUF FUER SHISHA-BARS (seit 06.10.2026). Positives Flag
                      wie die Vorbestellung: aus, bis der Wirt es einschaltet.
                      Eine Pizzeria soll ihren Gaesten keinen Kohle-Knopf zeigen. -->
-                <div style="margin-top: 14px; padding: 16px 20px; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3);">
+                <div id="kohleRufBox" style="margin-top: 14px; padding: 16px 20px; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3);">
                     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
                         <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">
                             <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">local_fire_department</span>
@@ -21250,7 +21387,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                      Zutritt (Jugendschutzgesetz §10). Der Schalter sagt es dem
                      Gast VOR dem Weg -- die Ausweiskontrolle an der Tuer
                      ersetzt er nicht. Siehe abAchtzehn(). -->
-                <div style="margin-top: 14px; padding: 16px 20px; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3);">
+                <div id="abAchtzehnBox" style="margin-top: 14px; padding: 16px 20px; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3);">
                     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
                         <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">
                             <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">badge</span>
@@ -21629,8 +21766,9 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     fetch(SUPA_URL + '/rest/v1/menu_categories?restaurant_id=eq.' + restaurantId + '&order=sort_order', {
                         headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken() }
                     })
-                    .then(function(res) { return res.json(); })
+                    .then(function(res) { if (!res.ok) throw new Error('Kategorien: Fehler ' + res.status); return res.json(); })
                     .then(function(cats) {
+                        if (!Array.isArray(cats)) throw new Error('Kategorien: unerwartete Antwort');
                         if (typeof menuCategories !== 'undefined') {
                             menuCategories = cats || [];
                             window.menuCategories = menuCategories;
@@ -21641,8 +21779,9 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken() }
                         });
                     })
-                    .then(function(res) { return res.json(); })
+                    .then(function(res) { if (!res.ok) throw new Error('Gerichte: Fehler ' + res.status); return res.json(); })
                     .then(function(items) {
+                        if (!Array.isArray(items)) throw new Error('Gerichte: unerwartete Antwort');
                         if (typeof menuItems !== 'undefined') {
                             menuItems = items || [];
                             window.menuItems = menuItems;
@@ -21658,7 +21797,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         if (typeof allergenLueckenZaehlen === 'function') {
                             allergenLueckenZaehlen();
                         }
-
+                        if (typeof ladeStandSetzen === 'function') ladeStandSetzen('speisekarte', true);
                     })
                     .catch(function(err) {
                         console.error('Fehler beim Laden:', err);
@@ -21673,6 +21812,9 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         if (typeof renderMenuCategories === 'function') renderMenuCategories();
                         if (typeof updateMenuStats === 'function') updateMenuStats();
                         if (typeof showToast === 'function') showToast('Fehler beim Laden der Speisekarte', 'error');
+                        // Bleibt stehen (nicht nur ein Toast, der verschwindet), mit
+                        // neuem Versuch alle 15 s und "Nochmal"-Knopf.
+                        if (typeof ladeStandSetzen === 'function') ladeStandSetzen('speisekarte', false, err && err.message, function () { if (typeof menuNeuLaden === 'function') menuNeuLaden(); });
                     });
                 });
                 </script>
@@ -21745,6 +21887,8 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             <button class="bulk-action-btn" onclick="openBulkPriceModal('subtract')" style="padding:8px 14px;background:#f59e0b;color:white;border:none;border-radius:9999px;font-size:13px;font-weight:600;cursor:pointer;">− Betrag</button>
                             <button class="bulk-action-btn" onclick="openBulkPriceModal('percent')" style="padding:8px 14px;background:#3b82f6;color:white;border:none;border-radius:9999px;font-size:13px;font-weight:600;cursor:pointer;">% Prozent</button>
                             <button class="bulk-action-btn" onclick="openBulkPriceModal('set')" style="padding:8px 14px;background:#8b5cf6;color:white;border:none;border-radius:9999px;font-size:13px;font-weight:600;cursor:pointer;">= Preis setzen</button>
+                            <button class="bulk-action-btn" onclick="bulkVerfuegbar(false)" style="padding:8px 14px;background:#00251e;color:white;border:none;border-radius:9999px;font-size:13px;font-weight:600;cursor:pointer;">Heute ausverkauft</button>
+                            <button class="bulk-action-btn" onclick="bulkVerfuegbar(true)" style="padding:8px 14px;background:#15803d;color:white;border:none;border-radius:9999px;font-size:13px;font-weight:600;cursor:pointer;">Wieder verfügbar</button>
                             <button class="bulk-action-btn" onclick="bulkDeleteItems()" style="padding:8px 14px;background:#ef4444;color:white;border:none;border-radius:9999px;font-size:13px;font-weight:600;cursor:pointer;"><span class="material-symbols-outlined" style="font-size:16px;">delete</span> Löschen</button>
                         </div>
                     </div>
@@ -21770,7 +21914,8 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 });
                 document.getElementById('addMenuItemBtn2').addEventListener('click', async function() {
 
-                    var restaurantId = currentMenuRestaurant || window.currentMenuRestaurant || RESTAURANT_ID;
+                    var restaurantId = menuRestaurantWahl();
+                    if (!restaurantId) { showToast('Bitte zuerst oben ein Restaurant wählen', 'error'); return; }
 
                     var catSelect = document.getElementById('menuItemCategory');
                     catSelect.innerHTML = '<option value="">Lädt Kategorien...</option>';
@@ -21795,11 +21940,15 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                                 catSelect.appendChild(opt);
                             });
                         } else {
-                            catSelect.innerHTML = '<option value="' + KATEGORIE_ID + '">Vorspeisen</option>';
+                            // Frueher: eine fest eingebaute Kategorie-ID ("Vorspeisen")
+                            // eines ANDEREN Lokals. Jetzt: leer -- beim Speichern legt
+                            // saveMenuItem selbst "Sonstige" fuer DIESES Lokal an.
+                            catSelect.innerHTML = '<option value="">Noch keine Kategorie – wird als „Sonstige“ angelegt</option>';
                         }
                     } catch(e) {
                         console.error('Fehler:', e);
-                        catSelect.innerHTML = '<option value="' + KATEGORIE_ID + '">Vorspeisen</option>';
+                        catSelect.innerHTML = '<option value="">Kategorien nicht geladen – bitte Fenster schließen und neu öffnen</option>';
+                        showToast('Kategorien konnten nicht geladen werden: ' + e.message, 'error');
                     }
 
                     var modal = document.getElementById('addMenuItemModal');
@@ -21839,6 +21988,14 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     </div>
                 </div>
 
+                <!-- Lade-Stand wie bei den Bestellungen: "Zuletzt geprüft" bzw. rote Zeile.
+                     Eine leere Karte sieht sonst aus wie "noch keine Gerichte". -->
+                <div data-ladestand="speisekarte"></div>
+                <!-- Suche (07.10.2026): bei 80+ Gerichten musste jede Kategorie einzeln aufgeklappt werden. -->
+                <label class="menu-suche"><span class="material-symbols-outlined" aria-hidden="true">search</span>
+                    <input type="search" id="menuSuche" placeholder="Gericht suchen – Name, Nummer oder Zutat" aria-label="Gericht suchen" autocomplete="off" style="background:transparent;">
+                    <small id="menuSucheTreffer"></small>
+                </label>
                 <!-- Menu Categories List -->
                 <div id="menuCategoriesList">
                     <!-- Wird dynamisch gefüllt -->
@@ -30519,6 +30676,27 @@ function generateReservationSlots(restaurantId, datum) {
 // Liefert IMMER ein Objekt. Wichtig ist das Feld "ok": bei einer
 // Stoerung darf die Anzeige NICHT "alles frei" schliessen, sonst bucht
 // der Gast auf einen besetzten Tisch.
+// TISCH ZUR RESERVIERUNG MITLESEN (07.10.2026).
+// Drei Abfragen lasen den Tisch ueber die Verknuepfung table_id -> "tables"
+// mit. datenbank/40-tisch-zuordnung.sql stellt sie auf restaurant_tables
+// um; dort heisst die Spalte max_capacity statt seats. Damit die Listen
+// vorher UND nachher laden (und nicht leer bleiben): erst die alte Form,
+// bei 400 die neue, notfalls ohne Tisch. Die Stufe, die klappt, wird
+// gemerkt.
+var RES_TISCH_EINBETTUNG = ['tables:table_id(id,table_number,seats)', 'tables:table_id(id,table_number,seats:max_capacity)', ''];
+async function resMitTischLaden(baueUrl, opts) {
+    var res = null;
+    for (var i = window._resTischStufe || 0; i < RES_TISCH_EINBETTUNG.length; i++) {
+        var e = RES_TISCH_EINBETTUNG[i];
+        res = await fetch(baueUrl(e ? '*,' + e : '*'), opts);
+        if (res.status === 400 && i < RES_TISCH_EINBETTUNG.length - 1) continue;
+        window._resTischStufe = i;
+        return res;
+    }
+    return res;
+}
+window.resMitTischLaden = resMitTischLaden;
+
 async function belegungHolen(restaurantId, datum) {
     if (!restaurantId || !datum) return { ok: false, belegung: [] };
     try {
@@ -31166,9 +31344,9 @@ var selectedResArea = 'main';
 var _areaConfig = {
     main:    { name: 'Innenbereich', desc: 'Gemütlich, traditionelles Ambiente', icon: 'restaurant' },
     window:  { name: 'Fensterplatz', desc: 'Blick nach draußen', icon: 'visibility' },
-    terrace: { name: 'Terrasse', desc: 'Draußen, frische Luft', icon: 'deck' },
+    terrace: { name: 'Terrasse', desc: 'Draußen, frische Luft', icon: 'wb_sunny' },
     bar:     { name: 'Bar', desc: 'Lounge-Bereich', icon: 'local_bar' },
-    vip:     { name: 'VIP', desc: 'Privater Bereich', icon: 'diamond' }
+    vip:     { name: 'VIP', desc: 'Privater Bereich', icon: 'star' }
 };
 
 async function loadResAreas(restaurantId) {
@@ -31198,7 +31376,7 @@ async function loadResAreas(restaurantId) {
 
     var html = '';
     areas.forEach(function(area) {
-        var cfg = _areaConfig[area] || { name: area, desc: '', icon: 'place' };
+        var cfg = _areaConfig[area] || { name: area, desc: '', icon: 'location_on' };
         var isActive = area === selectedResArea ? ' active-area' : '';
         html += '<button type="button" class="res-area-btn' + isActive + '" data-area="' + area + '" onclick="selectResArea(this)">' +
             '<div>' +
@@ -32087,12 +32265,9 @@ async function loadReservationsForRestaurant(restaurantId) {
 
     try {
         var today = todayStrLocal();
-        var response = await fetch(SUPABASE_URL + '/rest/v1/reservations?select=*,tables:table_id(id,table_number,seats)&restaurant_id=eq.' + restaurantId + '&reservation_date=gte.' + today + '&order=reservation_date.asc,reservation_time.asc', {
-            headers: {
-                'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + kmiToken()
-            }
-        });
+        var response = await resMitTischLaden(function (sel) {
+            return SUPABASE_URL + '/rest/v1/reservations?select=' + sel + '&restaurant_id=eq.' + restaurantId + '&reservation_date=gte.' + today + '&order=reservation_date.asc,reservation_time.asc';
+        }, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() } });
 
         if (response.ok) {
             var data = await response.json();
@@ -35221,7 +35396,7 @@ function renderTables() {
 
     APP_DATA.tables.forEach(table => {
         var statusColors = {
-            free: { bg: 'rgba(52,211,153,0.15)', dot: '#34d399', icon: 'event_available', label: table.seats + ' Pl\u00e4tze', btnText: 'Zuweisen', btnBg: 'rgba(236,253,245,1)', btnColor: '#047857' },
+            free: { bg: 'rgba(52,211,153,0.15)', dot: '#34d399', icon: 'check_circle', label: table.seats + ' Pl\u00e4tze', btnText: 'Zuweisen', btnBg: 'rgba(236,253,245,1)', btnColor: '#047857' },
             reserved: { bg: 'rgba(254,214,91,0.15)', dot: '#FED65B', icon: 'payments', label: 'Reserviert', btnText: 'Bearbeiten', btnBg: '#FED65B', btnColor: '#00251e' },
             occupied: { bg: 'rgba(251,146,60,0.15)', dot: '#fb923c', icon: 'group', label: 'Besetzt', btnText: '', btnBg: '', btnColor: '' }
         };
@@ -35676,8 +35851,32 @@ async function toggleFeature(feature) {
     }
 }
 
+// KOHLE-KNOPF UND AB 18 NUR FUER BARS (07.10.2026).
+// Ibo: "der Restaurant braucht das ja nicht". Die beiden Schalter erscheinen
+// nur, wenn das Lokal als Kueche Bar oder Shisha hat (auch Lounge/Cocktail)
+// oder den dunklen Bar-Auftritt nutzt. Ist einer schon EIN, bleibt er
+// sichtbar -- sonst koennte ihn niemand mehr ausschalten. Ist das Lokal
+// gar nicht bekannt, bleiben sie sichtbar: lieber ein Schalter zu viel
+// als eine Bar, die ihren nicht findet.
+function istBarLokal(r) {
+    if (!r) return null;
+    var k = [].concat(r.cuisine_type || [], r.cuisine || []).map(function (x) { return String(x).toLowerCase(); }).join(' ');
+    return /(bar(?!becue)|shisha|lounge|cocktail)/.test(k) || ((r.features || []).indexOf('look_dunkel') >= 0);
+}
+window.istBarLokal = istBarLokal;
+function barSchalterZeigen(features) {
+    var r = null;
+    try { var rid = getControlRestaurantId(); r = (APP_DATA.restaurants || []).find(function (x) { return x.id === rid; }) || null; } catch (e) { r = null; }
+    var bar = istBarLokal(r);
+    [['kohleRufBox', 'kohle_ruf'], ['abAchtzehnBox', 'ab_18']].forEach(function (p) {
+        var el = document.getElementById(p[0]); if (!el) return;
+        el.style.display = (bar === false && features.indexOf(p[1]) < 0) ? 'none' : '';
+    });
+}
+
 function updateFeatureToggles(features) {
     if (!features) features = [];
+    try { barSchalterZeigen(features); } catch (e) {}
     var orderingToggle = document.getElementById('orderingToggle');
     var reservationsToggle = document.getElementById('reservationsToggle');
     var autoConfirmToggle = document.getElementById('autoConfirmToggle');
@@ -40505,7 +40704,7 @@ function renderProfileContent() {
             { icon: 'loyalty', title: 'Meine Stempelkarten', sub: 'Alle Häuser auf einen Blick', action: "openMeineStempelkarten(); closeModal('profileModal');" },
             { icon: 'calendar_month', title: 'Meine Reservierungen', sub: 'Aktuelle & vergangene Reservierungen', action: "showMyReservations(); closeModal('profileModal');" },
             { icon: 'notifications_active', title: 'Benachrichtigungen', sub: 'Reservierungen & Angebote', action: "openModal('notificationModal'); closeModal('profileModal');" },
-            { icon: 'security', title: 'Datenschutz', sub: 'Passwort & Sicherheit', action: "openModal('datenschutzModal'); closeModal('profileModal');" }
+            { icon: 'shield', title: 'Datenschutz', sub: 'Passwort & Sicherheit', action: "openModal('datenschutzModal'); closeModal('profileModal');" }
         ]);
         html += '</div>';
 
@@ -41875,13 +42074,17 @@ async function loadGastroReservations(restaurantId) {
             return;
         }
 
-        const { data: reservations, error } = await sb
-            .from('reservations')
-            .select('*, tables:table_id(id, table_number, seats)')
-            .eq('restaurant_id', restaurantId)
-            .eq('reservation_date', today)
-            .in('status', ['pending', 'confirmed', 'reminded', 'seated'])
-            .order('reservation_time', { ascending: true });
+        var reservations = null, error = null;
+        for (var _st = window._resTischStufe || 0; _st < RES_TISCH_EINBETTUNG.length; _st++) {
+            var _antw = await sb.from('reservations')
+                .select(RES_TISCH_EINBETTUNG[_st] ? '*,' + RES_TISCH_EINBETTUNG[_st] : '*')
+                .eq('restaurant_id', restaurantId)
+                .eq('reservation_date', today)
+                .in('status', ['pending', 'confirmed', 'reminded', 'seated'])
+                .order('reservation_time', { ascending: true });
+            reservations = _antw.data; error = _antw.error;
+            if (!error || _antw.status !== 400) { window._resTischStufe = _st; break; }
+        }
 
         // Tischnummer aus Join extrahieren
         if (reservations) {
@@ -45914,147 +46117,19 @@ function updateMapMarkers() {
         return;
     }
 
-    // Review Cards für Map Preview
-    let reviewCardsHtml = '';
-
-    // KIN Design Icons (konsistent mit Fullscreen Map)
-    const cuisineIcons = {
-        'Italienisch': `<span class="material-symbols-outlined" style="font-size:18px;color:white;">face</span>`,
-        'Deutsch': `<span class="material-symbols-outlined" style="font-size:18px;color:white;">bakery_dining</span>`,
-        'Fisch': `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" width="18" height="18"><path d="M6.5 12c3-4 8-4 11 0-3 4-8 4-11 0z"/><circle cx="15" cy="12" r="1" fill="white"/></svg>`,
-        'Café': `<span class="material-symbols-outlined" style="font-size:18px;color:white;">coffee</span>`,
-        'Asiatisch': `<span class="material-symbols-outlined" style="font-size:18px;color:white;">umbrella</span>`,
-        'Griechisch': `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" width="18" height="18"><ellipse cx="12" cy="14" rx="8" ry="5"/><path d="M8 14c0-4 2-6 4-6s4 2 4 6"/></svg>`,
-        'Türkisch': `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" width="18" height="18"><ellipse cx="12" cy="16" rx="7" ry="4"/><path d="M7 12c0-4 2.5-7 5-7s5 3 5 7"/></svg>`,
-        'Imbiss': `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" width="18" height="18"><path d="M4 15h16l-2 5H6l-2-5z"/><ellipse cx="12" cy="11" rx="6" ry="3"/></svg>`,
-        'default': `<span class="material-symbols-outlined" style="font-size:18px;color:white;">equalizer</span>`
-    };
-
-    const cuisineColors = {
-        'Italienisch': 'var(--primary)',
-        'Deutsch': '#d97706',
-        'Fisch': '#0ea5e9',
-        'Café': '#8b5cf6',
-        'Asiatisch': '#10b981',
-        'Griechisch': '#14b8a6',
-        'Türkisch': '#f97316',
-        'Imbiss': '#ec4899',
-        'default': 'var(--primary)'
-    };
-
-    // Neue Marker hinzufügen
-    APP_DATA.restaurants.forEach((r, index) => {
-        if (!r.lat || !r.lng) {
-            return;
-        }
-        // Inaktive Restaurants nicht auf der Karte zeigen
-        if (r.is_active === false) return;
-
-        const iconSvg = cuisineIcons[r.cuisine] || cuisineIcons['default'];
-        const bgColor = cuisineColors[r.cuisine] || cuisineColors['default'];
-
-        // Verfügbarkeits-Ring
-        let ringColor = '#22c55e';
-        if (r.freeTables === 0) ringColor = '#ef4444';
-        else if (r.freeTables <= 2) ringColor = '#f59e0b';
-
-        // Tagesangebot Badge
-        const hasOffer = r.offer || (APP_DATA.dailySpecials && APP_DATA.dailySpecials.find(s => s.restaurant_id === r.id));
-        const offerBadge = hasOffer ? `<div style="
-            position: absolute;
-            top: -6px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: linear-gradient(135deg, #f59e0b, #d97706);
-            color: white;
-            font-size: 8px;
-            font-weight: 700;
-            padding: 2px 6px;
-            border-radius: 12px;
-            white-space: nowrap;
-            box-shadow: 0 2px 6px rgba(217,119,6,0.4);
-            font-family: 'Inter', sans-serif;
-            letter-spacing: 0.3px;
-        ">Angebot</div>` : '';
-
-        // KIN Design Marker
-        const icon = L.divIcon({
-            className: 'kin-map-marker',
-            html: `
-                <div class="map-marker-pin" data-id="${r.id}" style="
-                    width: 40px;
-                    height: 40px;
-                    background: ${bgColor};
-                    border-radius: 50%;
-                    border: 3px solid var(--bg-card);
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    cursor: pointer;
-                    position: relative;
-                ">
-                    ${iconSvg}
-                    ${offerBadge}
-                    <div style="
-                        position: absolute;
-                        bottom: -2px;
-                        right: -2px;
-                        width: 12px;
-                        height: 12px;
-                        background: ${ringColor};
-                        border-radius: 50%;
-                        border: 2px solid var(--bg-card);
-                    "></div>
-                </div>
-            `,
-            iconSize: [44, 50],
-            iconAnchor: [22, 50]
-        });
-
-        const marker = L.marker([r.lat, r.lng], { icon }).addTo(guestMap);
-
-        // Bei Klick: Direkt zur Restaurant Landing Page
+    // Nadeln wie auf der grossen Karte (07.10.2026). Vorher: Ring nach
+    // r.freeTables -- rot fuer jedes Lokal ohne eingetragene Tische --
+    // und "Angebot" aus APP_DATA.dailySpecials, das nirgends befuellt wird.
+    APP_DATA.restaurants.forEach((r) => {
+        if (!r.lat || !r.lng || r.is_active === false) return;
+        const marker = L.marker([r.lat, r.lng], { icon: karteNadel(r, karteZustand(r), false) }).addTo(guestMap);
         marker.on('click', () => {
             var slug = r.slug || r.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '');
             openRestaurantBySlug(slug);
         });
-
         mapMarkers.push(marker);
-
-        // Review Card für Preview (nur erste 5)
-        if (index < 5 && r.freeTables > 0) {
-            var cardSlug = r.slug || r.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/g, '');
-            reviewCardsHtml += `
-                <div onclick="openRestaurantBySlug('${cardSlug}')" style="
-                    flex: 0 0 auto;
-                    width: 200px;
-                    background: rgba(255,255,255,0.7);
-                    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-                    border-radius: 16px;
-                    padding: 12px;
-                    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
-                    cursor: pointer;
-                    border: 1px solid rgba(0,61,51,0.06);
-                ">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <img src="${r.image}" loading="lazy" alt="${r.name}" style="width: 40px; height: 40px; border-radius: 16px; object-fit: cover;">
-                        <div style="flex: 1; min-width: 0;">
-                            <div style="font-size: 13px; font-weight: 700; color: var(--dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${r.name}</div>
-                            <div style="font-size: 11px; color: ${ringColor}; font-weight: 600;">${r.freeTables} Tische frei</div>
-                        </div>
-                        <span class="material-symbols-outlined" style="font-size:16px;color:var(--slate);">chevron_right</span>
-                    </div>
-                </div>
-            `;
-        }
     });
-
-    // Review Cards einfügen
-    const reviewContainer = document.getElementById('mapReviewCards');
-    if (reviewContainer) {
-        reviewContainer.innerHTML = reviewCardsHtml;
-    }
+    if (guestMap.getContainer) guestMap.getContainer().classList.add('kn-ohne-schilder');
 }
 
 // Bottom Sheet für Restaurant öffnen
@@ -46344,8 +46419,14 @@ function initFullscreenMap() {
         zoomControl: false
     }).setView([initLat, initLng], 16);
 
-    window._mapStyleDark = false;
-    window.fullscreenTileLayer = KARTE.ebene(fullscreenMap, false);
+    // Abendmodus: im Dunkelmodus oder nach Sonnenuntergang dunkle Karte.
+    window._mapStyleDark = KARTE.istDunkel() || karteNachSonnenuntergang();
+    window.fullscreenTileLayer = KARTE.ebene(fullscreenMap, window._mapStyleDark);
+    // Schilder erst ab Zoom 14 -- weiter draussen ueberdecken sie sich.
+    function _schilderNachZoom() { var c = fullscreenMap && fullscreenMap.getContainer(); if (c) c.classList.toggle('kn-ohne-schilder', fullscreenMap.getZoom() < 14); }
+    fullscreenMap.on('zoomend', _schilderNachZoom);
+    window._karteVersatz = 0; var _kz = document.getElementById('karteZeit'); if (_kz) _kz.value = 0;
+    karteAktionenNachladen();
 
     // Marker hinzufügen
     updateFullscreenMarkers();
@@ -46362,6 +46443,7 @@ function initFullscreenMap() {
             if (!fullscreenMap) return;
             fullscreenMap.invalidateSize();
             fullscreenMap.setView([initLat, initLng], restWithCoords.length > 1 ? 15 : 16);
+            _schilderNachZoom();
         }, 200);
     }, 100);
 
@@ -46411,33 +46493,172 @@ function updateMapLiveStats() {
 var _mapActiveIndex = 0;
 var _mapRestaurantList = [];
 
-function updateFullscreenMarkers(filter = 'all') {
+// ======================================================================
+// KARTE NACH DEM ENTWURF (07.10.2026) -- Claude Design "Die Karte".
+// ======================================================================
+// Ibo: "die Map Design der Karte noch besser machen".
+//
+// NADEL: das Zeichen zeigt die Art (Fisch, Pizza, Cafe, Bar ...), die
+// Farbe den Zustand: offen dunkelgruen, Aktion laeuft gold, zu klein und
+// grau. Daneben ein Schild "Fisch · bis 22".
+//
+// EHRLICH (Regel 6): Frueher stand an der Nadel ein Ring nach
+// r.freeTables -- das zaehlt nur Tische mit Status "frei". Ein Lokal ohne
+// eingetragene Tische war damit "0 frei", also rot, und fiel beim Filter
+// "verfuegbar" heraus. Raus. Ebenso der erfundene Satz "frische Gerichte
+// und regionale Spezialitaeten" in der Karte unten. Und: ohne
+// eingetragene Oeffnungszeiten sagt die Karte "Zeiten nicht eingetragen"
+// statt der Annahme 11-22 Uhr aus aktiveSchicht.
+var KARTE_SVG = {
+    fisch: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12c3-5 10-6.5 14.5-2L21 7v10l-4-3c-4.5 4.5-11.5 3-14.5-2z"/><circle cx="14.5" cy="11" r="1" fill="currentColor"/></svg>',
+    pizza: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3 3.5 20.5h17z"/><path d="M5.6 16.2h12.8"/><circle cx="11" cy="12" r="1.2" fill="currentColor"/><circle cx="13.5" cy="15" r="1.1" fill="currentColor"/></svg>',
+    imbiss: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 11a8 6 0 0 1 16 0z"/><path d="M3 14.5h18"/><path d="M4.5 18h15"/></svg>',
+    eis: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M7 10a5 5 0 0 1 10 0z"/><path d="M7.5 10 12 21l4.5-11"/></svg>'
+};
+var KARTE_ART = { fisch: 'fisch', norddeutsch: 'fisch', italienisch: 'pizza', pizza: 'pizza', imbiss: 'imbiss', burger: 'imbiss', tuerkisch: 'imbiss', 'türkisch': 'imbiss', eisdiele: 'eis', cafe: 'local_cafe', 'café': 'local_cafe', baeckerei: 'bakery_dining', 'bäckerei': 'bakery_dining', bar: 'local_bar', shisha: 'local_bar' };
+function karteArt(r) {
+    var liste = [].concat(r && r.cuisine_type || [], r && r.cuisine || []).map(function (x) { return String(x).toLowerCase(); });
+    for (var i = 0; i < liste.length; i++) if (KARTE_ART[liste[i]]) return KARTE_ART[liste[i]];
+    return 'restaurant';
+}
+function karteZeichen(art) {
+    return KARTE_SVG[art] || '<span class="material-symbols-outlined" aria-hidden="true">' + art + '</span>';
+}
+function karteZeitenDa(r) {
+    var oh = r && r.opening_hours;
+    if (typeof oh === 'string') { try { oh = JSON.parse(oh); } catch (e) { oh = null; } }
+    if (oh && typeof oh === 'object' && Object.keys(oh).some(function (k) { return /_start$/.test(k) && oh[k]; })) return true;
+    return !!(r && r.opening_time && r.closing_time);
+}
+window._karteAktionen = window._karteAktionen || {};
+// Zustand eines Lokals zu einem Zeitpunkt (Standard: jetzt).
+function karteZustand(r, wann) {
+    wann = wann || new Date();
+    var tag = wann.toLocaleDateString('sv-SE');
+    try { var vac = getVacationInfo(r); if (vac && vac.coversDate(tag)) return { art: 'zu', text: 'Betriebsferien bis ' + vac.toNice }; } catch (e) {}
+    if (!karteZeitenDa(r)) return { art: 'unbekannt', text: 'Zeiten nicht eingetragen' };
+    var s = null; try { s = aktiveSchicht(r, wann); } catch (e) { s = null; }
+    if (!s) return { art: 'zu', text: 'Geschlossen' };
+    var akt = null;
+    (window._karteAktionen[r.id] || []).some(function (a) {
+        if (a && a.gilt_fuer !== 'reservierung' && typeof aktionLaeuftJetzt === 'function' && aktionLaeuftJetzt(a, wann)) { akt = a; return true; }
+        return false;
+    });
+    return { art: akt ? 'aktion' : 'offen', bis: s.ende, text: 'Offen bis ' + s.ende, aktion: akt };
+}
+window.karteZustand = karteZustand;
+function karteSchild(r, z) {
+    if (z.art === 'aktion') return z.aktion.titel || 'Aktion';
+    if (z.art !== 'offen') return '';
+    var k = '';
+    try { k = (kuechenListe(r, ', ') || '').split(',')[0].trim(); } catch (e) {}
+    var bis = String(z.bis || '');
+    bis = /:00$/.test(bis) ? bis.slice(0, 2).replace(/^0/, '') : bis;
+    return (k ? k + ' · ' : '') + 'bis ' + bis;
+}
+function karteNadel(r, z, gewaehlt) {
+    var schild = karteSchild(r, z);
+    var html = '<div class="kn-nadel ' + z.art + (gewaehlt ? ' gewaehlt' : '') + '" role="button" aria-label="' + escapeHtml((r.name || '') + ', ' + z.text) + '">'
+        + '<div class="kn-tropfen">' + karteZeichen(karteArt(r)) + '</div>'
+        + (schild ? '<span class="kn-schild' + (z.art === 'aktion' ? ' aktion' : '') + '">' + escapeHtml(schild) + '</span>' : '')
+        + '</div>';
+    return L.divIcon({ html: html, className: '', iconSize: [44, 52], iconAnchor: [22, 46] });
+}
+// Abendmodus: nach Sonnenuntergang von selbst dunkle Karte. Grobe
+// Sonnenrechnung fuer Ostfriesland (53,4 N, 7,2 O) -- auf eine
+// Viertelstunde genau, das reicht fuer "ist es draussen dunkel".
+function karteNachSonnenuntergang(d) {
+    d = d || new Date();
+    var tag = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 864e5);
+    var breite = 53.4 * Math.PI / 180;
+    var dekl = -23.44 * Math.PI / 180 * Math.cos(2 * Math.PI / 365 * (tag + 10));
+    var cosH = Math.max(-1, Math.min(1, -Math.tan(breite) * Math.tan(dekl)));
+    var halb = Math.acos(cosH) * 180 / Math.PI / 15;
+    var mittag = 12 - 7.2 / 15, h = d.getUTCHours() + d.getUTCMinutes() / 60;
+    return h >= mittag + halb || h < mittag - halb;
+}
+window.karteNachSonnenuntergang = karteNachSonnenuntergang;
+// Zeitregler: 0 = jetzt, sonst Minuten ab der vollen halben Stunde.
+window._karteVersatz = 0;
+window._karteFilter = 'alle';
+function karteWann() {
+    if (!window._karteVersatz) return null;
+    var d = new Date(); d.setSeconds(0, 0);
+    d.setMinutes(Math.floor(d.getMinutes() / 30) * 30 + window._karteVersatz);
+    return d;
+}
+function karteZeitZeichnen(liste) {
+    var w = karteWann(), t = document.getElementById('karteZeitText'), z = document.getElementById('karteZeitZahl');
+    if (t) {
+        if (!w) t.textContent = 'Jetzt';
+        else {
+            var uhr = String(w.getHours()).padStart(2, '0') + ':' + String(w.getMinutes()).padStart(2, '0');
+            t.textContent = (w.toLocaleDateString('sv-SE') === new Date().toLocaleDateString('sv-SE') ? 'Heute um ' : 'Nachts um ') + uhr;
+        }
+    }
+    if (z) {
+        var n = { offen: 0, zu: 0, unbekannt: 0 };
+        (liste || []).forEach(function (r) { var a = karteZustand(r, w || undefined).art; n[a === 'aktion' ? 'offen' : a]++; });
+        z.textContent = n.offen + ' offen · ' + n.zu + ' zu' + (n.unbekannt ? ' · ' + n.unbekannt + ' ohne Zeiten' : '');
+    }
+    var tee = document.getElementById('karteTeetied');
+    if (tee) { var h = (w || new Date()).getHours(); tee.style.display = (h >= 13 && h < 18) || window._karteFilter === 'teetied' ? '' : 'none'; }
+}
+function karteFilterPasst(r, z) {
+    var f = window._karteFilter;
+    if (f === 'offen') return z.art === 'offen' || z.art === 'aktion';
+    if (f === 'aktion') return z.art === 'aktion';
+    if (f === 'teetied') { var a = karteArt(r); return (a === 'local_cafe' || a === 'bakery_dining') && z.art !== 'zu'; }
+    return true;
+}
+function karteAktionenNachladen() {
+    if (typeof aktionenLaden !== 'function') return;
+    var liste = (APP_DATA.restaurants || []).filter(function (r) { return r.lat && r.lng && r.is_active !== false; }).slice(0, 40);
+    Promise.all(liste.map(function (r) {
+        return aktionenLaden(r.id, false).then(function (l) { window._karteAktionen[r.id] = l || []; }).catch(function () {});
+    })).then(function () { if (fullscreenMap) updateFullscreenMarkers(); if (guestMap) updateMapMarkers(); });
+}
+function karteVerbinden() {
+    var chips = document.getElementById('karteChips');
+    if (!chips || chips.dataset.verbunden) return;
+    chips.dataset.verbunden = '1';
+    chips.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-kfilter]'); if (!b) return;
+        window._karteFilter = b.getAttribute('data-kfilter');
+        chips.querySelectorAll('[data-kfilter]').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+        _mapActiveIndex = 0; updateFullscreenMarkers();
+    });
+    var zeit = document.getElementById('karteZeit');
+    var bild = 0;
+    zeit.addEventListener('input', function () {
+        window._karteVersatz = +this.value;
+        if (bild) return;
+        bild = requestAnimationFrame(function () { bild = 0; updateFullscreenMarkers(); });
+    });
+}
+
+function updateFullscreenMarkers(filter) {
     if (!fullscreenMap) return;
+    karteVerbinden();
 
     // Alte Marker entfernen
     fullscreenMarkers.forEach(m => fullscreenMap.removeLayer(m));
     fullscreenMarkers = [];
     _mapRestaurantList = [];
 
-    APP_DATA.restaurants.forEach((r, index) => {
-        if (!r.lat || !r.lng) return;
-        if (r.is_active === false) return;
-
-        // Filter anwenden
-        if (filter === 'available' && r.freeTables === 0) return;
-        if (filter === 'restaurant' && r.cuisine === 'Café') return;
-        if (filter === 'cafe' && r.cuisine !== 'Café') return;
-        if (filter === 'fisch' && r.cuisine !== 'Fisch') return;
-
-        _mapRestaurantList.push(r);
+    var w = karteWann() || undefined;
+    var alle = (APP_DATA.restaurants || []).filter(function (r) { return r.lat && r.lng && r.is_active !== false; });
+    karteZeitZeichnen(alle);
+    var zustaende = [];
+    alle.forEach(function (r) {
+        var z = karteZustand(r, w);
+        if (!karteFilterPasst(r, z)) return;
+        _mapRestaurantList.push(r); zustaende.push(z);
     });
 
-    // Marker erstellen — Stitch Style
     _mapRestaurantList.forEach((r, i) => {
-        var isActive = (i === _mapActiveIndex);
-        var icon = _createStitchMapMarker(isActive);
-
-        var marker = L.marker([r.lat, r.lng], { icon: icon }).addTo(fullscreenMap);
+        var marker = L.marker([r.lat, r.lng], { icon: karteNadel(r, zustaende[i], i === _mapActiveIndex), zIndexOffset: zustaende[i].art === 'zu' ? -100 : (i === _mapActiveIndex ? 1000 : 0) }).addTo(fullscreenMap);
+        marker._kmiZustand = zustaende[i];
         marker.on('click', function() {
             _mapActiveIndex = i;
             _updateMapMarkersStyle();
@@ -46459,29 +46680,11 @@ function updateFullscreenMarkers(filter = 'all') {
     updateMapLiveStats();
 }
 
-function _createStitchMapMarker(isActive) {
-    var size = isActive ? 56 : 44;
-    var bg = isActive ? '#00251e' : '#fed65b';
-    var color = isActive ? '#fed65b' : '#735c00';
-    var iconName = isActive ? 'star' : 'restaurant';
-    var shadow = isActive
-        ? '0 0 0 6px rgba(254,214,91,0.3), 0 8px 32px rgba(0,37,30,0.3)'
-        : '0 4px 20px rgba(0,37,30,0.25)';
-
-    var html = '<div style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + bg + ';display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:' + shadow + ';cursor:pointer;transition:transform 0.3s;">' +
-        '<span class="material-symbols-outlined" style="font-size:' + (isActive ? 24 : 20) + 'px;color:' + color + ';font-variation-settings:\'FILL\' 1;">' + iconName + '</span></div>';
-
-    return L.divIcon({
-        html: html,
-        iconSize: [size, size],
-        iconAnchor: [size / 2, size / 2],
-        className: ''
-    });
-}
-
 function _updateMapMarkersStyle() {
     fullscreenMarkers.forEach(function(m, i) {
-        m.setIcon(_createStitchMapMarker(i === _mapActiveIndex));
+        var r = _mapRestaurantList[i]; if (!r) return;
+        m.setIcon(karteNadel(r, m._kmiZustand || karteZustand(r), i === _mapActiveIndex));
+        m.setZIndexOffset(i === _mapActiveIndex ? 1000 : 0);
     });
 }
 
@@ -46491,27 +46694,55 @@ function _updateMapFloatingCard(r) {
 
     var slug = r.slug || r.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '');
     var isFav = APP_DATA.favorites && APP_DATA.favorites.includes(r.id);
+    var z = karteZustand(r, karteWann() || undefined);
 
-    document.getElementById('mapCardImg').src = r.image || '';
-    document.getElementById('mapCardImg').alt = r.name || '';
-    // Ohne echte Bewertung steht dort ein Strich, keine erfundene 4,5.
-    document.getElementById('mapCardRating').textContent = (r.rating > 0) ? Number(r.rating).toFixed(1) : '–';
-    document.getElementById('mapCardName').textContent = (r.name || '').toUpperCase();
-    document.getElementById('mapCardMeta').textContent = kuecheLabel(r.cuisine, 'Restaurant') + ' \u00b7 ' + (r.city || 'Greetsiel');
+    // Foto oder Anfangsbuchstabe. Nie src = '' setzen: das loest den
+    // globalen Bild-Fehler-Ersatz aus, und dessen Stil (contain, Rand,
+    // grauer Grund) blieb danach auch am naechsten echten Foto haengen
+    // (gemessen 07.10.2026). Laedt ein Foto nicht: Anfangsbuchstabe.
+    var img = document.getElementById('mapCardImg'), echt = r.image && !/^data:image\/gif/.test(r.image);
+    var initial = document.getElementById('mapCardInitial'), buchstabe = String(r.name || '?').charAt(0).toUpperCase();
+    img.style.objectFit = ''; img.style.padding = ''; img.style.background = ''; img.dataset.fallback = '1';
+    img.onerror = function () { img.style.display = 'none'; initial.textContent = buchstabe; };
+    img.onload = function () { img.style.display = ''; initial.textContent = ''; };
+    img.alt = r.name || '';
+    if (echt) { img.src = r.image; } else { img.removeAttribute('src'); img.style.display = 'none'; initial.textContent = buchstabe; }
+    document.getElementById('mapCardName').textContent = r.name || '';
+    document.getElementById('mapCardMeta').textContent = kuecheLabel(r.cuisine, 'Restaurant') + ' \u00b7 ' + (r.city || 'Ostfriesland') + (r.rating > 0 ? ' \u00b7 \u2605 ' + Number(r.rating).toFixed(1).replace('.', ',') : '');
 
-    var desc = r.description || r.tagline || '';
-    if (!desc && r.cuisine) desc = kuecheLabel(r.cuisine) + (r.city ? ' in ' + r.city : '') + ' \u2014 frische Gerichte und regionale Spezialit\u00e4ten.';
-    document.getElementById('mapCardDesc').textContent = desc;
+    // Fakten: nur, was stimmt.
+    var f = [];
+    f.push('<span class="kn-fakt ' + (z.art === 'offen' || z.art === 'aktion' ? 'offen' : z.art === 'zu' ? 'zu' : '') + '"><i aria-hidden="true"></i>' + escapeHtml(z.text) + '</span>');
+    if (typeof _userLat === 'number' && typeof _userLng === 'number' && typeof getDistanceKm === 'function') {
+        var km = getDistanceKm(_userLat, _userLng, +r.lat, +r.lng);
+        if (isFinite(km)) f.push('<span class="kn-fakt">' + (km < 2.5 ? Math.max(1, Math.round(km / 4.8 * 60)) + ' Min. zu Fuß' : km.toFixed(1).replace('.', ',') + ' km') + '</span>');
+    }
+    try { var _and = typeof andrangInfo === 'function' ? andrangInfo(r) : null; if (_and && (z.art === 'offen' || z.art === 'aktion')) f.push('<span class="kn-fakt">' + escapeHtml(_and.kurz) + '</span>'); } catch (e) {}
+    document.getElementById('mapCardFakten').innerHTML = f.join('');
+
+    var akt = document.getElementById('mapCardAktion');
+    if (z.aktion) {
+        akt.hidden = false;
+        akt.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;" aria-hidden="true">local_offer</span>'
+            + escapeHtml('Läuft gerade: ' + (z.aktion.titel || 'Aktion') + (z.aktion.bis ? ' · bis ' + String(z.aktion.bis).slice(0, 5) : '') + (z.aktion.vorteil ? ' – ' + z.aktion.vorteil : ''));
+    } else { akt.hidden = true; akt.innerHTML = ''; }
+
+    var noRes = (r.features || []).indexOf('no_reservations') >= 0, noOrd = (r.features || []).indexOf('no_ordering') >= 0;
+    var resBtn = document.getElementById('mapCardReserveBtn'), ordBtn = document.getElementById('mapCardOrderBtn');
+    resBtn.style.display = noRes ? 'none' : '';
+    ordBtn.textContent = noOrd ? 'Speisekarte' : 'Bestellen';
+    ordBtn.className = noRes ? 'haupt' : 'neben';
 
     var favIcon = document.getElementById('mapCardFav');
     if (favIcon) {
-        favIcon.style.fontVariationSettings = isFav ? "'FILL' 1" : "'FILL' 0";
-        favIcon.style.color = isFav ? '#ef4444' : '#735c00';
+        var sym = favIcon.querySelector('.material-symbols-outlined');
+        if (sym) sym.style.fontVariationSettings = isFav ? "'FILL' 1" : "'FILL' 0";
+        favIcon.setAttribute('aria-pressed', isFav ? 'true' : 'false');
         favIcon.onclick = function() { toggleFavorite(r.id); _updateMapFloatingCard(r); };
     }
 
-    document.getElementById('mapCardReserveBtn').onclick = function() { closeModal('fullscreenMapModal'); openReservation(r.id); };
-    document.getElementById('mapCardOrderBtn').onclick = function() { closeModal('fullscreenMapModal'); openMenuModal(r.id); };
+    resBtn.onclick = function() { closeModal('fullscreenMapModal'); openReservation(r.id); };
+    ordBtn.onclick = function() { closeModal('fullscreenMapModal'); openMenuModal(r.id); };
     document.getElementById('mapCardShareBtn').onclick = function() {
         if (navigator.share) navigator.share({ title: r.name, url: window.location.origin + '/' + slug });
     };
@@ -48712,6 +48943,20 @@ document.addEventListener('error', function(e) {
             </div>
         </div>
 
+        <!-- Filter + Zeitregler (07.10.2026, Entwurf "Die Karte") -->
+        <div class="kn-leiste" id="karteLeiste">
+            <div class="kn-chips" id="karteChips" role="group" aria-label="Filter">
+                <button type="button" data-kfilter="alle" aria-pressed="true">Alle</button>
+                <button type="button" data-kfilter="offen" aria-pressed="false"><i style="background:#16a34a" aria-hidden="true"></i>Jetzt offen</button>
+                <button type="button" data-kfilter="aktion" aria-pressed="false"><i style="background:#e5b92e" aria-hidden="true"></i>Aktion läuft</button>
+                <button type="button" data-kfilter="teetied" aria-pressed="false" id="karteTeetied"><span class="material-symbols-outlined" style="font-size:16px;" aria-hidden="true">local_cafe</span>Teetied</button>
+            </div>
+            <div class="kn-zeit">
+                <div class="kn-zeit-kopf"><b id="karteZeitText">Jetzt</b><span id="karteZeitZahl"></span></div>
+                <input type="range" id="karteZeit" min="0" max="720" step="30" value="0" aria-label="Uhrzeit: wer hat dann offen?">
+            </div>
+        </div>
+
         <!-- Quick Action Buttons — Right Side (Stitch) -->
         <div style="position:fixed;right:16px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:12px;z-index:1020;">
             <button onclick="centerOnUserLocation()" style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,rgba(255,255,255,0.45),rgba(255,255,255,0.15));box-shadow:0 8px 32px rgba(0,37,30,0.08);border:1px solid rgba(255,255,255,0.3);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:center;color:#003d33;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.6)'" onmouseout="this.style.background=''">
@@ -48723,33 +48968,21 @@ document.addEventListener('error', function(e) {
         </div>
 
         <!-- Floating Restaurant Card — Liquid Glass (Stitch) -->
-        <div id="fullscreenMapCard" style="position:fixed;bottom:112px;left:50%;transform:translateX(-50%);width:92%;max-width:640px;z-index:1040;display:none;">
-            <div style="background:linear-gradient(135deg,rgba(255,255,255,0.45) 0%,rgba(255,255,255,0.15) 100%);box-shadow:0 48px 96px -24px rgba(0,37,30,0.2);border:1px solid rgba(255,255,255,0.3);border-top:1px solid rgba(255,255,255,0.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:48px;overflow:hidden;padding:20px;display:flex;gap:20px;align-items:center;" id="fullscreenMapCardInner">
-                <!-- Restaurant Image -->
-                <div id="mapCardImage" style="width:180px;height:180px;border-radius:32px;overflow:hidden;flex-shrink:0;box-shadow:inset 0 2px 8px rgba(0,0,0,0.1);position:relative;">
-                    <img id="mapCardImg" src="" alt="" style="width:100%;height:100%;object-fit:cover;transition:transform 0.7s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
-                    <div id="mapCardRatingBadge" style="position:absolute;top:12px;left:12px;background:#fed65b;color:#735c00;font-size:10px;font-weight:900;padding:4px 12px;border-radius:9999px;text-transform:uppercase;letter-spacing:0.15em;box-shadow:0 4px 12px rgba(0,0,0,0.1);display:flex;align-items:center;gap:4px;">
-                        <span class="material-symbols-outlined" style="font-size:12px;font-variation-settings:'FILL' 1;">star</span>
-                        <span id="mapCardRating">4.7</span>
+        <div id="fullscreenMapCard" style="position:fixed;bottom:104px;left:50%;transform:translateX(-50%);width:92%;max-width:560px;z-index:1040;display:none;">
+            <div class="kn-karte">
+                <div class="kn-karte-kopf">
+                    <div class="kn-bild" id="mapCardImage"><img id="mapCardImg" alt="" data-fallback="1" style="display:none;"><b id="mapCardInitial" aria-hidden="true"></b></div>
+                    <div class="kn-karte-text">
+                        <div class="kn-karte-name"><h2 id="mapCardName"></h2><button type="button" id="mapCardFav" aria-label="Merken"><span class="material-symbols-outlined">favorite</span></button></div>
+                        <p id="mapCardMeta"></p>
+                        <div class="kn-fakten" id="mapCardFakten"></div>
                     </div>
                 </div>
-                <!-- Info -->
-                <div style="flex:1;display:flex;flex-direction:column;gap:16px;min-width:0;">
-                    <div>
-                        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-                            <h2 id="mapCardName" style="font-family:'Epilogue',sans-serif;font-weight:900;font-size:24px;color:var(--ink-deep);letter-spacing:-0.03em;line-height:1;margin:0;"></h2>
-                            <span class="material-symbols-outlined" id="mapCardFav" style="color:#735c00;cursor:pointer;font-variation-settings:'FILL' 1;flex-shrink:0;">favorite</span>
-                        </div>
-                        <p id="mapCardMeta" style="font-family:'Inter',sans-serif;font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.15em;font-weight:500;margin-top:4px;"></p>
-                    </div>
-                    <p id="mapCardDesc" style="font-family:'Inter',sans-serif;font-size:13px;color:var(--text-secondary);line-height:1.5;margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;"></p>
-                    <div style="display:flex;align-items:center;gap:12px;">
-                        <button id="mapCardReserveBtn" style="flex:1;background:#00251e;color:white;padding:14px;border-radius:9999px;border:none;font-family:'Epilogue',sans-serif;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:0.15em;box-shadow:0 8px 24px rgba(0,37,30,0.25);cursor:pointer;transition:all 0.2s;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">Reservieren</button>
-                        <button id="mapCardOrderBtn" style="flex:1;background:rgba(255,255,255,0.4);color:var(--ink-deep);padding:14px;border-radius:9999px;border:none;font-family:'Epilogue',sans-serif;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:0.15em;box-shadow:0 4px 12px rgba(0,0,0,0.06);cursor:pointer;transition:all 0.2s;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">Bestellen</button>
-                        <button id="mapCardShareBtn" style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.3);border:none;display:flex;align-items:center;justify-content:center;color:var(--ink-deep);box-shadow:0 4px 12px rgba(0,0,0,0.06);cursor:pointer;flex-shrink:0;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.5)'" onmouseout="this.style.background='rgba(255,255,255,0.3)'">
-                            <span class="material-symbols-outlined">share</span>
-                        </button>
-                    </div>
+                <div class="kn-aktion" id="mapCardAktion" hidden></div>
+                <div class="kn-knoepfe">
+                    <button type="button" class="haupt" id="mapCardReserveBtn">Tisch reservieren</button>
+                    <button type="button" class="neben" id="mapCardOrderBtn">Speisekarte</button>
+                    <button type="button" class="rund" id="mapCardShareBtn" aria-label="Teilen"><span class="material-symbols-outlined">share</span></button>
                 </div>
             </div>
         </div>
@@ -50187,7 +50420,8 @@ document.addEventListener('error', function(e) {
 document.getElementById('saveCategoryBtn').addEventListener('click', async function() {
     var name = document.getElementById('newCategoryName').value;
     if (!name) { showToast('Bitte Kategorie-Name eingeben', 'error'); return; }
-    var rid = (typeof currentMenuRestaurant !== 'undefined' && currentMenuRestaurant) ? currentMenuRestaurant : RESTAURANT_ID;
+    var rid = menuRestaurantWahl();
+    if (!rid) { showToast('Bitte zuerst oben ein Restaurant wählen', 'error'); return; }
     this.disabled = true; this.textContent = 'Speichert...';
     try {
         var client = sb || window.sb;
@@ -50583,7 +50817,8 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
         // Automatisch erste Kategorie nehmen oder "Sonstige" erstellen
         var client2 = sb || window.sb;
         if (client2) {
-            var rid = currentMenuRestaurant || window.currentMenuRestaurant || RESTAURANT_ID;
+            var rid = menuRestaurantWahl();
+            if (!rid) { showToast('Bitte zuerst oben ein Restaurant wählen', 'error'); return; }
             var { data: existCats } = await client2.from('menu_categories').select('id').eq('restaurant_id', rid).limit(1);
             if (existCats && existCats.length > 0) {
                 categoryId = existCats[0].id;
@@ -50594,13 +50829,15 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
         }
     }
 
-    var price = parseFloat(priceStr.replace(',', '.'));
-    if (isNaN(price) || price <= 0) {
-        showToast('Bitte gültigen Preis eingeben', 'error');
+    var price = menuPreisLesen(priceStr);
+    // 0 ist erlaubt (z. B. "Brot gratis"); leer/vertippt nicht.
+    if (price === null) {
+        showToast('Bitte gültigen Preis eingeben (z. B. 12,50)', 'error');
         return;
     }
 
-    var restaurantId = currentMenuRestaurant || window.currentMenuRestaurant || RESTAURANT_ID;
+    var restaurantId = menuRestaurantWahl();
+    if (!restaurantId) { showToast('Bitte zuerst oben ein Restaurant wählen', 'error'); return; }
 
     var client = sb || window.sb;
     if (!client) {
@@ -50802,7 +51039,7 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
                 <div class="check-anim" style="width: 64px; height: 64px; background: #dcfce7; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
                     <span class="material-symbols-outlined" style="font-size: 30px; color: #16a34a; font-variation-settings: 'FILL' 1;">check_circle</span>
                 </div>
-                <h2 style="font-family: 'Epilogue', sans-serif; font-size: 24px; font-weight: 900; color: var(--ink-strong); margin: 0 0 8px;">Vielen Dank für deine Bestellung!</h2>
+                <h2 style="font-family: 'Epilogue', sans-serif; font-size: 24px; font-weight: 900; color: var(--ink-strong); margin: 0 0 8px;" id="ocDankeTitel">Vielen Dank für deine Bestellung!</h2>
                 <p id="confirmOrderNumber" style="color: rgba(0,61,51,0.6); font-size: 13px; margin: 0;">XX-0001</p>
             </div>
 
@@ -50814,7 +51051,7 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
 
             <!-- Status Tracker — Live-Fortschritt (sichtbar; wird von updateOrderTrackerUI gesteuert) -->
             <div class="oc-fade-up oc-glass-card" id="orderTrackerCard" style="padding: 20px 12px 16px;">
-                <div style="font-family: 'Epilogue', sans-serif; font-size: 12px; font-weight: 800; color: var(--ink-strong); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 16px; text-align: center; opacity: 0.75;">Live-Status deiner Bestellung</div>
+                <div class="oc-stand-titel">Stand deiner Bestellung</div>
                 <div class="order-status-tracker" id="orderStatusTracker" style="display: flex; justify-content: space-between; padding: 0;">
                     <div class="status-step active" style="display: flex; flex-direction: column; align-items: center; flex: 1; position: relative;">
                         <div class="status-connector" style="position: absolute; top: 16px; left: calc(50% + 21px); width: calc(100% - 42px); height: 3px; background: rgba(0,61,51,0.1); border-radius: 2px; z-index: 0;"></div>
@@ -50851,6 +51088,7 @@ document.getElementById('saveMenuItemBtn').addEventListener('click', async funct
                         <div class="status-label" id="profileFinalStep" style="font-size: 10px; color: rgba(0,61,51,0.4); margin-top: 6px; text-align: center; font-weight: 500;">Erledigt</div>
                     </div>
                 </div>
+                <p class="oc-stand-satz" id="ocStandSatz" aria-live="polite">Eingegangen – das Restaurant bestätigt gleich</p>
             </div>
 
             <!-- Live Status Message -->
@@ -52204,10 +52442,11 @@ async function allergenLueckenSpeichern() {
             var res = await sbWrite(SUPABASE_URL + '/rest/v1/menu_items?id=eq.' + encodeURIComponent(g.id), {
                 method: 'PATCH',
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(),
-                           'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                           'Content-Type': 'application/json', 'Prefer': 'return=representation' },
                 body: JSON.stringify({ allergens: g.allergens })
             });
-            if (res && res.ok) {
+            // Pflichtangabe (LMIV): "ergaenzt" nur mit geaenderter Zeile zurueck.
+            if (await menuZeilenOk(res)) {
                 fertig++;
                 // Den lokalen Bestand mitziehen, sonst zeigt der Knopf
                 // gleich wieder die alte Zahl.
@@ -54716,7 +54955,7 @@ async function loadOptionGroups() {
 
                 html += '<div style="padding:16px;border-bottom:1px solid var(--border-color);">';
                 html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">';
-                html += '<div><strong style="font-size:15px;color:var(--dark);">' + g.name + '</strong> ' + requiredLabel + ' ' + activeLabel;
+                html += '<div><strong style="font-size:15px;color:var(--dark);">' + escapeHtml(g.name) + '</strong> ' + requiredLabel + ' ' + activeLabel;
                 html += '<div style="font-size:12px;color:var(--slate);margin-top:4px;">' + typeLabel + ' | ' + scopeLabel + '</div></div>';
                 html += '<div style="display:flex;gap:8px;">';
                 html += '<button onclick="openEditOptionGroupModal(\'' + g.id + '\')" style="padding:6px 12px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:9999px;font-size:12px;cursor:pointer;">Bearbeiten</button>';
@@ -54730,7 +54969,7 @@ async function loadOptionGroups() {
                         var o = opts[j];
                         var priceStr = o.price > 0 ? (o.price_type === 'replace' ? formatPrice(o.price) : '+' + formatPrice(o.price)) : 'inkl.';
                         var defaultBadge = o.is_default ? ' *' : '';
-                        html += '<span style="padding:6px 12px;background:var(--cream);border-radius:9999px;font-size:13px;color:var(--dark);">' + o.name + defaultBadge + ' <span style="color:var(--primary);font-weight:600;">' + priceStr + '</span></span>';
+                        html += '<span style="padding:6px 12px;background:var(--cream);border-radius:9999px;font-size:13px;color:var(--dark);">' + escapeHtml(o.name) + defaultBadge + ' <span style="color:var(--primary);font-weight:600;">' + priceStr + '</span></span>';
                     }
                     html += '</div>';
                 }
@@ -55348,7 +55587,7 @@ async function loadMenuOptionGroups(restId) {
 
             html += '<div style="padding:16px;' + (i < groups.length - 1 ? 'border-bottom:1px solid var(--border-color);' : '') + '">';
             html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">';
-            html += '<div><strong style="font-size:15px;color:var(--dark);">' + g.name + '</strong> ' + requiredBadge;
+            html += '<div><strong style="font-size:15px;color:var(--dark);">' + escapeHtml(g.name) + '</strong> ' + requiredBadge;
             html += '<div style="font-size:12px;color:var(--slate);margin-top:3px;">' + typeLabel + ' | ' + scopeLabel + '</div></div>';
             html += '<div style="display:flex;gap:6px;">';
             html += '<button onclick="openEditOptionGroupModal(\'' + g.id + '\')" style="padding:6px 12px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:9999px;font-size:12px;cursor:pointer;">Bearbeiten</button>';
@@ -55360,7 +55599,7 @@ async function loadMenuOptionGroups(restId) {
                 for (var j = 0; j < opts.length; j++) {
                     var o = opts[j];
                     var priceStr = o.price > 0 ? (o.price_type === 'replace' ? formatPrice(o.price) : '+' + formatPrice(o.price)) : 'inkl.';
-                    html += '<span style="padding:5px 10px;background:var(--cream);border-radius:9999px;font-size:12px;color:var(--dark);">' + o.name + ' <span style="color:var(--primary);font-weight:600;">' + priceStr + '</span></span>';
+                    html += '<span style="padding:5px 10px;background:var(--cream);border-radius:9999px;font-size:12px;color:var(--dark);">' + escapeHtml(o.name) + ' <span style="color:var(--primary);font-weight:600;">' + priceStr + '</span></span>';
                 }
                 html += '</div>';
             }
@@ -57360,8 +57599,17 @@ async function submitOrder() {
     }
 
     // === ZUERST: UI aktualisieren (muss sofort passieren) ===
-    var _ocOrderNum = 'BESTELLUNG #' + orderNumber + ' \u00b7 ' + new Date().toLocaleDateString('de-DE', {day:'numeric',month:'long',year:'numeric'});
+    // DANKE-BILDSCHIRM NACH DEM ENTWURF (07.10.2026): "Danke, Anna!" und
+    // darunter Nummer und Art. Eine Uhrzeit nur, wenn sie feststeht
+    // (Vorbestellung) -- sonst kommt sie mit der Bestaetigung.
+    var _ocTitel = document.getElementById('ocDankeTitel');
+    if (_ocTitel) _ocTitel.textContent = ocDankeTitel(name);
+    var _ocOrderNum = ocDankeZeile(orderNumber, orderType, tableNumber, window._vorbestellungFuer);
     document.getElementById('confirmOrderNumber').textContent = _ocOrderNum;
+    var _ocSatz0 = document.getElementById('ocStandSatz');
+    if (_ocSatz0) _ocSatz0.textContent = OC_STAND_SATZ.received;
+    var _ocTrk0 = document.getElementById('orderStatusTracker');
+    if (_ocTrk0) { _ocTrk0.classList.remove('storniert'); _ocTrk0.querySelectorAll('.status-step').forEach(function (st, i) { st.classList.toggle('erreicht', i === 0); }); }
     var _ocQrNum = document.getElementById('ocQrOrderNumber');
     if (_ocQrNum) _ocQrNum.textContent = '#' + orderNumber;
 
@@ -57808,6 +58056,40 @@ function startOrderTracking(orderId) {
     }, 15000);
 }
 
+var OC_STAND_SATZ = {
+    received: 'Eingegangen – das Restaurant bestätigt gleich',
+    accepted: 'Bestätigt – wird gleich zubereitet',
+    confirmed: 'Bestätigt – wird gleich zubereitet',
+    preparing: 'Wird jetzt frisch zubereitet',
+    ready: 'Fertig',
+    out_for_delivery: 'Unterwegs zu dir',
+    picked_up: 'Abgeholt – guten Appetit!',
+    delivered: 'Geliefert – guten Appetit!',
+    completed: 'Erledigt – guten Appetit!'
+};
+function ocDankeTitel(name) {
+    var vor = String(name || '').trim().split(/\s+/)[0] || '';
+    return vor ? 'Danke, ' + vor + '!' : 'Danke für deine Bestellung!';
+}
+function ocDankeZeile(nummer, art, tisch, vorbestellt) {
+    var teil = ['Bestellung #' + nummer];
+    var um = '';
+    if (vorbestellt) { var d = new Date(vorbestellt); if (!isNaN(d)) um = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }); }
+    if (art === 'delivery') teil.push(um ? 'Lieferung um ' + um : 'Lieferung');
+    else if (art === 'dine_in') teil.push(tisch ? 'Tisch ' + tisch : 'Vor Ort');
+    else teil.push(um ? 'Abholung um ' + um : 'Abholung');
+    return teil.join(' · ');
+}
+// Statustexte enthalten Symbole (<span class="ki">…check…</span>). Einfach
+// alle Tags entfernen liess das WORT stehen ("check Bestätigt!") -- so
+// stand es bisher in jeder Browser-Benachrichtigung.
+function ocOhneSymbol(html) {
+    return String(html || '')
+        .replace(/<span class="ki">(?:<span[^>]*>[^<]*<\/span>|<svg[\s\S]*?<\/svg>)<\/span>\s*/g, '')
+        .replace(/<[^>]*>/g, '').trim();
+}
+window.ocDankeTitel = ocDankeTitel; window.ocDankeZeile = ocDankeZeile; window.ocOhneSymbol = ocOhneSymbol;
+
 function updateOrderTrackerUI(status, estimatedMinutes, trackOrderType) {
     // order_type merken für korrekte Texte (Lieferung vs Abholung)
     if (trackOrderType) window._trackingOrderType = trackOrderType;
@@ -57835,11 +58117,26 @@ function updateOrderTrackerUI(status, estimatedMinutes, trackOrderType) {
             var icon = step.querySelector('.status-icon');
             if (icon) { icon.style.background = '#fecaca'; icon.style.border = '2px solid #ef4444'; icon.style.color = '#ef4444'; }
         });
+        var _trk = document.getElementById('orderStatusTracker');
+        if (_trk) _trk.classList.add('storniert');
+        var _satzS = document.getElementById('ocStandSatz');
+        if (_satzS) _satzS.textContent = 'Storniert – das Restaurant hat die Bestellung abgesagt';
         var _cancelEl = document.getElementById('confirmEstimatedTime');
         if (_cancelEl) _cancelEl.innerHTML = '<span class="ki"><span class="material-symbols-outlined" style="font-size:24px;color:#ef4444;">close</span></span> Bestellung wurde storniert';
         showToast('Bestellung storniert', 'error');
         stopOrderTracking();
         return;
+    }
+
+    var _trkOk = document.getElementById('orderStatusTracker');
+    if (_trkOk) _trkOk.classList.remove('storniert');
+    steps.forEach(function(step, idx) { step.classList.toggle('erreicht', idx <= activeStep); });
+    var _satz = document.getElementById('ocStandSatz');
+    if (_satz) {
+        var _st = OC_STAND_SATZ[status] || ocOhneSymbol(statusMessages[status] || '');
+        if (status === 'ready' && !isDelivery) _st = 'Fertig – du kannst es abholen';
+        if (estimatedMinutes && (status === 'accepted' || status === 'confirmed' || status === 'preparing')) _st += ' · ca. ' + estimatedMinutes + ' Min.';
+        _satz.textContent = _st;
     }
 
     steps.forEach(function(step, idx) {
@@ -57886,7 +58183,7 @@ function updateOrderTrackerUI(status, estimatedMinutes, trackOrderType) {
     // Browser Notification bei Status-Änderung
     if (status !== 'received' && 'Notification' in window && Notification.permission === 'granted') {
         try {
-            var plainMsg = (statusMessages[status] || status).replace(/<[^>]*>/g, '');
+            var plainMsg = ocOhneSymbol(statusMessages[status] || status);
             new Notification('Kiek mol in', { body: plainMsg, icon: 'icon-192.png', tag: 'order-status' });
         } catch(e) {}
     }
@@ -68811,8 +69108,9 @@ function gerichtVerschieben(itemId, catId, richtung) {
 
     renderMenuCategories();
     // Dieselbe Speicherung wie beim Ziehen -- eine Wahrheit, nicht zwei.
-    saveItemOrder(bewegt, inKat);
-    showToast('„' + (bewegt.name || 'Gericht') + '" ist jetzt auf Platz ' + (ziel + 1) + '.', 'success');
+    // Die Meldung kommt erst NACH dem Speichern (vorher sofort, auch wenn
+    // es danach scheiterte).
+    saveItemOrder(bewegt, inKat, { text: '„' + (bewegt.name || 'Gericht') + '" ist jetzt auf Platz ' + (ziel + 1) + '.' });
 }
 window.gerichtVerschieben = gerichtVerschieben;
 
@@ -68832,36 +69130,49 @@ async function saveCategoryOrder() {
             // Der Supabase-Client wirft NICHT bei Fehlern, er liefert { error }.
             // Ohne diese Prüfung meldete das Dashboard Erfolg, obwohl die
             // Reihenfolge nach dem Neuladen wieder die alte war.
-            var _cr = await client.from('menu_categories').update({ sort_order: c.sort_order }).eq('id', c.id);
+            var _cr = await client.from('menu_categories').update({ sort_order: c.sort_order }).eq('id', c.id).select('id');
             if (_cr && _cr.error) throw new Error(_cr.error.message);
+            // Ohne Recht: kein Fehler, nur keine Zeile -- frueher "sortiert".
+            if (!_cr || !Array.isArray(_cr.data) || !_cr.data.length) throw new Error(menuKeinRechtText());
         }
         showToast('Kategorien sortiert', 'success');
     } catch(e) {
-        showToast('Fehler beim Speichern', 'error');
+        showToast('Reihenfolge nicht gespeichert: ' + e.message, 'error');
+        menuNeuLaden();
     }
 }
 
-async function saveItemOrder(movedItem, catItems) {
+async function saveItemOrder(movedItem, catItems, opt) {
     try {
         var client = sb || window.sb;
         if (!client) return;
         // Der Supabase-Client wirft NICHT bei Fehlern, er liefert { error }.
         // Ohne Prüfung meldete das Dashboard Erfolg, obwohl die Reihenfolge
         // nach dem Neuladen wieder die alte war.
-        var _mr = await client.from('menu_items').update({ category_id: movedItem.category_id, sort_order: movedItem.sort_order }).eq('id', movedItem.id);
+        var _mr = await client.from('menu_items').update({ category_id: movedItem.category_id, sort_order: movedItem.sort_order }).eq('id', movedItem.id).select('id');
         if (_mr && _mr.error) throw new Error(_mr.error.message);
+        if (!_mr || !Array.isArray(_mr.data) || !_mr.data.length) throw new Error(menuKeinRechtText());
         // Andere items in Kategorie updaten
         for (var i = 0; i < catItems.length; i++) {
             var it = catItems[i];
             if (it.id === movedItem.id) continue;
-            var _ir = await client.from('menu_items').update({ sort_order: it.sort_order }).eq('id', it.id);
+            var _ir = await client.from('menu_items').update({ sort_order: it.sort_order }).eq('id', it.id).select('id');
             if (_ir && _ir.error) throw new Error(_ir.error.message);
+            if (!_ir || !Array.isArray(_ir.data) || !_ir.data.length) throw new Error(menuKeinRechtText());
         }
-        showToast('Gericht sortiert', 'success');
+        if (!opt || !opt.leise) showToast(opt && opt.text ? opt.text : 'Gericht sortiert', 'success');
     } catch(e) {
-        showToast('Fehler beim Speichern', 'error');
+        showToast('Reihenfolge nicht gespeichert: ' + e.message, 'error');
+        menuNeuLaden();
     }
 }
+// Nach einem Fehler: Stand der Datenbank holen, statt eine Reihenfolge
+// stehen zu lassen, die es nur im Dashboard gibt.
+function menuNeuLaden() {
+    var sel = document.getElementById('menuRestaurantSelect');
+    if (sel && sel.value) sel.dispatchEvent(new Event('change'));
+}
+window.menuNeuLaden = menuNeuLaden;
 
 // KATEGORIEN-LEISTE AM RECHNER BEDIENBAR MACHEN
 //
@@ -69718,10 +70029,14 @@ async function kombiAnlegen(restaurantId, kategorieId, name, kombiPreis, baustei
         name: name,
         base_price: Number(kombiPreis),
         description: bausteine.map(function (b) { return b.name; }).join(' + '),
-        is_available: true,
+        // ERST VERSTECKT (07.10.2026): scheiterte vorher eine Auswahl-Gruppe,
+        // stand das Menue schon bestellbar in der Karte -- mit fehlender
+        // Auswahl. Jetzt wird es erst sichtbar, wenn alle Teile da sind.
+        is_available: false,
         sort_order: 1
     });
 
+    try {
     for (var i = 0; i < bausteine.length; i++) {
         var b = bausteine[i];
         var gruppe = await sendeMitRueckfall('menu_option_groups', {
@@ -69745,6 +70060,19 @@ async function kombiAnlegen(restaurantId, kategorieId, name, kombiPreis, baustei
             });
         }
     }
+    } catch (e) {
+        // Halbes Menue wieder wegnehmen. Klappt das nicht, bleibt es
+        // versteckt (is_available false) -- Gaeste koennen es nicht bestellen.
+        var weg = false;
+        try {
+            var del = await fetch(SUPABASE_URL + '/rest/v1/menu_items?id=eq.' + encodeURIComponent(gericht.id), { method: 'DELETE', headers: H });
+            if (del.ok) { var dz = await del.json(); weg = Array.isArray(dz) && dz.length > 0; }
+        } catch (e2) {}
+        throw new Error((e && e.message ? e.message : 'Fehler') + (weg ? ' — nichts angelegt.' : ' — das halbe Menü ist ausgeblendet, bitte in der Karte löschen.'));
+    }
+    var sichtbar = await fetch(SUPABASE_URL + '/rest/v1/menu_items?id=eq.' + encodeURIComponent(gericht.id), { method: 'PATCH', headers: H, body: JSON.stringify({ is_available: true }) });
+    var sz = sichtbar.ok ? await sichtbar.json() : null;
+    if (!Array.isArray(sz) || !sz.length) throw new Error('Menü angelegt, aber noch ausgeblendet — in der Karte auf „Wieder verfügbar“ tippen.');
     return gericht;
 }
 window.kombiAnlegen = kombiAnlegen;
@@ -69831,26 +70159,47 @@ function renderMenuCategories() {
         return;
     }
 
-    container.innerHTML = menuCategories.map(cat => {
-        const items = menuItems.filter(item => item.category_id === cat.id);
+    // SUCHE + OFFEN HALTEN (07.10.2026). Frueher klappte jedes Neuzeichnen
+    // (nach "Ausverkauft", Pfeil, Bearbeiten) alle Kategorien wieder zu.
+    var _q = String(window._menuSuche || '').trim().toLowerCase();
+    var _offen = window._menuOffen || (window._menuOffen = {});
+    var _treffer = 0;
+    function _passt(item) {
+        if (!_q) return true;
+        var nr = (typeof getDishNumber === 'function' ? getDishNumber(item) : '') || '';
+        return (String(item.name || '') + ' ' + String(item.description || '') + ' ' + nr).toLowerCase().indexOf(_q) > -1;
+    }
+    var _esc = function (x) { return typeof escapeHtml === 'function' ? escapeHtml(String(x == null ? '' : x)) : String(x == null ? '' : x).replace(/[&<>"']/g, ''); };
+    container.innerHTML = menuCategories.map((cat, _ci) => {
+        const items = menuItems.filter(item => item.category_id === cat.id && _passt(item));
+        _treffer += items.length;
+        if (_q && !items.length) return '';
+        const _istOffen = !!_q || !!_offen[cat.id];
 
         return `
-            <div class="menu-category-card" id="category-${cat.id}" draggable="true" data-cat-id="${cat.id}" ondragstart="onCategoryDragStart(event,'${cat.id}')" ondragover="onCategoryDragOver(event)" ondrop="onCategoryDrop(event,'${cat.id}')" ondragend="onCategoryDragEnd(event)">
+            <div class="menu-category-card${_istOffen ? ' open' : ''}" id="category-${cat.id}" draggable="true" data-cat-id="${cat.id}" ondragstart="onCategoryDragStart(event,'${cat.id}')" ondragover="onCategoryDragOver(event)" ondrop="onCategoryDrop(event,'${cat.id}')" ondragend="onCategoryDragEnd(event)">
                 <div class="menu-category-header" onclick="toggleMenuCategory('${cat.id}')">
                     <div class="menu-category-title">
                         <span class="drag-handle" style="cursor:grab;margin-right:8px;color:var(--slate);display:inline-flex;align-items:center;" title="Ziehen zum Sortieren"><svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><circle cx="9" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg></span>
                         <span class="menu-category-icon">${getCategoryIconSVG(cat.icon || '')}</span>
-                        <span>${cat.name}</span>
+                        <span>${_esc(cat.name)}</span>
                         <span class="menu-category-count">${items.length}</span>
                     </div>
                     <div class="menu-category-actions" onclick="event.stopPropagation()">
+                        <!-- Pfeile: Ziehen geht auf dem iPad nicht (HTML5-Drag kennt kein Touch). -->
+                        <button class="menu-category-btn" onclick="kategorieVerschieben('${cat.id}',-1)" title="Kategorie nach oben" aria-label="${_esc(cat.name)} nach oben"${_ci === 0 ? ' disabled style="opacity:.35"' : ''}>
+                            <span class="material-symbols-outlined" style="font-size:16px;">arrow_upward</span>
+                        </button>
+                        <button class="menu-category-btn" onclick="kategorieVerschieben('${cat.id}',1)" title="Kategorie nach unten" aria-label="${_esc(cat.name)} nach unten"${_ci === menuCategories.length - 1 ? ' disabled style="opacity:.35"' : ''}>
+                            <span class="material-symbols-outlined" style="font-size:16px;transform:rotate(180deg);">arrow_upward</span>
+                        </button>
                         <button class="menu-category-btn" onclick="editCategory('${cat.id}')" title="Bearbeiten" aria-label="Bearbeiten">
                             <span class="material-symbols-outlined" style="font-size:16px;">edit</span>
                         </button>
                         <button class="menu-category-btn delete" onclick="deleteCategory('${cat.id}')" title="Löschen" aria-label="Löschen">
                             <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
                         </button>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="var(--slate)" stroke-width="2" width="20" height="20" style="transition: transform 0.3s;" class="category-arrow">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="var(--slate)" stroke-width="2" width="20" height="20" style="transition: transform 0.3s;${_istOffen ? 'transform:rotate(180deg);' : ''}" class="category-arrow">
                             <polyline points="6 9 12 15 18 9"/>
                         </svg>
                     </div>
@@ -69865,23 +70214,23 @@ function renderMenuCategories() {
                             ${bulkMode ? `<div style="display:flex;align-items:center;padding-right:10px;">
                                 <input type="checkbox" ${bulkSelectedItems[item.id] ? 'checked' : ''} onchange="toggleBulkItem('${item.id}', this)" style="width:20px;height:20px;cursor:pointer;accent-color:var(--primary);">
                             </div>` : ''}
-                            ${item.image_url ? `<img src="${item.image_url}" class="menu-item-image" loading="lazy" alt="${item.name || 'Gericht'}">` : `<div class="menu-item-image" style="display: flex; align-items: center; justify-content: center; font-size: 24px;"></div>`}
+                            ${item.image_url ? `<img src="${_esc(item.image_url)}" class="menu-item-image" loading="lazy" alt="${_esc(item.name || 'Gericht')}">` : `<div class="menu-item-image" style="display: flex; align-items: center; justify-content: center; font-size: 24px;"></div>`}
                             <div class="menu-item-info">
                                 <div class="menu-item-name">
-                                    ${getDishNumber(item) ? '<span style="color:var(--primary);font-weight:700;font-size:12px;margin-right:4px;">' + getDishNumber(item) + '</span> ' : ''}${item.name}
+                                    ${getDishNumber(item) ? '<span style="color:var(--primary);font-weight:700;font-size:12px;margin-right:4px;">' + _esc(getDishNumber(item)) + '</span> ' : ''}${_esc(item.name)}
                                     ${item.is_popular ? '<span class="menu-item-badge popular"><span class="material-symbols-outlined" style="font-size:12px;color:#f59e0b;font-variation-settings:\'FILL\' 1;">star</span> Beliebt</span>' : ''}
                                     ${item.is_vegan ? '<span class="menu-item-badge vegan"><span class="material-symbols-outlined" style="font-size:18px;color:#10b981;">cookie</span> Vegan</span>' : ''}
                                     ${item.is_spicy ? '<span class="menu-item-badge spicy"><span class="material-symbols-outlined" style="font-size:18px;color:#ef4444;">person</span> Scharf</span>' : ''}
                                     ${(item.is_available === false || item.is_active === false) ? '<span class="menu-item-badge inactive"><span class="material-symbols-outlined" style="font-size:18px;color:#ef4444">cancel</span> Inaktiv</span>' : ''}
                                 </div>
-                                <div class="menu-item-desc">${item.description || ''}</div>
+                                <div class="menu-item-desc">${_esc(item.description || '')}</div>
                             </div>
                             <div style="display:flex;align-items:center;gap:8px;">${verkaufsAnzeige(item)}<div class="menu-item-price">${formatPrice(item.base_price || item.price)}</div></div>
                             <div class="menu-item-actions">
-                                <button class="menu-item-btn" onclick="gerichtVerschieben('${item.id}','${cat.id}',-1)" title="Nach oben" aria-label="${(item.name || 'Gericht').replace(/"/g, '')} nach oben">
+                                <button class="menu-item-btn" onclick="gerichtVerschieben('${item.id}','${cat.id}',-1)" title="Nach oben" aria-label="${_esc(item.name || 'Gericht')} nach oben">
                                     <span class="material-symbols-outlined" style="font-size:16px;">arrow_upward</span>
                                 </button>
-                                <button class="menu-item-btn" onclick="gerichtVerschieben('${item.id}','${cat.id}',1)" title="Nach unten" aria-label="${(item.name || 'Gericht').replace(/"/g, '')} nach unten">
+                                <button class="menu-item-btn" onclick="gerichtVerschieben('${item.id}','${cat.id}',1)" title="Nach unten" aria-label="${_esc(item.name || 'Gericht')} nach unten">
                                     <!-- Derselbe Pfeil, gedreht. arrow_downward steckt nicht in
                                          unserer schlanken Symbolschrift (27 KB statt Megabyte),
                                          und dafuer die ganze Schrift neu zu erzeugen waere
@@ -69908,17 +70257,62 @@ function renderMenuCategories() {
                 </div>
             </div>
         `;
-    }).join('');
+    }).join('') + (_q && !_treffer ? '<p style="text-align:center;color:var(--text-secondary);padding:24px;">Kein Gericht passt zu „' + _esc(_q) + '“.</p>' : '');
+    var _tz = document.getElementById('menuSucheTreffer');
+    if (_tz) _tz.textContent = _q ? (_treffer === 1 ? '1 Treffer' : _treffer + ' Treffer') : '';
 
     // Kategorie-Dropdown im Modal aktualisieren
     updateCategorySelect();
 }
+
+// Suche: bei jeder Eingabe neu zeichnen (die Liste ist lokal, kein Netz).
+document.addEventListener('input', function (e) {
+    if (!e.target || e.target.id !== 'menuSuche') return;
+    window._menuSuche = e.target.value;
+    renderMenuCategories();
+});
+
+// Kategorie per Pfeil verschieben (iPad: Ziehen geht dort nicht).
+function kategorieVerschieben(catId, richtung) {
+    var pos = menuCategories.findIndex(function (c) { return c.id === catId; });
+    var ziel = pos + richtung;
+    if (pos < 0 || ziel < 0 || ziel >= menuCategories.length) return;
+    var bewegt = menuCategories.splice(pos, 1)[0];
+    menuCategories.splice(ziel, 0, bewegt);
+    menuCategories.forEach(function (c, i) { c.sort_order = i + 1; });
+    renderMenuCategories();
+    saveCategoryOrder();
+}
+window.kategorieVerschieben = kategorieVerschieben;
+
+// Mehrere Gerichte auf einmal ausverkauft / wieder verfuegbar.
+async function bulkVerfuegbar(verfuegbar) {
+    var ids = Object.keys(bulkSelectedItems || {});
+    if (!ids.length) { showToast('Bitte zuerst Gerichte auswählen', 'error'); return; }
+    var geklappt = 0, fehler = [], grund = '';
+    for (var k = 0; k < ids.length; k++) {
+        var it = menuItems.find(function (i) { return i.id === ids[k]; });
+        try {
+            var z = await menuSchreiben('menu_items?id=eq.' + ids[k], 'PATCH', { is_available: verfuegbar });
+            if (it) it.is_available = z[0].is_available !== false;
+            geklappt++;
+        } catch (e) { fehler.push(it ? it.name : ids[k]); grund = e.message; }
+    }
+    bulkSelectedItems = {};
+    renderMenuCategories();
+    if (typeof updateBulkCounter === 'function') updateBulkCounter();
+    if (typeof updateMenuStats === 'function') updateMenuStats();
+    if (fehler.length) showToast(geklappt + ' geändert, ' + fehler.length + ' NICHT (' + grund + '): ' + fehler.slice(0, 3).join(', '), 'error');
+    else showToast(geklappt + (verfuegbar ? ' Gerichte wieder verfügbar' : ' Gerichte heute ausverkauft'), verfuegbar ? 'success' : 'warning');
+}
+window.bulkVerfuegbar = bulkVerfuegbar;
 
 // Kategorie auf/zuklappen
 function toggleMenuCategory(categoryId) {
     const card = document.getElementById(`category-${categoryId}`);
     if (card) {
         card.classList.toggle('open');
+        (window._menuOffen || (window._menuOffen = {}))[categoryId] = card.classList.contains('open');
         const arrow = card.querySelector('.category-arrow');
         if (arrow) {
             arrow.style.transform = card.classList.contains('open') ? 'rotate(180deg)' : '';
@@ -70374,124 +70768,106 @@ function addMenuItemOption() {
 }
 
 // Gericht löschen
+// UMGEBAUT (07.10.2026). Vorher: drei Wege nacheinander, und wenn eine
+// Leseprobe danach [] lieferte, galt das Gericht als "schon weg" -- auch
+// wenn nur das Leserecht fehlte. Jetzt: ein DELETE mit Zeilen-Pruefung,
+// und 10 Sekunden lang "Rückgängig" (das geloeschte Gericht kommt mit der
+// Antwort zurueck und wird unveraendert wieder eingefuegt).
 async function deleteMenuItem(itemId) {
-    if (!await kinConfirm('Gericht wirklich löschen?')) return;
-
-    var deleted = false;
-
+    var item = menuItems.find(function (i) { return i.id === itemId; });
+    if (!await kinConfirm(item && item.name ? '„' + item.name + '“ löschen?' : 'Gericht wirklich löschen?')) return;
+    var weg = null;
     try {
-        // Methode 1: Supabase JS Client (nutzt aktive Session)
-        var client = sb || window.sb;
-        if (client) {
-            try {
-                var result = await client.from('menu_items').delete().eq('id', itemId).select();
-                if (!result.error && result.data && result.data.length > 0) {
-                    deleted = true;
-                }
-            } catch(e) { console.warn('JS Client delete fehlgeschlagen:', e); }
-        }
+        weg = await menuSchreiben('menu_items?id=eq.' + encodeURIComponent(itemId), 'DELETE');
+    } catch (e) {
+        // 0 Zeilen: kein Recht ODER schon von einem anderen Geraet geloescht.
+        // Nur wenn die (oeffentliche) Speisekarte es sicher nicht mehr hat,
+        // gilt es als weg -- ein Lesefehler ist KEIN "weg".
+        var schonWeg = false;
+        try {
+            var pr = await sbRead(SUPABASE_URL + '/rest/v1/menu_items?id=eq.' + encodeURIComponent(itemId) + '&select=id', { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() } });
+            if (pr.ok) { var pz = await pr.json(); schonWeg = Array.isArray(pz) && pz.length === 0; }
+        } catch (e2) {}
+        if (!schonWeg) { showToast('Nicht gelöscht: ' + e.message, 'error'); return; }
+        menuItems = menuItems.filter(function (i) { return i.id !== itemId; });
+        window.menuItems = menuItems;
+        renderMenuCategories(); updateMenuStats();
+        showToast('War schon gelöscht (anderes Gerät?)', 'warning');
+        return;
+    }
+    menuItems = menuItems.filter(function (i) { return i.id !== itemId; });
+    window.menuItems = menuItems;
+    renderMenuCategories();
+    updateMenuStats();
+    menuRueckgaengigAnbieten('„' + ((weg[0] && weg[0].name) || 'Gericht') + '“ gelöscht', function () { return gerichtWiederherstellen(weg[0]); });
+}
+window.deleteMenuItem = deleteMenuItem;
 
-        // Methode 2: REST API mit return=representation
-        if (!deleted) {
-            var resp = await fetch(`${SUPABASE_URL}/rest/v1/menu_items?id=eq.${itemId}`, {
-                method: 'DELETE',
-                headers: {
-                    'apikey': SUPABASE_KEY,
-                    'Authorization': 'Bearer ' + kmiToken(),
-                    'Prefer': 'return=representation',
-                    'Content-Type': 'application/json'
-                }
-            });
-            if (resp.ok) {
-                var data = await resp.json();
-                if (data && data.length > 0) deleted = true;
-            }
-        }
-
-        // Methode 3: Verifizieren ob gelöscht — wenn nicht, nochmal per RPC
-        if (!deleted) {
-            // Prüfen ob Item noch existiert
-            var checkResp = await sbRead(`${SUPABASE_URL}/rest/v1/menu_items?id=eq.${itemId}&select=id`, {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
-            });
-            var checkData = await checkResp.json();
-            if (!checkData || checkData.length === 0) {
-                deleted = true; // Ist schon weg
-            }
-        }
-
-        if (deleted) {
-            menuItems = menuItems.filter(item => item.id !== itemId);
-            window.menuItems = menuItems;
-            renderMenuCategories();
-            updateMenuStats();
-            showToast('Gericht gelöscht');
-        } else {
-            console.error('DELETE fehlgeschlagen: Item existiert noch in DB');
-            showToast('Löschen fehlgeschlagen — RLS-Berechtigung prüfen', 'error');
-        }
-    } catch(e) {
-        console.error('Delete error:', e);
-        showToast('Fehler beim Löschen: ' + e.message, 'error');
+async function gerichtWiederherstellen(zeile) {
+    try {
+        var z = await menuSchreiben('menu_items', 'POST', zeile);
+        menuItems.push(z[0]);
+        window.menuItems = menuItems;
+        renderMenuCategories(); updateMenuStats();
+        showToast('„' + (z[0].name || 'Gericht') + '“ ist wieder da', 'success');
+    } catch (e) {
+        showToast('Wiederherstellen fehlgeschlagen: ' + e.message, 'error');
     }
 }
+window.gerichtWiederherstellen = gerichtWiederherstellen;
+
+// Hinweis mit Knopf "Rückgängig", 10 Sekunden. Ein Tipp genuegt, zweimal geht nicht.
+function menuRueckgaengigAnbieten(text, rueck) {
+    var box = document.getElementById('toastContainer');
+    if (!box) { showToast(text); return; }
+    var el = document.createElement('div');
+    el.className = 'toast';
+    el.setAttribute('role', 'status');
+    el.style.cssText = 'display:flex;align-items:center;gap:14px;';
+    var t = document.createElement('span'); t.textContent = text;
+    var k = document.createElement('button');
+    k.type = 'button'; k.textContent = 'Rückgängig';
+    k.style.cssText = 'min-height:44px;padding:0 16px;border-radius:9999px;border:none;background:#ffffff;color:#1c1c1e;font-weight:700;font-size:14px;cursor:pointer;';
+    var fertig = false;
+    k.onclick = function () { if (fertig) return; fertig = true; el.remove(); rueck(); };
+    el.appendChild(t); el.appendChild(k); box.appendChild(el);
+    setTimeout(function () { fertig = true; el.remove(); }, 10000);
+}
+window.menuRueckgaengigAnbieten = menuRueckgaengigAnbieten;
 
 // Kategorie löschen
 async function deleteCategory(categoryId) {
-    const itemsInCategory = menuItems.filter(i => i.category_id === categoryId).length;
-    if (itemsInCategory > 0) {
-        if (!await kinConfirm('Diese Kategorie enthält ' + itemsInCategory + ' Gerichte. Trotzdem löschen?')) return;
-    }
-
-    var catDeleted = false;
-    var client = sb || window.sb;
-
+    // UMGEBAUT (07.10.2026). Vorher wurden ERST alle Gerichte geloescht,
+    // dann die Kategorie -- scheiterte der zweite Schritt (Recht), waren
+    // die Gerichte weg, die Kategorie blieb, und es gab keine Sicherung.
+    // Eine leere Kategorie ging ohne Rueckfrage.
+    var cat = menuCategories.find(function (c) { return c.id === categoryId; }) || {};
+    var itemsInCategory = menuItems.filter(function (i) { return i.category_id === categoryId; });
+    var frage = itemsInCategory.length
+        ? 'Kategorie „' + (cat.name || '') + '“ mit ' + itemsInCategory.length + ' Gerichten löschen? Die Gerichte werden mitgelöscht.'
+        : 'Leere Kategorie „' + (cat.name || '') + '“ löschen?';
+    if (!await kinConfirm(frage)) return;
     try {
-        // Methode 1: Supabase JS Client
-        if (client) {
-            try {
-                var r1 = await client.from('menu_items').delete().eq('category_id', categoryId);
-                var r2 = await client.from('menu_categories').delete().eq('id', categoryId).select();
-                if (!r2.error && r2.data && r2.data.length > 0) catDeleted = true;
-            } catch(e) { console.warn('JS delete Kategorie:', e); }
+        if (itemsInCategory.length) {
+            var gesichert = false;
+            try { gesichert = await sichereKarte(currentMenuRestaurant || window.currentMenuRestaurant, 'Kategorie löschen: ' + (cat.name || '')); } catch (e) {}
+            if (!gesichert && !await kinConfirm('Die Sicherung der Karte ist fehlgeschlagen. Ohne Sicherung gibt es kein Zurück. Trotzdem löschen?')) return;
+            // Erst die Gerichte ausblenden statt loeschen? Nein: erst pruefen,
+            // ob wir die KATEGORIE aendern duerfen (harmloser Schreibtest auf
+            // dieselbe Zeile). Ohne Recht bricht es hier ab, bevor ein
+            // einziges Gericht weg ist.
+            await menuSchreiben('menu_categories?id=eq.' + categoryId, 'PATCH', { name: cat.name });
+            await menuSchreiben('menu_items?category_id=eq.' + categoryId, 'DELETE');
         }
-
-        // Methode 2: REST API Fallback
-        if (!catDeleted) {
-            await sbWrite(`${SUPABASE_URL}/rest/v1/menu_items?category_id=eq.${categoryId}`, {
-                method: 'DELETE',
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Prefer': 'return=representation' }
-            });
-            var resp = await fetch(`${SUPABASE_URL}/rest/v1/menu_categories?id=eq.${categoryId}`, {
-                method: 'DELETE',
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Prefer': 'return=representation' }
-            });
-            if (resp.ok) {
-                var data = await resp.json();
-                if (data && data.length > 0) catDeleted = true;
-            }
-        }
-
-        // Verifizieren
-        if (!catDeleted) {
-            var check = await sbRead(`${SUPABASE_URL}/rest/v1/menu_categories?id=eq.${categoryId}&select=id`, {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
-            });
-            var cd = await check.json();
-            if (!cd || cd.length === 0) catDeleted = true;
-        }
-
-        if (catDeleted) {
-            menuCategories = menuCategories.filter(cat => cat.id !== categoryId);
-            menuItems = menuItems.filter(item => item.category_id !== categoryId);
-            renderMenuCategories();
-            updateMenuStats();
-            showToast('Kategorie gelöscht');
-        } else {
-            showToast('Kategorie löschen fehlgeschlagen', 'error');
-        }
-    } catch(e) {
-        showToast('Fehler: ' + e.message, 'error');
+        await menuSchreiben('menu_categories?id=eq.' + categoryId, 'DELETE');
+        menuCategories = menuCategories.filter(function (c) { return c.id !== categoryId; });
+        menuItems = menuItems.filter(function (i) { return i.category_id !== categoryId; });
+        window.menuCategories = menuCategories; window.menuItems = menuItems;
+        renderMenuCategories();
+        updateMenuStats();
+        showToast('Kategorie gelöscht');
+    } catch (e) {
+        showToast('Kategorie nicht gelöscht: ' + e.message + '. Bitte die Karte neu laden und prüfen.', 'error');
     }
 }
 
@@ -72280,7 +72656,7 @@ async function startMenuScan() {
         var fehlerGrund = null;
         if (images.length) {
             var vorhandeneKats = await ladeVorhandeneKategorien(
-                window.currentMenuRestaurant || currentMenuRestaurant || RESTAURANT_ID);
+                menuRestaurantWahl());
             var ki = await leseKarteKI(images, vorhandeneKats, statusEl, false);
             window._scanBericht = ki.bericht;
             window._scanPruefung = ki.pruefung;
@@ -74643,7 +75019,8 @@ function zeigeKartenAbgleich(d) {
 async function wendeKartenAbgleichAn() {
     var d = window._kartenAbgleich;
     if (!d) return;
-    var restaurantId = currentMenuRestaurant || window.currentMenuRestaurant || RESTAURANT_ID;
+    var restaurantId = menuRestaurantWahl();
+    if (!restaurantId) { showToast('Bitte zuerst oben ein Restaurant wählen', 'error'); return; }
     var wahl = (document.querySelector('input[name="kartenAbgleichEntfallen"]:checked') || {}).value || 'ausverkauft';
 
     var knopf = document.getElementById('kartenAbgleichKnopf');
@@ -74651,8 +75028,10 @@ async function wendeKartenAbgleichAn() {
 
     await sichereKarte(restaurantId, 'Karte abgleichen');
 
+    // return=representation: gezaehlt wird nur, was die Datenbank mit einer
+    // Zeile bestaetigt (frueher return=minimal -- jedes 204 galt als Erfolg).
     var H = { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken(),
-              'Content-Type': 'application/json', 'Prefer': 'return=minimal' };
+              'Content-Type': 'application/json', 'Prefer': 'return=representation' };
     var geaendert = 0, angelegt = 0, stillgelegt = 0, geloescht = 0, fehler = 0;
 
     // 1) Geänderte Gerichte
@@ -74691,7 +75070,7 @@ async function wendeKartenAbgleichAn() {
                 r = await fetch(SUPA_URL + '/rest/v1/menu_items?id=eq.' + g.alt.id,
                     { method: 'PATCH', headers: H, body: JSON.stringify(neuerStand) });
             }
-            if (r.ok) geaendert++; else fehler++;
+            if (await menuZeilenOk(r)) geaendert++; else { fehler++; if (r.ok) _gruende.push(menuKeinRechtText()); }
         } catch (e) { fehler++; _gruende.push(e.message); }
     }
 
@@ -74702,11 +75081,11 @@ async function wendeKartenAbgleichAn() {
             var r2;
             if (wahl === 'loeschen') {
                 r2 = await fetch(SUPA_URL + '/rest/v1/menu_items?id=eq.' + e.id, { method: 'DELETE', headers: H });
-                if (r2.ok) geloescht++; else fehler++;
+                if (await menuZeilenOk(r2)) geloescht++; else fehler++;
             } else {
                 r2 = await fetch(SUPA_URL + '/rest/v1/menu_items?id=eq.' + e.id,
                     { method: 'PATCH', headers: H, body: JSON.stringify({ is_available: false }) });
-                if (r2.ok) stillgelegt++; else fehler++;
+                if (await menuZeilenOk(r2)) stillgelegt++; else fehler++;
             }
         } catch (e2) { fehler++; }
     }
@@ -75146,8 +75525,7 @@ async function extrasPdfUebernehmen() {
     });
     if (!gewaehlt.length) { showToast('Keine Gruppe ausgewählt', 'error'); return; }
 
-    var rid = window._gastroOnlyRestaurantId || currentMenuRestaurant
-           || window.currentMenuRestaurant || RESTAURANT_ID;
+    var rid = menuRestaurantWahl();
     if (!rid) { _extrasPdfSage('Kein Restaurant ausgewählt.', 'fehler'); return; }
 
     var kn = document.getElementById('extrasPdfKnopf');
@@ -75323,7 +75701,7 @@ async function legeExtrasAn(restaurantId, SUPA_H) {
 
 async function importScannedMenu() {
 
-    var restaurantId = currentMenuRestaurant || window.currentMenuRestaurant || RESTAURANT_ID;
+    var restaurantId = menuRestaurantWahl();
     
     if (!restaurantId) {
         showToast('Bitte zuerst ein Restaurant auswählen!', 'error');
@@ -75429,6 +75807,7 @@ async function importScannedMenu() {
     }
 
     // Schritt 3: Items importieren
+    var _ohnePreisListe = [];
     for (var j = 0; j < selectedItems.length; j++) {
         var item = selectedItems[j];
         var catId = categoryMap[(item.category || 'Sonstiges').toLowerCase()];
@@ -75446,16 +75825,24 @@ async function importScannedMenu() {
             continue;
         }
 
+        // PREIS (07.10.2026): parseFloat("12,50") ist 12, und ein fehlender
+        // Preis wurde 0 -- das Gericht war sofort fuer 0 € bestellbar.
+        // Jetzt: Komma verstanden; ohne Preis (und ohne Groessen) wird es
+        // angelegt, aber AUSVERKAUFT, und am Ende genannt.
+        var _preis = menuPreisLesen(item.price);
+        var _mitGroessen = Array.isArray(item.sizes) && item.sizes.length;
+        var _ohnePreis = _preis === null && !_mitGroessen;
+        if (_ohnePreis) _ohnePreisListe.push(item.name);
         var itemData = {
             restaurant_id: restaurantId,
             category_id: catId,
             name: item.name,
             description: item.description || '',
-            base_price: parseFloat(item.price) || 0,
+            base_price: _preis === null ? 0 : _preis,
             // Größen als JSON mitschreiben. Die Gast-Ansicht macht daraus
             // die Auswahl "klein / groß" und zeigt "ab <günstigster Preis>".
             sizes: (Array.isArray(item.sizes) && item.sizes.length) ? item.sizes : null,
-            is_available: true,
+            is_available: !_ohnePreis,
             is_vegetarian: !!item.is_vegetarian,
             is_vegan: !!item.is_vegan,
             is_spicy: scharfWert(item.is_spicy),
@@ -75645,6 +76032,10 @@ async function importScannedMenu() {
         }
     }
 
+    if (_ohnePreisListe.length) {
+        showToast(_ohnePreisListe.length + ' Gericht' + (_ohnePreisListe.length > 1 ? 'e' : '') + ' ohne Preis angelegt – noch NICHT bestellbar (ausverkauft), bis ein Preis drinsteht: '
+            + _ohnePreisListe.slice(0, 4).join(', ') + (_ohnePreisListe.length > 4 ? ' …' : ''), 'warning');
+    }
     if (errors.length > 0 && importedCount === 0) {
         showToast('Import fehlgeschlagen! Prüfe Browser-Konsole (F12).', 'error');
     } else if (errors.length > 0) {
@@ -75801,45 +76192,102 @@ async function kategorieSpeichern(categoryId) {
 window.editCategory = editCategory;
 window.kategorieSpeichern = kategorieSpeichern;
 
+// SPEISEKARTE SPEICHERN -- NUR MIT BELEG (07.10.2026).
+//
+// Durchsicht des Editors: mehrere Wege zeigten "gespeichert", ohne zu
+// pruefen, ob die Datenbank eine Zeile geaendert hat. Bei fehlendem Recht
+// (RLS) antwortet sie 200 mit [] oder 204 -- das sah aus wie Erfolg:
+// "ausverkauft" im Dashboard, fuer Gaeste weiter bestellbar.
+//
+// menuSchreiben(): immer return=representation, Erfolg nur mit
+// mindestens einer Zeile zurueck. Ist die Anmeldung abgelaufen, wird sie
+// zuerst erneuert; scheitert das Speichern dann, sagt die Meldung es.
+function menuPreisLesen(text) {
+    var s = String(text == null ? '' : text).replace(/[€\s]/g, '').replace(',', '.');
+    if (!s) return null;
+    var n = Number(s);
+    return isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
+}
+window.menuPreisLesen = menuPreisLesen;
+// Welches Lokal wird gerade bearbeitet? Frueher fiel jede Stelle auf
+// RESTAURANT_ID zurueck -- ein fest eingebautes Lokal. Ohne Auswahl
+// waere in DESSEN Karte geschrieben worden. Jetzt: null, und der Aufrufer
+// sagt "bitte zuerst ein Restaurant waehlen".
+function menuRestaurantWahl() {
+    return (typeof currentMenuRestaurant !== 'undefined' && currentMenuRestaurant) || window.currentMenuRestaurant || window._gastroOnlyRestaurantId || null;
+}
+window.menuRestaurantWahl = menuRestaurantWahl;
+async function menuSitzungAuffrischen() {
+    if (kmiToken() !== SUPABASE_KEY) return true;
+    try {
+        var c = window.supabaseClient || window.sb;
+        if (c && c.auth && c.auth.refreshSession) {
+            var r = await c.auth.refreshSession();
+            if (r && r.data && r.data.session && typeof kmiTokenSetzen === 'function') kmiTokenSetzen(r.data.session);
+        }
+    } catch (e) {}
+    return kmiToken() !== SUPABASE_KEY;
+}
+function menuKeinRechtText() {
+    return kmiToken() === SUPABASE_KEY ? 'Anmeldung abgelaufen – bitte neu anmelden und nochmal versuchen' : 'keine Berechtigung – nichts gespeichert';
+}
+async function menuSchreiben(pfad, methode, daten) {
+    await menuSitzungAuffrischen();
+    var res = await fetch(SUPA_URL + '/rest/v1/' + pfad, {
+        method: methode,
+        headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+        body: daten === undefined ? undefined : JSON.stringify(daten)
+    });
+    var roh = ''; try { roh = await res.text(); } catch (e) {}
+    var z = null; try { z = roh ? JSON.parse(roh) : null; } catch (e) {}
+    if (!res.ok) throw new Error('Fehler ' + res.status + (z && z.message ? ': ' + z.message : ''));
+    if (!Array.isArray(z) || !z.length) throw new Error(menuKeinRechtText());
+    return z;
+}
+window.menuSchreiben = menuSchreiben;
+// Fuer Stellen mit eigener fetch-Logik: Erfolg nur mit Zeilen zurueck.
+async function menuZeilenOk(res) {
+    if (!res || !res.ok) return false;
+    try { var z = await res.clone().json(); return Array.isArray(z) && z.length > 0; } catch (e) { return false; }
+}
+window.menuZeilenOk = menuZeilenOk;
+
 async function toggleSoldOut(itemId) {
     var item = menuItems.find(function(i) { return i.id === itemId; });
     if (!item) return;
     var newAvail = item.is_available === false ? true : false;
     try {
-        var res = await fetch(SUPA_URL + '/rest/v1/menu_items?id=eq.' + itemId, {
-            method: 'PATCH',
-            headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
-            body: JSON.stringify({ is_available: newAvail })
-        });
-        if (res.ok) {
-            item.is_available = newAvail;
-            renderMenuCategories();
-            showToast(newAvail ? item.name + ' wieder verfügbar' : item.name + ' als ausverkauft markiert', newAvail ? 'success' : 'warning');
-        } else {
-            // Fehlte komplett: ein 400/403 blieb unsichtbar, das Gericht sah im
-            // Dashboard unverändert aus und war für Gäste weiter bestellbar.
-            showToast('Konnte nicht gespeichert werden (Fehler ' + res.status + ') – Gericht ist für Gäste weiter bestellbar', 'error');
-        }
-    } catch(e) { showToast('Fehler: ' + e.message, 'error'); }
+        var z = await menuSchreiben('menu_items?id=eq.' + itemId, 'PATCH', { is_available: newAvail });
+        item.is_available = z[0].is_available !== false;
+        renderMenuCategories();
+        showToast(newAvail ? item.name + ' wieder verfügbar' : item.name + ' als ausverkauft markiert', newAvail ? 'success' : 'warning');
+    } catch(e) {
+        // Vorher reichte res.ok: bei fehlendem Recht kam 200 mit [] -- das
+        // Dashboard zeigte "ausverkauft", Gaeste konnten weiter bestellen.
+        showToast('Nicht gespeichert (' + e.message + ') – ' + (newAvail ? 'Gericht bleibt ausverkauft' : 'Gericht ist für Gäste weiter bestellbar'), 'error');
+    }
 }
 
 function editMenuItem(itemId) {
+    // ESCAPING (07.10.2026): eine Beschreibung mit "&lt;" oder "</textarea>"
+    // kam vorher veraendert zurueck in die Datenbank (Browser dekodiert beim
+    // Einlesen) bzw. zerbrach den Dialog.
     var item = menuItems.find(function(i) { return i.id === itemId; });
     if (!item) { showToast('Gericht nicht gefunden', 'error'); return; }
     
     var cats = menuCategories.map(function(c) {
-        return '<option value="' + c.id + '"' + (c.id === item.category_id ? ' selected' : '') + '>' + c.name + '</option>';
+        return '<option value="' + c.id + '"' + (c.id === item.category_id ? ' selected' : '') + '>' + escapeHtml(c.name) + '</option>';
     }).join('');
 
     var dishNr = getDishNumber(item);
     var html = '<div style="display:flex;flex-direction:column;gap:14px;">' +
         '<div style="display:flex;gap:10px;">' +
         '<div style="width:80px;flex-shrink:0;"><label style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:4px;">Nr.</label>' +
-        '<input type="text" id="editItemNr" value="' + (dishNr || '') + '" placeholder="z.B. 42" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:14px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;text-align:center;"></div>' +
+        '<input type="text" id="editItemNr" value="' + escapeHtml(dishNr || '') + '" placeholder="z.B. 42" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:14px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;text-align:center;"></div>' +
         '<div style="flex:1;"><label style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:4px;">Name</label>' +
-        '<input type="text" id="editItemName" value="' + (item.name || '').replace(/"/g, '&quot;') + '" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:14px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;"></div></div>' +
+        '<input type="text" id="editItemName" value="' + escapeHtml(item.name || '') + '" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:14px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;"></div></div>' +
         '<div><label style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:4px;">Beschreibung</label>' +
-        '<textarea id="editItemDesc" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:13px;min-height:60px;resize:vertical;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' + (item.description || '') + '</textarea></div>' +
+        '<textarea id="editItemDesc" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:13px;min-height:60px;resize:vertical;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' + escapeHtml(item.description || '') + '</textarea></div>' +
         // GROESSEN -- DAS FEHLENDE STUECK.
         //
         // Gemeldet am 04.09.2026: bei der Familienpizza fehlten die
@@ -75862,7 +76310,7 @@ function editMenuItem(itemId) {
         '<p style="font-size:11px;color:var(--slate);margin-top:4px;">Leer lassen = ein Preis für alle. Sonst wählt der Gast die Größe, und der Preis oben gilt nicht mehr. Genau diese Namen trägst du dann bei den Optionsgruppen unter „Gilt nur für Größe" ein.</p></div>' +
 
         '<div><label style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:4px;">Zutaten zum Abwählen (optional)</label>' +
-        '<input type="text" id="editItemOhne" aria-label="Zutaten, die der Gast abwählen kann" value="' + (typeof zutatenEingetragen === 'function' ? zutatenEingetragen(item).join(', ') : '').replace(/"/g, '&quot;') + '" placeholder="z.B. Gyros, Tzatziki, Pommes, Salat" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:13px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' +
+        '<input type="text" id="editItemOhne" aria-label="Zutaten, die der Gast abwählen kann" value="' + escapeHtml(typeof zutatenEingetragen === 'function' ? zutatenEingetragen(item).join(', ') : '') + '" placeholder="z.B. Gyros, Tzatziki, Pommes, Salat" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:13px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' +
         '<p style="font-size:11px;color:var(--slate);margin-top:4px;">Mit Komma trennen. Der Gast sieht sie als „Bitte ohne"-Kästchen und muss nichts tippen. Leer lassen = wird aus der Beschreibung gelesen, wenn die wie eine Zutatenliste aussieht.</p></div>' +
 
         '<div style="display:flex;gap:12px;">' +
@@ -75883,8 +76331,8 @@ function editMenuItem(itemId) {
         '</div>' +
         '<div><label style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:4px;"><span class="material-symbols-outlined" style="font-size:18px;">change_history</span>Bild URL (optional)</label>' +
         '<div style="display:flex;gap:8px;align-items:center;">' +
-        '<input type="url" id="editItemImage" value="' + (item.image_url || '') + '" placeholder="https://beispiel.de/gericht.jpg" style="flex:1;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:13px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' +
-        (item.image_url ? '<img src="' + item.image_url + '" alt="' + (item.name || 'Gericht') + '" loading="lazy" style="width:44px;height:44px;border-radius:16px;object-fit:cover;border:1px solid var(--border-color);">' : '<div style="width:44px;height:44px;border-radius:16px;background:var(--bg-secondary);border:1px solid var(--border-color);display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="font-size:18px;color:var(--slate);">change_history</span></div>') +
+        '<input type="url" id="editItemImage" value="' + escapeHtml(item.image_url || '') + '" placeholder="https://beispiel.de/gericht.jpg" style="flex:1;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:13px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' +
+        (item.image_url ? '<img src="' + escapeHtml(item.image_url) + '" alt="' + escapeHtml(item.name || 'Gericht') + '" loading="lazy" style="width:44px;height:44px;border-radius:16px;object-fit:cover;border:1px solid var(--border-color);">' : '<div style="width:44px;height:44px;border-radius:16px;background:var(--bg-secondary);border:1px solid var(--border-color);display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="font-size:18px;color:var(--slate);">change_history</span></div>') +
         '</div></div>' +
         buildAllergenChipsHtml(item.allergens || [], 'editMenuItemAllergens', { name: item.name, description: item.description }) +
         '<button onclick="saveEditedItem(\'' + itemId + '\')" style="width:100%;padding:14px;background:var(--primary);color:white;border:none;border-radius:9999px;font-size:15px;font-weight:700;cursor:pointer;">Speichern</button>' +
@@ -75907,7 +76355,7 @@ function groessenZeile(name, preis) {
     zeile.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:8px;';
     zeile.innerHTML =
         '<input type="text" class="groesse-name" aria-label="Name der Größe" placeholder="z.B. 40 cm" value="'
-        + String(name == null ? '' : name).replace(/"/g, '&quot;')
+        + escapeHtml(name == null ? '' : name)
         + '" style="flex:2;padding:8px 10px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:13px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">'
         + '<input type="number" step="0.10" min="0" class="groesse-preis" aria-label="Preis dieser Größe" placeholder="Preis" value="'
         + (preis == null ? '' : preis)
@@ -75948,7 +76396,9 @@ window.groessenAusMaske = groessenAusMaske;
 async function saveEditedItem(itemId) {
     var name = document.getElementById('editItemName').value.trim();
     var desc = document.getElementById('editItemDesc').value.trim();
-    var price = parseFloat(document.getElementById('editItemPrice').value) || 0;
+    // Vorher: parseFloat(...) || 0 -- ein geleertes oder vertipptes Feld
+    // speicherte das Gericht fuer 0,00 €. "12,50" wurde zu 12.
+    var price = menuPreisLesen(document.getElementById('editItemPrice').value);
     var catId = document.getElementById('editItemCat').value;
     var isVeg = document.getElementById('editItemVeg').checked;
     var isVegan = document.getElementById('editItemVegan').checked;
@@ -75964,6 +76414,9 @@ async function saveEditedItem(itemId) {
     } catch(_e) { editAllergens = []; }
 
     if (!name) { showToast('Name ist Pflichtfeld', 'error'); return; }
+    var _groessen = groessenAusMaske();
+    if (price === null && !(Array.isArray(_groessen) && _groessen.length)) { showToast('Bitte einen gültigen Preis eintragen (z. B. 12,50). 0 nur, wenn es wirklich gratis ist.', 'error'); return; }
+    if (price === null) price = 0;
 
     // Gerichtenummer in additives speichern
     var currentItem = menuItems.find(function(i) { return i.id === itemId; });
@@ -75980,34 +76433,22 @@ async function saveEditedItem(itemId) {
     if (_ohneRoh.length) additives.push('ohne:' + _ohneRoh.join(','));
 
     try {
-        var res = await fetch(SUPA_URL + '/rest/v1/menu_items?id=eq.' + itemId, {
-            method: 'PATCH',
-            headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
-            body: JSON.stringify({
+        var updated = await menuSchreiben('menu_items?id=eq.' + itemId, 'PATCH', {
                 name: name, description: desc, base_price: price, category_id: catId,
                 // Groessen aus der Maske. null = keine, dann gilt base_price.
-                sizes: groessenAusMaske(),
+                sizes: _groessen,
                 is_vegetarian: isVeg, is_vegan: isVegan, is_spicy: scharfWert(isSpicy), is_available: isAvail,
                 daily_limit: dailyLimit,
                 image_url: imageUrl,
                 additives: additives,
                 allergens: editAllergens
-            })
-        });
-        if (res.ok) {
-            var updated = await res.json();
-            if (updated && updated[0]) {
-                var idx = menuItems.findIndex(function(i) { return i.id === itemId; });
-                if (idx >= 0) menuItems[idx] = updated[0];
-            }
-            closeGenericModal();
-            renderMenuCategories();
-            showToast('Gericht gespeichert!', 'success');
-        } else {
-            var err = await res.text();
-            showToast('Fehler: ' + err.substring(0, 80), 'error');
-        }
-    } catch(e) { showToast('Fehler: ' + e.message, 'error'); }
+            });
+        var idx = menuItems.findIndex(function(i) { return i.id === itemId; });
+        if (idx >= 0) menuItems[idx] = updated[0];
+        closeGenericModal();
+        renderMenuCategories();
+        showToast('Gericht gespeichert!', 'success');
+    } catch(e) { showToast('Nicht gespeichert: ' + e.message, 'error'); }
 }
 
 // ==================== GENERIC MODAL ====================
@@ -76157,62 +76598,58 @@ async function applyBulkPrice(type) {
     if (isNaN(value)) { showToast('Bitte Wert eingeben', 'error'); return; }
 
     var items = menuItems.filter(function(i) { return bulkSelectedItems[i.id]; });
-    var updated = 0;
-    var headers = { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json' };
+    var updated = 0, fehlgeschlagen = [], grund = '';
 
     for (var k = 0; k < items.length; k++) {
         var item = items[k];
         var newPrice = calcNewPrice(item.base_price || 0, type, value);
         try {
-            var res = await fetch(SUPA_URL + '/rest/v1/menu_items?id=eq.' + item.id, {
-                method: 'PATCH', headers: headers,
-                body: JSON.stringify({ base_price: newPrice })
-            });
-            if (res.ok) {
-                updated++;
-                var idx = menuItems.findIndex(function(i) { return i.id === item.id; });
-                if (idx >= 0) menuItems[idx].base_price = newPrice;
-            }
-        } catch(e) { console.error('Bulk update:', e); }
+            // Vorher ohne Antwort und nur res.ok: das Dashboard zeigte neue
+            // Preise, die Datenbank behielt die alten.
+            var z = await menuSchreiben('menu_items?id=eq.' + item.id, 'PATCH', { base_price: newPrice });
+            updated++;
+            var idx = menuItems.findIndex(function(i) { return i.id === item.id; });
+            if (idx >= 0) menuItems[idx].base_price = Number(z[0].base_price);
+        } catch(e) { fehlgeschlagen.push(item.name); grund = e.message; }
     }
 
     closeGenericModal();
     bulkSelectedItems = {};
     renderMenuCategories();
     updateBulkCounter();
-    showToast(updated + ' Preise aktualisiert!', 'success');
+    if (fehlgeschlagen.length) showToast(updated + ' Preise geändert, ' + fehlgeschlagen.length + ' NICHT (' + grund + '): ' + fehlgeschlagen.slice(0, 3).join(', ') + (fehlgeschlagen.length > 3 ? ' …' : ''), 'error');
+    else showToast(updated + ' Preise aktualisiert!', 'success');
 }
 
 async function bulkDeleteItems() {
-    // Sicherung zuerst. Über "alle auswählen" ist hier die ganze Karte weg,
-    // und bis hierher gab es dafür kein Zurück.
-    try {
-        await sichereKarte(currentMenuRestaurant || window.currentMenuRestaurant || RESTAURANT_ID,
-                           'Gerichte löschen');
-    } catch (e) {}
     var count = Object.keys(bulkSelectedItems).length;
     if (count === 0) return;
     if (!await kinConfirm(count + ' Gerichte wirklich löschen?')) return;
+    // Sicherung zuerst. Über "alle auswählen" ist hier die ganze Karte weg.
+    // Vorher wurde ein Scheitern der Sicherung verschluckt und trotzdem
+    // geloescht -- jetzt wird gefragt.
+    var gesichert = false;
+    try { gesichert = await sichereKarte(currentMenuRestaurant || window.currentMenuRestaurant, 'Gerichte löschen'); } catch (e) { gesichert = false; }
+    if (!gesichert && !await kinConfirm('Die Sicherung der Karte ist fehlgeschlagen. Ohne Sicherung gibt es kein Zurück. Trotzdem löschen?')) return;
 
-    var headers = { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken() };
-    var deleted = 0;
+    var deleted = 0, fehlgeschlagen = 0, grund = '';
     var ids = Object.keys(bulkSelectedItems);
 
     for (var k = 0; k < ids.length; k++) {
         try {
-            var res = await fetch(SUPA_URL + '/rest/v1/menu_items?id=eq.' + ids[k], { method: 'DELETE', headers: headers });
-            if (res.ok) {
-                deleted++;
-                menuItems = menuItems.filter(function(i) { return i.id !== ids[k]; });
-            }
-        } catch(e) { console.error("Löschen fehlgeschlagen:", ids[k], e); }
+            await menuSchreiben('menu_items?id=eq.' + ids[k], 'DELETE');
+            deleted++;
+            menuItems = menuItems.filter(function(i) { return i.id !== ids[k]; });
+        } catch(e) { fehlgeschlagen++; grund = e.message; }
     }
+    window.menuItems = menuItems;
 
     bulkSelectedItems = {};
     renderMenuCategories();
     updateBulkCounter();
     if (typeof updateMenuStats === 'function') updateMenuStats();
-    showToast(deleted + ' Gerichte gelöscht', 'success');
+    if (fehlgeschlagen) showToast(deleted + ' gelöscht, ' + fehlgeschlagen + ' NICHT gelöscht (' + grund + ')', 'error');
+    else showToast(deleted + ' Gerichte gelöscht', 'success');
 }
 
 // ==================== GROESSEN MANAGER ====================
