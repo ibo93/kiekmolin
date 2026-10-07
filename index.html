@@ -18689,9 +18689,22 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 .tp3-griff::after { content: ''; position: absolute; left: 50%; top: 100%; width: 2px; height: 14px; margin-left: -1px; background: #003d33; }
                 .dark-mode .tp3-griff { background: #1a1d1c; color: #b8eddf; border-color: #b8eddf; }
                 .dark-mode .tp3-griff::after { background: #b8eddf; }
-                .tp3[data-bearbeiten="1"] .tp3-schild:not(.gewaehlt) > span { padding: 2px 7px; font-size: 11px; gap: 4px; opacity: 0.92; }
-                .tp3-schild.teil > span { background: rgba(255,255,255,0.92); color: #404946; border: 1px solid rgba(0,37,30,0.18); font-size: 11px; font-weight: 700; padding: 3px 8px; }
-                .dark-mode .tp3-schild.teil > span { background: rgba(26,29,28,0.92); color: #c9cfcd; border-color: rgba(255,255,255,0.2); }
+                /* Ruhige Schilder (07.10.2026, "richtig professionell"): mit echten Maßen
+                   waren die Schilder größer als die Tische. Jetzt klein -- den Zustand
+                   zeigt die Farbe des Tisches, nur der gewählte bekommt das große Schild. */
+                .tp3-schild:not(.gewaehlt) > span { padding: 3px 8px; font-size: 12px; min-height: 24px; gap: 4px; }
+                /* Klein zu sehen, gross zum Antippen: unsichtbarer Rand macht die
+                   Tippflaeche mind. 44 px hoch (Apple-Richtwert). */
+                .tp3-schild:not(.teil) > span::before { content: ''; position: absolute; left: -6px; right: -6px; top: -13px; bottom: -13px; }
+                .tp3[data-bearbeiten="1"] .tp3-schild:not(.gewaehlt) > span { padding: 2px 7px; font-size: 11px; gap: 4px; }
+                .tp3-zoom { position: absolute; right: 16px; top: 16px; display: flex; border-radius: 9999px; background: var(--tp3-karte); border: 1px solid var(--tp3-rand); overflow: hidden; z-index: 4; }
+                .tp3-zoom button { min-width: 44px; height: 44px; border: 0; background: transparent; color: var(--tp3-text); font: 700 18px Inter, sans-serif; cursor: pointer; padding: 0 10px; }
+                .tp3-zoom button.klein { font-size: 13px; }
+                .tp3-zoom button + button { border-left: 1px solid var(--tp3-rand); }
+                /* Feste Teile: dezente Schrift statt Schild -- sie sind keine Tische. */
+                .tp3-schild.teil > span { background: rgba(255,255,255,0.82); color: #404946; border: 0; font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 6px; min-height: 0; border-radius: 6px; pointer-events: none; }
+                .dark-mode .tp3-schild.teil > span { background: rgba(26,29,28,0.82); color: #c9cfcd; }
+                .tp3[data-bearbeiten="0"] .tp3-schild.teil.still { display: none; }
                 .tp3-schild.teil.gewaehlt > span { background: #00251e; color: #ffffff; border-color: #00251e; }
                 .tp3-b { position: absolute; transform-style: preserve-3d; }
                 .tp3-f { position: absolute; }
@@ -18817,6 +18830,11 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 <div class="tp3-haupt">
                     <div class="tp3-buehne" id="tp3Buehne">
                         <div class="tp3-boden" id="tp3Boden"></div>
+                        <div class="tp3-zoom" role="group" aria-label="Zoom">
+                            <button type="button" id="tp3ZoomRaus" aria-label="Verkleinern">−</button>
+                            <button type="button" id="tp3ZoomFit" class="klein" aria-label="Ganzen Raum zeigen">Einpassen</button>
+                            <button type="button" id="tp3ZoomRein" aria-label="Vergrößern">+</button>
+                        </div>
                         <div class="tp3-legende">
                             <span><i class="tp3-leg-frei"></i>Frei</span>
                             <span><i style="background:#dbe7fb;border:2px dashed #2563eb;"></i>Reserviert</span>
@@ -18865,6 +18883,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     // Raum je Bereich (datenbank/41-tischplan-raum.sql): Maße in
                     // Metern, Rechteck oder L-Form, feste Teile (Eingang, Theke ...).
                     raum: {}, raumGeaendert: false, ohneRaumSpalte: false, teilGewaehlt: null,
+                    zoom: 1, panX: 0, panY: 0,
                     W: 560, T: 420, ppm: 560 / 12
                 };
                 try { tp.ansicht = localStorage.getItem('kmi_tp3_ansicht') === 'oben' ? 'oben' : '3d'; } catch (e) { tp.ansicht = '3d'; }
@@ -18946,12 +18965,12 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 var TEIL = {
                     // Eingang und Fenster stehen aufrecht an der Wand (in 3D ein
                     // Tuerblatt / eine Scheibe, von oben ein schmaler Strich).
-                    tuer:    { name: 'Eingang', b: 1.0, t: 0.12, h: 70, oben: '#8b5e34', f1: '#74492a', f2: '#633d22', wand: true },
+                    tuer:    { name: 'Eingang', b: 1.0, t: 0.12, h: 52, oben: '#8b5e34', f1: '#74492a', f2: '#633d22', wand: true },
                     theke:   { name: 'Theke',   b: 3,   t: 0.8, h: 40, oben: '#6b4f3a', f1: '#5a4231', f2: '#4a3628' },
-                    fenster: { name: 'Fenster', b: 1.6, t: 0.12, h: 52, oben: '#9cc9e6', f1: 'rgba(127,179,214,0.78)', f2: 'rgba(110,164,201,0.78)', wand: true },
-                    kueche:  { name: 'Küche',   b: 3,   t: 2.5, h: 60, oben: '#d6dad8', f1: '#bfc5c2', f2: '#aeb5b2' },
-                    wc:      { name: 'WC',      b: 2,   t: 2,   h: 60, oben: '#d6dad8', f1: '#bfc5c2', f2: '#aeb5b2' },
-                    wand:    { name: 'Wand',    b: 3,   t: 0.15, h: 70, oben: '#f0f0ee', f1: '#d9dcda', f2: '#c9cdcb', wand: true },
+                    fenster: { name: 'Fenster', b: 1.6, t: 0.12, h: 40, oben: '#9cc9e6', f1: 'rgba(127,179,214,0.78)', f2: 'rgba(110,164,201,0.78)', wand: true },
+                    kueche:  { name: 'Küche',   b: 3,   t: 2.5, h: 50, oben: '#d6dad8', f1: '#bfc5c2', f2: '#aeb5b2' },
+                    wc:      { name: 'WC',      b: 2,   t: 2,   h: 50, oben: '#d6dad8', f1: '#bfc5c2', f2: '#aeb5b2' },
+                    wand:    { name: 'Wand',    b: 3,   t: 0.15, h: 56, oben: '#f0f0ee', f1: '#d9dcda', f2: '#c9cdcb', wand: true },
                     pflanze: { name: 'Pflanze', b: 0.6, t: 0.6, h: 30, oben: '#3f7d4a', f1: '#2f6339', f2: '#2f6339', rund: true }
                 };
                 var ECKE_NAME = { ol: 'oben links', or: 'oben rechts', ul: 'unten links', ur: 'unten rechts' };
@@ -19051,9 +19070,10 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     o += '</div>';
                     if (tp.bearbeiten) o += '<button type="button" class="tp3-tipp" data-teil-id="' + esc(teil.id) + '" aria-label="' + esc(d.name) + '"></button>';
                     if (tp.bearbeiten && gew && tp.ansicht === 'oben') o += '<button type="button" class="tp3-griff" data-griff-teil="' + esc(teil.id) + '" aria-label="' + esc(d.name) + ' drehen – im Kreis ziehen">' + GRIFF + '</button>';
-                    var k = Math.min(1.8, 1 / (tp.s || 1));
+                    var k = Math.min(1.3, 1 / (tp.s || 1));
                     var schild = tp.ansicht === '3d' ? 'transform:translateZ(' + (d.h + 18) + 'px) rotateZ(' + (-winkel()) + 'deg) rotateX(-' + NEIGUNG + 'deg) scale(' + k + ');' : 'transform:scale(' + k + ');';
-                    o += '<div class="tp3-schild teil' + (gew ? ' gewaehlt' : '') + '" style="' + schild + '"><span>' + esc(d.name) + '</span></div>';
+                    var still = teil.art === 'fenster' || teil.art === 'wand' || teil.art === 'pflanze';
+                    o += '<div class="tp3-schild teil' + (still ? ' still' : '') + (gew ? ' gewaehlt' : '') + '" style="' + schild + '"><span>' + esc(d.name) + '</span></div>';
                     return o + '</div>';
                 }
 
@@ -19209,7 +19229,8 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
 
                 // ---------- Zeichnen ----------
                 function winkel() { return DREH0 + tp.drehung; }
-                function massstab() {
+                function massstab() { return grundMassstab() * (tp.zoom || 1); }
+                function grundMassstab() {
                     var b = $('tp3Buehne'); if (!b) return 1;
                     var W = b.clientWidth || 700, H = b.clientHeight || 620;
                     if (tp.ansicht === '3d') return Math.max(0.5, Math.min((W - 16) / (tp.W + 130), (H - 60) / (tp.T + 100)));
@@ -19220,15 +19241,17 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 function bodenStellen() {
                     var boden = $('tp3Boden'); if (!boden) return;
                     var s = massstab();
+                    var pan = (tp.panX || tp.panY) ? ' translate(' + Math.round(tp.panX) + 'px,' + Math.round(tp.panY) + 'px)' : '';
                     boden.style.transform = tp.ansicht === '3d'
-                        ? 'translate(-50%,-46%) scale(' + s + ') rotateX(' + NEIGUNG + 'deg) rotateZ(' + winkel() + 'deg)'
-                        : 'translate(-50%,' + (tp.bearbeiten ? '-58%' : '-54%') + ') scale(' + s + ')';
+                        ? 'translate(-50%,-46%)' + pan + ' scale(' + s + ') rotateX(' + NEIGUNG + 'deg) rotateZ(' + winkel() + 'deg)'
+                        : 'translate(-50%,' + (tp.bearbeiten ? '-58%' : '-54%') + ')' + pan + ' scale(' + s + ')';
                 }
                 function waende() {
                     if (tp.ansicht !== '3d') return '';
                     var r = raumVon(tp.bereich || 'main');
                     if (r.form === 'L') return waendeUmriss(r);
-                    var n = nahKanten(winkel()), o = '', H = 84, S = 14;
+                    // Aufgeschnittene Waende (1,2 m): nichts verdeckt Tische und Schilder.
+                    var n = nahKanten(winkel()), o = '', H = 56, S = 14;
                     var wand = 'background:var(--tp3-wand);', sockel = 'background:var(--tp3-sockel);';
                     // Ferne Kanten: Wand nach oben. Nahe Kanten: nur die Bodenplatte.
                     o += n.oben ? '<div class="tp3-f" style="left:0;top:-' + S + 'px;width:100%;height:' + S + 'px;' + sockel + 'transform-origin:bottom;transform:rotateX(90deg);"></div>'
@@ -19244,7 +19267,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 // Waende entlang eines beliebigen (rechtwinkligen) Umrisses -- die L-Form.
                 // Wie beim Rechteck: zum Betrachter hin nur der Sockel, sonst die Wand.
                 function waendeUmriss(r) {
-                    var rad = winkel() * Math.PI / 180, c = Math.cos(rad), s = Math.sin(rad), H = 84, S = 14, o = '';
+                    var rad = winkel() * Math.PI / 180, c = Math.cos(rad), s = Math.sin(rad), H = 56, S = 14, o = '';
                     var wand = 'background:var(--tp3-wand);', sockel = 'background:var(--tp3-sockel);';
                     umriss(r).forEach(function (k) {
                         var x1 = Math.min(k[0], k[2]), y1 = Math.min(k[1], k[3]), x2 = Math.max(k[0], k[2]), y2 = Math.max(k[1], k[3]), nx = k[4], ny = k[5];
@@ -19279,15 +19302,15 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     if (tp.bearbeiten && gew && tp.ansicht === 'oben') o += '<button type="button" class="tp3-griff" data-griff="' + esc(t.id) + '" aria-label="' + esc(t.name) + ' drehen – im Kreis ziehen">' + GRIFF + '</button>';
                     // Schilder behalten ihre Schriftgroesse: die Szene wird auf schmalen
                     // Bildschirmen verkleinert, die Schrift darf es nicht (13 px statt 8).
-                    var k = Math.min(1.8, 1 / (tp.s || 1));
-                    var schild = tp.ansicht === '3d' ? 'transform:translateZ(' + (gew ? 62 : 58) + 'px) rotateZ(' + (-winkel()) + 'deg) rotateX(-' + NEIGUNG + 'deg) scale(' + k + ');' : 'transform:scale(' + k + ');';
+                    var k = Math.min(1.3, 1 / (tp.s || 1));
+                    var schild = tp.ansicht === '3d' ? 'transform:translateZ(' + (gew ? 70 : 66) + 'px) rotateZ(' + (-winkel()) + 'deg) rotateX(-' + NEIGUNG + 'deg) scale(' + k + ');' : 'transform:scale(' + k + ');';
                     var klasse = gew ? 'gewaehlt' : (tp.bearbeiten ? 'frei' : z.art);
                     var inhalt = '<b>' + esc(t.nummer) + '</b>';
                     // Beim Bearbeiten nur die Nummer: mit echten Maßen sind Tische klein,
                     // ein breites Schild würde Form und Größe verdecken. Plätze und
                     // Maße stehen rechts, sobald der Tisch gewählt ist.
                     if (tp.bearbeiten) { if (gew) inhalt += esc(t.plaetze) + ' Pl.'; }
-                    else if (z.art === 'frei') inhalt += '<i>frei' + (g.art === 'lang' ? ' · ' + t.plaetze : '') + '</i>';
+                    else if (z.art === 'frei') { if (gew) inhalt += '<i>frei · ' + esc(t.plaetze) + ' Plätze</i>'; }
                     else if (z.art === 'res' && gew && z.res) inhalt += esc(z.text + ' · ' + (z.res.guest_name || ''));
                     else inhalt += esc(z.text);
                     o += '<div class="tp3-schild ' + klasse + '" style="' + schild + '"><span data-id="' + esc(t.id) + '">' + inhalt + '</span></div>';
@@ -19580,6 +19603,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 function geaendert(t) { tp.geaendert[t.id] = true; }
                 function zugStart(e) {
                     if (!tp.bearbeiten || tp.ansicht !== 'oben') return;
+                    if (e.target.closest('.tp3-zoom')) return;
                     var gr = e.target.closest('.tp3-griff');
                     if (gr) {
                         var istTeil = gr.hasAttribute('data-griff-teil');
@@ -19817,10 +19841,60 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         melden('Neuer Bereich „' + name.trim() + '“ – tippe unten eine Tischform an. Er bleibt, sobald ein Tisch darin steht.', 'hinweis');
                     };
                     var buehne = $('tp3Buehne');
+                    // ZOOM: Knoepfe, zwei Finger, Strg+Mausrad (Trackpad). Von oben
+                    // verschiebt ein Finger den vergroesserten Plan.
+                    function zoomSetzen(z) {
+                        tp.zoom = Math.max(0.6, Math.min(3, Math.round(z * 100) / 100));
+                        if (tp.zoom <= 1) { tp.panX = 0; tp.panY = 0; }
+                        zeichnen();
+                    }
+                    $('tp3ZoomRein').onclick = function () { zoomSetzen((tp.zoom || 1) * 1.25); };
+                    $('tp3ZoomRaus').onclick = function () { zoomSetzen((tp.zoom || 1) / 1.25); };
+                    $('tp3ZoomFit').onclick = function () { tp.panX = 0; tp.panY = 0; zoomSetzen(1); };
+                    buehne.addEventListener('wheel', function (e) {
+                        if (!e.ctrlKey) return;                         // normales Scrollen bleibt Scrollen
+                        e.preventDefault(); zoomSetzen((tp.zoom || 1) * (e.deltaY < 0 ? 1.08 : 1 / 1.08));
+                    }, { passive: false });
+                    var finger = {}, pinch = null, schieben = null;
+                    buehne.addEventListener('pointerdown', function (e) {
+                        finger[e.pointerId] = { x: e.clientX, y: e.clientY };
+                        var ids = Object.keys(finger);
+                        if (ids.length === 2) {
+                            var a = finger[ids[0]], b = finger[ids[1]];
+                            pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, z0: tp.zoom || 1 };
+                            zug = null; wisch = null; schieben = null;  // zwei Finger = nur zoomen
+                            return;
+                        }
+                        // Ein Finger auf leerem Boden, von oben, vergroessert: verschieben.
+                        if (tp.ansicht === 'oben' && (tp.zoom || 1) > 1 && !e.target.closest('.tp3-tisch,.tp3-teil,button,.tp3-schild span,.tp3-leiste'))
+                            schieben = { x0: e.clientX, y0: e.clientY, px: tp.panX, py: tp.panY, id: e.pointerId, bewegt: false };
+                    }, true);
+                    buehne.addEventListener('pointermove', function (e) {
+                        if (finger[e.pointerId]) finger[e.pointerId] = { x: e.clientX, y: e.clientY };
+                        if (pinch) {
+                            var ids = Object.keys(finger); if (ids.length < 2) return;
+                            var a = finger[ids[0]], b = finger[ids[1]];
+                            tp.zoom = Math.max(0.6, Math.min(3, pinch.z0 * Math.hypot(a.x - b.x, a.y - b.y) / pinch.d0));
+                            bodenStellen(); return;
+                        }
+                        if (schieben && e.pointerId === schieben.id) {
+                            var dx = e.clientX - schieben.x0, dy = e.clientY - schieben.y0;
+                            if (!schieben.bewegt && Math.abs(dx) + Math.abs(dy) < 6) return;
+                            schieben.bewegt = true; tp.panX = schieben.px + dx; tp.panY = schieben.py + dy; bodenStellen();
+                            tp._gewischt = true;
+                        }
+                    });
+                    var fingerWeg = function (e) {
+                        delete finger[e.pointerId];
+                        if (pinch && Object.keys(finger).length < 2) { pinch = null; zeichnen(); }
+                        if (schieben && e.pointerId === schieben.id) { var war = schieben.bewegt; schieben = null; if (war) setTimeout(function () { tp._gewischt = false; }, 50); }
+                    };
+                    buehne.addEventListener('pointerup', fingerWeg);
+                    buehne.addEventListener('pointercancel', fingerWeg);
                     // 3D: mit dem Finger wischen dreht den ganzen Raum stufenlos.
                     var wisch = null;
                     buehne.addEventListener('pointerdown', function (e) {
-                        if (tp.bearbeiten || tp.ansicht !== '3d' || e.target.closest('button,.tp3-drehen,.tp3-legende')) return;
+                        if (tp.bearbeiten || tp.ansicht !== '3d' || pinch || e.target.closest('button,.tp3-drehen,.tp3-legende,.tp3-zoom')) return;
                         wisch = { x0: e.clientX, d0: tp.drehung, id: e.pointerId, bewegt: false };
                     });
                     buehne.addEventListener('pointermove', function (e) {

@@ -162,8 +162,16 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
   pruef('hell 3D: Kontrast aller ' + k.n + ' Texte >= 4,5', !k.raus.length, k.raus.join(' | '));
   var aus = await p.s.evaluate(imBild); pruef('3D: kein Schild ragt aus der Bühne', !aus.length, aus.join(', '));
   var ue = await p.s.evaluate(ueberlappt); pruef('3D: keine zwei Schilder überdecken sich', !ue.length, ue.join(', '));
-  var gross = await p.s.evaluate(function () { return Array.prototype.map.call(document.querySelectorAll('#tp3Boden .tp3-schild > span'), function (s) { return Math.round(s.getBoundingClientRect().height); }); });
-  pruef('3D: jedes Schild mindestens 28 px hoch (lesbar, antippbar)', gross.every(function (h) { return h >= 28; }), gross.join(','));
+  // Lesbar = Schrift mind. 12 px; antippbar = Tippflaeche mind. 40 px hoch.
+  // (Vorher: sichtbare Hoehe >= 28 px. Die ruhigen Schilder sind kleiner zu
+  // sehen, ihre Tippflaeche ist durch einen unsichtbaren Rand groesser.)
+  await p.s.evaluate(function () { document.getElementById('tp3Buehne').scrollIntoView({ block: 'center' }); }); await p.s.waitForTimeout(100);
+  var gross = await p.s.evaluate(function () { return Array.prototype.map.call(document.querySelectorAll('#tp3Boden .tp3-schild:not(.teil) > span'), function (s) {
+    var r = s.getBoundingClientRect(), f = parseFloat(getComputedStyle(s).fontSize), cx = r.left + r.width / 2, oben = 0, unten = 0;
+    for (var y = r.top + r.height / 2; y > r.top - 30; y--) { var e = document.elementFromPoint(cx, y); if (!e || !(e === s || s.contains(e))) break; oben = r.top + r.height / 2 - y; }
+    for (var y2 = r.top + r.height / 2; y2 < r.bottom + 30; y2++) { var e2 = document.elementFromPoint(cx, y2); if (!e2 || !(e2 === s || s.contains(e2))) break; unten = y2 - (r.top + r.height / 2); }
+    return Math.round(f * 1.0) + 'px/' + Math.round(oben + unten); }); });
+  pruef('3D: jedes Schild lesbar (Schrift >= 12 px) und antippbar (Tippfläche >= 40 px)', gross.every(function (x) { var p2 = x.split('px/'); return +p2[0] >= 12 && +p2[1] >= 40; }), gross.join(','));
   var neben = await p.s.evaluate(function () { var a = document.getElementById('tp3Buehne').getBoundingClientRect(), c = document.getElementById('tp3Seite').getBoundingClientRect(); return [Math.round(a.right), Math.round(c.left), Math.round(a.top), Math.round(c.top)]; });
   pruef('iPad quer mit Dashboard-Leiste: Tischleiste steht NEBEN dem Plan', neben[1] >= neben[0] && Math.abs(neben[2] - neben[3]) < 4, neben);
   await p.s.locator('#tp3').screenshot({ path: path.join(AUS, 'tischplan-3d-hell.png') });
@@ -337,6 +345,26 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
   await p.s.evaluate(function () { window.tp3.drehung = 0; });
   await p.s.click('#tp3AnsichtOben'); await p.s.waitForTimeout(150);
   await p.s.locator('#tp3').screenshot({ path: path.join(AUS, 'tischplan-L-oben.png') });
+  // Profi-Ansicht: ruhige Schilder, Zoom
+  var schilder = await p.s.evaluate(function () {
+    var frei = document.querySelector('#tp3Boden .tp3-schild.frei span'), alle = document.querySelectorAll('#tp3Boden .tp3-schild:not(.teil):not(.gewaehlt) span');
+    var breit = 0; alle.forEach(function (x) { breit = Math.max(breit, x.getBoundingClientRect().width); });
+    return { freiText: frei ? frei.textContent : null, breitestes: Math.round(breit) };
+  });
+  pruef('freier Tisch: nur die Nummer auf dem Schild', /^\d+$/.test(schilder.freiText), schilder.freiText);
+  pruef('Schilder bleiben klein (breitestes < 130 px, vorher ~150)', schilder.breitestes < 130, schilder.breitestes);
+  var z0 = await p.s.evaluate(function () { return document.getElementById('tp3Boden').getBoundingClientRect().width; });
+  await p.s.click('#tp3ZoomRein'); await p.s.waitForTimeout(100); await p.s.click('#tp3ZoomRein'); await p.s.waitForTimeout(150);
+  var z1 = await p.s.evaluate(function () { return document.getElementById('tp3Boden').getBoundingClientRect().width; });
+  pruef('"+" zweimal: Raum gut 1,5-mal so groß', z1 / z0 > 1.5 && z1 / z0 < 1.6, Math.round(z0) + ' -> ' + Math.round(z1));
+  var vb = await p.s.evaluate(function () { var r = document.getElementById('tp3Buehne').getBoundingClientRect(); return { x: r.left + 30, y: r.top + 80 }; });
+  var b0 = await p.s.evaluate(function () { return document.getElementById('tp3Boden').getBoundingClientRect().left; });
+  await p.s.mouse.move(vb.x, vb.y); await p.s.mouse.down(); await p.s.mouse.move(vb.x + 80, vb.y + 20, { steps: 6 }); await p.s.mouse.up(); await p.s.waitForTimeout(100);
+  var b1 = await p.s.evaluate(function () { return document.getElementById('tp3Boden').getBoundingClientRect().left; });
+  pruef('vergrößert: mit dem Finger verschieben', Math.abs(b1 - b0 - 80) < 3, Math.round(b0) + ' -> ' + Math.round(b1));
+  await p.s.click('#tp3ZoomFit'); await p.s.waitForTimeout(150);
+  var z2 = await p.s.evaluate(function () { return { w: document.getElementById('tp3Boden').getBoundingClientRect().width, z: window.tp3.zoom, px: window.tp3.panX }; });
+  pruef('"Einpassen": wieder ganzer Raum, nicht verschoben', Math.abs(z2.w - z0) < 1 && z2.z === 1 && z2.px === 0, JSON.stringify(z2));
   // Bearbeiten: Raum-Formular, Tisch in die Ecke ziehen, Theke dazu, speichern
   await p.s.click('#tp3Bearbeiten'); await p.s.waitForTimeout(200);
   var formular = await p.s.evaluate(function () { return document.getElementById('tp3Seite').innerText; });

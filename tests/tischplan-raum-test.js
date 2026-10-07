@@ -88,6 +88,14 @@ t('Speichern schickt laenge_cm/breite_cm (wenn 41 da ist)', /daten\.laenge_cm = 
 t('41: Spalten laenge_cm/breite_cm mit Grenzen', /add column if not exists laenge_cm smallint/.test(SQL) && /laenge_cm between 30 and 800/.test(SQL), '');
 t('neue Form = übliches Maß dieser Form (kein 180 cm breiter Rundtisch)', /t\.form = f\.getAttribute\('data-form'\); t\.laenge = null; t\.breite = null;/.test(H), '');
 
+// Profi-Ansicht (Ibo: "richtig professionell")
+t('Zoom: Knöpfe −/Einpassen/+, zwei Finger, Strg+Mausrad', /id="tp3ZoomRein"/.test(H) && /id="tp3ZoomFit"/.test(H) && /pinch = \{ d0:/.test(H) && /if \(!e\.ctrlKey\) return;/.test(H), '');
+t('Zoom geht in den Massstab ein (Ziehen und Schilder bleiben richtig)', /function massstab\(\) \{ return grundMassstab\(\) \* \(tp\.zoom \|\| 1\); \}/.test(H), '');
+t('freier Tisch zeigt nur die Nummer (ausser gewählt)', /else if \(z\.art === 'frei'\) \{ if \(gew\) inhalt \+=/.test(H), '');
+t('kleine Schilder, aber Tippfläche durch unsichtbaren Rand', /\.tp3-schild:not\(\.teil\) > span::before \{ content: ''; position: absolute; left: -6px; right: -6px; top: -13px; bottom: -13px; \}/.test(H), '');
+t('aufgeschnittene Wände (niedriger als die Schilder)', (H.match(/H = 56, S = 14/g) || []).length === 2 && /translateZ\(' \+ \(gew \? 70 : 66\) \+ 'px\)/.test(H), '');
+t('feste Teile: dezente Schrift, Fenster/Wand/Pflanze im Live-Plan ohne', /\.tp3\[data-bearbeiten="0"\] \.tp3-schild\.teil\.still \{ display: none; \}/.test(H), '');
+
 // Oberfläche und Speichern
 t('Leiste hat die festen Teile', ['tuer', 'theke', 'fenster', 'kueche', 'wc', 'wand', 'pflanze'].every(function (a) { return H.indexOf('data-teil="' + a + '"') >= 0; }), '');
 t('Raum wird in restaurants.tischplan_raum gespeichert, leere Antwort ist ein Fehler',
