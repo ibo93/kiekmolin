@@ -20,7 +20,7 @@ Karte und können einen Tisch anfragen, ohne dass der Gast die Webseite öffnet.
 | llms.txt | `build-seo-pages.js` | Abschnitt „Für KI-Assistenten“ mit MCP-Adresse |
 | Messen | `netlify/functions/weekly-report.js` | „davon über KI-Assistenten: X bestätigt · Y Gäste“ |
 | Auffindbar | `.well-known/mcp/server-card.json` (öffentlich), `ki-assistent/server.json` (nur für die Registry, im Netz gesperrt) | Server-Karte und Eintrag für die offizielle MCP-Registry |
-| Tests | `tests/ki-assistent-test.js` | 61 Tests; jede Regel wird rot, wenn man sie bricht |
+| Tests | `tests/ki-assistent-test.js` | 68 Tests; jede Regel wird rot, wenn man sie bricht |
 
 ### Die Regeln im Code
 
