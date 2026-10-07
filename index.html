@@ -18681,6 +18681,15 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 .tp3-ecke { position: absolute; border: 2px dashed rgba(0,37,30,0.22); border-radius: 10px; background: repeating-linear-gradient(45deg, rgba(0,37,30,0.05) 0 6px, transparent 6px 12px); }
                 .tp3[data-ansicht="3d"] .tp3-ecke { display: none; }
                 .tp3-teil { position: absolute; transform-style: preserve-3d; }
+                .tp3-mass { position: absolute; font-size: 12px; font-weight: 800; color: var(--tp3-leise); white-space: nowrap; pointer-events: none; text-align: center; }
+                .tp3-mass.senk { transform: translate(-50%, -50%) rotate(-90deg); }
+                .tp3[data-ansicht="3d"] .tp3-mass { display: none; }
+                /* Drehgriff (07.10.2026): am gewaehlten Tisch/Teil im Bearbeiten -- mit dem Finger im Kreis ziehen. */
+                .tp3-griff { position: absolute; left: 50%; top: -58px; width: 44px; height: 44px; margin-left: -22px; border-radius: 9999px; border: 2px solid #003d33; background: #ffffff; color: #003d33; display: flex; align-items: center; justify-content: center; cursor: grab; touch-action: none; padding: 0; z-index: 3; }
+                .tp3-griff::after { content: ''; position: absolute; left: 50%; top: 100%; width: 2px; height: 14px; margin-left: -1px; background: #003d33; }
+                .dark-mode .tp3-griff { background: #1a1d1c; color: #b8eddf; border-color: #b8eddf; }
+                .dark-mode .tp3-griff::after { background: #b8eddf; }
+                .tp3[data-bearbeiten="1"] .tp3-schild:not(.gewaehlt) > span { padding: 2px 7px; font-size: 11px; gap: 4px; opacity: 0.92; }
                 .tp3-schild.teil > span { background: rgba(255,255,255,0.92); color: #404946; border: 1px solid rgba(0,37,30,0.18); font-size: 11px; font-weight: 700; padding: 3px 8px; }
                 .dark-mode .tp3-schild.teil > span { background: rgba(26,29,28,0.92); color: #c9cfcd; border-color: rgba(255,255,255,0.2); }
                 .tp3-schild.teil.gewaehlt > span { background: #00251e; color: #ffffff; border-color: #00251e; }
@@ -18724,7 +18733,11 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 .tp3-leiste > span { font-size: 12px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--tp3-sehrleise); flex-shrink: 0; }
                 .tp3-leiste button { flex-shrink: 0; width: 76px; height: 66px; border: 0; border-radius: 16px; background: var(--tp3-zweit); color: var(--tp3-text); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font: 700 11px Inter, sans-serif; cursor: pointer; }
                 .tp3-leiste button i { display: block; border: 2px solid currentColor; box-sizing: border-box; }
+                .tp3-leiste button small { display: block; font-size: 10px; font-weight: 600; color: var(--tp3-leise); margin-top: -2px; }
                 .tp3-seite { flex: 1 1 280px; max-width: 340px; min-height: 620px; box-sizing: border-box; border-radius: 28px; background: var(--tp3-karte); border: 1px solid var(--tp3-rand); padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+                /* Feste Breite: sonst aendert jeder Wechsel der Seitenleiste (Raum -> Tisch)
+                   die Breite des Plans, und der ganze Raum springt (gemessen: 18 px). */
+                @media (min-width: 761px) { .tp3-seite { flex: 0 0 320px; width: 320px; max-width: 320px; } }
                 @media (max-width: 760px) { .tp3-seite { max-width: none; min-height: 0; } }
                 .tp3-seite h3 { margin: 0; font-family: Epilogue, sans-serif; font-size: 28px; font-weight: 800; color: var(--tp3-tief); line-height: 1.05; }
                 .tp3-seite .tp3-unter { font-size: 14px; color: var(--tp3-leise); margin-top: 4px; }
@@ -18816,11 +18829,15 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         </div>
                         <div class="tp3-leiste" id="tp3Leiste">
                             <span>Neu<br>antippen</span>
-                            <button type="button" data-neu="rund2"><i style="width:26px;height:26px;border-radius:9999px;"></i>Rund 2</button>
-                            <button type="button" data-neu="rund4"><i style="width:30px;height:30px;border-radius:9999px;"></i>Rund 4</button>
-                            <button type="button" data-neu="eckig4"><i style="width:28px;height:28px;border-radius:7px;"></i>Eckig 4</button>
-                            <button type="button" data-neu="lang6"><i style="width:42px;height:24px;border-radius:7px;"></i>Lang 6</button>
-                            <button type="button" data-neu="lang8"><i style="width:52px;height:22px;border-radius:7px;"></i>Lang 8</button>
+                            <button type="button" data-neu="rund2"><i style="width:20px;height:20px;border-radius:9999px;"></i>Rund 2<small>Ø 70</small></button>
+                            <button type="button" data-neu="rund4"><i style="width:28px;height:28px;border-radius:9999px;"></i>Rund 4<small>Ø 100</small></button>
+                            <button type="button" data-neu="rund6"><i style="width:32px;height:32px;border-radius:9999px;"></i>Rund 6<small>Ø 120</small></button>
+                            <button type="button" data-neu="eckig2"><i style="width:20px;height:20px;border-radius:5px;"></i>Eckig 2<small>70×70</small></button>
+                            <button type="button" data-neu="eckig4"><i style="width:24px;height:24px;border-radius:6px;"></i>Eckig 4<small>80×80</small></button>
+                            <button type="button" data-neu="lang4"><i style="width:34px;height:22px;border-radius:6px;"></i>Lang 4<small>120×80</small></button>
+                            <button type="button" data-neu="lang6"><i style="width:44px;height:20px;border-radius:6px;"></i>Lang 6<small>180×80</small></button>
+                            <button type="button" data-neu="lang8"><i style="width:54px;height:18px;border-radius:6px;"></i>Lang 8<small>240×80</small></button>
+                            <button type="button" data-neu="lang10"><i style="width:62px;height:18px;border-radius:6px;"></i>Lang 10<small>280×90</small></button>
                             <button type="button" id="tp3NeuBereich"><i style="width:30px;height:22px;border-radius:7px;border-style:dashed;"></i>Bereich</button>
                             <span>Raum</span>
                             <button type="button" data-teil="tuer"><i style="width:34px;height:8px;border-radius:3px;background:#8b5e34;border-color:#8b5e34;"></i>Eingang</button>
@@ -18870,22 +18887,56 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 }
 
                 // ---------- Form und Groesse aus Plaetzen ----------
-                function form(t) {
+                // ECHTE MASSE (07.10.2026) -- Ibo: "es muss mit den echten Maßen
+                // sein". Jeder Tisch hat Länge x Breite in cm (rund: Durchmesser),
+                // gezeichnet im selben Massstab wie der Raum, Stühle auch. Ohne
+                // gespeicherte Maße: übliche Größe aus Form und Plätzen.
+                function formArt(t) {
                     var p = t.plaetze, f = String(t.form || '').toLowerCase();
-                    if (f === 'round' || f === 'rund') return p <= 2 ? { art: 'rund', b: 56, t: 56 } : { art: 'rund', b: 64, t: 64 };
-                    if (p <= 2) return { art: 'rund', b: 56, t: 56 };
-                    if (p <= 4) return { art: 'eckig', b: 72, t: 72 };
-                    if (p <= 6) return { art: 'lang', b: 130, t: 70 };
-                    return { art: 'lang', b: Math.min(320, 180 + (p - 8) * 22), t: 64 };
+                    if (f === 'round' || f === 'rund') return 'rund';
+                    if (f === 'square' || f === 'eckig') return 'eckig';
+                    if (f === 'rectangle' || f === 'lang') return 'lang';
+                    return p <= 2 ? 'rund' : (p <= 4 ? 'eckig' : 'lang');
                 }
+                function standardMass(art, p) {
+                    if (art === 'rund') { var d = p <= 2 ? 70 : (p <= 4 ? 100 : (p <= 6 ? 120 : 150)); return { L: d, B: d }; }
+                    if (art === 'eckig') { var e = p <= 2 ? 70 : 80; return { L: e, B: e }; }
+                    return { L: Math.max(120, Math.ceil((p - 2) / 2) * 60 + 60), B: p >= 10 ? 90 : 80 };
+                }
+                function form(t) {
+                    var art = formArt(t), st = standardMass(art, t.plaetze);
+                    var L = +t.laenge || st.L, B = art === 'rund' ? L : (+t.breite || st.B);
+                    if (art === 'eckig' && !+t.breite) B = L;
+                    var ppm = tp.ppm || 560 / 12;
+                    return { art: art, L: L, B: B, b: L / 100 * ppm, t: B / 100 * ppm };
+                }
+                // Stühle in Metern: 42 x 16 cm, 8 cm Abstand zum Tisch.
                 function stuehle(g, p) {
-                    var s = [], B = g.b, T = g.t;
-                    function oben(n) { for (var i = 0; i < n; i++) { var x = (B / (n + 1)) * (i + 1) - 11; s.push([x, -16, 22, 10]); s.push([x, T + 6, 22, 10]); } }
-                    if (g.art === 'rund' && p <= 2) { s.push([-16, T / 2 - 11, 10, 22]); s.push([B + 6, T / 2 - 11, 10, 22]); return s; }
-                    if (g.art !== 'lang') { s.push([B / 2 - 11, -16, 22, 10]); s.push([B / 2 - 11, T + 6, 22, 10]); s.push([-16, T / 2 - 11, 10, 22]); s.push([B + 6, T / 2 - 11, 10, 22]); return s; }
-                    var lang = Math.max(1, Math.floor((p - 2) / 2)); oben(lang);
-                    s.push([-16, T / 2 - 11, 10, 22]); s.push([B + 6, T / 2 - 11, 10, 22]); return s;
+                    var s = [], B = g.b, T = g.t, ppm = tp.ppm || 560 / 12, w = 0.42 * ppm, d = 0.16 * ppm, a = 0.08 * ppm;
+                    function reihe(n, y) { for (var i = 0; i < n; i++) s.push([(B / (n + 1)) * (i + 1) - w / 2, y, w, d]); }
+                    function spalte(n, x) { for (var i = 0; i < n; i++) s.push([x, (T / (n + 1)) * (i + 1) - w / 2, d, w]); }
+                    if (g.art === 'rund' && p > 4) {
+                        // rundum verteilt
+                        var r = B / 2 + a + d / 2;
+                        for (var k = 0; k < p; k++) { var wk = k / p * 2 * Math.PI; s.push([B / 2 + Math.sin(wk) * r - d * 1.1, T / 2 - Math.cos(wk) * r - d * 1.1, d * 2.2, d * 2.2]); }
+                        return s;
+                    }
+                    if (p <= 2) { spalte(1, -a - d); spalte(1, B + a); return s; }
+                    if (g.art !== 'lang') {
+                        var oben = Math.ceil(p / 4), rest = p - 2 * oben;
+                        reihe(oben, -a - d); reihe(oben, T + a);
+                        spalte(Math.ceil(rest / 2), -a - d); spalte(Math.floor(rest / 2), B + a); return s;
+                    }
+                    var seiten = p - 2;
+                    reihe(Math.ceil(seiten / 2), -a - d); reihe(Math.floor(seiten / 2), T + a);
+                    spalte(1, -a - d); spalte(1, B + a); return s;
                 }
+                // Schnellauswahl: übliche Größen je Form [Plätze, Länge, Breite].
+                var VORLAGEN = {
+                    rund:  [[2, 70, 70], [4, 100, 100], [6, 120, 120], [8, 150, 150]],
+                    eckig: [[2, 70, 70], [4, 80, 80], [4, 90, 90]],
+                    lang:  [[4, 120, 80], [6, 180, 80], [8, 240, 80], [10, 280, 90], [12, 360, 90]]
+                };
 
                 // ---------- Raum (07.10.2026) ----------
                 // Ibo: "der Laden ist wie eine L-Form". Ein Raum hat Maße in Metern,
@@ -18893,12 +18944,14 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 // Tische und Teile stehen weiter in % des Raums -- alte Lagen bleiben.
                 // Ohne Angabe: 12 x 9 m, das ergibt genau den alten Massstab.
                 var TEIL = {
-                    tuer:    { name: 'Eingang', b: 1.2, t: 0.3, h: 2,  oben: '#8b5e34', f1: '#74492a', f2: '#633d22' },
+                    // Eingang und Fenster stehen aufrecht an der Wand (in 3D ein
+                    // Tuerblatt / eine Scheibe, von oben ein schmaler Strich).
+                    tuer:    { name: 'Eingang', b: 1.0, t: 0.12, h: 70, oben: '#8b5e34', f1: '#74492a', f2: '#633d22', wand: true },
                     theke:   { name: 'Theke',   b: 3,   t: 0.8, h: 40, oben: '#6b4f3a', f1: '#5a4231', f2: '#4a3628' },
-                    fenster: { name: 'Fenster', b: 2,   t: 0.2, h: 3,  oben: '#9cc9e6', f1: '#7fb3d6', f2: '#6ea4c9' },
+                    fenster: { name: 'Fenster', b: 1.6, t: 0.12, h: 52, oben: '#9cc9e6', f1: 'rgba(127,179,214,0.78)', f2: 'rgba(110,164,201,0.78)', wand: true },
                     kueche:  { name: 'Küche',   b: 3,   t: 2.5, h: 60, oben: '#d6dad8', f1: '#bfc5c2', f2: '#aeb5b2' },
                     wc:      { name: 'WC',      b: 2,   t: 2,   h: 60, oben: '#d6dad8', f1: '#bfc5c2', f2: '#aeb5b2' },
-                    wand:    { name: 'Wand',    b: 3,   t: 0.15, h: 70, oben: '#f0f0ee', f1: '#d9dcda', f2: '#c9cdcb' },
+                    wand:    { name: 'Wand',    b: 3,   t: 0.15, h: 70, oben: '#f0f0ee', f1: '#d9dcda', f2: '#c9cdcb', wand: true },
                     pflanze: { name: 'Pflanze', b: 0.6, t: 0.6, h: 30, oben: '#3f7d4a', f1: '#2f6339', f2: '#2f6339', rund: true }
                 };
                 var ECKE_NAME = { ol: 'oben links', or: 'oben rechts', ul: 'unten links', ur: 'unten rechts' };
@@ -18962,17 +19015,42 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     return [a, b].map(function (q) { return '<div class="tp3-bodenteil" style="left:' + q[0] + 'px;top:' + q[1] + 'px;width:' + q[2] + 'px;height:' + q[3] + 'px;"></div>'; }).join('')
                         + '<div class="tp3-ecke" style="left:' + (e.x + 4) + 'px;top:' + (e.y + 4) + 'px;width:' + (e.w - 8) + 'px;height:' + (e.h - 8) + 'px;"></div>';
                 }
+                // Eingang, Fenster, Wand rasten an der naechsten Aussenwand ein und
+                // drehen sich mit ihr (waagerechte Wand 0°, senkrechte 90°).
+                function anWandRasten(teil) {
+                    var d = TEIL[teil.art]; if (!d || !d.wand || teil.art === 'wand') return;
+                    var r = raumVon(tp.bereich || 'main'), x = teil.x / 100 * tp.W, y = teil.y / 100 * tp.T, best = null;
+                    umriss(r).forEach(function (k) {
+                        var x1 = Math.min(k[0], k[2]), x2 = Math.max(k[0], k[2]), y1 = Math.min(k[1], k[3]), y2 = Math.max(k[1], k[3]);
+                        var waag = y1 === y2, dist = waag ? Math.abs(y - y1) : Math.abs(x - x1);
+                        var innen = waag ? (x >= x1 - 10 && x <= x2 + 10) : (y >= y1 - 10 && y <= y2 + 10);
+                        if (innen && (!best || dist < best.d)) best = { d: dist, waag: waag, wert: waag ? y1 : x1 };
+                    });
+                    if (!best || best.d > 36) return;
+                    if (best.waag) { teil.y = Math.round(best.wert / tp.T * 1000) / 10; teil.dreh = 0; }
+                    else { teil.x = Math.round(best.wert / tp.W * 1000) / 10; teil.dreh = 90; }
+                }
+                // Maße an den Raendern (nur beim Bearbeiten, von oben).
+                function masseHtml(r) {
+                    if (!tp.bearbeiten || tp.ansicht !== 'oben') return '';
+                    var o = '<div class="tp3-mass" style="left:0;top:-22px;width:' + tp.W + 'px;">' + m(r.breite) + '</div>'
+                          + '<div class="tp3-mass senk" style="left:-40px;top:' + (tp.T / 2) + 'px;">' + m(r.tiefe) + '</div>';
+                    var e = eckeRechteck(r);
+                    if (e) o += '<div class="tp3-mass" style="left:' + e.x + 'px;top:' + (e.y + e.h / 2 - 8) + 'px;width:' + e.w + 'px;">' + m(r.ausB) + ' × ' + m(r.ausT) + ' kein Raum</div>';
+                    return o;
+                }
                 function teilHtml(teil) {
                     var d = TEIL[teil.art] || TEIL.wand, ppm = tp.ppm;
                     var b = Math.max(6, (+teil.b || d.b) * ppm), t = Math.max(4, (+teil.t || d.t) * ppm);
                     var cx = teil.x / 100 * tp.W, cy = teil.y / 100 * tp.T, w = winkel() + (+teil.dreh || 0);
                     var gew = tp.teilGewaehlt === teil.id;
                     var o = '<div class="tp3-teil" data-teil-id="' + esc(teil.id) + '" style="left:' + (cx - b / 2) + 'px;top:' + (cy - t / 2) + 'px;width:' + b + 'px;height:' + t + 'px;">';
-                    o += '<div class="tp3-b" style="inset:0;' + (teil.dreh ? 'transform:rotateZ(' + teil.dreh + 'deg);' : '') + '">';
+                    o += '<div class="tp3-b tp3-innen" style="inset:0;' + (teil.dreh ? 'transform:rotateZ(' + teil.dreh + 'deg);' : '') + '">';
                     if (d.rund) o += zylinder(b, d.h, d.oben, d.f1, '');
                     else o += kasten(0, 0, b, t, d.h, d.oben, d.f1, d.f2, w, 3, gew ? '3px solid #003d33' : '');
                     o += '</div>';
                     if (tp.bearbeiten) o += '<button type="button" class="tp3-tipp" data-teil-id="' + esc(teil.id) + '" aria-label="' + esc(d.name) + '"></button>';
+                    if (tp.bearbeiten && gew && tp.ansicht === 'oben') o += '<button type="button" class="tp3-griff" data-griff-teil="' + esc(teil.id) + '" aria-label="' + esc(d.name) + ' drehen – im Kreis ziehen">' + GRIFF + '</button>';
                     var k = Math.min(1.8, 1 / (tp.s || 1));
                     var schild = tp.ansicht === '3d' ? 'transform:translateZ(' + (d.h + 18) + 'px) rotateZ(' + (-winkel()) + 'deg) rotateX(-' + NEIGUNG + 'deg) scale(' + k + ');' : 'transform:scale(' + k + ');';
                     o += '<div class="tp3-schild teil' + (gew ? ' gewaehlt' : '') + '" style="' + schild + '"><span>' + esc(d.name) + '</span></div>';
@@ -19053,7 +19131,15 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         var felder = 'id,table_number,table_name,max_capacity,status,area,table_shape';
                         var zeilen;
                         try {
-                            zeilen = await (await sbRead(basis + '&select=' + felder + ',pos_x,pos_y,rotation', { headers: kopf() })).json();
+                            // Maße (41-tischplan-raum.sql) zuerst; fehlen sie, ohne.
+                            try {
+                                zeilen = await (await sbRead(basis + '&select=' + felder + ',pos_x,pos_y,rotation,laenge_cm,breite_cm', { headers: kopf() })).json();
+                                tp.ohneMass = false;
+                            } catch (e0) {
+                                if (!/laenge_cm|breite_cm/i.test(String(e0 && e0.message))) throw e0;
+                                tp.ohneMass = true;
+                                zeilen = await (await sbRead(basis + '&select=' + felder + ',pos_x,pos_y,rotation', { headers: kopf() })).json();
+                            }
                             tp.ohnePosSpalten = false;
                         } catch (e) {
                             // Spalten aus datenbank/39-tischplan.sql fehlen noch: der
@@ -19064,7 +19150,8 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         }
                         tp.tische = (Array.isArray(zeilen) ? zeilen : []).map(function (z) {
                             return { id: z.id, nummer: z.table_number, name: z.table_name || ('Tisch ' + z.table_number), plaetze: +z.max_capacity || 4,
-                                status: z.status, bereich: z.area || 'main', form: z.table_shape, x: z.pos_x, y: z.pos_y, drehung: +z.rotation || 0 };
+                                status: z.status, bereich: z.area || 'main', form: z.table_shape, x: z.pos_x, y: z.pos_y, drehung: +z.rotation || 0,
+                                laenge: +z.laenge_cm || null, breite: +z.breite_cm || null };
                         });
                         verteilen();
                         // Raum (41-tischplan-raum.sql). Fehlt die Spalte, geht der Plan
@@ -19126,7 +19213,9 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     var b = $('tp3Buehne'); if (!b) return 1;
                     var W = b.clientWidth || 700, H = b.clientHeight || 620;
                     if (tp.ansicht === '3d') return Math.max(0.5, Math.min((W - 16) / (tp.W + 130), (H - 60) / (tp.T + 100)));
-                    return Math.max(0.5, Math.min((W - 40) / tp.W, (H - (tp.bearbeiten ? 120 : 90)) / tp.T));
+                    // Beim Bearbeiten mehr Rand: Maße, Drehgriff und Teile an der Wand
+                    // (Eingang, Fenster) duerfen nicht aus dem Bild ragen.
+                    return Math.max(0.5, Math.min((W - (tp.bearbeiten ? 84 : 40)) / tp.W, (H - (tp.bearbeiten ? 150 : 90)) / tp.T));
                 }
                 function bodenStellen() {
                     var boden = $('tp3Boden'); if (!boden) return;
@@ -19167,28 +19256,37 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     });
                     return o;
                 }
+                // Innenteil eines Tisches: Massstab k, Drehung um die eigene Mitte.
+                function tischDreh(g, kk, grad) {
+                    return 'scale(' + kk + ')' + (grad ? ' translate(' + (g.b / 2) + 'px,' + (g.t / 2) + 'px) rotateZ(' + grad + 'deg) translate(' + (-g.b / 2) + 'px,' + (-g.t / 2) + 'px)' : '');
+                }
+                var GRIFF = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6"></path><path d="M20 4v5h-5"></path></svg>';
                 function tischHtml(t) {
                     var g = form(t), z = tp.bearbeiten ? { art: 'neutral', text: t.plaetze + ' Plätze' } : zustand(t);
                     var f = FARBE[z.art] || FARBE.frei, w = winkel() + (t.drehung || 0);
-                    var cx = t.x / 100 * tp.W, cy = t.y / 100 * tp.T, kk = tp.k || 1;
+                    var cx = t.x / 100 * tp.W, cy = t.y / 100 * tp.T, kk = 1;
                     var gew = tp.gewaehlt === t.id;
                     // Groesse in Metern: im 12-m-Raum wie bisher, im 20-m-Raum kleiner.
                     var o = '<div class="tp3-tisch" data-id="' + esc(t.id) + '" style="left:' + (cx - g.b * kk / 2) + 'px;top:' + (cy - g.t * kk / 2) + 'px;width:' + (g.b * kk) + 'px;height:' + (g.t * kk) + 'px;">';
                     if (z.art === 'ruft') o += '<div class="tp3-ruft-hof" style="left:-16px;top:-16px;right:-16px;bottom:-16px;' + (tp.ansicht === '3d' ? 'transform:translateZ(0.5px);' : '') + '"></div>';
                     if (gew) o += '<div class="tp3-f" style="left:-12px;top:-12px;right:-12px;bottom:-12px;border-radius:16px;border:3px solid ' + '#003d33' + ';' + (tp.ansicht === '3d' ? 'transform:translateZ(0.5px);' : '') + '"></div>';
-                    o += '<div class="tp3-b" style="left:0;top:0;width:' + g.b + 'px;height:' + g.t + 'px;transform-origin:0 0;transform:scale(' + kk + ')' + (t.drehung ? ' translate(' + (g.b / 2) + 'px,' + (g.t / 2) + 'px) rotateZ(' + t.drehung + 'deg) translate(' + (-g.b / 2) + 'px,' + (-g.t / 2) + 'px)' : '') + ';">';
-                    stuehle(g, t.plaetze).forEach(function (s) { o += kasten(s[0], s[1], s[2], s[3], 14, '#9aa5a1', '#7d8885', '#6c7774', w, 4); });
+                    o += '<div class="tp3-b tp3-innen" style="left:0;top:0;width:' + g.b + 'px;height:' + g.t + 'px;transform-origin:0 0;transform:' + tischDreh(g, kk, t.drehung) + ';">';
+                    stuehle(g, t.plaetze).forEach(function (s) { o += kasten(s[0], s[1], s[2], s[3], 14, '#9aa5a1', '#7d8885', '#6c7774', w, Math.min(4, s[2] / 3)); });
                     if (g.art === 'rund') o += zylinder(g.b, 24, f.oben, f.f1, f.rand);
                     else o += kasten(0, 0, g.b, g.t, 24, f.oben, f.f1, f.f2, w, 8, f.rand);
                     o += '</div>';
                     o += '<button type="button" class="tp3-tipp" data-id="' + esc(t.id) + '" aria-label="' + esc(t.name + ', ' + (z.art === 'frei' ? 'frei' : z.text)) + '"></button>';
+                    if (tp.bearbeiten && gew && tp.ansicht === 'oben') o += '<button type="button" class="tp3-griff" data-griff="' + esc(t.id) + '" aria-label="' + esc(t.name) + ' drehen – im Kreis ziehen">' + GRIFF + '</button>';
                     // Schilder behalten ihre Schriftgroesse: die Szene wird auf schmalen
                     // Bildschirmen verkleinert, die Schrift darf es nicht (13 px statt 8).
                     var k = Math.min(1.8, 1 / (tp.s || 1));
                     var schild = tp.ansicht === '3d' ? 'transform:translateZ(' + (gew ? 62 : 58) + 'px) rotateZ(' + (-winkel()) + 'deg) rotateX(-' + NEIGUNG + 'deg) scale(' + k + ');' : 'transform:scale(' + k + ');';
-                    var klasse = tp.bearbeiten ? 'frei' : (gew ? 'gewaehlt' : z.art);
+                    var klasse = gew ? 'gewaehlt' : (tp.bearbeiten ? 'frei' : z.art);
                     var inhalt = '<b>' + esc(t.nummer) + '</b>';
-                    if (tp.bearbeiten) inhalt += esc(t.plaetze) + ' Pl.';
+                    // Beim Bearbeiten nur die Nummer: mit echten Maßen sind Tische klein,
+                    // ein breites Schild würde Form und Größe verdecken. Plätze und
+                    // Maße stehen rechts, sobald der Tisch gewählt ist.
+                    if (tp.bearbeiten) { if (gew) inhalt += esc(t.plaetze) + ' Pl.'; }
                     else if (z.art === 'frei') inhalt += '<i>frei' + (g.art === 'lang' ? ' · ' + t.plaetze : '') + '</i>';
                     else if (z.art === 'res' && gew && z.res) inhalt += esc(z.text + ' · ' + (z.res.guest_name || ''));
                     else inhalt += esc(z.text);
@@ -19216,7 +19314,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     boden.classList.toggle('tp3-l', raum.form === 'L');
                     tp.s = massstab();
                     var liste = tp.tische.filter(function (t) { return t.bereich === tp.bereich; });
-                    var h = bodenStuecke(raum) + waende();
+                    var h = bodenStuecke(raum) + waende() + masseHtml(raum);
                     raum.teile.forEach(function (teil) { h += teilHtml(teil); });
                     liste.forEach(function (t) { h += tischHtml(t); });
                     boden.innerHTML = h;
@@ -19330,6 +19428,16 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     return '<label>' + tt + '<div class="tp3-schritt"><button type="button" class="tp3-knopf" data-raum="' + aktion + '-" aria-label="' + tt + ' kleiner" style="padding:0;width:44px;">−</button>'
                         + '<output>' + m(wert) + '</output><button type="button" class="tp3-knopf" data-raum="' + aktion + '+" aria-label="' + tt + ' größer" style="padding:0;width:44px;">+</button></div></label>';
                 }
+                // Drehung: Anzeige, ±15° (ohne datenbank/41: ±90°), "gerade".
+                function drehZeile(grad, attr) {
+                    var st = tp.ohneRaumSpalte ? 90 : 15;
+                    return '<label>Drehung<div class="tp3-schritt">'
+                        + '<button type="button" class="tp3-knopf" data-' + attr + '="drehMinus" aria-label="' + st + ' Grad nach links" style="padding:0 10px;">↺ ' + st + '°</button>'
+                        + '<output id="tp3eWinkel">' + esc(grad) + '°</output>'
+                        + '<button type="button" class="tp3-knopf" data-' + attr + '="drehPlus" aria-label="' + st + ' Grad nach rechts" style="padding:0 10px;">↻ ' + st + '°</button>'
+                        + '<button type="button" class="tp3-knopf" data-' + attr + '="drehNull" style="padding:0 10px;">gerade</button></div></label>'
+                        + '<div class="tp3-unter" style="margin-top:-4px;">Oder am runden Griff über dem ' + (attr === 'raum' ? 'Teil' : 'Tisch') + ' im Kreis ziehen.' + (tp.ohneRaumSpalte ? ' Frei drehen geht nach dem Einspielen von datenbank/41-tischplan-raum.sql.' : '') + '</div>';
+                }
                 function raumForm() {
                     var r = raumVon(tp.bereich || 'main');
                     var o = '<h3>Raum</h3><div class="tp3-unter">' + esc(bereichName(tp.bereich)) + ' · so groß und so geformt wie euer Lokal. Tische und Teile ziehen, antippen zum Ändern.</div><div class="tp3-form">'
@@ -19350,7 +19458,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     return '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;"><div><h3>' + esc(d.name) + '</h3><div class="tp3-unter">fester Teil des Raums · nicht reservierbar</div></div>'
                         + '<button type="button" class="tp3-knopf" data-aktion="schliessen" aria-label="Schließen" style="padding:0;width:44px;">✕</button></div>'
                         + '<div class="tp3-form">' + schritt('Länge', +teil.b || d.b, 'teilB') + schritt('Tiefe', +teil.t || d.t, 'teilT')
-                        + '<button type="button" class="tp3-knopf" data-raum="teilDrehen">Um 90° drehen</button>'
+                        + drehZeile(+teil.dreh || 0, 'raum')
                         + '<button type="button" class="tp3-knopf rot" data-raum="teilWeg" style="margin-top:8px;">Entfernen</button></div>';
                 }
                 function seiteZeichnen() {
@@ -19423,14 +19531,47 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         + '<div class="tp3-reihe"><label>Name<input class="tp3-feld" id="tp3eName" value="' + esc(t.name) + '"></label><label>Nummer<input class="tp3-feld" id="tp3eNr" value="' + esc(t.nummer) + '"></label></div>'
                         + '<label>Plätze<div class="tp3-schritt"><button type="button" class="tp3-knopf" data-aktion="weniger" aria-label="Weniger Plätze" style="padding:0;width:44px;">−</button><output id="tp3ePl">' + esc(t.plaetze) + '</output><button type="button" class="tp3-knopf" data-aktion="mehr" aria-label="Mehr Plätze" style="padding:0;width:44px;">+</button></div></label>'
                         + '<label>Form<div class="tp3-pille" role="group">' + formen.map(function (f) { return '<button type="button" data-form="' + f[0] + '" aria-pressed="' + (f[0] === aktuell) + '" style="flex:1;">' + f[1] + '</button>'; }).join('') + '</div></label>'
+                        + groesseForm(t, g)
                         + '<label>Bereich<input class="tp3-feld" id="tp3eBereich" list="tp3BereichListe" value="' + esc(bereichName(t.bereich)) + '"><datalist id="tp3BereichListe">' + bereiche().map(function (a) { return '<option value="' + esc(bereichName(a)) + '">'; }).join('') + '</datalist></label>'
-                        + '<button type="button" class="tp3-knopf" data-aktion="drehen">' + (tp.ohneRaumSpalte ? 'Um 90° drehen' : 'Um 45° drehen') + '</button>'
+                        + drehZeile(t.drehung || 0, 'aktion')
                         + '<button type="button" class="tp3-knopf rot" data-aktion="entfernen" style="margin-top:8px;">Tisch entfernen</button></div>';
+                }
+                // Größe: übliche Maße als Knöpfe (ein Tipp) und ±10 cm.
+                function groesseForm(t, g) {
+                    var cm = function (v) { return Math.round(v) + ' cm'; };
+                    var o = '<label>Größe<div style="display:flex;flex-wrap:wrap;gap:6px;">'
+                        + VORLAGEN[g.art].map(function (v) {
+                            var an = Math.round(g.L) === v[1] && Math.round(g.B) === v[2];
+                            var txt = g.art === 'rund' ? 'Ø ' + v[1] : v[1] + '×' + v[2];
+                            return '<button type="button" class="tp3-knopf" data-vorlage="' + v.join(',') + '" aria-pressed="' + an + '" style="height:40px;padding:0 12px;font-size:13px;' + (an ? 'background:#003d33;color:#fff;border-color:#003d33;' : '') + '">' + txt + ' <span style="opacity:.75;">· ' + v[0] + '</span></button>';
+                        }).join('') + '</div></label>';
+                    var stufe = function (titel, wert, wer) {
+                        return '<label>' + titel + '<div class="tp3-schritt"><button type="button" class="tp3-knopf" data-mass="' + wer + '-" aria-label="' + titel + ' 10 cm kleiner" style="padding:0;width:44px;">−</button>'
+                            + '<output>' + cm(wert) + '</output><button type="button" class="tp3-knopf" data-mass="' + wer + '+" aria-label="' + titel + ' 10 cm größer" style="padding:0;width:44px;">+</button></div></label>';
+                    };
+                    o += g.art === 'rund' ? stufe('Durchmesser', g.L, 'L') : stufe('Länge', g.L, 'L') + stufe('Breite', g.B, 'B');
+                    if (tp.ohneMass) o += '<div class="tp3-unter" style="margin-top:-4px;">Die Maße werden erst gespeichert, wenn datenbank/41-tischplan-raum.sql eingespielt ist.</div>';
+                    return o;
                 }
                 function bereichSchluessel(name) {
                     name = String(name || '').trim(); if (!name) return 'main';
                     for (var k in BEREICH_NAME) if (BEREICH_NAME[k].toLowerCase() === name.toLowerCase()) return k === 'terrasse' ? 'terrace' : k;
                     return name.toLowerCase();
+                }
+
+                // ---------- Drehen (07.10.2026) ----------
+                // Ibo: "noch besser mit drehen können" -- einzelne Tische frei drehen.
+                // Stufenlos in 5°-Schritten, rastet bei 0/45/90 ... ein (±7°).
+                // Ohne datenbank/41 erlaubt die Datenbank nur 0 und 90 Grad.
+                function winkelRunden(grad) {
+                    grad = ((Math.round(grad) % 360) + 360) % 360;
+                    if (tp.ohneRaumSpalte) return Math.round(grad / 90) % 2 ? 90 : 0;
+                    var naechste45 = Math.round(grad / 45) * 45;
+                    if (Math.abs(grad - naechste45) <= 7) return naechste45 % 360;
+                    return (Math.round(grad / 5) * 5) % 360;
+                }
+                function drehungSetzen(ziel, grad, teil) {
+                    if (teil) ziel.dreh = grad; else ziel.drehung = grad;
                 }
 
                 // ---------- Bearbeiten: Ziehen mit dem Finger ----------
@@ -19439,6 +19580,18 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 function geaendert(t) { tp.geaendert[t.id] = true; }
                 function zugStart(e) {
                     if (!tp.bearbeiten || tp.ansicht !== 'oben') return;
+                    var gr = e.target.closest('.tp3-griff');
+                    if (gr) {
+                        var istTeil = gr.hasAttribute('data-griff-teil');
+                        var ziel = istTeil ? teilVon(gr.getAttribute('data-griff-teil')) : tischVon(gr.getAttribute('data-griff'));
+                        var koerper = gr.closest(istTeil ? '.tp3-teil' : '.tp3-tisch');
+                        if (!ziel || !koerper) return;
+                        e.preventDefault();
+                        var rc = koerper.getBoundingClientRect();
+                        zug = { t: ziel, teil: istTeil, drehen: true, el: koerper, mx: rc.left + rc.width / 2, my: rc.top + rc.height / 2, bewegt: false, id: e.pointerId };
+                        try { gr.setPointerCapture(e.pointerId); } catch (x) {}
+                        return;
+                    }
                     var el = e.target.closest('.tp3-tisch'), t = el && tischVon(el.getAttribute('data-id'));
                     if (!t) {
                         // Feste Teile (Eingang, Theke ...) ziehen wie Tische.
@@ -19455,6 +19608,18 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 }
                 function zugBewegen(e) {
                     if (!zug || e.pointerId !== zug.id) return;
+                    if (zug.drehen) {
+                        // Griff steht oben = 0°. Winkel vom Mittelpunkt zum Finger.
+                        var grad = Math.atan2(e.clientY - zug.my, e.clientX - zug.mx) * 180 / Math.PI + 90;
+                        var neu = winkelRunden(grad), alt = zug.teil ? (+zug.t.dreh || 0) : (+zug.t.drehung || 0);
+                        if (neu === alt) return;
+                        if (!zug.bewegt) { merken(); zug.bewegt = true; }
+                        drehungSetzen(zug.t, neu, zug.teil);
+                        var innen = zug.el.querySelector('.tp3-innen');
+                        if (innen) innen.style.transform = zug.teil ? (neu ? 'rotateZ(' + neu + 'deg)' : '') : tischDreh(form(zug.t), 1, neu);
+                        var anz = $('tp3eWinkel'); if (anz) anz.textContent = neu + '°';
+                        return;
+                    }
                     var dx = (e.clientX - zug.x0) / zug.s / tp.W * 100, dy = (e.clientY - zug.y0) / zug.s / tp.T * 100;
                     if (!zug.bewegt && Math.abs(dx) + Math.abs(dy) < 1) return;
                     if (!zug.bewegt) { merken(); zug.bewegt = true; }
@@ -19462,19 +19627,26 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     if (zug.teil) {
                         // Teile duerfen an die Wand (Eingang, Fenster): 0 bis 100 %.
                         zug.t.x = Math.max(0, Math.min(100, nx)); zug.t.y = Math.max(0, Math.min(100, ny));
+                        var dAlt = +zug.t.dreh || 0;
+                        anWandRasten(zug.t);
+                        if ((+zug.t.dreh || 0) !== dAlt) { var inn = zug.el.querySelector('.tp3-innen'); if (inn) inn.style.transform = zug.t.dreh ? 'rotateZ(' + zug.t.dreh + 'deg)' : ''; }
                         var d = TEIL[zug.t.art] || TEIL.wand, tb = Math.max(6, (+zug.t.b || d.b) * tp.ppm), tt = Math.max(4, (+zug.t.t || d.t) * tp.ppm);
                         zug.el.style.left = (zug.t.x / 100 * tp.W - tb / 2) + 'px';
                         zug.el.style.top = (zug.t.y / 100 * tp.T - tt / 2) + 'px';
                         return;
                     }
                     zug.t.x = Math.max(4, Math.min(96, nx)); zug.t.y = Math.max(5, Math.min(95, ny));
-                    var g = form(zug.t), kk = tp.k || 1;
+                    var g = form(zug.t), kk = 1;
                     zug.el.style.left = (zug.t.x / 100 * tp.W - g.b * kk / 2) + 'px';
                     zug.el.style.top = (zug.t.y / 100 * tp.T - g.t * kk / 2) + 'px';
                 }
                 function zugEnde(e) {
                     if (!zug || e.pointerId !== zug.id) return;
                     var z = zug; zug = null;
+                    if (z.drehen) {
+                        if (z.bewegt) { if (z.teil) tp.raumGeaendert = true; else geaendert(z.t); }
+                        zeichnen(); return;
+                    }
                     if (z.teil) { if (z.bewegt) tp.raumGeaendert = true; tp.teilGewaehlt = z.t.id; tp.gewaehlt = null; zeichnen(); return; }
                     // Tische nicht in die fehlende Ecke der L-Form stellen.
                     if (z.bewegt) { var p2 = ausEckeSchieben(raumVon(tp.bereich || 'main'), { x: z.t.x, y: z.t.y }); z.t.x = p2.x; z.t.y = p2.y; }
@@ -19492,6 +19664,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         var t = tischVon(ids[i]); if (!t) continue;
                         var daten = { table_name: t.name, table_number: String(t.nummer), max_capacity: t.plaetze, min_capacity: Math.max(1, Math.floor(t.plaetze / 2)), area: t.bereich, table_shape: t.form || 'rectangle' };
                         if (!tp.ohnePosSpalten) { daten.pos_x = Math.round(t.x * 10) / 10; daten.pos_y = Math.round(t.y * 10) / 10; daten.rotation = t.drehung || 0; }
+                        if (!tp.ohneMass && !tp.ohnePosSpalten) { var gm = form(t); daten.laenge_cm = Math.round(gm.L); daten.breite_cm = Math.round(gm.B); }
                         try {
                             var r = await sbWrite(SUPABASE_URL + '/rest/v1/restaurant_tables?id=eq.' + encodeURIComponent(t.id), {
                                 method: 'PATCH', headers: kopf({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }), body: JSON.stringify(daten) });
@@ -19501,6 +19674,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             delete tp.geaendert[t.id];
                         } catch (e) {
                             var m = String(e && e.message || e);
+                            if (/laenge_cm|breite_cm/.test(m) && !tp.ohneMass) { tp.ohneMass = true; i--; continue; }
                             if (/pos_x|pos_y|rotation/.test(m)) { tp.ohnePosSpalten = true; i--; continue; }
                             fehler.push(t.name + ': ' + m);
                         }
@@ -19531,7 +19705,9 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     return true;
                 }
                 async function neuerTisch(art) {
-                    var vorlage = { rund2: [2, 'round'], rund4: [4, 'round'], eckig4: [4, 'square'], lang6: [6, 'rectangle'], lang8: [8, 'rectangle'] }[art];
+                    var vorlage = { rund2: [2, 'round', 70, 70], rund4: [4, 'round', 100, 100], rund6: [6, 'round', 120, 120],
+                        eckig2: [2, 'square', 70, 70], eckig4: [4, 'square', 80, 80],
+                        lang4: [4, 'rectangle', 120, 80], lang6: [6, 'rectangle', 180, 80], lang8: [8, 'rectangle', 240, 80], lang10: [10, 'rectangle', 280, 90] }[art];
                     if (!vorlage || !tp.rid) return;
                     var nr = tp.tische.reduce(function (m, t) { var n = parseInt(t.nummer, 10); return isNaN(n) ? m : Math.max(m, n); }, 0) + 1;
                     var daten = { restaurant_id: tp.rid, table_name: 'Tisch ' + nr, table_number: String(nr), min_capacity: Math.max(1, Math.floor(vorlage[0] / 2)), max_capacity: vorlage[0], area: tp.bereich || 'main', status: 'available', is_active: true, table_shape: vorlage[1] };
@@ -19540,7 +19716,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         var r = await sbWrite(SUPABASE_URL + '/rest/v1/restaurant_tables', { method: 'POST', headers: kopf({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }), body: JSON.stringify(daten) });
                         var z = (await r.json())[0];
                         if (!z) throw new Error('die Datenbank hat den Tisch nicht angelegt');
-                        tp.tische.push({ id: z.id, nummer: z.table_number, name: z.table_name, plaetze: +z.max_capacity, status: 'available', bereich: z.area || 'main', form: z.table_shape, x: 50, y: 50, drehung: 0 });
+                        tp.tische.push({ id: z.id, nummer: z.table_number, name: z.table_name, plaetze: +z.max_capacity, status: 'available', bereich: z.area || 'main', form: z.table_shape, x: 50, y: 50, drehung: 0, laenge: vorlage[2], breite: vorlage[3] });
                         tp.gewaehlt = z.id; geaendert(tischVon(z.id)); melden('');
                         zeichnen();
                     } catch (e) {
@@ -19632,6 +19808,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         merken();
                         var r = raumVon(tp.bereich || 'main');
                         var teil = { id: 't' + Date.now().toString(36), art: art, x: 50, y: art === 'tuer' || art === 'fenster' ? 100 : 50, b: d.b, t: d.t, dreh: 0 };
+                        masseSetzen(); anWandRasten(teil);
                         r.teile.push(teil); tp.raumGeaendert = true; tp.teilGewaehlt = teil.id; tp.gewaehlt = null; zeichnen();
                     };
                     $('tp3NeuBereich').onclick = async function () {
@@ -19640,12 +19817,31 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         melden('Neuer Bereich „' + name.trim() + '“ – tippe unten eine Tischform an. Er bleibt, sobald ein Tisch darin steht.', 'hinweis');
                     };
                     var buehne = $('tp3Buehne');
+                    // 3D: mit dem Finger wischen dreht den ganzen Raum stufenlos.
+                    var wisch = null;
+                    buehne.addEventListener('pointerdown', function (e) {
+                        if (tp.bearbeiten || tp.ansicht !== '3d' || e.target.closest('button,.tp3-drehen,.tp3-legende')) return;
+                        wisch = { x0: e.clientX, d0: tp.drehung, id: e.pointerId, bewegt: false };
+                    });
+                    buehne.addEventListener('pointermove', function (e) {
+                        if (!wisch || e.pointerId !== wisch.id) return;
+                        var dx = e.clientX - wisch.x0;
+                        if (!wisch.bewegt && Math.abs(dx) < 6) return;
+                        if (!wisch.bewegt) { wisch.bewegt = true; try { buehne.setPointerCapture(e.pointerId); } catch (x) {} }
+                        tp.drehung = wisch.d0 + dx * 0.45;
+                        if (wisch.bild) return;
+                        wisch.bild = requestAnimationFrame(function () { if (wisch) wisch.bild = 0; zeichnen(); });
+                    });
+                    var wischEnde = function (e) { if (!wisch || e.pointerId !== wisch.id) return; tp._gewischt = wisch.bewegt; wisch = null; setTimeout(function () { tp._gewischt = false; }, 50); };
+                    buehne.addEventListener('pointerup', wischEnde);
+                    buehne.addEventListener('pointercancel', wischEnde);
                     buehne.addEventListener('pointerdown', zugStart);
                     buehne.addEventListener('pointermove', zugBewegen);
                     buehne.addEventListener('pointerup', zugEnde);
                     buehne.addEventListener('pointercancel', zugEnde);
                     buehne.addEventListener('click', function (e) {
                         if (tp.bearbeiten && tp.ansicht === 'oben') return;
+                        if (tp._gewischt) return;                       // war ein Wischen, kein Tippen
                         var el = e.target.closest('[data-id]');
                         if (!el) { if (e.target === buehne || e.target.id === 'tp3Boden') { tp.gewaehlt = null; zeichnen(); } return; }
                         tp.gewaehlt = el.getAttribute('data-id'); zeichnen();
@@ -19655,16 +19851,32 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         if (ra && tp.bearbeiten) { raumAktion(ra.getAttribute('data-raum')); return; }
                         var t = tischVon(tp.gewaehlt);
                         var f = e.target.closest('[data-form]');
-                        if (f && t) { merken(); t.form = f.getAttribute('data-form'); geaendert(t); zeichnen(); return; }
+                        // Neue Form = übliches Maß dieser Form (sonst wäre ein runder Tisch 180 cm breit).
+                        if (f && t) { merken(); t.form = f.getAttribute('data-form'); t.laenge = null; t.breite = null; geaendert(t); zeichnen(); return; }
+                        var vl = e.target.closest('[data-vorlage]');
+                        if (vl && t) { var v = vl.getAttribute('data-vorlage').split(',').map(Number); merken(); t.plaetze = v[0]; t.laenge = v[1]; t.breite = v[2]; geaendert(t); zeichnen(); return; }
+                        var ms = e.target.closest('[data-mass]');
+                        if (ms && t) {
+                            var wer = ms.getAttribute('data-mass'), gg = form(t), plus = wer.charAt(1) === '+';
+                            merken();
+                            if (wer.charAt(0) === 'L') { t.laenge = Math.max(40, Math.min(600, gg.L + (plus ? 10 : -10))); if (gg.art !== 'lang') t.breite = t.laenge; else t.breite = gg.B; }
+                            else { t.breite = Math.max(40, Math.min(300, gg.B + (plus ? 10 : -10))); t.laenge = gg.L; }
+                            geaendert(t); zeichnen(); return;
+                        }
                         var b = e.target.closest('[data-aktion]'); if (!b) return;
                         var a = b.getAttribute('data-aktion');
                         if (a === 'schliessen') { tp.gewaehlt = null; tp.teilGewaehlt = null; zeichnen(); return; }
                         if (!t) return;
                         var z = zustand(t);
                         if (a === 'mehr' || a === 'weniger') { merken(); t.plaetze = Math.max(1, Math.min(30, t.plaetze + (a === 'mehr' ? 1 : -1))); geaendert(t); zeichnen(); }
-                        // 45-Grad-Schritte erst mit 41-tischplan-raum.sql (vorher erlaubt die
+                        // Freie Drehung erst mit 41-tischplan-raum.sql (vorher erlaubt die
                         // Datenbank nur 0 und 90).
-                        else if (a === 'drehen') { merken(); t.drehung = tp.ohneRaumSpalte ? ((t.drehung || 0) + 90) % 180 : ((t.drehung || 0) + 45) % 360; geaendert(t); zeichnen(); }
+                        else if (a === 'drehPlus' || a === 'drehMinus' || a === 'drehNull') {
+                            merken();
+                            var st = tp.ohneRaumSpalte ? 90 : 15, alt = t.drehung || 0;
+                            t.drehung = a === 'drehNull' ? 0 : (tp.ohneRaumSpalte ? (alt + 90) % 180 : (((alt + (a === 'drehPlus' ? st : -st)) % 360) + 360) % 360);
+                            geaendert(t); zeichnen();
+                        }
                         else if (a === 'entfernen') {
                             if (!await kinConfirm(t.name + ' entfernen?\n\nAlte Reservierungen bleiben erhalten.')) return;
                             try {
@@ -19711,7 +19923,8 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     else if (a === 'form-L') r.form = 'L';
                     else if (a === 'form-rechteck') r.form = 'rechteck';
                     else if (/^ecke-(ol|or|ul|ur)$/.test(a)) r.ecke = a.slice(5);
-                    else if (teil && a === 'teilDrehen') teil.dreh = ((+teil.dreh || 0) + 90) % 180;
+                    else if (teil && (a === 'drehPlus' || a === 'drehMinus')) teil.dreh = ((((+teil.dreh || 0) + (a === 'drehPlus' ? 15 : -15)) % 360) + 360) % 360;
+                    else if (teil && a === 'drehNull') teil.dreh = 0;
                     else if (teil && a === 'teilWeg') { r.teile = r.teile.filter(function (x) { return x !== teil; }); tp.teilGewaehlt = null; }
                     else { tp.verlauf.pop(); return; }
                     tp.raumGeaendert = true;

@@ -327,6 +327,15 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
   await p.s.click('#tp3AnsichtOben'); await p.s.waitForTimeout(200);
   var ecke = await p.s.evaluate(function () { return document.querySelectorAll('#tp3Boden .tp3-ecke').length; });
   pruef('von oben: die fehlende Ecke ist als "kein Raum" markiert', ecke === 1, ecke);
+  // 3D: wischen dreht den Raum
+  await p.s.click('#tp3Ansicht3d'); await p.s.waitForTimeout(150);
+  var bb = await p.s.evaluate(function () { var r = document.getElementById('tp3Buehne').getBoundingClientRect(); return { x: r.left + 40, y: r.top + r.height - 160 }; });
+  var d0 = await p.s.evaluate(function () { return window.tp3.drehung; });
+  await p.s.mouse.move(bb.x, bb.y); await p.s.mouse.down(); await p.s.mouse.move(bb.x + 200, bb.y, { steps: 10 }); await p.s.mouse.up(); await p.s.waitForTimeout(150);
+  var d1 = await p.s.evaluate(function () { return window.tp3.drehung; });
+  pruef('3D: Wischen dreht den ganzen Raum stufenlos', Math.abs(d1 - d0 - 90) < 6, d0 + ' -> ' + d1);
+  await p.s.evaluate(function () { window.tp3.drehung = 0; });
+  await p.s.click('#tp3AnsichtOben'); await p.s.waitForTimeout(150);
   await p.s.locator('#tp3').screenshot({ path: path.join(AUS, 'tischplan-L-oben.png') });
   // Bearbeiten: Raum-Formular, Tisch in die Ecke ziehen, Theke dazu, speichern
   await p.s.click('#tp3Bearbeiten'); await p.s.waitForTimeout(200);
@@ -344,11 +353,58 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
     var mx = t.left + t.width / 2, my = t.top + t.height / 2; return { drin: mx > e.left && mx < e.right && my > e.top && my < e.bottom };
   }, uuid(3));
   pruef('ein Tisch rutscht aus der fehlenden Ecke an den Rand', lage.drin === false, JSON.stringify(lage));
+  // Drehgriff: Tisch 5 waehlen (antippen), Griff im Kreis ziehen
+  box = await p.s.evaluate(function (id) { var r = document.querySelector('#tp3Boden .tp3-tisch[data-id="' + id + '"]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }, uuid(5));
+  await p.s.mouse.move(box.x, box.y); await p.s.mouse.down(); await p.s.mouse.up(); await p.s.waitForTimeout(150);
+  var griff = await p.s.evaluate(function () { var g = document.querySelector('#tp3Boden .tp3-griff'); if (!g) return null; var r = g.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+  pruef('gewählter Tisch hat einen Drehgriff', !!griff, 'kein Griff');
+  if (griff) {
+    var rad = Math.hypot(griff.x - box.x, griff.y - box.y), w = 30 * Math.PI / 180;
+    await p.s.mouse.move(griff.x, griff.y); await p.s.mouse.down();
+    for (var st = 1; st <= 6; st++) { var ww = w * st / 6; await p.s.mouse.move(box.x + Math.sin(ww) * rad, box.y - Math.cos(ww) * rad); }
+    await p.s.mouse.up(); await p.s.waitForTimeout(150);
+    var gd = await p.s.evaluate(function (id) { var t = window.tp3.tische.find(function (x) { return x.id === id; }); return t.drehung; }, uuid(5));
+    pruef('am Griff gezogen: Tisch steht auf 30°', gd === 30, gd);
+    await p.s.click('#tp3Seite [data-aktion="drehPlus"]'); await p.s.waitForTimeout(100);
+    gd = await p.s.evaluate(function (id) { return window.tp3.tische.find(function (x) { return x.id === id; }).drehung; }, uuid(5));
+    pruef('"↻ 15°": 45°', gd === 45, gd);
+    var anzeige = await p.s.evaluate(function () { var o = document.getElementById('tp3eWinkel'); return o && o.textContent; });
+    pruef('rechts steht der Winkel: 45°', anzeige === '45°', anzeige);
+  }
+  // Echte Maße: Tisch 5 (6 Plätze, lang) -> 180 x 80 cm im Massstab des Raums
+  var mass = await p.s.evaluate(function (id) {
+    var t = window.tp3.tische.find(function (x) { return x.id === id; });
+    var el = document.querySelector('#tp3Boden .tp3-tisch[data-id="' + id + '"]');
+    return { b: parseFloat(el.style.width), t: parseFloat(el.style.height), ppm: window.tp3.ppm, plaetze: t.plaetze };
+  }, uuid(5));
+  pruef('echte Maße: 6er-Tisch ist 180 x 80 cm, im Massstab des Raums', Math.abs(mass.b - 1.8 * mass.ppm) < 0.5 && Math.abs(mass.t - 0.8 * mass.ppm) < 0.5, JSON.stringify(mass));
+  var chips = await p.s.evaluate(function () { return Array.prototype.map.call(document.querySelectorAll('#tp3Seite [data-vorlage]'), function (x) { return x.textContent.replace(/\s+/g, ' ').trim(); }); });
+  pruef('rechts: Größen als Knöpfe (120×80 … 360×90)', chips.length === 5 && /180×80/.test(chips.join('|')), chips.join(' | '));
+  await p.s.click('#tp3Seite [data-vorlage="8,240,80"]'); await p.s.waitForTimeout(100);
+  var nach = await p.s.evaluate(function (id) { var t = window.tp3.tische.find(function (x) { return x.id === id; }); var el = document.querySelector('#tp3Boden .tp3-tisch[data-id="' + id + '"]'); return { plaetze: t.plaetze, L: t.laenge, B: t.breite, b: parseFloat(el.style.width), ppm: window.tp3.ppm }; }, uuid(5));
+  pruef('ein Tipp auf "240×80 · 8": 8 Plätze, 240 cm lang gezeichnet', nach.plaetze === 8 && nach.L === 240 && Math.abs(nach.b - 2.4 * nach.ppm) < 0.5, JSON.stringify(nach));
+  await p.s.click('#tp3Seite [data-mass="L+"]'); await p.s.waitForTimeout(100);
+  var laenger = await p.s.evaluate(function (id) { return window.tp3.tische.find(function (x) { return x.id === id; }).laenge; }, uuid(5));
+  pruef('"+" bei Länge: 250 cm', laenger === 250, laenger);
+  var neuKnoepfe = await p.s.evaluate(function () { return document.querySelectorAll('#tp3Leiste [data-neu]').length; });
+  pruef('Leiste: 9 Tischgrößen zum Anlegen (vorher 5)', neuKnoepfe === 9, neuKnoepfe);
+  // Eingang an die linke Wand ziehen: rastet ein und dreht sich mit
+  await p.s.click('#tp3Seite [data-aktion="schliessen"]'); await p.s.waitForTimeout(100);
+  var tu = await p.s.evaluate(function () { var r = document.querySelector('#tp3Boden .tp3-teil[data-teil-id="tu"]').getBoundingClientRect(); var b = document.getElementById('tp3Boden').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, links: b.left, mitteY: b.top + b.height * 0.7 }; });
+  await p.s.mouse.move(tu.x, tu.y); await p.s.mouse.down(); await p.s.mouse.move(tu.links + 12, tu.mitteY, { steps: 10 }); await p.s.mouse.up(); await p.s.waitForTimeout(150);
+  var tuer = await p.s.evaluate(function () { var t = window.tp3.raum.main.teile.find(function (x) { return x.id === 'tu'; }); return { x: t.x, dreh: t.dreh }; });
+  pruef('Eingang rastet an der linken Wand ein und steht senkrecht', tuer.x === 0 && tuer.dreh === 90, JSON.stringify(tuer));
+  var mass = await p.s.evaluate(function () { return Array.prototype.map.call(document.querySelectorAll('#tp3Boden .tp3-mass'), function (x) { return x.textContent; }).join(' | '); });
+  pruef('beim Bearbeiten stehen die Maße am Rand', /16,5 m/.test(mass) && /10,0 m/.test(mass) && /kein Raum/.test(mass), mass);
+  await p.s.locator('#tp3').screenshot({ path: path.join(AUS, 'tischplan-L-bearbeiten.png') });
   await p.s.click('#tp3Leiste [data-teil="theke"]'); await p.s.waitForTimeout(150);
   var teile = await p.s.evaluate(function () { return window.tp3.raum.main.teile.length + ' / ' + document.getElementById('tp3Seite').innerText.slice(0, 40); });
   pruef('"Theke" antippen: neues Teil, rechts sein Formular', /^3 \//.test(teile) && /Theke/.test(teile), teile);
   await p.s.click('#tp3Fertig'); await p.s.waitForTimeout(800);
   var raumGeschrieben = p.geschrieben.filter(function (g) { return /restaurants\?id=eq\./.test(g.u) && g.m === 'PATCH'; }).map(function (g) { return JSON.parse(g.body); })[0];
+  var tischGeschrieben = p.geschrieben.filter(function (g) { return /restaurant_tables\?id=eq\.00000000-0000-4000-8000-000000000005/.test(g.u); }).map(function (g) { return JSON.parse(g.body); })[0];
+  pruef('Fertig speichert die Drehung 45° (rotation)', !!tischGeschrieben && tischGeschrieben.rotation === 45, JSON.stringify(tischGeschrieben));
+  pruef('Fertig speichert die echten Maße (250 x 80 cm)', !!tischGeschrieben && tischGeschrieben.laenge_cm === 250 && tischGeschrieben.breite_cm === 80, JSON.stringify(tischGeschrieben));
   pruef('Fertig speichert den Raum in restaurants.tischplan_raum', !!raumGeschrieben && raumGeschrieben.tischplan_raum.main.form === 'L' && raumGeschrieben.tischplan_raum.main.breite === 16.5 && raumGeschrieben.tischplan_raum.main.teile.length === 3, JSON.stringify(raumGeschrieben).slice(0, 200));
   pruef('kein Seitenfehler im L-Plan', !p.fehler.length, p.fehler.join(' | '));
   await p.ctx.close();
