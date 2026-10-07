@@ -87,6 +87,16 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
         return json(opt.rlsLeer ? [] : [Object.assign({ id: 'neu' }, JSON.parse(rt.request().postData() || '{}'))], 201);
       }
       if (/supabase\.co\/rest\/v1\/orders/.test(u)) return json(ORDERS);
+      // Raum (41-tischplan-raum.sql): L-Form, feste Teile.
+      if (/supabase\.co\/rest\/v1\/restaurants\?id=eq\./.test(u)) {
+        if (m === 'GET') {
+          if (opt.ohneRaum && /tischplan_raum/.test(u)) return json({ code: '42703', message: 'column restaurants.tischplan_raum does not exist' }, 400);
+          return json([{ tischplan_raum: opt.raum || null }]);
+        }
+        geschrieben.push({ m: m, u: u, body: rt.request().postData() });
+        if (opt.ohneRaum) return json({ code: '42703', message: 'column restaurants.tischplan_raum does not exist' }, 400);
+        return json(opt.rlsLeer ? [] : [JSON.parse(rt.request().postData() || '{}')]);
+      }
       if (/supabase\.co\/rest\/v1\/rpc\//.test(u)) { geschrieben.push({ m: m, u: u, body: rt.request().postData() }); return json({ success: true }); }
       if (/supabase\.co/.test(u)) return json([]);
       return rt.abort();
@@ -297,6 +307,62 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
   await p.s.click('#tp3AnsichtOben'); await p.s.click('#tp3Bearbeiten'); await p.s.waitForTimeout(200);
   mel = await p.s.evaluate(function () { return document.getElementById('tp3Meldung').textContent; });
   pruef('... und sagt beim Bearbeiten, welche Datei fehlt', /39-tischplan\.sql/.test(mel), mel);
+  await p.ctx.close();
+
+  // ---------- 6. L-Form mit festen Teilen (07.10.2026) ----------
+  // Ibo: "der Laden ist wie eine L-Form". 16 x 10 m, oben rechts fehlen 6 x 4 m.
+  var RAUM = { main: { breite: 16, tiefe: 10, form: 'L', ecke: 'or', ausB: 6, ausT: 4,
+    teile: [{ id: 'th', art: 'theke', x: 20, y: 8, b: 4, t: 0.8, dreh: 0 }, { id: 'tu', art: 'tuer', x: 50, y: 100, b: 1.4, t: 0.3, dreh: 0 }] } };
+  p = await seite({ raum: RAUM });
+  var l = await p.s.evaluate(function () {
+    var b = document.getElementById('tp3Boden');
+    return { stuecke: b.querySelectorAll('.tp3-bodenteil').length, l: b.classList.contains('tp3-l'), w: b.offsetWidth, h: b.offsetHeight,
+      teile: Array.prototype.map.call(b.querySelectorAll('.tp3-teil .tp3-schild span'), function (x) { return x.textContent; }),
+      waende: b.querySelectorAll(':scope > .tp3-f').length };
+  });
+  pruef('L-Form: Boden aus 2 Stücken, Seitenverhältnis 16 x 10 m', l.l && l.stuecke === 2 && Math.abs(l.w / l.h - 1.6) < 0.02, JSON.stringify(l));
+  pruef('L-Form in 3D: 6 Wände/Sockel entlang des Umrisses (Rechteck: 4)', l.waende === 6, l.waende);
+  pruef('feste Teile stehen im Plan: Theke und Eingang', l.teile.indexOf('Theke') >= 0 && l.teile.indexOf('Eingang') >= 0, l.teile.join(','));
+  await p.s.locator('#tp3').screenshot({ path: path.join(AUS, 'tischplan-L-3d.png') });
+  await p.s.click('#tp3AnsichtOben'); await p.s.waitForTimeout(200);
+  var ecke = await p.s.evaluate(function () { return document.querySelectorAll('#tp3Boden .tp3-ecke').length; });
+  pruef('von oben: die fehlende Ecke ist als "kein Raum" markiert', ecke === 1, ecke);
+  await p.s.locator('#tp3').screenshot({ path: path.join(AUS, 'tischplan-L-oben.png') });
+  // Bearbeiten: Raum-Formular, Tisch in die Ecke ziehen, Theke dazu, speichern
+  await p.s.click('#tp3Bearbeiten'); await p.s.waitForTimeout(200);
+  var formular = await p.s.evaluate(function () { return document.getElementById('tp3Seite').innerText; });
+  pruef('Bearbeiten zeigt rechts den Raum: Breite, Tiefe, L-Form, welche Ecke', /Breite/.test(formular) && /16,0 m/.test(formular) && /L-Form/.test(formular) && /oben rechts/.test(formular), formular.slice(0, 160));
+  await p.s.click('#tp3Seite [data-raum="breite+"]'); await p.s.waitForTimeout(100);
+  var breit = await p.s.evaluate(function () { return window.tp3.raum.main.breite; });
+  pruef('"+" bei Breite: 16,5 m', breit === 16.5, breit);
+  // Tisch 3 (oben, x=55) nach rechts oben in die fehlende Ecke ziehen
+  box = await p.s.evaluate(function (id) { var r = document.querySelector('#tp3Boden .tp3-tisch[data-id="' + id + '"]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }, uuid(3));
+  var ziel = await p.s.evaluate(function () { var r = document.querySelector('#tp3Boden .tp3-ecke').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+  await p.s.mouse.move(box.x, box.y); await p.s.mouse.down(); await p.s.mouse.move(ziel.x, ziel.y, { steps: 8 }); await p.s.mouse.up(); await p.s.waitForTimeout(150);
+  var lage = await p.s.evaluate(function (id) {
+    var t = document.querySelector('#tp3Boden .tp3-tisch[data-id="' + id + '"]').getBoundingClientRect(), e = document.querySelector('#tp3Boden .tp3-ecke').getBoundingClientRect();
+    var mx = t.left + t.width / 2, my = t.top + t.height / 2; return { drin: mx > e.left && mx < e.right && my > e.top && my < e.bottom };
+  }, uuid(3));
+  pruef('ein Tisch rutscht aus der fehlenden Ecke an den Rand', lage.drin === false, JSON.stringify(lage));
+  await p.s.click('#tp3Leiste [data-teil="theke"]'); await p.s.waitForTimeout(150);
+  var teile = await p.s.evaluate(function () { return window.tp3.raum.main.teile.length + ' / ' + document.getElementById('tp3Seite').innerText.slice(0, 40); });
+  pruef('"Theke" antippen: neues Teil, rechts sein Formular', /^3 \//.test(teile) && /Theke/.test(teile), teile);
+  await p.s.click('#tp3Fertig'); await p.s.waitForTimeout(800);
+  var raumGeschrieben = p.geschrieben.filter(function (g) { return /restaurants\?id=eq\./.test(g.u) && g.m === 'PATCH'; }).map(function (g) { return JSON.parse(g.body); })[0];
+  pruef('Fertig speichert den Raum in restaurants.tischplan_raum', !!raumGeschrieben && raumGeschrieben.tischplan_raum.main.form === 'L' && raumGeschrieben.tischplan_raum.main.breite === 16.5 && raumGeschrieben.tischplan_raum.main.teile.length === 3, JSON.stringify(raumGeschrieben).slice(0, 200));
+  pruef('kein Seitenfehler im L-Plan', !p.fehler.length, p.fehler.join(' | '));
+  await p.ctx.close();
+
+  // ---------- 7. 41-tischplan-raum.sql fehlt ----------
+  p = await seite({ raum: null, ohneRaum: true });
+  await p.s.click('#tp3AnsichtOben'); await p.s.click('#tp3Bearbeiten'); await p.s.waitForTimeout(200);
+  mel = await p.s.evaluate(function () { return document.getElementById('tp3Meldung').textContent; });
+  pruef('ohne 41: Bearbeiten sagt, welche Datei fehlt', /41-tischplan-raum\.sql/.test(mel), mel);
+  var dreh = await p.s.evaluate(function () { return null; });
+  await p.s.click('#tp3Seite [data-raum="form-L"]'); await p.s.waitForTimeout(100);
+  await p.s.click('#tp3Fertig'); await p.s.waitForTimeout(800);
+  mel = await p.s.evaluate(function () { return document.getElementById('tp3Meldung').textContent; });
+  pruef('ohne 41: nach Fertig steht da, dass der Raum NICHT gespeichert ist', /NICHT/.test(mel) && /41-tischplan-raum/.test(mel), mel);
   await p.ctx.close();
 
   await b.close(); srv.close();

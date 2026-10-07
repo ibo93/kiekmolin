@@ -18674,6 +18674,16 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 .tp3[data-ansicht="oben"] .tp3-boden { border-radius: 18px; }
                 .tp3[data-bearbeiten="1"] .tp3-boden { background-image: linear-gradient(rgba(0,61,51,0.10) 1px, transparent 1px), linear-gradient(90deg, rgba(0,61,51,0.10) 1px, transparent 1px); background-size: 14px 14px; }
                 .tp3-boden div, .tp3-boden button, .tp3-boden span { box-sizing: border-box; }
+                /* L-Form (07.10.2026): der Boden ist dann zwei Stuecke, die Ecke ist kein Raum. */
+                .tp3-boden.tp3-l { background: none !important; border-radius: 0 !important; }
+                .tp3-bodenteil { position: absolute; background-color: var(--tp3-boden); background-image: repeating-linear-gradient(90deg, var(--tp3-fuge) 0 1px, transparent 1px 56px), repeating-linear-gradient(0deg, var(--tp3-fuge) 0 1px, transparent 1px 14px); }
+                .tp3[data-bearbeiten="1"] .tp3-bodenteil { background-image: linear-gradient(rgba(0,61,51,0.10) 1px, transparent 1px), linear-gradient(90deg, rgba(0,61,51,0.10) 1px, transparent 1px); background-size: 14px 14px; }
+                .tp3-ecke { position: absolute; border: 2px dashed rgba(0,37,30,0.22); border-radius: 10px; background: repeating-linear-gradient(45deg, rgba(0,37,30,0.05) 0 6px, transparent 6px 12px); }
+                .tp3[data-ansicht="3d"] .tp3-ecke { display: none; }
+                .tp3-teil { position: absolute; transform-style: preserve-3d; }
+                .tp3-schild.teil > span { background: rgba(255,255,255,0.92); color: #404946; border: 1px solid rgba(0,37,30,0.18); font-size: 11px; font-weight: 700; padding: 3px 8px; }
+                .dark-mode .tp3-schild.teil > span { background: rgba(26,29,28,0.92); color: #c9cfcd; border-color: rgba(255,255,255,0.2); }
+                .tp3-schild.teil.gewaehlt > span { background: #00251e; color: #ffffff; border-color: #00251e; }
                 .tp3-b { position: absolute; transform-style: preserve-3d; }
                 .tp3-f { position: absolute; }
                 .tp3-tisch { position: absolute; transform-style: preserve-3d; }
@@ -18812,6 +18822,14 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             <button type="button" data-neu="lang6"><i style="width:42px;height:24px;border-radius:7px;"></i>Lang 6</button>
                             <button type="button" data-neu="lang8"><i style="width:52px;height:22px;border-radius:7px;"></i>Lang 8</button>
                             <button type="button" id="tp3NeuBereich"><i style="width:30px;height:22px;border-radius:7px;border-style:dashed;"></i>Bereich</button>
+                            <span>Raum</span>
+                            <button type="button" data-teil="tuer"><i style="width:34px;height:8px;border-radius:3px;background:#8b5e34;border-color:#8b5e34;"></i>Eingang</button>
+                            <button type="button" data-teil="theke"><i style="width:44px;height:16px;border-radius:4px;background:#6b4f3a;border-color:#6b4f3a;"></i>Theke</button>
+                            <button type="button" data-teil="fenster"><i style="width:40px;height:6px;border-radius:2px;background:#9cc9e6;border-color:#9cc9e6;"></i>Fenster</button>
+                            <button type="button" data-teil="kueche"><i style="width:32px;height:26px;border-radius:4px;"></i>Küche</button>
+                            <button type="button" data-teil="wc"><i style="width:26px;height:26px;border-radius:4px;"></i>WC</button>
+                            <button type="button" data-teil="wand"><i style="width:44px;height:5px;border-radius:2px;background:currentColor;"></i>Wand</button>
+                            <button type="button" data-teil="pflanze"><i style="width:22px;height:22px;border-radius:9999px;background:#3f7d4a;border-color:#3f7d4a;"></i>Pflanze</button>
                         </div>
                     </div>
                     <aside class="tp3-seite" id="tp3Seite" aria-live="polite"></aside>
@@ -18826,7 +18844,11 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     rid: null, tische: [], res: [], offen: {}, ruft: {}, bereich: null,
                     ansicht: 'oben', drehung: 0, datum: null, zeit: 'jetzt', bearbeiten: false,
                     gewaehlt: null, verlauf: [], geaendert: {}, ohnePosSpalten: false, laedt: false, ladeFehler: null,
-                    ansichtVorBearbeiten: null
+                    ansichtVorBearbeiten: null,
+                    // Raum je Bereich (datenbank/41-tischplan-raum.sql): Maße in
+                    // Metern, Rechteck oder L-Form, feste Teile (Eingang, Theke ...).
+                    raum: {}, raumGeaendert: false, ohneRaumSpalte: false, teilGewaehlt: null,
+                    W: 560, T: 420, ppm: 560 / 12
                 };
                 try { tp.ansicht = localStorage.getItem('kmi_tp3_ansicht') === 'oben' ? 'oben' : '3d'; } catch (e) { tp.ansicht = '3d'; }
                 window.tp3 = tp;
@@ -18863,6 +18885,98 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     if (g.art !== 'lang') { s.push([B / 2 - 11, -16, 22, 10]); s.push([B / 2 - 11, T + 6, 22, 10]); s.push([-16, T / 2 - 11, 10, 22]); s.push([B + 6, T / 2 - 11, 10, 22]); return s; }
                     var lang = Math.max(1, Math.floor((p - 2) / 2)); oben(lang);
                     s.push([-16, T / 2 - 11, 10, 22]); s.push([B + 6, T / 2 - 11, 10, 22]); return s;
+                }
+
+                // ---------- Raum (07.10.2026) ----------
+                // Ibo: "der Laden ist wie eine L-Form". Ein Raum hat Maße in Metern,
+                // ist ein Rechteck oder ein L (eine Ecke fehlt) und kennt feste Teile.
+                // Tische und Teile stehen weiter in % des Raums -- alte Lagen bleiben.
+                // Ohne Angabe: 12 x 9 m, das ergibt genau den alten Massstab.
+                var TEIL = {
+                    tuer:    { name: 'Eingang', b: 1.2, t: 0.3, h: 2,  oben: '#8b5e34', f1: '#74492a', f2: '#633d22' },
+                    theke:   { name: 'Theke',   b: 3,   t: 0.8, h: 40, oben: '#6b4f3a', f1: '#5a4231', f2: '#4a3628' },
+                    fenster: { name: 'Fenster', b: 2,   t: 0.2, h: 3,  oben: '#9cc9e6', f1: '#7fb3d6', f2: '#6ea4c9' },
+                    kueche:  { name: 'Küche',   b: 3,   t: 2.5, h: 60, oben: '#d6dad8', f1: '#bfc5c2', f2: '#aeb5b2' },
+                    wc:      { name: 'WC',      b: 2,   t: 2,   h: 60, oben: '#d6dad8', f1: '#bfc5c2', f2: '#aeb5b2' },
+                    wand:    { name: 'Wand',    b: 3,   t: 0.15, h: 70, oben: '#f0f0ee', f1: '#d9dcda', f2: '#c9cdcb' },
+                    pflanze: { name: 'Pflanze', b: 0.6, t: 0.6, h: 30, oben: '#3f7d4a', f1: '#2f6339', f2: '#2f6339', rund: true }
+                };
+                var ECKE_NAME = { ol: 'oben links', or: 'oben rechts', ul: 'unten links', ur: 'unten rechts' };
+                function raumVon(bereich) {
+                    var r = tp.raum[bereich] || (tp.raum[bereich] = {});
+                    if (!(+r.breite > 0)) r.breite = 12;
+                    if (!(+r.tiefe > 0)) r.tiefe = 9;
+                    if (r.form !== 'L') r.form = 'rechteck';
+                    if (!ECKE_NAME[r.ecke]) r.ecke = 'or';
+                    if (!(+r.ausB > 0)) r.ausB = Math.round(r.breite * 0.4 * 2) / 2;
+                    if (!(+r.ausT > 0)) r.ausT = Math.round(r.tiefe * 0.45 * 2) / 2;
+                    r.ausB = Math.min(r.ausB, r.breite - 1); r.ausT = Math.min(r.ausT, r.tiefe - 1);
+                    if (!Array.isArray(r.teile)) r.teile = [];
+                    return r;
+                }
+                // Massstab: der Raum passt in 560 x 420 px. k = 1 beim alten 12 x 9 m.
+                function masseSetzen() {
+                    var r = raumVon(tp.bereich || 'main');
+                    tp.ppm = Math.min(560 / r.breite, 420 / r.tiefe);
+                    tp.W = Math.round(r.breite * tp.ppm); tp.T = Math.round(r.tiefe * tp.ppm);
+                    tp.k = tp.ppm / (560 / 12);
+                    return r;
+                }
+                // Die fehlende Ecke in px (oder null beim Rechteck).
+                function eckeRechteck(r) {
+                    if (r.form !== 'L') return null;
+                    var w = r.ausB * tp.ppm, h = r.ausT * tp.ppm;
+                    return { x: r.ecke.charAt(1) === 'r' ? tp.W - w : 0, y: r.ecke.charAt(0) === 'u' ? tp.T - h : 0, w: w, h: h };
+                }
+                // Liegt ein Punkt (in %) in der fehlenden Ecke? Dann an den naechsten Rand.
+                function ausEckeSchieben(r, pt) {
+                    var e = eckeRechteck(r); if (!e) return pt;
+                    var x = pt.x / 100 * tp.W, y = pt.y / 100 * tp.T;
+                    if (x < e.x || x > e.x + e.w || y < e.y || y > e.y + e.h) return pt;
+                    var zielX = e.x === 0 ? e.w + 8 : e.x - 8, zielY = e.y === 0 ? e.h + 8 : e.y - 8;
+                    if (Math.abs(x - zielX) < Math.abs(y - zielY)) x = zielX; else y = zielY;
+                    return { x: Math.round(x / tp.W * 1000) / 10, y: Math.round(y / tp.T * 1000) / 10 };
+                }
+                // Umriss als Kanten mit Aussen-Richtung -- fuer die Waende in 3D.
+                function umriss(r) {
+                    var W = tp.W, T = tp.T, e = eckeRechteck(r);
+                    if (!e) return [[0, 0, W, 0, 0, -1], [W, 0, W, T, 1, 0], [0, T, W, T, 0, 1], [0, 0, 0, T, -1, 0]];
+                    var k = [];
+                    // oben
+                    if (e.y === 0) { if (e.x === 0) { k.push([e.w, 0, W, 0, 0, -1], [0, e.h, e.w, e.h, 0, -1], [e.w, 0, e.w, e.h, -1, 0]); } else { k.push([0, 0, e.x, 0, 0, -1], [e.x, e.h, W, e.h, 0, -1], [e.x, 0, e.x, e.h, 1, 0]); } }
+                    else k.push([0, 0, W, 0, 0, -1]);
+                    // unten
+                    if (e.y > 0) { if (e.x === 0) { k.push([e.w, T, W, T, 0, 1], [0, e.y, e.w, e.y, 0, 1], [e.w, e.y, e.w, T, -1, 0]); } else { k.push([0, T, e.x, T, 0, 1], [e.x, e.y, W, e.y, 0, 1], [e.x, e.y, e.x, T, 1, 0]); } }
+                    else k.push([0, T, W, T, 0, 1]);
+                    // links / rechts (ohne das Stueck an der Ecke)
+                    if (e.x === 0) k.push(e.y === 0 ? [0, e.h, 0, T, -1, 0] : [0, 0, 0, e.y, -1, 0]); else k.push([0, 0, 0, T, -1, 0]);
+                    if (e.x > 0) k.push(e.y === 0 ? [W, e.h, W, T, 1, 0] : [W, 0, W, e.y, 1, 0]); else k.push([W, 0, W, T, 1, 0]);
+                    return k;
+                }
+                function bodenStuecke(r) {
+                    var e = eckeRechteck(r), W = tp.W, T = tp.T;
+                    if (!e) return '';
+                    var a, b;
+                    if (e.y === 0) { a = [0, e.h, W, T - e.h]; b = [e.x === 0 ? e.w : 0, 0, W - e.w, e.h]; }
+                    else { a = [0, 0, W, T - e.h]; b = [e.x === 0 ? e.w : 0, T - e.h, W - e.w, e.h]; }
+                    return [a, b].map(function (q) { return '<div class="tp3-bodenteil" style="left:' + q[0] + 'px;top:' + q[1] + 'px;width:' + q[2] + 'px;height:' + q[3] + 'px;"></div>'; }).join('')
+                        + '<div class="tp3-ecke" style="left:' + (e.x + 4) + 'px;top:' + (e.y + 4) + 'px;width:' + (e.w - 8) + 'px;height:' + (e.h - 8) + 'px;"></div>';
+                }
+                function teilHtml(teil) {
+                    var d = TEIL[teil.art] || TEIL.wand, ppm = tp.ppm;
+                    var b = Math.max(6, (+teil.b || d.b) * ppm), t = Math.max(4, (+teil.t || d.t) * ppm);
+                    var cx = teil.x / 100 * tp.W, cy = teil.y / 100 * tp.T, w = winkel() + (+teil.dreh || 0);
+                    var gew = tp.teilGewaehlt === teil.id;
+                    var o = '<div class="tp3-teil" data-teil-id="' + esc(teil.id) + '" style="left:' + (cx - b / 2) + 'px;top:' + (cy - t / 2) + 'px;width:' + b + 'px;height:' + t + 'px;">';
+                    o += '<div class="tp3-b" style="inset:0;' + (teil.dreh ? 'transform:rotateZ(' + teil.dreh + 'deg);' : '') + '">';
+                    if (d.rund) o += zylinder(b, d.h, d.oben, d.f1, '');
+                    else o += kasten(0, 0, b, t, d.h, d.oben, d.f1, d.f2, w, 3, gew ? '3px solid #003d33' : '');
+                    o += '</div>';
+                    if (tp.bearbeiten) o += '<button type="button" class="tp3-tipp" data-teil-id="' + esc(teil.id) + '" aria-label="' + esc(d.name) + '"></button>';
+                    var k = Math.min(1.8, 1 / (tp.s || 1));
+                    var schild = tp.ansicht === '3d' ? 'transform:translateZ(' + (d.h + 18) + 'px) rotateZ(' + (-winkel()) + 'deg) rotateX(-' + NEIGUNG + 'deg) scale(' + k + ');' : 'transform:scale(' + k + ');';
+                    o += '<div class="tp3-schild teil' + (gew ? ' gewaehlt' : '') + '" style="' + schild + '"><span>' + esc(d.name) + '</span></div>';
+                    return o + '</div>';
                 }
 
                 // ---------- Seiten eines Koerpers: nur die zum Betrachter ----------
@@ -18953,6 +19067,18 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                                 status: z.status, bereich: z.area || 'main', form: z.table_shape, x: z.pos_x, y: z.pos_y, drehung: +z.rotation || 0 };
                         });
                         verteilen();
+                        // Raum (41-tischplan-raum.sql). Fehlt die Spalte, geht der Plan
+                        // weiter -- mit Standard-Raum und Hinweis beim Bearbeiten.
+                        if (!tp.bearbeiten) {
+                            try {
+                                var rz = await (await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(tp.rid) + '&select=tischplan_raum', { headers: kopf() })).json();
+                                tp.raum = (Array.isArray(rz) && rz[0] && rz[0].tischplan_raum && typeof rz[0].tischplan_raum === 'object') ? rz[0].tischplan_raum : {};
+                                tp.ohneRaumSpalte = false;
+                            } catch (e) {
+                                if (!/tischplan_raum|column/i.test(String(e && e.message))) throw e;
+                                tp.ohneRaumSpalte = true;
+                            }
+                        }
                         var res = await (await sbRead(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.' + encodeURIComponent(tp.rid)
                             + '&reservation_date=eq.' + tp.datum + '&status=not.in.(cancelled,no_show)'
                             + '&select=id,guest_name,guest_phone,party_size,reservation_time,duration_minutes,status,table_id,notes&order=reservation_time', { headers: kopf() })).json();
@@ -18999,8 +19125,8 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 function massstab() {
                     var b = $('tp3Buehne'); if (!b) return 1;
                     var W = b.clientWidth || 700, H = b.clientHeight || 620;
-                    if (tp.ansicht === '3d') return Math.max(0.5, Math.min((W - 16) / 690, (H - 60) / 520));
-                    return Math.max(0.5, Math.min((W - 40) / GRUND_B, (H - (tp.bearbeiten ? 120 : 90)) / GRUND_T));
+                    if (tp.ansicht === '3d') return Math.max(0.5, Math.min((W - 16) / (tp.W + 130), (H - 60) / (tp.T + 100)));
+                    return Math.max(0.5, Math.min((W - 40) / tp.W, (H - (tp.bearbeiten ? 120 : 90)) / tp.T));
                 }
                 function bodenStellen() {
                     var boden = $('tp3Boden'); if (!boden) return;
@@ -19011,6 +19137,8 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 }
                 function waende() {
                     if (tp.ansicht !== '3d') return '';
+                    var r = raumVon(tp.bereich || 'main');
+                    if (r.form === 'L') return waendeUmriss(r);
                     var n = nahKanten(winkel()), o = '', H = 84, S = 14;
                     var wand = 'background:var(--tp3-wand);', sockel = 'background:var(--tp3-sockel);';
                     // Ferne Kanten: Wand nach oben. Nahe Kanten: nur die Bodenplatte.
@@ -19024,15 +19152,31 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                                   : '<div class="tp3-f" style="left:100%;top:0;width:' + H + 'px;height:100%;' + wand + 'border-right:5px solid var(--tp3-wandkante);transform-origin:left;transform:rotateY(-90deg);"></div>';
                     return o;
                 }
+                // Waende entlang eines beliebigen (rechtwinkligen) Umrisses -- die L-Form.
+                // Wie beim Rechteck: zum Betrachter hin nur der Sockel, sonst die Wand.
+                function waendeUmriss(r) {
+                    var rad = winkel() * Math.PI / 180, c = Math.cos(rad), s = Math.sin(rad), H = 84, S = 14, o = '';
+                    var wand = 'background:var(--tp3-wand);', sockel = 'background:var(--tp3-sockel);';
+                    umriss(r).forEach(function (k) {
+                        var x1 = Math.min(k[0], k[2]), y1 = Math.min(k[1], k[3]), x2 = Math.max(k[0], k[2]), y2 = Math.max(k[1], k[3]), nx = k[4], ny = k[5];
+                        var nah = (nx * s + ny * c) > 0.01, hoch = nah ? S : H;
+                        if (ny === -1) o += '<div class="tp3-f" style="left:' + x1 + 'px;top:' + (y1 - hoch) + 'px;width:' + (x2 - x1) + 'px;height:' + hoch + 'px;' + (nah ? sockel + 'transform-origin:bottom;transform:rotateX(90deg);' : wand + 'border-top:5px solid var(--tp3-wandkante);transform-origin:bottom;transform:rotateX(-90deg);') + '"></div>';
+                        else if (ny === 1) o += '<div class="tp3-f" style="left:' + x1 + 'px;top:' + y1 + 'px;width:' + (x2 - x1) + 'px;height:' + hoch + 'px;' + (nah ? sockel + 'transform-origin:top;transform:rotateX(-90deg);' : wand + 'border-bottom:5px solid var(--tp3-wandkante);transform-origin:top;transform:rotateX(90deg);') + '"></div>';
+                        else if (nx === -1) o += '<div class="tp3-f" style="left:' + (x1 - hoch) + 'px;top:' + y1 + 'px;width:' + hoch + 'px;height:' + (y2 - y1) + 'px;' + (nah ? sockel + 'transform-origin:right;transform:rotateY(-90deg);' : wand + 'border-left:5px solid var(--tp3-wandkante);transform-origin:right;transform:rotateY(90deg);') + '"></div>';
+                        else o += '<div class="tp3-f" style="left:' + x1 + 'px;top:' + y1 + 'px;width:' + hoch + 'px;height:' + (y2 - y1) + 'px;' + (nah ? sockel + 'transform-origin:left;transform:rotateY(90deg);' : wand + 'border-right:5px solid var(--tp3-wandkante);transform-origin:left;transform:rotateY(-90deg);') + '"></div>';
+                    });
+                    return o;
+                }
                 function tischHtml(t) {
                     var g = form(t), z = tp.bearbeiten ? { art: 'neutral', text: t.plaetze + ' Plätze' } : zustand(t);
                     var f = FARBE[z.art] || FARBE.frei, w = winkel() + (t.drehung || 0);
-                    var cx = t.x / 100 * GRUND_B, cy = t.y / 100 * GRUND_T;
+                    var cx = t.x / 100 * tp.W, cy = t.y / 100 * tp.T, kk = tp.k || 1;
                     var gew = tp.gewaehlt === t.id;
-                    var o = '<div class="tp3-tisch" data-id="' + esc(t.id) + '" style="left:' + (cx - g.b / 2) + 'px;top:' + (cy - g.t / 2) + 'px;width:' + g.b + 'px;height:' + g.t + 'px;">';
+                    // Groesse in Metern: im 12-m-Raum wie bisher, im 20-m-Raum kleiner.
+                    var o = '<div class="tp3-tisch" data-id="' + esc(t.id) + '" style="left:' + (cx - g.b * kk / 2) + 'px;top:' + (cy - g.t * kk / 2) + 'px;width:' + (g.b * kk) + 'px;height:' + (g.t * kk) + 'px;">';
                     if (z.art === 'ruft') o += '<div class="tp3-ruft-hof" style="left:-16px;top:-16px;right:-16px;bottom:-16px;' + (tp.ansicht === '3d' ? 'transform:translateZ(0.5px);' : '') + '"></div>';
                     if (gew) o += '<div class="tp3-f" style="left:-12px;top:-12px;right:-12px;bottom:-12px;border-radius:16px;border:3px solid ' + '#003d33' + ';' + (tp.ansicht === '3d' ? 'transform:translateZ(0.5px);' : '') + '"></div>';
-                    o += '<div class="tp3-b" style="inset:0;' + (t.drehung ? 'transform:rotateZ(' + t.drehung + 'deg);' : '') + '">';
+                    o += '<div class="tp3-b" style="left:0;top:0;width:' + g.b + 'px;height:' + g.t + 'px;transform-origin:0 0;transform:scale(' + kk + ')' + (t.drehung ? ' translate(' + (g.b / 2) + 'px,' + (g.t / 2) + 'px) rotateZ(' + t.drehung + 'deg) translate(' + (-g.b / 2) + 'px,' + (-g.t / 2) + 'px)' : '') + ';">';
                     stuehle(g, t.plaetze).forEach(function (s) { o += kasten(s[0], s[1], s[2], s[3], 14, '#9aa5a1', '#7d8885', '#6c7774', w, 4); });
                     if (g.art === 'rund') o += zylinder(g.b, 24, f.oben, f.f1, f.rand);
                     else o += kasten(0, 0, g.b, g.t, 24, f.oben, f.f1, f.f2, w, 8, f.rand);
@@ -19063,13 +19207,17 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     $('tp3Fertig').style.display = tp.bearbeiten ? '' : 'none';
                     $('tp3Titel').textContent = tp.bearbeiten ? 'Tischplan bearbeiten' : 'Tischplan';
                     var r = (typeof APP_DATA !== 'undefined' && APP_DATA.restaurants || []).find(function (x) { return x.id === tp.rid; });
-                    $('tp3Unter').textContent = tp.bearbeiten ? 'Tische mit dem Finger ziehen · sie rasten auf dem Raster ein'
+                    $('tp3Unter').textContent = tp.bearbeiten ? 'Ziehen zum Verschieben · rasten ein'
                         : ((r ? r.name + ' · ' : '') + tp.tische.length + ' Tische');
                     zeitenZeichnen(); bereicheZeichnen();
                     var boden = $('tp3Boden');
+                    var raum = masseSetzen();
+                    boden.style.width = tp.W + 'px'; boden.style.height = tp.T + 'px';
+                    boden.classList.toggle('tp3-l', raum.form === 'L');
                     tp.s = massstab();
                     var liste = tp.tische.filter(function (t) { return t.bereich === tp.bereich; });
-                    var h = waende();
+                    var h = bodenStuecke(raum) + waende();
+                    raum.teile.forEach(function (teil) { h += teilHtml(teil); });
                     liste.forEach(function (t) { h += tischHtml(t); });
                     boden.innerHTML = h;
                     var leer = $('tp3Leer'); if (leer) leer.remove();
@@ -19084,6 +19232,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     bodenStellen(); entzerren(); zahlenZeichnen(); seiteZeichnen();
                     tp.gezeichnet = tp.bearbeiten ? null : standJetzt();
                     if (tp.bearbeiten && tp.ohnePosSpalten) melden('Die Lage der Tische kann erst gespeichert werden, wenn die Datei datenbank/39-tischplan.sql in Supabase eingespielt ist. Name, Plätze und Bereich werden schon gespeichert.', 'hinweis');
+                    else if (tp.bearbeiten && tp.ohneRaumSpalte) melden('Raumform und feste Teile (Eingang, Theke …) werden erst gespeichert, wenn die Datei datenbank/41-tischplan-raum.sql in Supabase eingespielt ist. Die Tische werden schon gespeichert.', 'hinweis');
                 }
                 // Schilder, die sich ueberdecken (in 3D stehen Tische hintereinander),
                 // ruecken auseinander: das hintere (weiter oben) weicht nach oben aus.
@@ -19174,9 +19323,44 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
 
                 // ---------- Seitenleiste ----------
                 function tischVon(id) { return tp.tische.find(function (t) { return String(t.id) === String(id); }); }
+                function teilVon(id) { return raumVon(tp.bereich || 'main').teile.find(function (x) { return String(x.id) === String(id); }); }
+                function m(v) { return (Math.round(v * 10) / 10).toFixed(1).replace('.', ',') + ' m'; }
+                function schritt(titel, wert, aktion) {
+                    var tt = esc(titel);
+                    return '<label>' + tt + '<div class="tp3-schritt"><button type="button" class="tp3-knopf" data-raum="' + aktion + '-" aria-label="' + tt + ' kleiner" style="padding:0;width:44px;">−</button>'
+                        + '<output>' + m(wert) + '</output><button type="button" class="tp3-knopf" data-raum="' + aktion + '+" aria-label="' + tt + ' größer" style="padding:0;width:44px;">+</button></div></label>';
+                }
+                function raumForm() {
+                    var r = raumVon(tp.bereich || 'main');
+                    var o = '<h3>Raum</h3><div class="tp3-unter">' + esc(bereichName(tp.bereich)) + ' · so groß und so geformt wie euer Lokal. Tische und Teile ziehen, antippen zum Ändern.</div><div class="tp3-form">'
+                        + schritt('Breite', r.breite, 'breite') + schritt('Tiefe', r.tiefe, 'tiefe')
+                        + '<label>Form<div class="tp3-pille" role="group">'
+                        + '<button type="button" data-raum="form-rechteck" aria-pressed="' + (r.form !== 'L') + '" style="flex:1;">Rechteck</button>'
+                        + '<button type="button" data-raum="form-L" aria-pressed="' + (r.form === 'L') + '" style="flex:1;">L-Form</button></div></label>';
+                    if (r.form === 'L') {
+                        o += '<label>Welche Ecke fehlt?<div class="tp3-pille" role="group" style="height:auto;flex-wrap:wrap;">'
+                            + ['ol', 'or', 'ul', 'ur'].map(function (e) { return '<button type="button" data-raum="ecke-' + e + '" aria-pressed="' + (r.ecke === e) + '" style="flex:1 1 45%;">' + ECKE_NAME[e] + '</button>'; }).join('')
+                            + '</div></label>'
+                            + schritt('Ecke breit', r.ausB, 'ausB') + schritt('Ecke tief', r.ausT, 'ausT');
+                    }
+                    return o + '<div class="tp3-unter">Unten bei „Raum“: Eingang, Theke, Fenster, Küche, WC, Wand, Pflanze.</div></div>';
+                }
+                function teilForm(teil) {
+                    var d = TEIL[teil.art] || TEIL.wand;
+                    return '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;"><div><h3>' + esc(d.name) + '</h3><div class="tp3-unter">fester Teil des Raums · nicht reservierbar</div></div>'
+                        + '<button type="button" class="tp3-knopf" data-aktion="schliessen" aria-label="Schließen" style="padding:0;width:44px;">✕</button></div>'
+                        + '<div class="tp3-form">' + schritt('Länge', +teil.b || d.b, 'teilB') + schritt('Tiefe', +teil.t || d.t, 'teilT')
+                        + '<button type="button" class="tp3-knopf" data-raum="teilDrehen">Um 90° drehen</button>'
+                        + '<button type="button" class="tp3-knopf rot" data-raum="teilWeg" style="margin-top:8px;">Entfernen</button></div>';
+                }
                 function seiteZeichnen() {
                     var s = $('tp3Seite'); if (!s) return;
                     var t = tischVon(tp.gewaehlt);
+                    if (tp.bearbeiten && !t) {
+                        var teil = teilVon(tp.teilGewaehlt);
+                        s.innerHTML = teil ? teilForm(teil) : raumForm();
+                        return;
+                    }
                     if (!t) {
                         s.innerHTML = '<h3>' + (tp.bearbeiten ? 'Tisch wählen' : tp.datum === heute() ? 'Heute' : esc(new Date(tp.datum + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' }))) + '</h3><div class="tp3-unter">'
                             + (tp.bearbeiten ? 'Tippe einen Tisch an, um Name, Plätze, Form und Bereich zu ändern. Ziehen verschiebt ihn.' : 'Tippe einen Tisch an für Reservierungen, Status und Schnell-Reservierung.') + '</div>'
@@ -19240,7 +19424,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         + '<label>Plätze<div class="tp3-schritt"><button type="button" class="tp3-knopf" data-aktion="weniger" aria-label="Weniger Plätze" style="padding:0;width:44px;">−</button><output id="tp3ePl">' + esc(t.plaetze) + '</output><button type="button" class="tp3-knopf" data-aktion="mehr" aria-label="Mehr Plätze" style="padding:0;width:44px;">+</button></div></label>'
                         + '<label>Form<div class="tp3-pille" role="group">' + formen.map(function (f) { return '<button type="button" data-form="' + f[0] + '" aria-pressed="' + (f[0] === aktuell) + '" style="flex:1;">' + f[1] + '</button>'; }).join('') + '</div></label>'
                         + '<label>Bereich<input class="tp3-feld" id="tp3eBereich" list="tp3BereichListe" value="' + esc(bereichName(t.bereich)) + '"><datalist id="tp3BereichListe">' + bereiche().map(function (a) { return '<option value="' + esc(bereichName(a)) + '">'; }).join('') + '</datalist></label>'
-                        + '<button type="button" class="tp3-knopf" data-aktion="drehen">Um 90° drehen</button>'
+                        + '<button type="button" class="tp3-knopf" data-aktion="drehen">' + (tp.ohneRaumSpalte ? 'Um 90° drehen' : 'Um 45° drehen') + '</button>'
                         + '<button type="button" class="tp3-knopf rot" data-aktion="entfernen" style="margin-top:8px;">Tisch entfernen</button></div>';
                 }
                 function bereichSchluessel(name) {
@@ -19251,30 +19435,50 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
 
                 // ---------- Bearbeiten: Ziehen mit dem Finger ----------
                 var zug = null;
-                function merken() { tp.verlauf.push(JSON.stringify(tp.tische)); if (tp.verlauf.length > 40) tp.verlauf.shift(); }
+                function merken() { tp.verlauf.push(JSON.stringify({ tische: tp.tische, raum: tp.raum })); if (tp.verlauf.length > 40) tp.verlauf.shift(); }
                 function geaendert(t) { tp.geaendert[t.id] = true; }
                 function zugStart(e) {
                     if (!tp.bearbeiten || tp.ansicht !== 'oben') return;
-                    var el = e.target.closest('.tp3-tisch'); if (!el) return;
-                    var t = tischVon(el.getAttribute('data-id')); if (!t) return;
+                    var el = e.target.closest('.tp3-tisch'), t = el && tischVon(el.getAttribute('data-id'));
+                    if (!t) {
+                        // Feste Teile (Eingang, Theke ...) ziehen wie Tische.
+                        el = e.target.closest('.tp3-teil'); t = el && teilVon(el.getAttribute('data-teil-id'));
+                        if (!t) return;
+                        e.preventDefault();
+                        zug = { t: t, teil: true, el: el, x0: e.clientX, y0: e.clientY, tx: t.x, ty: t.y, s: massstab(), bewegt: false, id: e.pointerId };
+                        try { el.setPointerCapture(e.pointerId); } catch (x) {}
+                        return;
+                    }
                     e.preventDefault();
                     zug = { t: t, el: el, x0: e.clientX, y0: e.clientY, tx: t.x, ty: t.y, s: massstab(), bewegt: false, id: e.pointerId };
                     try { el.setPointerCapture(e.pointerId); } catch (x) {}
                 }
                 function zugBewegen(e) {
                     if (!zug || e.pointerId !== zug.id) return;
-                    var dx = (e.clientX - zug.x0) / zug.s / GRUND_B * 100, dy = (e.clientY - zug.y0) / zug.s / GRUND_T * 100;
+                    var dx = (e.clientX - zug.x0) / zug.s / tp.W * 100, dy = (e.clientY - zug.y0) / zug.s / tp.T * 100;
                     if (!zug.bewegt && Math.abs(dx) + Math.abs(dy) < 1) return;
                     if (!zug.bewegt) { merken(); zug.bewegt = true; }
                     var nx = Math.round((zug.tx + dx) / RASTER) * RASTER, ny = Math.round((zug.ty + dy) / RASTER) * RASTER;
+                    if (zug.teil) {
+                        // Teile duerfen an die Wand (Eingang, Fenster): 0 bis 100 %.
+                        zug.t.x = Math.max(0, Math.min(100, nx)); zug.t.y = Math.max(0, Math.min(100, ny));
+                        var d = TEIL[zug.t.art] || TEIL.wand, tb = Math.max(6, (+zug.t.b || d.b) * tp.ppm), tt = Math.max(4, (+zug.t.t || d.t) * tp.ppm);
+                        zug.el.style.left = (zug.t.x / 100 * tp.W - tb / 2) + 'px';
+                        zug.el.style.top = (zug.t.y / 100 * tp.T - tt / 2) + 'px';
+                        return;
+                    }
                     zug.t.x = Math.max(4, Math.min(96, nx)); zug.t.y = Math.max(5, Math.min(95, ny));
-                    var g = form(zug.t);
-                    zug.el.style.left = (zug.t.x / 100 * GRUND_B - g.b / 2) + 'px';
-                    zug.el.style.top = (zug.t.y / 100 * GRUND_T - g.t / 2) + 'px';
+                    var g = form(zug.t), kk = tp.k || 1;
+                    zug.el.style.left = (zug.t.x / 100 * tp.W - g.b * kk / 2) + 'px';
+                    zug.el.style.top = (zug.t.y / 100 * tp.T - g.t * kk / 2) + 'px';
                 }
                 function zugEnde(e) {
                     if (!zug || e.pointerId !== zug.id) return;
                     var z = zug; zug = null;
+                    if (z.teil) { if (z.bewegt) tp.raumGeaendert = true; tp.teilGewaehlt = z.t.id; tp.gewaehlt = null; zeichnen(); return; }
+                    // Tische nicht in die fehlende Ecke der L-Form stellen.
+                    if (z.bewegt) { var p2 = ausEckeSchieben(raumVon(tp.bereich || 'main'), { x: z.t.x, y: z.t.y }); z.t.x = p2.x; z.t.y = p2.y; }
+                    tp.teilGewaehlt = null;
                     if (z.bewegt) { geaendert(z.t); z.t.ohneLage = false; tp.gewaehlt = z.t.id; zeichnen(); }
                     else { tp.gewaehlt = z.t.id; zeichnen(); }
                 }
@@ -19301,9 +19505,29 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             fehler.push(t.name + ': ' + m);
                         }
                     }
+                    // Raum (Maße, L-Form, feste Teile) in restaurants.tischplan_raum.
+                    var raumHinweis = '', raumWar = tp.raumGeaendert;
+                    if (tp.raumGeaendert) {
+                        if (tp.ohneRaumSpalte) raumHinweis = 'Tische gespeichert – Raumform und feste Teile aber NICHT: dafür datenbank/41-tischplan-raum.sql in Supabase einspielen.';
+                        else {
+                            try {
+                                var rr = await sbWrite(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(tp.rid), {
+                                    method: 'PATCH', headers: kopf({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }), body: JSON.stringify({ tischplan_raum: tp.raum }) });
+                                var rzeilen = await rr.json().catch(function () { return []; });
+                                // Leere Antwort = die Datenbank hat still nichts geaendert (RLS).
+                                if (!Array.isArray(rzeilen) || !rzeilen.length) throw new Error('keine Berechtigung, den Raum zu ändern');
+                                tp.raumGeaendert = false;
+                            } catch (e) {
+                                var mr = String(e && e.message || e);
+                                if (/tischplan_raum|column/i.test(mr)) { tp.ohneRaumSpalte = true; raumHinweis = 'Tische gespeichert – Raumform und feste Teile aber NICHT: dafür datenbank/41-tischplan-raum.sql in Supabase einspielen.'; }
+                                else fehler.push('Raum: ' + mr);
+                            }
+                        }
+                    }
                     knopf.disabled = false; knopf.textContent = 'Fertig · speichern';
                     if (fehler.length) { melden('Nicht gespeichert – ' + fehler.join(' · '), 'fehler'); return false; }
-                    if (typeof showToast === 'function') showToast(ids.length ? 'Tischplan gespeichert' : 'Keine Änderungen', 'success');
+                    if (raumHinweis) { tp.raumHinweis = raumHinweis; }
+                    if (typeof showToast === 'function') showToast(ids.length || (raumWar && !raumHinweis) ? 'Tischplan gespeichert' : 'Keine Änderungen', 'success');
                     return true;
                 }
                 async function neuerTisch(art) {
@@ -19398,10 +19622,18 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     });
                     $('tp3Jetzt').onclick = function () { tp.zeit = 'jetzt'; zeichnen(); };
                     $('tp3Bereiche').onclick = function (e) { var b = e.target.closest('[data-bereich]'); if (!b) return; tp.bereich = b.getAttribute('data-bereich'); tp.gewaehlt = null; zeichnen(); };
-                    $('tp3Bearbeiten').onclick = function () { tp.bearbeiten = true; tp.ansichtVorBearbeiten = tp.ansicht; tp.ansicht = 'oben'; tp.verlauf = []; tp.gewaehlt = null; melden(''); zeichnen(); };
-                    $('tp3Rueck').onclick = function () { var v = tp.verlauf.pop(); if (!v) return; var alt = JSON.parse(v); alt.forEach(function (t) { geaendert(t); }); tp.tische = alt; zeichnen(); };
-                    $('tp3Fertig').onclick = async function () { if (await speichern()) { tp.bearbeiten = false; tp.ansicht = tp.ansichtVorBearbeiten || tp.ansicht; tp.gewaehlt = null; melden(''); await laden(); } };
-                    $('tp3Leiste').onclick = function (e) { var b = e.target.closest('[data-neu]'); if (b) neuerTisch(b.getAttribute('data-neu')); };
+                    $('tp3Bearbeiten').onclick = function () { tp.bearbeiten = true; tp.ansichtVorBearbeiten = tp.ansicht; tp.ansicht = 'oben'; tp.verlauf = []; tp.gewaehlt = null; tp.teilGewaehlt = null; melden(''); zeichnen(); };
+                    $('tp3Rueck').onclick = function () { var v = tp.verlauf.pop(); if (!v) return; var alt = JSON.parse(v); alt.tische.forEach(function (t) { geaendert(t); }); tp.tische = alt.tische; tp.raum = alt.raum; tp.raumGeaendert = true; zeichnen(); };
+                    $('tp3Fertig').onclick = async function () { if (await speichern()) { tp.bearbeiten = false; tp.ansicht = tp.ansichtVorBearbeiten || tp.ansicht; tp.gewaehlt = null; tp.teilGewaehlt = null; melden(tp.raumHinweis || '', 'hinweis'); tp.raumHinweis = ''; await laden(); } };
+                    $('tp3Leiste').onclick = function (e) {
+                        var b = e.target.closest('[data-neu]'); if (b) { neuerTisch(b.getAttribute('data-neu')); return; }
+                        var tb = e.target.closest('[data-teil]'); if (!tb) return;
+                        var art = tb.getAttribute('data-teil'), d = TEIL[art]; if (!d) return;
+                        merken();
+                        var r = raumVon(tp.bereich || 'main');
+                        var teil = { id: 't' + Date.now().toString(36), art: art, x: 50, y: art === 'tuer' || art === 'fenster' ? 100 : 50, b: d.b, t: d.t, dreh: 0 };
+                        r.teile.push(teil); tp.raumGeaendert = true; tp.teilGewaehlt = teil.id; tp.gewaehlt = null; zeichnen();
+                    };
                     $('tp3NeuBereich').onclick = async function () {
                         var name = window.prompt('Name des neuen Bereichs (z. B. Terrasse, Saal):'); if (!name || !name.trim()) return;
                         tp.bereich = bereichSchluessel(name); tp.gewaehlt = null; zeichnen();
@@ -19419,16 +19651,20 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         tp.gewaehlt = el.getAttribute('data-id'); zeichnen();
                     });
                     $('tp3Seite').addEventListener('click', async function (e) {
+                        var ra = e.target.closest('[data-raum]');
+                        if (ra && tp.bearbeiten) { raumAktion(ra.getAttribute('data-raum')); return; }
                         var t = tischVon(tp.gewaehlt);
                         var f = e.target.closest('[data-form]');
                         if (f && t) { merken(); t.form = f.getAttribute('data-form'); geaendert(t); zeichnen(); return; }
                         var b = e.target.closest('[data-aktion]'); if (!b) return;
                         var a = b.getAttribute('data-aktion');
-                        if (a === 'schliessen') { tp.gewaehlt = null; zeichnen(); return; }
+                        if (a === 'schliessen') { tp.gewaehlt = null; tp.teilGewaehlt = null; zeichnen(); return; }
                         if (!t) return;
                         var z = zustand(t);
                         if (a === 'mehr' || a === 'weniger') { merken(); t.plaetze = Math.max(1, Math.min(30, t.plaetze + (a === 'mehr' ? 1 : -1))); geaendert(t); zeichnen(); }
-                        else if (a === 'drehen') { merken(); t.drehung = ((t.drehung || 0) + 90) % 180; geaendert(t); zeichnen(); }
+                        // 45-Grad-Schritte erst mit 41-tischplan-raum.sql (vorher erlaubt die
+                        // Datenbank nur 0 und 90).
+                        else if (a === 'drehen') { merken(); t.drehung = tp.ohneRaumSpalte ? ((t.drehung || 0) + 90) % 180 : ((t.drehung || 0) + 45) % 360; geaendert(t); zeichnen(); }
                         else if (a === 'entfernen') {
                             if (!await kinConfirm(t.name + ' entfernen?\n\nAlte Reservierungen bleiben erhalten.')) return;
                             try {
@@ -19457,6 +19693,36 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         if (document.activeElement && /^tp3s/.test(document.activeElement.id || '')) return;
                         laden();
                     }, 30000);
+                }
+                function raumAktion(a) {
+                    var r = raumVon(tp.bereich || 'main'), teil = teilVon(tp.teilGewaehlt);
+                    var schr = function (wert, plus, min, max, st) { return Math.max(min, Math.min(max, Math.round((wert + (plus ? st : -st)) * 10) / 10)); };
+                    merken();
+                    var mm = /^(breite|tiefe|ausB|ausT|teilB|teilT)([+-])$/.exec(a);
+                    if (mm) {
+                        var plus = mm[2] === '+';
+                        if (mm[1] === 'breite') r.breite = schr(r.breite, plus, 3, 40, 0.5);
+                        else if (mm[1] === 'tiefe') r.tiefe = schr(r.tiefe, plus, 3, 40, 0.5);
+                        else if (mm[1] === 'ausB') r.ausB = schr(r.ausB, plus, 1, r.breite - 1, 0.5);
+                        else if (mm[1] === 'ausT') r.ausT = schr(r.ausT, plus, 1, r.tiefe - 1, 0.5);
+                        else if (teil && mm[1] === 'teilB') teil.b = schr(+teil.b || TEIL[teil.art].b, plus, 0.2, 20, 0.2);
+                        else if (teil && mm[1] === 'teilT') teil.t = schr(+teil.t || TEIL[teil.art].t, plus, 0.1, 20, 0.1);
+                    }
+                    else if (a === 'form-L') r.form = 'L';
+                    else if (a === 'form-rechteck') r.form = 'rechteck';
+                    else if (/^ecke-(ol|or|ul|ur)$/.test(a)) r.ecke = a.slice(5);
+                    else if (teil && a === 'teilDrehen') teil.dreh = ((+teil.dreh || 0) + 90) % 180;
+                    else if (teil && a === 'teilWeg') { r.teile = r.teile.filter(function (x) { return x !== teil; }); tp.teilGewaehlt = null; }
+                    else { tp.verlauf.pop(); return; }
+                    tp.raumGeaendert = true;
+                    // Tische, die jetzt in der fehlenden Ecke stuenden, an den Rand.
+                    masseSetzen();
+                    tp.tische.forEach(function (t) {
+                        if (t.bereich !== tp.bereich) return;
+                        var p2 = ausEckeSchieben(r, { x: t.x, y: t.y });
+                        if (p2.x !== t.x || p2.y !== t.y) { t.x = p2.x; t.y = p2.y; geaendert(t); }
+                    });
+                    zeichnen();
                 }
                 function ansichtSetzen(a) {
                     if (tp.bearbeiten && a === '3d') { melden('Zum Verschieben bleibt die Ansicht von oben. Nach „Fertig“ geht es zurück in 3D.', 'hinweis'); return; }
