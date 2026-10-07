@@ -76,23 +76,42 @@ function flaeche(dunkel) {
     await s.waitForTimeout(1500);
     await s.evaluate(function () { window._karteAktionen = { k2: [{ titel: 'Happy Hour', gilt_fuer: 'alle', wochentage: [0, 1, 2, 3, 4, 5, 6], von: '00:00', bis: '23:59' }] }; _mapActiveIndex = 0; updateFullscreenMarkers(); });
     await s.waitForTimeout(300);
-    var pins = await s.evaluate(function () { return Array.prototype.map.call(document.querySelectorAll('#fullscreenMapContainer .kn-nadel'), function (e) { var sch = e.querySelector('.kn-schild'); var sym = e.querySelector('.material-symbols-outlined'); return { k: e.className.replace('kn-nadel ', ''), s: sch ? sch.textContent : '', sym: sym ? Math.round(sym.getBoundingClientRect().width) : 0, label: e.getAttribute('aria-label') }; }); });
-    var bei = function (name) { return pins.filter(function (p) { return p.label.indexOf(name) === 0; })[0] || {}; };
+    // NADEL WIE FRUEHER (Ibo, 07.10.2026: "frueher mit den Nadeln war es besser").
+    var pins = await s.evaluate(function () { return Array.prototype.map.call(document.querySelectorAll('#fullscreenMapContainer .kn-punkt'), function (e) { var c = getComputedStyle(e), sym = e.querySelector('.material-symbols-outlined'); return { g: e.classList.contains('gewaehlt'), zeichen: sym ? sym.textContent : '', breite: Math.round(e.getBoundingClientRect().width), sym: sym ? Math.round(sym.getBoundingClientRect().width) : 0, grund: c.backgroundColor, schatten: c.boxShadow, label: e.getAttribute('aria-label') }; }); });
     pruef(w + ': 4 Nadeln', pins.length === 4, JSON.stringify(pins));
-    pruef(w + ': Fisch offen, Schild "Fisch · bis HH"', /offen/.test(bei('Hafenkneipe').k) && /^Fisch · bis \d/.test(bei('Hafenkneipe').s), JSON.stringify(bei('Hafenkneipe')));
-    pruef(w + ': Bar mit Aktion gold, Schild "Happy Hour"', /aktion/.test(bei('Lounge 26').k) && bei('Lounge 26').s === 'Happy Hour', JSON.stringify(bei('Lounge 26')));
-    pruef(w + ': Café ohne Zeiten: "unbekannt", kein erfundenes "offen"', /unbekannt/.test(bei('Teestube').k) && /Zeiten nicht eingetragen/.test(bei('Teestube').label) && !bei('Teestube').s, JSON.stringify(bei('Teestube')));
-    pruef(w + ': Pizza zu: klein, ohne Schild', /\bzu\b/.test(bei('Pizzeria Mare').k) && !bei('Pizzeria Mare').s, JSON.stringify(bei('Pizzeria Mare')));
-    pruef(w + ': Symbole sind Zeichen, keine Wörter', pins.every(function (p) { return p.sym < 26; }), JSON.stringify(pins.map(function (p) { return p.sym; })));
+    pruef(w + ': gewählt dunkelgrün mit Stern (56 px), sonst gold mit Besteck (44 px)', pins.filter(function (p) { return p.g; }).length === 1 && pins.every(function (p) { return p.g ? (p.zeichen === 'star' && p.breite === 56 && p.grund === 'rgb(0, 37, 30)') : (p.zeichen === 'restaurant' && p.breite === 44 && p.grund === 'rgb(254, 214, 91)'); }), JSON.stringify(pins));
+    pruef(w + ': ohne Schatten', pins.every(function (p) { return p.schatten === 'none'; }), JSON.stringify(pins.map(function (p) { return p.schatten; })));
+    pruef(w + ': Symbole sind Zeichen, keine Wörter', pins.every(function (p) { return p.sym > 0 && p.sym < 30; }), JSON.stringify(pins.map(function (p) { return p.sym; })));
+    pruef(w + ': Vorleser hören Name und Zustand', /^Teestube, Zeiten nicht eingetragen/.test((pins.filter(function (p) { return /^Teestube/.test(p.label); })[0] || {}).label || ''), JSON.stringify(pins.map(function (p) { return p.label; })));
+    var schilder = await s.evaluate(function () { return document.querySelectorAll('#fullscreenMapContainer .kn-schild').length; });
+    pruef(w + ': keine Schilder neben den Nadeln', schilder === 0, schilder);
+    // TIPPEN: Nadel -> Karte unten wechselt; Foto/Name -> Seite des Lokals.
+    var tipp = await s.evaluate(function () {
+      var geoeffnet = null; window.openRestaurantBySlug = function (x) { geoeffnet = x; };
+      var ziel = Array.prototype.filter.call(document.querySelectorAll('#fullscreenMapContainer .leaflet-marker-icon'), function (m) { return /^Pizzeria/.test((m.querySelector('.kn-punkt') || {}).getAttribute ? m.querySelector('.kn-punkt').getAttribute('aria-label') : ''); })[0];
+      ziel.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      var name = document.getElementById('mapCardName').textContent;
+      var gew = (document.querySelector('#fullscreenMapContainer .kn-punkt.gewaehlt') || {}).getAttribute('aria-label');
+      document.getElementById('mapCardName').click();
+      var nachName = geoeffnet; geoeffnet = null;
+      document.getElementById('mapCardImage').click();
+      return { name: name, gew: gew, nachName: nachName, nachFoto: geoeffnet };
+    });
+    pruef(w + ': Tipp auf Nadel: Karte unten zeigt das Lokal, Nadel wird Stern', tipp.name === 'Pizzeria Mare' && /^Pizzeria Mare/.test(tipp.gew || ''), JSON.stringify(tipp));
+    pruef(w + ': Tipp auf Name oder Foto öffnet die Seite des Lokals', tipp.nachName === 'k4' && tipp.nachFoto === 'k4', JSON.stringify(tipp));
+    await s.evaluate(function () { openFullscreenMap(); });
+    await s.waitForTimeout(400);
+    await s.evaluate(function () { window._karteAktionen = { k2: [{ titel: 'Happy Hour', gilt_fuer: 'alle', wochentage: [0, 1, 2, 3, 4, 5, 6], von: '00:00', bis: '23:59' }] }; _mapActiveIndex = 0; updateFullscreenMarkers(); });
+    await s.waitForTimeout(400);
     var zahl = await s.evaluate(function () { return document.getElementById('karteZeitText').textContent + ' | ' + document.getElementById('karteZeitZahl').textContent; });
     pruef(w + ': Zeitregler "Jetzt | 2 offen · 1 zu · 1 ohne Zeiten"', zahl === 'Jetzt | 2 offen · 1 zu · 1 ohne Zeiten', zahl);
-    var spaeter = await s.evaluate(function () { var r = document.getElementById('karteZeit'); r.value = 120; r.dispatchEvent(new Event('input')); return new Promise(function (ok) { setTimeout(function () { ok(document.getElementById('karteZeitText').textContent + ' | ' + document.getElementById('karteZeitZahl').textContent + ' | ' + document.querySelector('#fullscreenMapContainer [aria-label^="Hafenkneipe"]').className); }, 400); }); });
-    pruef(w + ': +2 h: Fisch zu, Text "um HH:MM"', /um \d\d:\d\d \| 1 offen · 2 zu · 1 ohne Zeiten \|.*\bzu\b/.test(spaeter), spaeter);
+    var spaeter = await s.evaluate(function () { var r = document.getElementById('karteZeit'); r.value = 120; r.dispatchEvent(new Event('input')); return new Promise(function (ok) { setTimeout(function () { ok(document.getElementById('karteZeitText').textContent + ' | ' + document.getElementById('karteZeitZahl').textContent + ' | ' + document.querySelector('#fullscreenMapContainer [aria-label^="Hafenkneipe"]').getAttribute('aria-label')); }, 400); }); });
+    pruef(w + ': +2 h: Fisch zu, Text "um HH:MM"', /um \d\d:\d\d \| 1 offen · 2 zu · 1 ohne Zeiten \| Hafenkneipe, (?!Offen)/.test(spaeter), spaeter);
     await s.evaluate(function () { var r = document.getElementById('karteZeit'); r.value = 0; r.dispatchEvent(new Event('input')); });
     await s.waitForTimeout(120);
-    var nurOffen = await s.evaluate(function () { document.querySelector('[data-kfilter="offen"]').click(); return document.querySelectorAll('#fullscreenMapContainer .kn-nadel').length; });
+    var nurOffen = await s.evaluate(function () { document.querySelector('[data-kfilter="offen"]').click(); return document.querySelectorAll('#fullscreenMapContainer .kn-punkt').length; });
     pruef(w + ': Filter "Jetzt offen": 2 Nadeln', nurOffen === 2, nurOffen);
-    var nurAkt = await s.evaluate(function () { document.querySelector('[data-kfilter="aktion"]').click(); return document.querySelectorAll('#fullscreenMapContainer .kn-nadel').length; });
+    var nurAkt = await s.evaluate(function () { document.querySelector('[data-kfilter="aktion"]').click(); return document.querySelectorAll('#fullscreenMapContainer .kn-punkt').length; });
     pruef(w + ': Filter "Aktion läuft": 1 Nadel', nurAkt === 1, nurAkt);
     var karte = await s.evaluate(function () { return { fakten: document.getElementById('mapCardFakten').textContent, aktion: document.getElementById('mapCardAktion').textContent, alles: document.getElementById('fullscreenMapCard').textContent }; });
     pruef(w + ': Karte unten: "Offen bis 23:59", "Läuft gerade: Happy Hour"', /Offen bis 23:59/.test(karte.fakten) && /Läuft gerade: Happy Hour/.test(karte.aktion), JSON.stringify(karte).slice(0, 200));
@@ -121,6 +140,27 @@ function flaeche(dunkel) {
     pruef(w + ': ohne Foto Anfangsbuchstabe, mit Foto füllend (cover, 84 px)', foto.ohne === 'T' && foto.fit === 'cover' && foto.sichtbar && foto.breite === 84 && foto.geladen && foto.buchstabe === '', JSON.stringify(foto));
     await s.waitForTimeout(600); // Einblenden der Karte abwarten
     await s.screenshot({ path: path.join(AUS, 'karte-' + w + '.png') });
+    // VERTEILT (07.10.2026): Lokale in drei Orten. Vorher setzte sich die
+    // Karte auf deren Mittelwert (Zoom 15) -- freies Land, keine Nadel.
+    var verteilt = await s.evaluate(function () {
+      APP_DATA.restaurants = [
+        { id: 'v1', name: 'Börse', city: 'Greetsiel', lat: 53.5021, lng: 7.0965, is_active: true, cuisine_type: ['fisch'], features: [] },
+        { id: 'v2', name: 'Teestube', city: 'Dornum', lat: 53.6466, lng: 7.4314, is_active: true, cuisine_type: ['cafe'], features: [] },
+        { id: 'v3', name: 'Lounge', city: 'Norden', lat: 53.5961, lng: 7.2063, is_active: true, cuisine_type: ['shisha'], features: [] },
+        { id: 'v4', name: 'Alt', city: 'Emden', lat: 53.367, lng: 7.206, is_active: false, features: [] }
+      ];
+      initFullscreenMap();
+      return new Promise(function (ok) { setTimeout(function () {
+        var c = document.getElementById('fullscreenMapContainer').getBoundingClientRect();
+        var leiste = document.getElementById('karteLeiste').getBoundingClientRect().bottom;
+        var nadeln = Array.prototype.map.call(document.querySelectorAll('#fullscreenMapContainer .leaflet-marker-icon'), function (m) { var r = m.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; });
+        var kt = document.getElementById('fullscreenMapCard'); var unten = kt && kt.style.display !== 'none' ? kt.getBoundingClientRect().top - 24 : c.bottom - 104;
+        var drin = nadeln.filter(function (p) { return p.x > c.left + 8 && p.x < c.right - 64 && p.y > leiste && p.y < unten; });
+        ok({ nadeln: nadeln.length, drin: drin.length, zoom: fullscreenMap.getZoom() });
+      }, 900); });
+    });
+    pruef(w + ': Lokale in 3 Orten: alle 3 Nadeln im Bild, nicht unter der Leiste', verteilt.nadeln === 3 && verteilt.drin === 3, JSON.stringify(verteilt));
+    await s.screenshot({ path: path.join(AUS, 'karte-verteilt-' + w + '.png') });
     pruef(w + ': kein Seitenfehler', !fehler.length, fehler.join(' | '));
     await ctx.close();
   }

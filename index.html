@@ -14255,6 +14255,11 @@
    Claude Design "Die Karte - sechs Ideen". Nadel in Tropfenform: das
    Zeichen zeigt die Art, die Farbe den Zustand -- nie nur die Farbe.
    Ohne Schatten (Ibo). Tippflaeche mindestens 44 x 44. */
+.kn-punkt { width: 44px; height: 44px; border-radius: 50%; background: #fed65b; color: #735c00; border: 3px solid #ffffff; outline: 1px solid rgba(0,37,30,0.28); box-sizing: border-box; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.kn-punkt .material-symbols-outlined { font-size: 20px; font-variation-settings: 'FILL' 1; }
+.kn-punkt.gewaehlt { width: 56px; height: 56px; background: #00251e; color: #fed65b; outline: 4px solid rgba(254,214,91,0.45); }
+.kn-punkt.gewaehlt .material-symbols-outlined { font-size: 24px; }
+.dark-mode .kn-punkt { border-color: #1a1d1c; outline-color: rgba(255,255,255,0.35); }
 .kn-nadel { position: relative; width: 44px; height: 52px; cursor: pointer; }
 .kn-tropfen { position: absolute; left: 50%; top: 6px; width: 36px; height: 36px; margin-left: -18px; box-sizing: border-box; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: #003d33; border: 2.5px solid #ffffff; display: flex; align-items: center; justify-content: center; color: #ffffff; }
 .kn-tropfen > * { transform: rotate(45deg); }
@@ -46397,6 +46402,28 @@ function openFullscreenMap() {
     }, 100);
 }
 
+// ALLE LOKALE IM BILD (07.10.2026). Ibo, Bild vom Mac: fast leere graue
+// Flaeche, eine Nadel -- "wo ist die karte?". Die Karte setzte sich auf den
+// MITTELWERT aller Lokale, Zoom 15. Liegen sie in verschiedenen Orten
+// (Greetsiel, Dornum ...), ist die Mitte freies Land dazwischen: kein Ort,
+// keine Nadel, nichts. Jetzt rahmt sie alle Nadeln ein -- unter der
+// oberen Leiste und ueber der Karte unten, hoechstens Zoom 15.
+function karteAufAlle(karte, liste, lat, lng) {
+    if (!karte) return;
+    if (!liste || liste.length < 2) { karte.setView([lat, lng], 16); return; }
+    var c = karte.getContainer().getBoundingClientRect();
+    var leiste = document.getElementById('karteLeiste');
+    var oben = leiste ? Math.max(24, Math.round(leiste.getBoundingClientRect().bottom - c.top) + 24) : 260;
+    if (oben > c.height * 0.55) oben = Math.round(c.height * 0.4);
+    var grenzen = L.latLngBounds(liste.map(function (r) { return [+r.lat, +r.lng]; }));
+    // Unten: bis ueber die Karte unten (wenn sichtbar), rechts: neben den Seitenknoepfen.
+    var kk = document.getElementById('fullscreenMapCard'), unten = 140;
+    if (kk && kk.style.display !== 'none' && kk.getBoundingClientRect().height) unten = Math.round(c.bottom - kk.getBoundingClientRect().top) + 32;
+    if (oben + unten > c.height * 0.8) unten = Math.max(80, Math.round(c.height * 0.8) - oben);
+    karte.fitBounds(grenzen, { paddingTopLeft: [32, oben], paddingBottomRight: [80, unten], maxZoom: 15 });
+}
+window.karteAufAlle = karteAufAlle;
+
 function initFullscreenMap() {
     const container = document.getElementById('fullscreenMapContainer');
     if (!container) return;
@@ -46408,7 +46435,8 @@ function initFullscreenMap() {
     }
 
     // Neue Map erstellen — Stitch: zentriere auf Restaurants, nicht auf Location
-    var restWithCoords = (APP_DATA.restaurants || []).filter(function(r) { return r.lat && r.lng; });
+    // Dieselbe Auswahl wie die Nadeln (vorher zaehlten hier auch inaktive Lokale mit).
+    var restWithCoords = (APP_DATA.restaurants || []).filter(function(r) { return r.lat && r.lng && r.is_active !== false; });
     var initLat = 53.5021, initLng = 7.0965; // Greetsiel fallback
     if (restWithCoords.length > 0) {
         initLat = restWithCoords.reduce(function(s, r) { return s + r.lat; }, 0) / restWithCoords.length;
@@ -46442,7 +46470,7 @@ function initFullscreenMap() {
         setTimeout(function() {
             if (!fullscreenMap) return;
             fullscreenMap.invalidateSize();
-            fullscreenMap.setView([initLat, initLng], restWithCoords.length > 1 ? 15 : 16);
+            karteAufAlle(fullscreenMap, restWithCoords, initLat, initLng);
             _schilderNachZoom();
         }, 200);
     }, 100);
@@ -46556,13 +46584,16 @@ function karteSchild(r, z) {
     bis = /:00$/.test(bis) ? bis.slice(0, 2).replace(/^0/, '') : bis;
     return (k ? k + ' · ' : '') + 'bis ' + bis;
 }
+// NADEL WIE FRUEHER (07.10.2026). Ibo nach dem Umbau: "sieht komisch aus
+// ... frueher mit den Nadeln war es besser". Also wieder der runde goldene
+// Punkt mit Besteck, das gewaehlte Lokal dunkelgruen mit Stern -- ohne
+// Schatten (Hausregel), dafuer ein feiner Rand, damit er auf der hellen
+// Karte steht. Offen/zu steht in der Karte unten und im Zeitregler.
 function karteNadel(r, z, gewaehlt) {
-    var schild = karteSchild(r, z);
-    var html = '<div class="kn-nadel ' + z.art + (gewaehlt ? ' gewaehlt' : '') + '" role="button" aria-label="' + escapeHtml((r.name || '') + ', ' + z.text) + '">'
-        + '<div class="kn-tropfen">' + karteZeichen(karteArt(r)) + '</div>'
-        + (schild ? '<span class="kn-schild' + (z.art === 'aktion' ? ' aktion' : '') + '">' + escapeHtml(schild) + '</span>' : '')
-        + '</div>';
-    return L.divIcon({ html: html, className: '', iconSize: [44, 52], iconAnchor: [22, 46] });
+    var gr = gewaehlt ? 56 : 44;
+    var html = '<div class="kn-punkt' + (gewaehlt ? ' gewaehlt' : '') + '" role="button" aria-label="' + escapeHtml((r.name || '') + (z && z.text ? ', ' + z.text : '')) + '">'
+        + '<span class="material-symbols-outlined" aria-hidden="true">' + (gewaehlt ? 'star' : 'restaurant') + '</span></div>';
+    return L.divIcon({ html: html, className: '', iconSize: [gr, gr], iconAnchor: [gr / 2, gr / 2] });
 }
 // Abendmodus: nach Sonnenuntergang von selbst dunkle Karte. Grobe
 // Sonnenrechnung fuer Ostfriesland (53,4 N, 7,2 O) -- auf eine
@@ -46708,6 +46739,15 @@ function _updateMapFloatingCard(r) {
     img.alt = r.name || '';
     if (echt) { img.src = r.image; } else { img.removeAttribute('src'); img.style.display = 'none'; initial.textContent = buchstabe; }
     document.getElementById('mapCardName').textContent = r.name || '';
+    // Tipp auf Foto oder Namen: Seite des Lokals. Vorher passierte dort
+    // nichts (Ibo: "wenn ich drauf klicke ... kommt nichts").
+    var _oeffne = function () { closeModal('fullscreenMapModal'); openRestaurantBySlug(r.slug || r.id); };
+    ['mapCardImage', 'mapCardName', 'mapCardMeta'].forEach(function (id) {
+        var e = document.getElementById(id); if (!e) return;
+        e.onclick = _oeffne; e.style.cursor = 'pointer';
+        e.setAttribute('role', 'link'); e.tabIndex = 0;
+        e.onkeydown = function (ev) { if (ev.key === 'Enter') _oeffne(); };
+    });
     document.getElementById('mapCardMeta').textContent = kuecheLabel(r.cuisine, 'Restaurant') + ' \u00b7 ' + (r.city || 'Ostfriesland') + (r.rating > 0 ? ' \u00b7 \u2605 ' + Number(r.rating).toFixed(1).replace('.', ',') : '');
 
     // Fakten: nur, was stimmt.
