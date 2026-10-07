@@ -93,7 +93,31 @@ t('Zoom: Knöpfe −/Einpassen/+, zwei Finger, Strg+Mausrad', /id="tp3ZoomRein"/
 t('Zoom geht in den Massstab ein (Ziehen und Schilder bleiben richtig)', /function massstab\(\) \{ return grundMassstab\(\) \* \(tp\.zoom \|\| 1\); \}/.test(H), '');
 t('freier Tisch zeigt nur die Nummer (ausser gewählt)', /else if \(z\.art === 'frei'\) \{ if \(gew\) inhalt \+=/.test(H), '');
 t('kleine Schilder, aber Tippfläche durch unsichtbaren Rand', /\.tp3-schild:not\(\.teil\) > span::before \{ content: ''; position: absolute; left: -6px; right: -6px; top: -13px; bottom: -13px; \}/.test(H), '');
-t('aufgeschnittene Wände (niedriger als die Schilder)', (H.match(/H = 56, S = 14/g) || []).length === 2 && /translateZ\(' \+ \(gew \? 70 : 66\) \+ 'px\)/.test(H), '');
+var wm = /var WAND_H = (\d+), WAND_VORN = (\d+), PLATTE = (\d+);/.exec(H) || [];
+t('aufgeschnittene Wände: hinten niedriger als die Schilder (66 px), vorne nur ein Sockel', +wm[1] > 30 && +wm[1] < 66 && +wm[2] <= 14 && /translateZ\(' \+ \(gew \? 70 : 66\) \+ 'px\)/.test(H), wm.slice(1).join('/'));
+
+// Architektur-Look (Ibo: "wie eine teure Architektur", "dass sowas keiner hat")
+t('Wände haben Stärke (24 cm) und sind von oben ein schwarzer Schnitt', /function wandStaerke\(\) \{ return Math\.max\(7, Math\.round\(0\.24 \*/.test(H) && /g \+= flach\(fx, fy, fw, fh, hoch, 'background:var\(--tp3-schnitt\);'\);/.test(H), '');
+t('Eingang schneidet eine Lücke in die Wand (Schwelle statt Schnitt)', /tueren\.forEach\(function \(t\) \{ st = /.test(H) && /background:var\(--tp3-schwelle\)/.test(H), '');
+t('Boden: Fischgrät-Parkett, Eiche hell / Nussbaum dunkel', (H.match(/--tp3-parkett: url\("data:image\/svg\+xml,/g) || []).length === 2, '');
+// Stühle: Mitte + Blickrichtung, Lehne nach außen
+var S = new Function('var tp = { ppm: 50 };' + ['formArt', 'standardMass', 'form', 'stuehle'].map(fn).join('\n') + '; return { form: form, stuehle: stuehle };')();
+var g4 = S.form({ plaetze: 4 }), st4 = S.stuehle(g4, 4);
+var winkel4 = st4.map(function (x) { return x[2]; }).sort(function (a, b) { return a - b; }).join(',');
+t('4er-Tisch: je Seite ein Stuhl, Lehne nach außen (0/90/180/-90 Grad)', winkel4 === '-90,0,90,180', winkel4);
+var aussen = st4.every(function (x) { return x[0] < 0 || x[0] > g4.b || x[1] < 0 || x[1] > g4.t; });
+t('Stühle stehen am Tisch, nicht auf der Platte', aussen, JSON.stringify(st4));
+var g21 = S.form({ plaetze: 21, form: 'rectangle' });
+t('auch der lange 21er-Tisch hat 21 Stühle', S.stuehle(g21, 21).length === 21, S.stuehle(g21, 21).length);
+// Licht nach Uhrzeit
+var L = new Function('var tp = { datum: "2026-10-07", zeit: "12:00" }; function heute() { return tp.datum; } function minuten(h) { var p = String(h).split(":"); return (+p[0]) * 60 + (+p[1] || 0); } function jetztMin() { return 0; }'
+    + H.slice(H.indexOf('var SONNE = ['), H.indexOf(';', H.indexOf('var SONNE = [')) + 1) + ['zeitpunkt', 'sonnenuntergang', 'licht'].map(fn).join('\n')
+    + '; return function (z, d) { tp.zeit = z; if (d) tp.datum = d; return licht(); };')();
+t('Licht: 12:00 Tag, 18:15 Abend, 19:00 Nacht (Oktober, Sonne 18:42)', L('12:00') === 'tag' && L('18:15') === 'abend' && L('19:00') === 'nacht', [L('12:00'), L('18:15'), L('19:00')].join('/'));
+t('Licht: im Juni ist 21:00 noch Abend, nicht Nacht', L('21:00', '2026-06-20') === 'abend' && L('20:00', '2026-06-20') === 'tag', [L('20:00', '2026-06-20'), L('21:00', '2026-06-20')].join('/'));
+t('Zeitschieber über den Sonnenuntergang zeichnet neu (Licht gehört zum Stand)', /function standJetzt\(\) \{ return tp\.bereich \+ '#' \+ \(tp\.ansicht === '3d' \? licht\(\) : ''\)/.test(H), '');
+t('Gedeck nur, wo jemand sitzt; reserviert = Kärtchen; nicht beim Bearbeiten', /if \(!tp\.bearbeiten && \(z\.art === 'bes' \|\| z\.art === 'ruft'\)\) o \+= gedecktHtml\(sitze\);/.test(H) && /if \(!tp\.bearbeiten && z\.art === 'res'\) o \+= kaertchenHtml\(g\);/.test(H), '');
+t('von oben: Schild an der Tischecke, damit Gedeck und Stühle sichtbar bleiben', /var ecke = tp\.ansicht === 'oben' && !gew && !tp\.bearbeiten/.test(H), '');
 t('feste Teile: dezente Schrift, Fenster/Wand/Pflanze im Live-Plan ohne', /\.tp3\[data-bearbeiten="0"\] \.tp3-schild\.teil\.still \{ display: none; \}/.test(H), '');
 
 // Oberfläche und Speichern

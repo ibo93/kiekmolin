@@ -247,8 +247,13 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
   var balken = await p.s.evaluate(function () { return Array.prototype.map.call(document.querySelectorAll('#tp3Balken i'), function (i) { return i.title + '|' + i.className; }); });
   pruef('Balken 19:00 orange (voll), 17:00 leer', balken.some(function (x) { return /^19:00 · 1 von 1/.test(x) && /eng/.test(x); }) && balken.some(function (x) { return /^17:00 · 0 von 1/.test(x) && !/eng/.test(x); }), balken.join(', '));
   var dauer = await p.s.evaluate(function () { document.querySelector('#tp3Bereiche [data-bereich="main"]').click(); var r = document.getElementById('tp3Schieber'), t0 = performance.now(); for (var i = 0; i < 20; i++) { document.getElementById('tp3Jetzt').click(); } return (performance.now() - t0) / 20; });
-  var leicht = await p.s.evaluate(function () { var r = document.getElementById('tp3Schieber'); r.value = 1215; r.dispatchEvent(new Event('input')); return new Promise(function (ok) { requestAnimationFrame(function () { requestAnimationFrame(function () { var b = document.getElementById('tp3Boden').firstElementChild, t0 = performance.now(); r.value = 1230; r.dispatchEvent(new Event('input')); requestAnimationFrame(function () { ok({ ms: performance.now() - t0, gleich: document.getElementById('tp3Boden').firstElementChild === b, anz: document.getElementById('tp3ZeitAnzeige').textContent }); }); }); }); }); });
-  pruef('Ziehen ohne Zustandswechsel: Boden bleibt stehen, nur die Zeit wechselt', leicht.gleich && /20:30/.test(leicht.anz), JSON.stringify(leicht));
+  // Zwei Zeiten, an denen sicher kein Tisch wechselt: die Probe-Reservierungen
+  // liegen um "jetzt" herum (bis 70 min davor, 140 min danach) und um 19:00.
+  // Vorher fest 20:15 -> 20:30: gegen 20:40 Uhr sprang Tisch 4 genau dort auf
+  // reserviert, und der Test war rot, ohne dass der Plan etwas falsch machte.
+  var ruhig = nowMin >= 15 * 60 + 30 ? [720, 735] : [1335, 1350];
+  var leicht = await p.s.evaluate(function (zz) { var r = document.getElementById('tp3Schieber'); r.value = zz[0]; r.dispatchEvent(new Event('input')); return new Promise(function (ok) { requestAnimationFrame(function () { requestAnimationFrame(function () { var b = document.getElementById('tp3Boden').firstElementChild, t0 = performance.now(); r.value = zz[1]; r.dispatchEvent(new Event('input')); requestAnimationFrame(function () { ok({ ms: performance.now() - t0, gleich: document.getElementById('tp3Boden').firstElementChild === b, anz: document.getElementById('tp3ZeitAnzeige').textContent }); }); }); }); }); }, ruhig);
+  pruef('Ziehen ohne Zustandswechsel: Boden bleibt stehen, nur die Zeit wechselt', leicht.gleich && leicht.anz.indexOf(hh(ruhig[1]).slice(0, 5)) === 0, JSON.stringify(leicht));
   pruef('Neuzeichnen beim Ziehen schnell genug (< 16 ms je Bild): ' + dauer.toFixed(1) + ' ms', dauer < 16, dauer);
   k = await p.s.evaluate(kontrast); pruef('hell mit Schieber: Kontrast aller ' + k.n + ' Texte >= 4,5', !k.raus.length, k.raus.join(' | '));
   await p.s.setViewportSize({ width: 820, height: 1180 }); await p.s.waitForTimeout(300);
@@ -320,18 +325,47 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
   // ---------- 6. L-Form mit festen Teilen (07.10.2026) ----------
   // Ibo: "der Laden ist wie eine L-Form". 16 x 10 m, oben rechts fehlen 6 x 4 m.
   var RAUM = { main: { breite: 16, tiefe: 10, form: 'L', ecke: 'or', ausB: 6, ausT: 4,
-    teile: [{ id: 'th', art: 'theke', x: 20, y: 8, b: 4, t: 0.8, dreh: 0 }, { id: 'tu', art: 'tuer', x: 50, y: 100, b: 1.4, t: 0.3, dreh: 0 }] } };
+    teile: [{ id: 'th', art: 'theke', x: 20, y: 8, b: 4, t: 0.8, dreh: 0 }, { id: 'tu', art: 'tuer', x: 50, y: 100, b: 1.4, t: 0.3, dreh: 0 }, { id: 'fe', art: 'fenster', x: 100, y: 75, b: 1.6, t: 0.12, dreh: 90 }] } };
   p = await seite({ raum: RAUM });
   var l = await p.s.evaluate(function () {
     var b = document.getElementById('tp3Boden');
     return { stuecke: b.querySelectorAll('.tp3-bodenteil').length, l: b.classList.contains('tp3-l'), w: b.offsetWidth, h: b.offsetHeight,
       teile: Array.prototype.map.call(b.querySelectorAll('.tp3-teil .tp3-schild span'), function (x) { return x.textContent; }),
-      waende: b.querySelectorAll(':scope > .tp3-f').length };
+      waende: b.querySelectorAll(':scope > .tp3-wand').length };
   });
   pruef('L-Form: Boden aus 2 Stücken, Seitenverhältnis 16 x 10 m', l.l && l.stuecke === 2 && Math.abs(l.w / l.h - 1.6) < 0.02, JSON.stringify(l));
   pruef('L-Form in 3D: 6 Wände/Sockel entlang des Umrisses (Rechteck: 4)', l.waende === 6, l.waende);
   pruef('feste Teile stehen im Plan: Theke und Eingang', l.teile.indexOf('Theke') >= 0 && l.teile.indexOf('Eingang') >= 0, l.teile.join(','));
   await p.s.locator('#tp3').screenshot({ path: path.join(AUS, 'tischplan-L-3d.png') });
+  // ---- Architektur-Look (07.10.2026): Lücke für den Eingang, Licht nach Uhrzeit, Gedeck ----
+  var schwelle = await p.s.evaluate(function () { return Array.prototype.some.call(document.querySelectorAll('#tp3Boden .tp3-wand .tp3-f'), function (f) { return /--tp3-schwelle/.test(f.getAttribute('style')); }); });
+  pruef('Eingang an der Außenwand: dort hat die Wand eine Lücke mit Schwelle', schwelle, schwelle);
+  var gedeck = await p.s.evaluate(function (ids) {
+    function n(id, re) { var t = document.querySelector('#tp3Boden .tp3-tisch[data-id="' + id + '"]'); return t ? Array.prototype.filter.call(t.querySelectorAll('.tp3-f'), function (f) { return re.test(f.getAttribute('style')); }).length : -1; }
+    return { besetzt: n(ids[0], /--tp3-teller/), plaetze: (window.tp3.tische.find(function (t) { return t.id === ids[0]; }) || {}).plaetze, frei: n(ids[1], /--tp3-teller/), kaertchen: n(ids[2], /border-top:2px solid #2563eb/) };
+  }, [uuid(3), uuid(1), uuid(2)]);
+  pruef('besetzter Tisch ist gedeckt: ein Teller je Platz', gedeck.besetzt === gedeck.plaetze && gedeck.plaetze > 0, JSON.stringify(gedeck));
+  pruef('freier Tisch ohne Gedeck, reservierter mit Kärtchen', gedeck.frei === 0 && gedeck.kaertchen === 1, JSON.stringify(gedeck));
+  function lichtUm(min) {
+    return p.s.evaluate(function (m) {
+      var r = document.getElementById('tp3Schieber'); r.value = m; r.dispatchEvent(new Event('input'));
+      return new Promise(function (ok) { requestAnimationFrame(function () { requestAnimationFrame(function () {
+        var b = document.getElementById('tp3Boden'), st = function (sel, re) { return Array.prototype.filter.call(b.querySelectorAll(sel), function (f) { return re.test(f.getAttribute('style')); }).length; };
+        ok({ licht: document.getElementById('tp3').getAttribute('data-licht'), zeile: document.getElementById('tp3Licht').textContent,
+             lampen: st('.tp3-tisch .tp3-f', /255,196,120/), tische: b.querySelectorAll('.tp3-tisch').length, fensterlicht: st('.tp3-wand .tp3-f', /255,243,212|255,186,110/) });
+      }); }); });
+    }, min);
+  }
+  var SONNE = [16.8, 17.6, 18.5, 20.3, 21.1, 21.8, 21.8, 20.9, 19.8, 18.7, 16.8, 16.3], unter = Math.round(SONNE[new Date().getMonth()] * 60);
+  var tag = await lichtUm(720);
+  pruef('12:00 in 3D: Tageslicht, Licht fällt durchs Fenster, keine Lampen', tag.licht === 'tag' && tag.fensterlicht > 0 && tag.lampen === 0 && /Tageslicht/.test(tag.zeile), JSON.stringify(tag));
+  await p.s.locator('#tp3').screenshot({ path: path.join(AUS, 'tischplan-3d-tag.png') });
+  var abend = await lichtUm(Math.floor((unter - 30) / 15) * 15);
+  pruef('kurz vor Sonnenuntergang: Abendlicht, die Zeile nennt die Uhrzeit', abend.licht === 'abend' && /Sonne bis \d\d:\d\d/.test(abend.zeile), JSON.stringify(abend));
+  await p.s.locator('#tp3').screenshot({ path: path.join(AUS, 'tischplan-3d-abend.png') });
+  var nacht = await lichtUm(1350);
+  pruef('22:30: Licht an über jedem Tisch, Fenster ohne Tageslicht', nacht.licht === 'nacht' && nacht.lampen === nacht.tische && nacht.fensterlicht === 0, JSON.stringify(nacht));
+  await p.s.click('#tp3Jetzt'); await p.s.waitForTimeout(100);
   await p.s.click('#tp3AnsichtOben'); await p.s.waitForTimeout(200);
   var ecke = await p.s.evaluate(function () { return document.querySelectorAll('#tp3Boden .tp3-ecke').length; });
   pruef('von oben: die fehlende Ecke ist als "kein Raum" markiert', ecke === 1, ecke);
@@ -418,22 +452,24 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
   pruef('Leiste: 9 Tischgrößen zum Anlegen (vorher 5)', neuKnoepfe === 9, neuKnoepfe);
   // Eingang an die linke Wand ziehen: rastet ein und dreht sich mit
   await p.s.click('#tp3Seite [data-aktion="schliessen"]'); await p.s.waitForTimeout(100);
-  var tu = await p.s.evaluate(function () { var r = document.querySelector('#tp3Boden .tp3-teil[data-teil-id="tu"]').getBoundingClientRect(); var b = document.getElementById('tp3Boden').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, links: b.left, mitteY: b.top + b.height * 0.7 }; });
+  // Erst ins Bild holen: je nach Seitenleiste lag die Tür unter dem Fensterrand,
+  // dann ging der Finger ins Leere (elementFromPoint = null) -- gemessen 1 von 3 Läufen.
+  var tu = await p.s.evaluate(function () { document.querySelector('#tp3Boden .tp3-teil[data-teil-id="tu"]').scrollIntoView({ block: 'center' }); var r = document.querySelector('#tp3Boden .tp3-teil[data-teil-id="tu"]').getBoundingClientRect(); var b = document.getElementById('tp3Boden').getBoundingClientRect(); var x = r.left + r.width / 2, y = r.top + r.height / 2, el = document.elementFromPoint(x, y); return { x: x, y: y, links: b.left, mitteY: b.top + b.height * 0.7, unter: el ? (el.className + ' ' + (el.closest('[data-teil-id],[data-id]') || {}).outerHTML).slice(0, 160) : null }; });
   await p.s.mouse.move(tu.x, tu.y); await p.s.mouse.down(); await p.s.mouse.move(tu.links + 12, tu.mitteY, { steps: 10 }); await p.s.mouse.up(); await p.s.waitForTimeout(150);
   var tuer = await p.s.evaluate(function () { var t = window.tp3.raum.main.teile.find(function (x) { return x.id === 'tu'; }); return { x: t.x, dreh: t.dreh }; });
-  pruef('Eingang rastet an der linken Wand ein und steht senkrecht', tuer.x === 0 && tuer.dreh === 90, JSON.stringify(tuer));
+  pruef('Eingang rastet an der linken Wand ein und steht senkrecht', tuer.x === 0 && tuer.dreh === 90, JSON.stringify(tuer) + ' unter dem Finger: ' + tu.unter);
   var mass = await p.s.evaluate(function () { return Array.prototype.map.call(document.querySelectorAll('#tp3Boden .tp3-mass'), function (x) { return x.textContent; }).join(' | '); });
   pruef('beim Bearbeiten stehen die Maße am Rand', /16,5 m/.test(mass) && /10,0 m/.test(mass) && /kein Raum/.test(mass), mass);
   await p.s.locator('#tp3').screenshot({ path: path.join(AUS, 'tischplan-L-bearbeiten.png') });
   await p.s.click('#tp3Leiste [data-teil="theke"]'); await p.s.waitForTimeout(150);
   var teile = await p.s.evaluate(function () { return window.tp3.raum.main.teile.length + ' / ' + document.getElementById('tp3Seite').innerText.slice(0, 40); });
-  pruef('"Theke" antippen: neues Teil, rechts sein Formular', /^3 \//.test(teile) && /Theke/.test(teile), teile);
+  pruef('"Theke" antippen: neues Teil, rechts sein Formular', /^4 \//.test(teile) && /Theke/.test(teile), teile);
   await p.s.click('#tp3Fertig'); await p.s.waitForTimeout(800);
   var raumGeschrieben = p.geschrieben.filter(function (g) { return /restaurants\?id=eq\./.test(g.u) && g.m === 'PATCH'; }).map(function (g) { return JSON.parse(g.body); })[0];
   var tischGeschrieben = p.geschrieben.filter(function (g) { return /restaurant_tables\?id=eq\.00000000-0000-4000-8000-000000000005/.test(g.u); }).map(function (g) { return JSON.parse(g.body); })[0];
   pruef('Fertig speichert die Drehung 45° (rotation)', !!tischGeschrieben && tischGeschrieben.rotation === 45, JSON.stringify(tischGeschrieben));
   pruef('Fertig speichert die echten Maße (250 x 80 cm)', !!tischGeschrieben && tischGeschrieben.laenge_cm === 250 && tischGeschrieben.breite_cm === 80, JSON.stringify(tischGeschrieben));
-  pruef('Fertig speichert den Raum in restaurants.tischplan_raum', !!raumGeschrieben && raumGeschrieben.tischplan_raum.main.form === 'L' && raumGeschrieben.tischplan_raum.main.breite === 16.5 && raumGeschrieben.tischplan_raum.main.teile.length === 3, JSON.stringify(raumGeschrieben).slice(0, 200));
+  pruef('Fertig speichert den Raum in restaurants.tischplan_raum', !!raumGeschrieben && raumGeschrieben.tischplan_raum.main.form === 'L' && raumGeschrieben.tischplan_raum.main.breite === 16.5 && raumGeschrieben.tischplan_raum.main.teile.length === 4, JSON.stringify(raumGeschrieben).slice(0, 200));
   pruef('kein Seitenfehler im L-Plan', !p.fehler.length, p.fehler.join(' | '));
   await p.ctx.close();
 
