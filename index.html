@@ -74407,14 +74407,91 @@ function karteTextZeilen(text) {
         .map(function (z) { return z.replace(/\s+/g, ' ').trim(); });
 }
 
+// PREISE IM EINGEFÜGTEN TEXT (07.10.2026).
+//
+// Dieselbe Regel wie im PDF-Leser (preisTreffer in parseKartenText): ohne
+// €-Zeichen zählt nur "7,50"; "7.50 €", "7,- €", "8 €" und "1.250,00 €" nur
+// mit Zeichen; "0,33 l", "11,30 Uhr" und "26 cm" nie. Vorher galt jede Zahl
+// mit zwei Nachkommastellen -- "Cola 0,33l 2,50" wurde zu Cola klein 0,33 €.
+// tests/karte-einfuegen-test.js prüft, dass beide Regeln gleich bleiben.
+function kartePreisTreffer(z) {
+    var EINHEIT = /^\s*(l|cl|ml|ltr|liter|g|gr|kg|cm|mm|%|stk|stück|pers|personen|uhr|x)(?![a-zäöüß])/i;
+    var re = /(\+\s*)?(€\s*)?(\d{1,3}(?:\.\d{3})+,\d{2}|\d{1,4},\d{2}|\d{1,4},-{1,2}|\d{1,4}\.\d{2}|\d{1,4})(\s*(?:€|EUR\b|Euro\b))?/gi;
+    var m, treffer = [];
+    z = String(z || '');
+    while ((m = re.exec(z))) {
+        var vorher = m.index > 0 ? z.charAt(m.index - 1) : ' ';
+        if (!m[1] && !m[2] && /[0-9A-Za-zÄÖÜäöüß.,:]/.test(vorher)) continue;
+        var euro = !!(m[2] || m[4]);
+        var zahl = m[3];
+        var nachher = z.slice(m.index + m[0].length);
+        var mitKomma = /,(\d{2}|-+)$/.test(zahl);
+        if (EINHEIT.test(nachher) && !euro) continue;
+        if (!mitKomma && !euro) continue;
+        if (!euro && /^[.:]\s?\d/.test(nachher)) continue;            // Uhrzeit "11,30-14.00"
+        if (!euro && /^\.\s/.test(nachher)) continue;                 // Gerichtnummer "12."
+        var wert = zahl.replace(/,-+$/, ',00');
+        wert = /,\d{2}$/.test(wert) ? wert.replace(/\./g, '').replace(',', '.') : wert;
+        if (wert.indexOf('.') < 0) wert += '.00';
+        treffer.push({ wert: wert, ab: m.index, plus: !!m[1] });
+    }
+    return treffer;
+}
+
 function karteTextPreise(zeile) {
-    // "8,90 €", "8,90", "8.90" -- Euro-Zeichen ist üblich, aber nicht Pflicht.
-    var m = zeile.match(/(\d{1,3})[.,](\d{2})(?!\d)/g);
-    return m ? m.map(function (s) { return s.replace(',', '.'); }) : [];
+    return kartePreisTreffer(zeile).map(function (t) { return t.wert; });
 }
 
 // Spaltenköpfe der Karte -- keine Kategorien.
 var KARTE_SPALTENKOPF = /^(KLEIN|GROSS|GROß|IM BROT|TELLER|PORTION|PREIS|EURO|€)([ /|]+(KLEIN|GROSS|GROß|IM BROT|TELLER|PORTION|PREIS|EURO|€))*$/i;
+
+// Typische Überschriften einer Speisekarte. Eine Zeile, die NUR aus solchen
+// Wörtern besteht ("Pizza", "Alkoholfreie Getränke", "Suppen & Salate"),
+// ist eine Kategorie -- auch direkt unter einem Gericht. Zutaten stehen hier
+// bewusst nicht drin: "Salami", "Thunfisch" und "Peperoni" sind die Zeilen,
+// die früher zu 75 Kategorien statt 13 geführt haben.
+var KARTE_KATEGORIE_WOERTER = /^(?:unsere |hausgemachte |leckere |frische |warme |kalte |gefüllte |italienische |türkische |griechische |deutsche |asiatische |vegetarische |vegane |alkoholfreie |offene |heiße )*(vorspeisen?|antipasti|suppen?|salate?|salatteller|insalate|pizzen|pizza|pizzas|pizzabrötchen|familienpizzen?|partypizzen?|calzone|pasta|nudeln|nudelgerichte|spaghetti|penne|rigatoni|tortellini|tagliatelle|maccheroni|gnocchi|lasagne|aufläufe?|gratins?|überbackenes|hauptgerichte?|hauptspeisen|fleischgerichte|fleisch|geflügel|fischgerichte|fisch|meeresfrüchte|grill|grillgerichte|grillteller|vom grill|steaks?|schnitzel|schnitzelgerichte|burger|baguettes?|sandwich(?:es)?|wraps?|döner|kebab|döner ?(?:&|und) ?kebab|dürüm|lahmacun|pide|imbiss|snacks|fingerfood|beilagen|extras|soßen|saucen|dips|kindergerichte|kinderteller|kinderkarte|für kinder|für unsere kleinen|desserts?|nachspeisen|nachtisch|süßspeisen|eis|eisbecher|eiskarte|kuchen|torten|frühstück|mittagstisch|tagesgerichte|tageskarte|menüs?|spezialitäten|spezialität des hauses|spezialitäten des hauses|gerichte|vegetarisch|vegan|bowls?|sushi|getränke|softdrinks|erfrischungsgetränke|limonaden|säfte|schorlen|wasser|biere?|bier vom fass|fassbier|flaschenbiere?|weine?|weißweine?|rotweine?|roséweine?|sekt|prosecco|spirituosen|schnäpse|longdrinks|cocktails|aperitifs?|digestifs?|heißgetränke|kaffee|kaffeespezialitäten|tee|shisha|tabak)$/;
+function karteTextKategorieWort(text) {
+    var k = karteKopfName(text).toLowerCase().replace(/\s+/g, ' ').trim();
+    if (!k || k.length > 40) return false;
+    return k.split(/\s*(?:&|\+|\/|,| und )\s*/).every(function (teil) {
+        return KARTE_KATEGORIE_WOERTER.test(teil.trim());
+    });
+}
+
+// Kategorie-Wörter, die genauso als Zutat unter einem Gericht stehen.
+function karteTextAuchZutat(text) {
+    return /^(fisch|fleisch|geflügel|meeresfrüchte|spaghetti|penne|rigatoni|tortellini|tagliatelle|maccheroni|gnocchi|lasagne|salat|kaffee|tee|wasser|eis|kuchen|sekt|prosecco|döner|kebab|calzone|steak|schnitzel|pasta|nudeln|sushi|vegan|vegetarisch|extras|dips|soßen|saucen)$/i
+        .test(karteKopfName(text).trim());
+}
+
+// Zeilen, die nichts mit Gerichten zu tun haben: Anschrift, Telefon,
+// Öffnungszeiten, "Alle Preise inkl. MwSt.". Vorher hingen sie als
+// Beschreibung am Gericht darüber.
+function karteTextHinweis(z) {
+    return /(vorbehalten|inkl\.?\s*mwst|mehrwertsteuer|alle preise|preise in euro|druckfehler|allergene|zusatzstoffe|^tel|^tel\.|telefon|fax|www\.|https?:|@|öffnungszeit|geöffnet|ruhetag|lieferservice|liefergebiet|mindestbestell|bestellhotline|bestellannahme|\d{1,2}[:.]\d{2}\s*(?:-|–|bis)\s*\d{1,2}[:.]\d{2}|\d{4,}\s*\d{3,})/i.test(z);
+}
+
+// Beginnt hier ein Gericht? "12. Pizza Salami ..." oder "Name ... 7,50".
+function karteTextIstGerichtzeile(z) {
+    if (!z) return false;
+    if (/^(?:[VvSs]\s+)?\d{1,3}\s?[A-Za-z]?[.)]\s+\S/.test(z)) return true;
+    var t = kartePreisTreffer(z);
+    return !!t.length && /[A-Za-zÄÖÜäöüß]{2}/.test(z.slice(0, t[0].ab));
+}
+
+// Allergen- und Zusatzstoff-Klammern "(a,c,g)" / "(1,2)" heraustrennen --
+// wie der PDF-Leser. Sonst steht "Wiener Schnitzel (a,c,g)" in der Karte.
+function karteKlammernLesen(txt, alg, zus) {
+    return String(txt || '').replace(/\s*\(([a-nA-N0-9 ,\.]{1,24})\)/g, function (all, inhalt) {
+        var teile = inhalt.split(/[,\s.]+/).filter(Boolean);
+        if (!teile.length) return all;
+        var passt = teile.every(function (t) { return /^([a-nA-N]|\d{1,2})$/.test(t); });
+        if (!passt) return all;
+        teile.forEach(function (t) { (/^\d/.test(t) ? zus : alg).push(t.toLowerCase()); });
+        return '';
+    }).replace(/\s+/g, ' ').trim();
+}
 
 function karteTextNachbar(zeilen, i, richtung) {
     for (var k = i + richtung; k >= 0 && k < zeilen.length; k += richtung) {
@@ -74427,40 +74504,83 @@ function karteTextIstKopf(zeilen, i) {
     var z = zeilen[i];
     if (!z) return false;
     if (z.charAt(0) === '#') return true;                  // ausdruecklich gesetzt
-    var k = z.toLowerCase();
-    if (_karteTextAus[k]) return false;                    // ausdruecklich abgewaehlt
-    if (_karteTextAn[k]) return karteTextKopfMoeglich(zeilen, i);   // angeklickt
-    if (!karteTextKopfMoeglich(zeilen, i)) return false;
+    // Ab- und Anwählen gilt für den Namen, nicht nur für die eine Zeile:
+    // "Baguette" abgewählt heisst auch "Baguette (Forts.)" auf Seite zwei.
+    var k = z.toLowerCase(), kn = karteKopfName(z).toLowerCase();
+    if (_karteTextAus[k] || _karteTextAus[kn]) return false;   // ausdruecklich abgewaehlt
+    if (karteTextPreise(z).length || karteTextHinweis(z)) return false;
+    if (_karteTextAn[k] || _karteTextAn[kn]) return true;      // angeklickt
+    if (KARTE_SPALTENKOPF.test(karteKopfName(z))) return false;
+    var vor = karteTextNachbar(zeilen, i, -1);
+    if (/[,\-–]$/.test(vor)) return false;                 // Fortsetzung einer Zutatenliste
+    // Fortsetzung eines Satzes: "... Tomaten-Sahnesauce mit" / "Käse
+    // überbacken", "... Tzatziki, scharfe" / "Sauce". Endet die Zeile davor
+    // auf ein klein geschriebenes Wort, geht der Satz weiter.
+    var vorIstGericht = karteTextIstGerichtzeile(vor);
+    if (!karteTextKopfFormal(z)) return false;
+    // Starke Zeichen schlagen die Satz-Regel: ein echtes Kategorie-Wort,
+    // "(Forts.)", oder Spaltenköpfe in oder direkt unter der Zeile
+    // ("Spezialität des Hauses" / "KLEIN GROSS").
+    var nach = karteTextNachbar(zeilen, i, 1);
+    var stark = (karteTextKategorieWort(z) && !karteTextAuchZutat(z))
+        || /\(\s*Forts\.?\s*\)/i.test(z) || /\b(KLEIN|GROSS|GROß|IM BROT|TELLER)\b/.test(z)
+        || KARTE_SPALTENKOPF.test(karteKopfName(nach));
+    if (!stark && !vorIstGericht && /(^|\s)[a-zäöüß][\wäöüß-]*$/.test(vor)) return false;
+    if (stark && !vorIstGericht) return true;
 
-    // ---- Warum hier NICHT geraten wird ----------------------------------
-    // Beim Kopieren aus einem PDF geht die Schriftgröße verloren. Danach
-    // sieht "Nudeln" (Überschrift) genauso aus wie "Peperoni" (zweite Zeile
-    // einer umgebrochenen Zutatenliste): kurz, ohne Preis, ein Gericht
-    // darunter. An der echten Karte gemessen wurden aus 13 Kategorien 75 --
-    // jede Zutatenzeile eine eigene Kategorie, die Karte "durcheinander".
-    //
-    // Es gibt im Text kein Merkmal, das die beiden sicher trennt. Also wird
-    // nur übernommen, was EINDEUTIG ist: Zeilen in Großbuchstaben. Alles
-    // andere steht als Vorschlag darunter und ist ein Klick weit weg.
-    // Eine falsche Kategorie ist schlimmer als eine fehlende.
-    return z === z.toUpperCase() && /[A-ZÄÖÜ]/.test(z) && z.length >= 3;
+    // 1) Großbuchstaben ("PIZZA") -- eindeutig.
+    if (z === z.toUpperCase() && /[A-ZÄÖÜ]/.test(z) && z.replace(/[^A-Za-zÄÖÜäöüß]/g, '').length >= 3) return true;
+    // 2) Ein typisches Kategorie-Wort ("Pizza", "Getränke", "Suppen & Salate").
+    //    Wörter, die auch Zutaten sind ("Meeresfrüchte" unter "Pizza Frutti
+    //    di Mare"), zählen direkt unter einem Gericht nicht.
+    if (karteTextKategorieWort(z) && !(vorIstGericht && karteTextAuchZutat(z))) return true;
+    // 3) Aufbau: darunter beginnt ein Gericht, darüber steht KEIN Gericht.
+    //    "Salami" direkt unter "2. Pizza Salami 7,00 €" ist eine Zutat;
+    //    "Rigatoni" unter einer Zutatenzeile und über "36. Rigatoni ..." ist
+    //    eine Überschrift. Beim Kopieren ist die Schriftgröße weg -- der
+    //    Aufbau ist das, was übrig bleibt.
+    if (!karteTextKopfMoeglich(zeilen, i)) return false;
+    return !karteTextIstGerichtzeile(vor);
 }
 
-// Formal möglich: keine Preise, kurz, ein Gericht darunter. Das ist die
-// Grundbedingung -- sowohl für die automatische Erkennung als auch dafür,
-// dass eine Zeile überhaupt als Vorschlag auftaucht.
+// Formal: kurz, ohne Preis, ohne Komma, kein Satz.
+function karteTextKopfFormal(z) {
+    if (!z || karteTextPreise(z).length) return false;
+    var name = karteKopfName(z);
+    if (!name || name.length > 40) return false;
+    if (/[.!?,;:·]$/.test(z)) return false;
+    if (name.indexOf(',') >= 0) return false;
+    if (name.split(' ').length > 5) return false;
+    if (/^[a-zäöüß]/.test(name)) return false;
+    return true;
+}
+
+// Formal möglich UND direkt darunter (nach Hinweis- oder Spaltenkopfzeilen)
+// beginnt ein Gericht. Grundbedingung für Vorschläge und für Regel 3.
 function karteTextKopfMoeglich(zeilen, i) {
     var z = zeilen[i];
-    if (!z || karteTextPreise(z).length) return false;
-    if (z.length > 40) return false;
-    if (/[.!?,;:·]$/.test(z)) return false;
-    if (z.indexOf(',') >= 0) return false;
-    if (z.split(' ').length > 5) return false;
+    if (!karteTextKopfFormal(z)) return false;
     if (KARTE_SPALTENKOPF.test(karteKopfName(z))) return false;
-    return karteTextPreise(karteTextNachbar(zeilen, i, 1)).length > 0;
+    for (var k = i + 1, n = 0; k < zeilen.length && n < 4; k++) {
+        var w = zeilen[k];
+        if (!w) continue;
+        n++;
+        if (karteTextIstGerichtzeile(w)) return true;
+        // Zwischenzeilen, die eine Kategorie oft hat: Spaltenkopf, Hinweis
+        // ("Alle Pizzen mit Käse ..."), Extra-Regel ("Zutaten: 1,00 €").
+        if (KARTE_SPALTENKOPF.test(karteKopfName(w)) || karteTextHinweis(w) || /:|·/.test(w) || w.length > 45) continue;
+        // Webseiten-Aufbau: Name / Beschreibung / Preis auf eigenen Zeilen.
+        var p1 = zeilen[k + 1] || '', p2 = zeilen[k + 2] || '';
+        var nurPreis = function (x) { return /^\s*(?:€\s*)?\d{1,4}(?:,\d{2}|,-+|\.\d{2})\s*(?:€|EUR)?\s*$/.test(x); };
+        // Steht der Preis direkt unter der nächsten Zeile, ist diese Zeile
+        // eher selbst der Gerichtname und die nächste seine Beschreibung --
+        // dann ist hier keine Überschrift. Nur "Name / Beschreibung / Preis"
+        // darunter macht sie zur Überschrift.
+        return !nurPreis(p1) && nurPreis(p2);
+    }
+    return false;
 }
 
-// "Pizza (Forts.) KLEIN GROSS" ist dieselbe Kategorie wie "Pizza".
 function karteKopfName(text) {
     return String(text).replace(/^#\s*/, '')
         .replace(/\s*\(\s*Forts\.?\s*\)\s*/ig, ' ')
@@ -74468,9 +74588,6 @@ function karteKopfName(text) {
         .replace(/\s+/g, ' ').trim();
 }
 
-// Zeilen, die KEINE Überschrift wurden, es aber sein könnten. Werden als
-// Vorschlag angezeigt -- ein Klick genügt. Damit kostet eine Überschrift,
-// die direkt hinter einem Gericht steht, zwei Sekunden statt eines Fehlers.
 function karteTextVorschlaege(zeilen) {
     var raus = [];
     for (var i = 0; i < zeilen.length; i++) {
@@ -74482,63 +74599,129 @@ function karteTextVorschlaege(zeilen) {
 }
 
 // Kern: Text -> Gerichte. Keine Netzwerkaufrufe, kein Modell, kein Zufall.
+//
+// NEU GEBAUT 07.10.2026 -- Ibo: "wenn ich es einfüge beim Karte übernehmen
+// liest er die Karte nicht gut". Gemessen an vier Probetexten
+// (tests/daten/einfuegen/ und der kopierten Pronto-Karte): keine einzige
+// Kategorie erkannt, von einer Webseiten-Karte 1 von 8 Gerichten,
+// Überschriften und "Alle Preise inkl. MwSt." als Beschreibung am Gericht,
+// "0,33 l" als Preis. Jetzt:
+//   - Kategorien: Großbuchstaben, typische Kategorie-Wörter, und der Aufbau
+//     (darunter ein Gericht, darüber keins)
+//   - Webseiten-Aufbau: Name, Beschreibung und Preis auf eigenen Zeilen
+//   - Anschrift, Telefon, Öffnungszeiten, Preis-Hinweise: weggelassen
+//   - Extra-Regeln ("Zutaten: klein 1,00 €"): kein Gericht, keine Beschreibung
+//   - Allergen-Klammern: heraus aus Name und Beschreibung
+//   - Gerichtnummern werden nicht übernommen (Ibo: "keine Nummer")
+// Was einen Preis hat und trotzdem kein Gericht wurde, steht in "rest".
 function karteAusText(text) {
     var zeilen = karteTextZeilen(text);
     var kategorie = '', gerichte = [], koepfe = [], letztes = null;
+    var hinweise = [], rest = [], preisZeilen = 0, offen = [];
+
+    function neuesGericht(nameZeile, preise, beschreibung) {
+        var vor = nameZeile.replace(/[.…\-_\s]+$/, '').trim();
+        var vegVorn = false;
+        var mv = /^([VvSs])\s+(?=\d)/.exec(vor);
+        if (mv) { vegVorn = /[Vv]/.test(mv[1]); vor = vor.slice(mv[0].length).trim(); }
+        var nummer = '';
+        var m = /^(\d+\s?[A-Za-z]?)[.)]\s*(.*)$/.exec(vor);
+        if (m) { nummer = m[1].replace(/\s+/g, ''); vor = m[2].trim(); }
+        if (!vor) return null;
+        var alg = [], zus = [];
+        vor = karteKlammernLesen(vor, alg, zus);
+        var g = { nummer: nummer, name: vor, beschreibung: '', preise: preise || [],
+                  kategorie: kategorie, veg: vegVorn, allergene: alg, zusatz: zus, nachPreis: [] };
+        if (beschreibung) g.beschreibung = karteKlammernLesen(beschreibung, alg, zus);
+        gerichte.push(g);
+        return g;
+    }
+    function beschreibungDazu(g, z) {
+        var t = karteKlammernLesen(z, g.allergene, g.zusatz);
+        if (!t) return;
+        g.beschreibung = (g.beschreibung ? g.beschreibung + ' ' : '') + t;
+        if (g.preise.length) g.nachPreis.push(z);
+    }
 
     for (var i = 0; i < zeilen.length; i++) {
         var z = zeilen[i];
-        if (!z) { continue; }
+        if (!z) continue;
 
         if (karteTextIstKopf(zeilen, i)) {
             kategorie = karteKopfName(z);
             if (kategorie && koepfe.indexOf(kategorie) < 0) koepfe.push(kategorie);
-            letztes = null;
+            offen.forEach(function (x) { hinweise.push(x); });
+            letztes = null; offen = [];
+            continue;
+        }
+        if (KARTE_SPALTENKOPF.test(karteKopfName(z))) continue;
+        if (karteTextHinweis(z)) { hinweise.push(z); continue; }
+
+        var treffer = kartePreisTreffer(z);
+        if (!treffer.length) {
+            // Zeile ohne Preis: Beschreibung zum Gericht davor -- oder, wenn
+            // noch keins da ist, vormerken (Webseiten-Aufbau: Name zuerst).
+            // "12. Pizza Tonno" ohne Preis ist trotzdem ein Gericht.
+            if (/^(?:[VvSs]\s+)?\d{1,3}\s?[A-Za-z]?[.)]\s+[A-ZÄÖÜ]/.test(z)) {
+                letztes = neuesGericht(z, [], '') || letztes; offen = [];
+                continue;
+            }
+            if (letztes) beschreibungDazu(letztes, z);
+            else offen.push(z);
+            continue;
+        }
+        preisZeilen++;
+        var preise = treffer.map(function (t) { return t.wert; });
+        var vor = z.slice(0, treffer[0].ab).replace(/[.…\-_\s]+$/, '').trim();
+
+        // Hinweiszeilen mit Preis sind keine Gerichte: "Zutaten: klein 1,00 €",
+        // "jede weitere Zutat + 2,50 €", "Menü-Upgrade: ... +5,00 €".
+        var plus = treffer.some(function (t) { return t.plus; });
+        if (!/^(?:[VvSs]\s+)?\d/.test(vor) && (plus || /:/.test(vor)
+            || /^(extra|zutat|aufpreis|zuschlag|jede|alle|menü-upgrade|upgrade)/i.test(vor)
+            || (/^[a-zäöüß]/.test(vor) && /(zutat\w*|extra\w*|kostenlos|erhältlich|aufpreis|zuschlag|nach wahl|jede)/i.test(vor)))) {
+            hinweise.push(z);
             continue;
         }
 
-        var preise = karteTextPreise(z);
-        if (!preise.length) {
-            // Zeile ohne Preis nach einem Gericht = Beschreibung dazu.
-            if (letztes) letztes.beschreibung = (letztes.beschreibung ? letztes.beschreibung + ' ' : '') + z;
-            continue;
-        }
-
-        // Name = alles vor dem ersten Preis, ohne Füllpunkte.
-        var vor = z.slice(0, z.search(/\d{1,3}[.,]\d{2}(?!\d)/))
-                   .replace(/[.…\-_\s]+$/, '').trim();
-
-        // Hinweiszeilen sind keine Gerichte: "Extra Zutaten: klein 1,00 €",
-        // "Menü-Upgrade: +5,00 €". Ohne das stehen sie als Gericht "Zutaten:
-        // klein" für 1,00 € in der Karte.
-        if (/[:+]/.test(vor) || /^[a-zäöüß]/.test(vor)
-            || /\b(Zutat|Upgrade|Aufpreis|erhältlich|kostenlos)\b/i.test(vor)) {
-            if (letztes) letztes.beschreibung = (letztes.beschreibung ? letztes.beschreibung + ' ' : '') + z;
-            continue;
-        }
-
-        // Merkmal-Zeichen VOR der Nummer ("V 1. Pizza Margherita") -- so kommt
-        // es aus dem PDF, wenn man die Karte kopiert. Ohne das heißt das
-        // Gericht "V 1. Pizza Margherita" und hat keine Nummer.
-        var vegVorn = false;
-        var mv = /^([VvSs])\s+(?=\d)/.exec(vor);
-        if (mv) { vegVorn = /[Vv]/.test(mv[1]); vor = vor.slice(mv[0].length).trim(); }
-
-        var nummer = '';
-        var m = /^(\d+\s?[A-Za-z]?)[.)]\s*(.*)$/.exec(vor);
-        if (m) { nummer = m[1].replace(/\s+/g, ''); vor = m[2].trim(); }
         if (!vor) {
-            // Preis allein in der Zeile -> gehört zum Gericht davor.
-            if (letztes && !letztes.preise.length) letztes.preise = preise;
+            // Preis allein in der Zeile.
+            if (letztes && !letztes.preise.length) { letztes.preise = preise; continue; }
+            // Webseiten-Aufbau: Name (und Beschreibung) standen darüber.
+            var quelle = null;
+            if (offen.length) { quelle = offen; offen = []; }
+            else if (letztes && letztes.nachPreis.length) {
+                quelle = letztes.nachPreis;
+                var weg = quelle.join(' ');
+                var b = letztes.beschreibung;
+                letztes.beschreibung = b.slice(-weg.length) === weg ? b.slice(0, b.length - weg.length).trim() : b;
+                letztes.nachPreis = [];
+            }
+            if (quelle && /^(?:[VvSs]\s+)?(?:\d{1,3}\s?[A-Za-z]?[.)]\s+)?[A-ZÄÖÜ0-9]/.test(quelle[0]) && quelle[0].length <= 70) {
+                letztes = neuesGericht(quelle[0], preise, quelle.slice(1).join(' ')) || letztes;
+                continue;
+            }
+            rest.push({ kat: kategorie, text: z, grund: 'Preis ohne erkennbares Gericht' });
             continue;
         }
 
-        letztes = { nummer: nummer, name: vor, beschreibung: '', preise: preise,
-                    kategorie: kategorie, veg: vegVorn };
-        gerichte.push(letztes);
+        offen.forEach(function (x) { hinweise.push(x); });
+        offen = [];
+        // Name läuft in die nächste Zeile ("120. Pronto Pronto-Platte (für 4"
+        // / "Pers.)") -- erkennbar an der offenen Klammer.
+        if ((vor.match(/\(/g) || []).length > (vor.match(/\)/g) || []).length
+            && zeilen[i + 1] && !kartePreisTreffer(zeilen[i + 1]).length) {
+            vor = (vor + ' ' + zeilen[++i]).replace(/\s+/g, ' ').trim();
+        }
+        letztes = neuesGericht(vor, preise, '') || letztes;
     }
+    offen.forEach(function (x) { hinweise.push(x); });
 
-    return { gerichte: gerichte, ueberschriften: koepfe, zeilen: zeilen };
+    gerichte.forEach(function (g) {
+        if (!g.preise.length) rest.push({ kat: g.kategorie, text: g.name, grund: 'Gericht ohne Preis — wird ausgeblendet angelegt' });
+    });
+    return { gerichte: gerichte, ueberschriften: koepfe, zeilen: zeilen,
+             hinweise: hinweise, rest: rest, preisZeilen: preisZeilen };
 }
 
 // Gerichte -> die Form, die der Import erwartet. Mehrere Preise in einer Zeile
@@ -74549,7 +74732,8 @@ function karteTextZuItems(gerichte) {
     gerichte.forEach(function (g) {
         var veg = !!g.veg || /(^|\s)V(\s|$)/.test(g.name) || /vegetarisch/i.test(g.beschreibung);
         var name = g.name.replace(/\sV$/, '').trim();
-        var preise = g.preise.length ? g.preise : ['0'];
+        var ohnePreis = !g.preise.length;
+        var preise = ohnePreis ? ['0'] : g.preise;
 
         // EIN Gericht mit Größen -- wie beim PDF-Weg, damit der Import
         // nicht zwei Fälle kennen muss.
@@ -74562,6 +74746,7 @@ function karteTextZuItems(gerichte) {
             });
             groessen.sort(function (a, b) { return a.price - b.price; });
         }
+        var alg = (g.allergene || []).map(function (x) { return (typeof _PDF_ALLERGEN !== 'undefined' && _PDF_ALLERGEN[x]) || null; }).filter(Boolean);
 
         (function () {
             var p = preise[0];
@@ -74569,11 +74754,13 @@ function karteTextZuItems(gerichte) {
                 name: name,
                 sizes: groessen,
                 description: g.beschreibung || '',
-                price: groessen ? groessen[0].price : (Math.round(parseFloat(p) * 100) / 100 || 0),
+                // Ohne Preis bleibt er LEER (nicht 0 -- sonst für 0 € bestellbar).
+                price: groessen ? groessen[0].price : (ohnePreis ? null : (Math.round(parseFloat(p) * 100) / 100 || 0)),
                 category: g.kategorie || 'Sonstiges',
-                dish_number: g.nummer || '',
+                // Keine Gerichtnummer (Ibo, 07.10.2026: "keine Nummer").
+                dish_number: '',
                 selected: true,
-                allergens: [], additives: [],
+                allergens: alg, additives: (g.zusatz || []).filter(function (x) { return /^\d{1,2}$/.test(x); }),
                 is_vegetarian: veg, is_vegan: false,
                 is_spicy: /scharf/i.test(g.beschreibung || ''),
                 is_beef: false, is_chicken: false, is_pork: false,
@@ -74689,8 +74876,10 @@ function karteGegenprobeHtml(gp) {
               + 'padding:9px 12px;border-radius:12px;background:rgba(21,128,61,0.08);border:1px solid rgba(21,128,61,0.3);'
               + 'font-size:12px;color:#14532d;font-family:Inter,sans-serif;">'
               + '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:18px;color:#15803d;">verified</span>'
-              + '<span><strong>Vollständig:</strong> alle ' + gp.preisZeilen + ' Zeilen mit Preis übernommen'
-              + (extras.length ? ' — davon ' + extras.length + ' als Extra' : '') + '.</span></div>';
+              + '<span><strong>Vollständig:</strong> ' + (gp.weggelassen
+                    ? 'jede Zeile mit Preis ist ein Gericht oder steht unten bei „weggelassen“'
+                    : 'alle ' + gp.preisZeilen + ' Zeilen mit Preis übernommen' + (extras.length ? ' — davon ' + extras.length + ' als Extra' : ''))
+              + '.</span></div>';
     } else {
         html += '<div class="karte-gegenprobe offen" role="alert" style="margin:0 0 10px;padding:10px 12px;border-radius:12px;'
               + 'background:rgba(245,158,11,0.12);border:1px solid #f59e0b;font-size:12px;color:#78350f;font-family:Inter,sans-serif;">'
@@ -74708,6 +74897,17 @@ function karteGegenprobeHtml(gp) {
                  ? '<div style="margin-top:6px;">Ein Preis ohne Gericht wird nicht erraten. Gehört er zu einem Gericht, nach dem Import in der Speisekarte nachtragen.</div>'
                  : '')
               + '</div>';
+    }
+    var weg = gp.weggelassen || [];
+    if (weg.length) {
+        // Text-Weg: Anschrift, Öffnungszeiten, "Alle Preise inkl. MwSt.",
+        // Extra-Regeln -- bewusst nicht übernommen, aber nachlesbar.
+        html += '<details style="margin:0 0 10px;font-size:12px;color:var(--text-secondary);font-family:Inter,sans-serif;">'
+              + '<summary style="cursor:pointer;">' + weg.length + (weg.length === 1 ? ' Zeile' : ' Zeilen')
+              + ' weggelassen (Anschrift, Zeiten, Hinweise) — ansehen</summary>'
+              + '<ul style="margin:6px 0 0;padding-left:18px;line-height:1.55;">'
+              + weg.slice(0, 40).map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('')
+              + '</ul></details>';
     }
     if (extras.length) {
         html += '<details style="margin:0 0 10px;font-size:12px;color:var(--text-secondary);font-family:Inter,sans-serif;">'
@@ -74810,8 +75010,11 @@ function karteTextVorschau() {
     var r = karteAusText(text);
     var items = karteTextZuItems(r.gerichte);
     window._karteTextItems = items;
-    // Die Gegenprobe gehört zum PDF -- jetzt kommt die Liste aus dem Text.
+    // Die PDF-Gegenprobe gilt nicht mehr -- jetzt kommt die Liste aus dem
+    // Text, mit eigener Gegenprobe (was weggelassen wurde, steht da).
     window._karteVollGegenprobe = null;
+    var _gpText = { preisZeilen: r.preisZeilen, extras: [], rest: r.rest || [], weggelassen: r.hinweise || [] };
+    window._karteTextGegenprobe = _gpText;
 
     var kats = {}, reihenfolge = [];
     items.forEach(function (i) {
@@ -74832,6 +75035,8 @@ function karteTextVorschau() {
         + (ohnePreis ? '<strong style="color:#b45309;">' + ohnePreis + ' ohne Preis</strong> · ' : 'alle mit Preis · ')
         + (ohneKat ? '<strong style="color:#b45309;">' + ohneKat + ' ohne Kategorie</strong>' : 'alle einsortiert')
         + ' · ohne KI, direkt aus dem Text</div></div></div>';
+
+    html += karteGegenprobeHtml(_gpText);
 
     if (reihenfolge.length) {
         html += '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px;">'
@@ -74885,11 +75090,18 @@ function karteTextVorschau() {
             html += '<div style="position:sticky;top:0;background:var(--bg-secondary);padding:5px 10px;'
                   + 'font-size:11px;font-weight:800;color:var(--ink-strong);letter-spacing:.03em;">' + esc(letzteKat) + '</div>';
         }
-        html += '<div style="display:flex;gap:8px;padding:4px 10px;font-size:12px;border-top:1px solid var(--border-light,#eee);">'
-              + '<span style="width:34px;color:var(--text-secondary);flex:none;">' + esc(i.dish_number) + '</span>'
-              + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(i.name) + '</span>'
-              + '<span style="flex:none;font-weight:700;' + (i.price ? '' : 'color:#b45309;') + '">'
-              + (i.price ? i.price.toFixed(2).replace('.', ',') + ' €' : 'kein Preis') + '</span></div>';
+        // Ohne Nummernspalte (Ibo: "keine Nummer"), dafür mit Beschreibung
+        // und Größen -- was man nicht sieht, hält man für nicht vorhanden.
+        html += '<div style="display:flex;gap:8px;padding:5px 10px;font-size:12px;border-top:1px solid var(--border-light,#eee);align-items:baseline;">'
+              + '<span style="flex:1;min-width:0;">'
+              +   '<span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;">' + esc(i.name) + '</span>'
+              +   (i.description ? '<span style="display:block;font-size:11px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(i.description) + '</span>' : '')
+              + '</span>'
+              + '<span style="flex:none;font-weight:700;text-align:right;' + (i.price ? '' : 'color:#b45309;') + '">'
+              + (i.sizes && i.sizes.length
+                   ? i.sizes.map(function (g) { return '<span style="font-weight:500;color:var(--text-secondary);font-size:11px;">' + esc(g.name) + '</span> ' + g.price.toFixed(2).replace('.', ',') + ' €'; }).join('<br>')
+                   : (i.price ? i.price.toFixed(2).replace('.', ',') + ' €' : 'kein Preis'))
+              + '</span></div>';
     });
     html += '</div>';
 
@@ -74916,7 +75128,7 @@ function karteTextUebernehmen() {
     window.scannedMenuItems = scannedMenuItems;
     window._scanQuelleOCR = null;
     window._scanExtras = window._karteVollExtras || null;
-    window._scanGegenprobe = window._karteVollGegenprobe || null;
+    window._scanGegenprobe = window._karteVollGegenprobe || window._karteTextGegenprobe || null;
     window._scanPruefung = null;
     window._scanBericht = {
         dauer: '—', bilder: 0, seitenOhneErgebnis: 0,
