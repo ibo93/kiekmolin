@@ -21235,7 +21235,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 <!-- KOHLE-RUF FUER SHISHA-BARS (seit 06.10.2026). Positives Flag
                      wie die Vorbestellung: aus, bis der Wirt es einschaltet.
                      Eine Pizzeria soll ihren Gaesten keinen Kohle-Knopf zeigen. -->
-                <div style="margin-top: 14px; padding: 16px 20px; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3);">
+                <div id="kohleRufBox" style="margin-top: 14px; padding: 16px 20px; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3);">
                     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
                         <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">
                             <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">local_fire_department</span>
@@ -21250,7 +21250,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                      Zutritt (Jugendschutzgesetz §10). Der Schalter sagt es dem
                      Gast VOR dem Weg -- die Ausweiskontrolle an der Tuer
                      ersetzt er nicht. Siehe abAchtzehn(). -->
-                <div style="margin-top: 14px; padding: 16px 20px; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3);">
+                <div id="abAchtzehnBox" style="margin-top: 14px; padding: 16px 20px; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3);">
                     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
                         <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">
                             <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">badge</span>
@@ -35676,8 +35676,32 @@ async function toggleFeature(feature) {
     }
 }
 
+// KOHLE-KNOPF UND AB 18 NUR FUER BARS (07.10.2026).
+// Ibo: "der Restaurant braucht das ja nicht". Die beiden Schalter erscheinen
+// nur, wenn das Lokal als Kueche Bar oder Shisha hat (auch Lounge/Cocktail)
+// oder den dunklen Bar-Auftritt nutzt. Ist einer schon EIN, bleibt er
+// sichtbar -- sonst koennte ihn niemand mehr ausschalten. Ist das Lokal
+// gar nicht bekannt, bleiben sie sichtbar: lieber ein Schalter zu viel
+// als eine Bar, die ihren nicht findet.
+function istBarLokal(r) {
+    if (!r) return null;
+    var k = [].concat(r.cuisine_type || [], r.cuisine || []).map(function (x) { return String(x).toLowerCase(); }).join(' ');
+    return /(bar(?!becue)|shisha|lounge|cocktail)/.test(k) || ((r.features || []).indexOf('look_dunkel') >= 0);
+}
+window.istBarLokal = istBarLokal;
+function barSchalterZeigen(features) {
+    var r = null;
+    try { var rid = getControlRestaurantId(); r = (APP_DATA.restaurants || []).find(function (x) { return x.id === rid; }) || null; } catch (e) { r = null; }
+    var bar = istBarLokal(r);
+    [['kohleRufBox', 'kohle_ruf'], ['abAchtzehnBox', 'ab_18']].forEach(function (p) {
+        var el = document.getElementById(p[0]); if (!el) return;
+        el.style.display = (bar === false && features.indexOf(p[1]) < 0) ? 'none' : '';
+    });
+}
+
 function updateFeatureToggles(features) {
     if (!features) features = [];
+    try { barSchalterZeigen(features); } catch (e) {}
     var orderingToggle = document.getElementById('orderingToggle');
     var reservationsToggle = document.getElementById('reservationsToggle');
     var autoConfirmToggle = document.getElementById('autoConfirmToggle');
