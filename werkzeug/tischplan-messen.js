@@ -65,6 +65,8 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
     opt = opt || {};
     var ctx = await b.newContext({ viewport: { width: 1180, height: 820 }, serviceWorkers: 'block' });
     var geschrieben = [];
+    // Nachbau der Eindeutigkeit (restaurant_id, table_number): aktive + gelöschte Nummern.
+    var belegt = TISCHE.map(function (t) { return t.table_number; }).concat((opt.geloescht || []).map(String));
     await ctx.addInitScript(function (d) { try { localStorage.setItem('kmi_onboarded', 'true'); localStorage.setItem('kmi_consent', 'essential'); localStorage.setItem('kmi_theme', d ? 'dark' : 'light'); localStorage.setItem('kmi_tp3_ansicht', '3d'); } catch (e) {} }, !!opt.dunkel);
     await ctx.route(/^https?:\/\/(?!localhost)/, async function (rt) {
       var u = rt.request().url(), m = rt.request().method();
@@ -79,9 +81,15 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
         }
         geschrieben.push({ m: m, u: u, body: rt.request().postData() });
         // Wie live am 08.10.2026 08:51 UTC: Nummer gehört einem gelöschten Tisch -> 409 / 23505.
+        if (opt.geloescht && m === 'PATCH' && /is_active=eq\.false&table_number=eq\./.test(u)) {
+          var fr = decodeURIComponent(/table_number=eq\.([^&]+)/.exec(u)[1]);
+          if (!opt.immer409 && opt.geloescht.map(String).indexOf(fr) >= 0) belegt = belegt.filter(function (x) { return x !== fr; });
+          return rt.fulfill({ status: 204, body: '' });
+        }
         if (opt.geloescht && m === 'POST') {
-          var nr = +JSON.parse(rt.request().postData() || '{}').table_number;
-          if (opt.immer409 || nr <= 20 || opt.geloescht.indexOf(nr) >= 0) return json({ code: '23505', details: 'Key (restaurant_id, table_number)=(r, ' + nr + ') already exists.', message: 'duplicate key value violates unique constraint "restaurant_tables_restaurant_id_table_number_key"' }, 409);
+          var nr = String(JSON.parse(rt.request().postData() || '{}').table_number);
+          if (opt.immer409 || belegt.indexOf(nr) >= 0) return json({ code: '23505', details: 'Key (restaurant_id, table_number)=(r, ' + nr + ') already exists.', message: 'duplicate key value violates unique constraint "restaurant_tables_restaurant_id_table_number_key"' }, 409);
+          belegt.push(nr);
         }
         if (opt.rlsLeer) return json([]);
         return json([Object.assign({}, TISCHE[0], JSON.parse(rt.request().postData() || '{}'))], m === 'POST' ? 201 : 200);
@@ -515,6 +523,8 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
   await p.ctx.close();
 
   // ---------- 6a. Tisch anlegen, wenn gelöschte Tische Nummern belegen ----------
+  // Danach Ibo: "Tisch löschen, neuen einfügen -- kann keinen auf die gelöschte
+  // Nummer". Gelöscht ist hier Tisch 11 (und 21); der neue soll wieder 11 sein.
   // Ibo, 08.10.2026: "wenn ich die Tische einfügen möchte, kommt nichts".
   // Protokoll: 24 x POST restaurant_tables -> 409 duplicate key (table_number).
   // Der Plan lädt nur aktive Tische und nahm "höchste + 1" -- die Nummer
@@ -528,13 +538,13 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
         sichtbar: m.classList.contains('zeigen') && r.height > 0 && r.top >= 0 && r.bottom <= vh, oben: Math.round(r.top) };
     });
   }
-  p = await seite({ geloescht: [21, 22] });
+  p = await seite({ geloescht: [11, 21] });
   await p.s.click('#tp3Bearbeiten'); await p.s.waitForTimeout(150);
   var an = await anlegen(p);
   var posts = p.geschrieben.filter(function (g) { return g.m === 'POST' && /restaurant_tables/.test(g.u); }).map(function (g) { return JSON.parse(g.body).table_number; });
-  pruef('Tisch anlegen trotz gelöschter Tische 21 und 22: wird Tisch 23, steht im Plan', an.tische === 12 && /(^|,)23$/.test(an.nummern) && posts[posts.length - 1] === '23', JSON.stringify(an) + ' POSTs ' + posts.join(','));
+  pruef('Tisch 11 gelöscht -> neuer Tisch bekommt wieder die 11, steht im Plan', an.tische === 12 && /(^|,)11$/.test(an.nummern) && posts.join(',') === '11', JSON.stringify(an) + ' POSTs ' + posts.join(','));
   await p.ctx.close();
-  p = await seite({ geloescht: [21, 22], immer409: true });
+  p = await seite({ geloescht: [11, 21], immer409: true });
   await p.s.click('#tp3Bearbeiten'); await p.s.waitForTimeout(150);
   an = await anlegen(p);
   pruef('klappt es trotzdem nicht: Meldung steht im Blick, nicht oben außerhalb (Regel 6)', an.tische === 11 && an.sichtbar && /nicht angelegt/i.test(an.meldung), JSON.stringify(an));

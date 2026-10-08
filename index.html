@@ -20131,7 +20131,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
 
                 // ---------- Speichern ----------
                 async function speichern() {
-                    var ids = Object.keys(tp.geaendert);
+                    var ids = Object.keys(tp.geaendert), freiGemacht = {};
                     var knopf = $('tp3Fertig'); knopf.disabled = true; knopf.textContent = 'Speichert …';
                     var fehler = [];
                     for (var i = 0; i < ids.length; i++) {
@@ -20150,7 +20150,8 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             var m = String(e && e.message || e);
                             if (/laenge_cm|breite_cm/.test(m) && !tp.ohneMass) { tp.ohneMass = true; i--; continue; }
                             if (/pos_x|pos_y|rotation/.test(m)) { tp.ohnePosSpalten = true; i--; continue; }
-                            fehler.push(t.name + ': ' + m);
+                            if (/23505|duplicate/i.test(m) && !freiGemacht[t.id]) { freiGemacht[t.id] = true; await nummerFreigeben(t.nummer); i--; continue; }
+                            fehler.push(t.name + ': ' + (/23505|duplicate/i.test(m) ? 'die Nummer ' + t.nummer + ' ist schon vergeben.' : m));
                         }
                     }
                     // Raum (Maße, L-Form, feste Teile) in restaurants.tischplan_raum.
@@ -20178,15 +20179,24 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     if (typeof showToast === 'function') showToast(ids.length || (raumWar && !raumHinweis) ? 'Tischplan gespeichert' : 'Keine Änderungen', 'success');
                     return true;
                 }
-                async function freieNummer() {
-                    var hoechste = function (liste, feld) { return liste.reduce(function (m, t) { var n = parseInt(t[feld], 10); return isNaN(n) ? m : Math.max(m, n); }, 0); };
-                    var nr = hoechste(tp.tische, 'nummer');
+                // Ibo, 08.10.2026: "Tisch löschen und neuen einfügen -- kann keinen auf
+                // die Nummer, die ich gelöscht habe". Gelöschte Tische (is_active = false)
+                // bleiben für alte Reservierungen stehen und hielten ihre Nummer fest;
+                // (restaurant_id, table_number) ist eindeutig -> 409.
+                // Jetzt: die Nummer eines gelöschten Tisches wird frei gemacht (auf einen
+                // negativen Platzhalter, die Zeile mit Namen bleibt), und ein neuer Tisch
+                // bekommt die kleinste Nummer, die kein SICHTBARER Tisch hat.
+                function freieNummer(ab) {
+                    var belegt = {}; tp.tische.forEach(function (t) { belegt[String(t.nummer).trim()] = true; });
+                    for (var nr = Math.max(1, ab || 1); belegt[String(nr)]; nr++);
+                    return nr;
+                }
+                function platzhalterNummer() { return String(-(Date.now() % 2000000000)); }
+                async function nummerFreigeben(nummer) {
                     try {
-                        var r = await sbRead(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + encodeURIComponent(tp.rid) + '&select=table_number', { headers: kopf() });
-                        var alle = await r.json();
-                        if (Array.isArray(alle)) nr = Math.max(nr, hoechste(alle, 'table_number'));
-                    } catch (e) { /* dann wenigstens die sichtbaren; bei 409 kommt die Meldung */ }
-                    return nr + 1;
+                        await sbWrite(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + encodeURIComponent(tp.rid) + '&is_active=eq.false&table_number=eq.' + encodeURIComponent(String(nummer)), {
+                            method: 'PATCH', headers: kopf({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }), body: JSON.stringify({ table_number: platzhalterNummer() }) });
+                    } catch (e) { /* dann greift beim Anlegen das Weiterzählen */ }
                 }
                 async function neuerTisch(art) {
                     var vorlage = { rund2: [2, 'round', 70, 70], rund4: [4, 'round', 100, 100], rund6: [6, 'round', 120, 120],
@@ -20199,13 +20209,10 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     try { await tischAnlegen(art, vorlage, 0, 0); } finally { tp.legtAn = false; }
                 }
                 async function tischAnlegen(art, vorlage, nr, versuch) {
-                    // Nummer: höchste + 1 -- über ALLE Zeilen, auch gelöschte (is_active =
-                    // false). Die behalten ihre Nummer, und (restaurant_id, table_number) ist
-                    // eindeutig. Vorher zählten nur die sichtbaren Tische: am 08.10.2026
-                    // 24 x 409 "duplicate key", und die Meldung stand oben außer Sicht.
-                    // Ist sie trotzdem belegt (z. B. darf das Konto gelöschte Zeilen nicht
-                    // lesen), die nächste nehmen -- höchstens 25 Mal.
-                    if (!nr) nr = await freieNummer();
+                    // Kleinste freie Nummer; hält sie ein gelöschter Tisch, wird sie frei
+                    // gemacht. Klappt das nicht (z. B. Rechte), die nächste -- höchstens 25.
+                    if (!nr) nr = freieNummer();
+                    if (!versuch || versuch === 0) await nummerFreigeben(nr);
                     var daten = { restaurant_id: tp.rid, table_name: 'Tisch ' + nr, table_number: String(nr), min_capacity: Math.max(1, Math.floor(vorlage[0] / 2)), max_capacity: vorlage[0], area: tp.bereich || 'main', status: 'available', is_active: true, table_shape: vorlage[1] };
                     if (!tp.ohnePosSpalten) { daten.pos_x = 50; daten.pos_y = 50; daten.rotation = 0; }
                     try {
@@ -20218,7 +20225,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     } catch (e) {
                         var m = String(e && e.message || e);
                         if (/pos_x|pos_y|rotation/.test(m) && !tp.ohnePosSpalten) { tp.ohnePosSpalten = true; return tischAnlegen(art, vorlage, nr, versuch + 1); }
-                        if (/23505|duplicate/i.test(m) && versuch < 25) return tischAnlegen(art, vorlage, nr + 1, versuch + 1);
+                        if (/23505|duplicate/i.test(m) && versuch < 25) return tischAnlegen(art, vorlage, freieNummer(nr + 1), versuch + 1);
                         melden('Tisch nicht angelegt – ' + (/23505|duplicate/i.test(m) ? 'die Nummer ' + nr + ' gibt es schon.' : m), 'fehler');
                     }
                 }
@@ -20450,7 +20457,11 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         else if (a === 'entfernen') {
                             if (!await kinConfirm(t.name + ' entfernen?\n\nAlte Reservierungen bleiben erhalten.')) return;
                             try {
-                                var r = await sbWrite(SUPABASE_URL + '/rest/v1/restaurant_tables?id=eq.' + encodeURIComponent(t.id), { method: 'PATCH', headers: kopf({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }), body: JSON.stringify({ is_active: false }) });
+                                // Nummer gleich frei machen, damit ein neuer Tisch sie bekommen kann.
+                                // Lehnt die Datenbank den Platzhalter ab (Regel, die wir nicht sehen),
+                                // wenigstens entfernen -- die Nummer macht dann das Anlegen frei.
+                                var weg = function (mitNr) { var d = { is_active: false }; if (mitNr) d.table_number = platzhalterNummer(); return sbWrite(SUPABASE_URL + '/rest/v1/restaurant_tables?id=eq.' + encodeURIComponent(t.id), { method: 'PATCH', headers: kopf({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }), body: JSON.stringify(d) }); };
+                                var r; try { r = await weg(true); } catch (x1) { if (x1 && x1.status >= 400 && x1.status < 500 && x1.status !== 401 && x1.status !== 403) r = await weg(false); else throw x1; }
                                 var zz = await r.json().catch(function () { return []; });
                                 if (!Array.isArray(zz) || !zz.length) throw new Error('keine Berechtigung, diesen Tisch zu ändern');
                                 tp.tische = tp.tische.filter(function (x) { return x.id !== t.id; }); delete tp.geaendert[t.id]; tp.gewaehlt = null; zeichnen();
@@ -20476,7 +20487,11 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     $('tp3Seite').addEventListener('change', function (e) {
                         var t = tischVon(tp.gewaehlt); if (!t || !tp.bearbeiten) return;
                         if (e.target.id === 'tp3eName') { merken(); t.name = e.target.value.trim() || t.name; geaendert(t); zeichnen(); }
-                        if (e.target.id === 'tp3eNr') { merken(); t.nummer = e.target.value.trim() || t.nummer; geaendert(t); zeichnen(); }
+                        if (e.target.id === 'tp3eNr') {
+                            var neuNr = e.target.value.trim(), schon = neuNr && tp.tische.find(function (x) { return x.id !== t.id && String(x.nummer).trim() === neuNr; });
+                            if (schon) { e.target.value = t.nummer; melden('Die Nummer ' + neuNr + ' hat schon ' + schon.name + '.', 'fehler'); return; }
+                            merken(); t.nummer = neuNr || t.nummer; geaendert(t); zeichnen();
+                        }
                         if (e.target.id === 'tp3eBereich') { merken(); t.bereich = bereichSchluessel(e.target.value); tp.bereich = t.bereich; geaendert(t); zeichnen(); }
                     });
                     window.addEventListener('resize', function () { if ($('tp3') && $('tp3').offsetParent && !zug) zeichnen(); });
