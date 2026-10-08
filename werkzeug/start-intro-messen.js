@@ -31,7 +31,7 @@ if (!fs.existsSync(AUS)) fs.mkdirSync(AUS);
 
   async function seite(opt) {
     opt = opt || {};
-    var ctx = await b.newContext({ viewport: opt.viewport || { width: 390, height: 844 }, reducedMotion: opt.ruhig ? 'reduce' : 'no-preference', serviceWorkers: 'block' });
+    var ctx = await b.newContext({ viewport: opt.viewport || { width: 390, height: 844 }, deviceScaleFactor: opt.dpr || 3, reducedMotion: opt.ruhig ? 'reduce' : 'no-preference', serviceWorkers: 'block' });
     await ctx.addInitScript(function () { try { localStorage.setItem('kmi_onboarded', 'true'); localStorage.setItem('kmi_consent', 'essential'); } catch (e) {} });
     // Fremde Server (Supabase, Schriften) gibt es hier nicht -- leer antworten.
     await ctx.route(/^https?:\/\/(?!localhost)/, function (rt) { return rt.fulfill({ status: 200, contentType: 'application/json', body: '[]' }); });
@@ -42,21 +42,24 @@ if (!fs.existsSync(AUS)) fs.mkdirSync(AUS);
   }
   function zustand() {
     var sp = document.getElementById('splashScreen'), v = document.getElementById('splashVideo');
+    var rc = v ? v.getBoundingClientRect() : null;
     return { da: !!sp, zeit: v ? Math.round(v.currentTime * 100) / 100 : null, quelle: v ? v.currentSrc.split('/').pop() : null,
-             passt: v ? getComputedStyle(v).objectFit : null, weg: sp ? sp.classList.contains('weg') : null };
+             breite: v ? v.offsetWidth : null, hoehe: v ? v.offsetHeight : null, fenster: [innerWidth, innerHeight],
+             pixel: v ? Math.round(v.offsetHeight * devicePixelRatio) : null, weg: sp ? sp.classList.contains('weg') : null };
   }
 
   // 1. Handy hoch: das Video läuft und verschwindet danach
   var p = await seite();
   var t0 = Date.now();
   await p.s.goto('http://localhost:' + PORT + '/', { waitUntil: 'domcontentloaded' });
-  await p.s.waitForTimeout(450);
-  await p.s.screenshot({ path: path.join(AUS, 'intro-handy-1.png') });
-  await p.s.waitForTimeout(600);
+  // Erst messen, dann fotografieren: ein Foto mit dreifacher Pixeldichte dauert
+  // fast so lange wie das ganze Intro.
+  await p.s.waitForFunction(function () { var v = document.getElementById('splashVideo'); return v && v.currentTime > 0.9; }, null, { timeout: 4000, polling: 16 }).catch(function () {});
   var z1 = await p.s.evaluate(zustand);
-  await p.s.screenshot({ path: path.join(AUS, 'intro-handy-2.png') });
-  pruef('Handy: das Video läuft (nach ~1 s schon ' + z1.zeit + ' s weit)', z1.da && z1.zeit > 0.4, JSON.stringify(z1));
-  pruef('Handy: kleine Datei wird geladen (webm/mp4 aus /intro/)', /^kiek-start-v5\.(webm|mp4)$/.test(z1.quelle || ''), z1.quelle);
+  await p.s.screenshot({ path: path.join(AUS, 'intro-handy-1.png') });
+  pruef('Handy: das Video läuft (' + z1.zeit + ' s weit)', z1.da && z1.zeit > 0.4, JSON.stringify(z1));
+  pruef('Handy: kleiner als der Bildschirm, nie hochgerechnet (' + z1.pixel + ' von 1920 Bildpunkten)', z1.breite > 100 && z1.breite < z1.fenster[0] && z1.hoehe <= z1.fenster[1] * 0.79 && z1.pixel <= 1960, JSON.stringify(z1));
+  pruef('Handy: kleine Datei wird geladen (webm/mp4 aus /intro/)', /^kiek-start-v5-hd\.(webm|mp4)$/.test(z1.quelle || ''), z1.quelle);
   var ende = await p.s.waitForFunction(function () { return !document.getElementById('splashScreen'); }, null, { timeout: 6000 }).then(function () { return Date.now() - t0; }).catch(function () { return -1; });
   pruef('Handy: danach ist es weg (nach ' + (ende / 1000).toFixed(1) + ' s, Video 1,9 s)', ende > 1500 && ende < 4800, ende);
   await p.s.screenshot({ path: path.join(AUS, 'intro-handy-danach.png') });
@@ -68,12 +71,22 @@ if (!fs.existsSync(AUS)) fs.mkdirSync(AUS);
   await p.ctx.close();
 
   // 3. iPad quer: dasselbe Video randlos, Logo sichtbar
-  p = await seite({ viewport: { width: 1180, height: 820 } });
+  p = await seite({ viewport: { width: 1180, height: 820 }, dpr: 2 });
   await p.s.goto('http://localhost:' + PORT + '/', { waitUntil: 'domcontentloaded' });
   await p.s.waitForTimeout(1100);
   var z3 = await p.s.evaluate(zustand);
   await p.s.screenshot({ path: path.join(AUS, 'intro-ipad-quer.png') });
-  pruef('iPad quer: randlos (cover), läuft', z3.passt === 'cover' && z3.zeit > 0.5, JSON.stringify(z3));
+  // Ibo: "Bildqualität nicht gut, wirkt zu groß" -- vorher randlos, Logo ~1000 px.
+  pruef('iPad quer: Video ' + z3.breite + ' x ' + z3.hoehe + ' px (Logo ~' + Math.round(z3.breite * 0.8) + ' px), nicht randlos, nie hochgerechnet', z3.breite > 100 && z3.breite < z3.fenster[0] * 0.35 && z3.pixel <= 1960 && z3.zeit > 0.5, JSON.stringify(z3));
+  await p.ctx.close();
+
+  // 3b. Der Flug durch das i füllt das ganze Bild (kein Oval)
+  p = await seite({ viewport: { width: 1180, height: 820 }, dpr: 2 });
+  await p.s.goto('http://localhost:' + PORT + '/', { waitUntil: 'domcontentloaded' });
+  var flug = await p.s.waitForFunction(function () { var v = document.getElementById('splashVideo'); return v && v.currentTime > 1.85 ? true : false; }, null, { timeout: 5000, polling: 16 }).then(function () { return true; }).catch(function () { return false; });
+  var zf = await p.s.evaluate(function () { var v = document.getElementById('splashVideo'), sp = document.getElementById('splashScreen'); if (!v || !sp) return null; var rc = v.getBoundingClientRect(); return { flug: sp.classList.contains('flug'), deckt: rc.left <= 1 && rc.top <= 1 && rc.right >= innerWidth - 1 && rc.bottom >= innerHeight - 1, zeit: v.currentTime }; });
+  await p.s.screenshot({ path: path.join(AUS, 'intro-ipad-flug.png') });
+  pruef('Flug durch das i (ab 1,3 s): bei 1,85 s deckt das Video den ganzen Schirm, kein Oval', flug && zf && zf.flug && zf.deckt, JSON.stringify(zf));
   await p.ctx.close();
 
   // 4. Sehr schmales Handy: ganz zeigen, sonst wäre das K abgeschnitten
@@ -82,7 +95,7 @@ if (!fs.existsSync(AUS)) fs.mkdirSync(AUS);
   await p.s.waitForTimeout(1100);
   var z4 = await p.s.evaluate(zustand);
   await p.s.screenshot({ path: path.join(AUS, 'intro-schmal.png') });
-  pruef('schmales Handy (360 x 800): ganz gezeigt (contain)', z4.passt === 'contain', JSON.stringify(z4));
+  pruef('schmales Handy (360 x 800): ganz im Bild, links und rechts Luft', z4.breite > 100 && z4.breite <= z4.fenster[0] * 0.85, JSON.stringify(z4));
   await p.ctx.close();
 
   // 5. "Bewegung reduzieren": gar kein Intro
