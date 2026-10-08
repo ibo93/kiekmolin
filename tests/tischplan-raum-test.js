@@ -120,14 +120,20 @@ t('Gedeck nur, wo jemand sitzt; reserviert = Kärtchen; nicht beim Bearbeiten', 
 // Einrichtung (Ibo: "mit Küche einbauen, alles mögliche muss drin sein")
 var TEILE = new Function(H.slice(H.indexOf('var TEIL = {'), H.indexOf('};', H.indexOf('var TEIL = {')) + 2) + H.slice(H.indexOf('var KATALOG = ['), H.indexOf('];', H.indexOf('var KATALOG = [')) + 2) + '; return { TEIL: TEIL, KATALOG: KATALOG };')();
 var katArten = [].concat.apply([], TEILE.KATALOG.map(function (g) { return g[1]; }));
-t('Katalog: 27 Teile, jedes hat Name und Maße', katArten.length === 27 && katArten.every(function (a) { return TEILE.TEIL[a] && TEILE.TEIL[a].name && TEILE.TEIL[a].b > 0 && TEILE.TEIL[a].t > 0; }), katArten.filter(function (a) { return !TEILE.TEIL[a]; }).join(','));
-t('Katalog hat Küche, WC, Kasse, Bühne, Strandkorb, Bankinsel …', ['thekenschrank', 'bankinsel', 'blumenkasten', 'kueche', 'wc', 'kasse', 'kuehlung', 'buehne', 'kamin', 'sofa', 'garderobe', 'schirm', 'strandkorb'].every(function (a) { return katArten.indexOf(a) >= 0; }), '');
-var Mb = new Function('var tp = { ppm: 50, ansicht: "oben" };' + ['flach', 'standX', 'standY', 'kreuz', 'scheibe', 'nahKanten', 'seiten', 'kasten', 'fliesen', 'wandRing', 'tuerLuecke', 'blumen', 'glas'].map(fn).join('\n')
+t('Katalog: 29 Teile, jedes hat Name und Maße', katArten.length === 29 && katArten.every(function (a) { return TEILE.TEIL[a] && TEILE.TEIL[a].name && TEILE.TEIL[a].b > 0 && TEILE.TEIL[a].t > 0; }), katArten.filter(function (a) { return !TEILE.TEIL[a]; }).join(','));
+t('Katalog hat Küche, WC, Kasse, Bühne, Strandkorb, Bankinsel …', ['thekenschrank', 'kuchenvitrine', 'fleischtheke', 'bankinsel', 'blumenkasten', 'kueche', 'wc', 'kasse', 'kuehlung', 'buehne', 'kamin', 'sofa', 'garderobe', 'schirm', 'strandkorb'].every(function (a) { return katArten.indexOf(a) >= 0; }), '');
+var Mb = new Function('var tp = { ppm: 50, ansicht: "oben" };' + ['flach', 'standX', 'standY', 'kreuz', 'scheibe', 'nahKanten', 'seiten', 'kasten', 'fliesen', 'wandRing', 'tuerLuecke', 'blumen', 'glas', 'vitrine'].map(fn).join('\n')
     + H.slice(H.indexOf("var STAHL = "), H.indexOf(';', H.indexOf("var STAHL = ")) + 1) + H.slice(H.indexOf('var MOEBEL = {'), H.indexOf('\n                };', H.indexOf('var MOEBEL = {')) + 19)
     + '; return { tp: tp, MOEBEL: MOEBEL, KAT: ' + JSON.stringify(katArten) + ' };')();
 var kue = Mb.MOEBEL.kueche(250, 180, 0);
 t('Küche ist eingerichtet: Fliesen, Herd mit 4 Platten, Spüle, Kühlschrank, Durchreiche', (kue.match(/1\.5px solid #6b7270/g) || []).length === 4 && /--tp3-fliese/.test(kue) && /inset 0 2px 4px/.test(kue) && (kue.match(/--tp3-schnitt/g) || []).length >= 5, (kue.match(/1\.5px solid #6b7270/g) || []).length);
+// Ibo: "Vitrine auch rein, für Kuchen oder Fleisch" -- von oben muss man die Ware sehen
+var kv = Mb.MOEBEL.kuchenvitrine(70, 40, 0), fv = Mb.MOEBEL.fleischtheke(125, 50, 0);
+t('Kuchenvitrine von oben: Torten mit angeschnittenem Stück unter Glas', (kv.match(/conic-gradient\(from 30deg,transparent 0 45deg/g) || []).length >= 2 && /border:2px solid #b7bdbb/.test(kv), (kv.match(/conic-gradient/g) || []).length);
+t('Fleischtheke von oben: Steaks (marmoriert, Fettrand), Würste, Stahlschalen unter Glas', /#9a2530/.test(fv) && /#f1e3d3/.test(fv) && /#a65a36/.test(fv) && /border:2px solid #b7bdbb/.test(fv), '');
 Mb.tp.ansicht = '3d';
+var kv3 = Mb.MOEBEL.kuchenvitrine(70, 40, 0);
+t('Vitrine in 3D: Glas vorne, an beiden Seiten und oben, Ware darunter', (kv3.match(/rgba\(214,232,240,0\.30\)/g) || []).length === 4 && /rotateX\(-90deg\)/.test(kv3) && (kv3.match(/rotateY\(90deg\)/g) || []).length >= 2 && /translateZ\(44px\)/.test(kv3), (kv3.match(/rgba\(214,232,240,0\.30\)/g) || []).length);
 var ohne = Mb.KAT.filter(function (a) { return ['tuer', 'fenster', 'wand', 'theke', 'pflanze', 'tv'].indexOf(a) < 0 && !Mb.MOEBEL[a]; });
 t('jedes Katalog-Teil wird gezeichnet (eigene Zeichnung oder Kasten)', ohne.length === 0, ohne.join(','));
 var kaputt = Object.keys(Mb.MOEBEL).filter(function (a) { try { return !(Mb.MOEBEL[a](100, 60, -40, false).length > 50); } catch (e) { return true; } });

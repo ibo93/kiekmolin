@@ -72,9 +72,17 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
       if (/supabase\.co\/rest\/v1\/restaurant_tables/.test(u)) {
         if (m === 'GET') {
           if (opt.ohneSpalten && /pos_x/.test(u)) return json({ code: '42703', message: 'column restaurant_tables.pos_x does not exist' }, 400);
-          return json(TISCHE.map(function (t) { var c = Object.assign({}, t); if (opt.ohneSpalten) { delete c.pos_x; delete c.pos_y; delete c.rotation; } return c; }));
+          var liste = TISCHE.map(function (t) { var c = Object.assign({}, t); if (opt.ohneSpalten) { delete c.pos_x; delete c.pos_y; delete c.rotation; } return c; });
+          // Gelöschte Tische (is_active = false) bleiben mit ihrer Nummer in der Tabelle.
+          if (opt.geloescht && !/is_active=eq\.true/.test(u)) liste = liste.concat(opt.geloescht.map(function (nr) { return { id: 'alt-' + nr, table_number: String(nr), is_active: false }; }));
+          return json(liste);
         }
         geschrieben.push({ m: m, u: u, body: rt.request().postData() });
+        // Wie live am 08.10.2026 08:51 UTC: Nummer gehört einem gelöschten Tisch -> 409 / 23505.
+        if (opt.geloescht && m === 'POST') {
+          var nr = +JSON.parse(rt.request().postData() || '{}').table_number;
+          if (opt.immer409 || nr <= 20 || opt.geloescht.indexOf(nr) >= 0) return json({ code: '23505', details: 'Key (restaurant_id, table_number)=(r, ' + nr + ') already exists.', message: 'duplicate key value violates unique constraint "restaurant_tables_restaurant_id_table_number_key"' }, 409);
+        }
         if (opt.rlsLeer) return json([]);
         return json([Object.assign({}, TISCHE[0], JSON.parse(rt.request().postData() || '{}'))], m === 'POST' ? 201 : 200);
       }
@@ -506,6 +514,32 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
   pruef('kein Seitenfehler im L-Plan', !p.fehler.length, p.fehler.join(' | '));
   await p.ctx.close();
 
+  // ---------- 6a. Tisch anlegen, wenn gelöschte Tische Nummern belegen ----------
+  // Ibo, 08.10.2026: "wenn ich die Tische einfügen möchte, kommt nichts".
+  // Protokoll: 24 x POST restaurant_tables -> 409 duplicate key (table_number).
+  // Der Plan lädt nur aktive Tische und nahm "höchste + 1" -- die Nummer
+  // gehörte einem gelöschten Tisch.
+  async function anlegen(q) {
+    await q.s.evaluate(function () { var b = document.querySelector('#tp3Leiste [data-neu="rund4"]'); b.scrollIntoView({ block: 'center' }); });
+    await q.s.click('#tp3Leiste [data-neu="rund4"]'); await q.s.waitForTimeout(1500);
+    return q.s.evaluate(function () {
+      var m = document.getElementById('tp3Meldung'), r = m.getBoundingClientRect(), vh = window.innerHeight;
+      return { tische: window.tp3.tische.length, nummern: window.tp3.tische.map(function (t) { return t.nummer; }).join(','), meldung: m.textContent,
+        sichtbar: m.classList.contains('zeigen') && r.height > 0 && r.top >= 0 && r.bottom <= vh, oben: Math.round(r.top) };
+    });
+  }
+  p = await seite({ geloescht: [21, 22] });
+  await p.s.click('#tp3Bearbeiten'); await p.s.waitForTimeout(150);
+  var an = await anlegen(p);
+  var posts = p.geschrieben.filter(function (g) { return g.m === 'POST' && /restaurant_tables/.test(g.u); }).map(function (g) { return JSON.parse(g.body).table_number; });
+  pruef('Tisch anlegen trotz gelöschter Tische 21 und 22: wird Tisch 23, steht im Plan', an.tische === 12 && /(^|,)23$/.test(an.nummern) && posts[posts.length - 1] === '23', JSON.stringify(an) + ' POSTs ' + posts.join(','));
+  await p.ctx.close();
+  p = await seite({ geloescht: [21, 22], immer409: true });
+  await p.s.click('#tp3Bearbeiten'); await p.s.waitForTimeout(150);
+  an = await anlegen(p);
+  pruef('klappt es trotzdem nicht: Meldung steht im Blick, nicht oben außerhalb (Regel 6)', an.tische === 11 && an.sichtbar && /nicht angelegt/i.test(an.meldung), JSON.stringify(an));
+  await p.ctx.close();
+
   // ---------- 6b. Eingerichtetes Lokal (07.10.2026) ----------
   // Ibo: "mit Küche einbauen, alles mögliche muss drin sein".
   var EINGERICHTET = {
@@ -524,7 +558,8 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
       { id: 'ga', art: 'garderobe', x: 62, y: 96, b: 1.6, t: 0.5, dreh: 0 },
       { id: 'sa', art: 'saeule', x: 40, y: 50, b: 0.4, t: 0.4, dreh: 0 },
       { id: 'pf', art: 'pflanze', x: 3, y: 5, b: 0.6, t: 0.6, dreh: 0 },
-      { id: 'bi', art: 'bankinsel', x: 40, y: 66, b: 2.4, t: 1.6, dreh: 0 }, { id: 'bk', art: 'blumenkasten', x: 30, y: 30, b: 1.8, t: 0.45, dreh: 90 }] },
+      { id: 'bi', art: 'bankinsel', x: 40, y: 66, b: 2.4, t: 1.6, dreh: 0 }, { id: 'bk', art: 'blumenkasten', x: 30, y: 30, b: 1.8, t: 0.45, dreh: 90 },
+      { id: 'kv', art: 'kuchenvitrine', x: 41, y: 22, b: 1.4, t: 0.8, dreh: 0 }, { id: 'fl', art: 'fleischtheke', x: 58, y: 22, b: 2.5, t: 1.0, dreh: 0 }] },
     terrace: { breite: 8, tiefe: 5, teile: [
       { id: 'sc', art: 'schirm', x: 30, y: 45, b: 2.5, t: 2.5, dreh: 0 },
       { id: 'sk1', art: 'strandkorb', x: 75, y: 25, b: 1.25, t: 0.9, dreh: 0 }, { id: 'sk2', art: 'strandkorb', x: 75, y: 70, b: 1.25, t: 0.9, dreh: 180 }] }
@@ -534,9 +569,15 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
     var b = document.getElementById('tp3Boden'), kc = b.querySelector('.tp3-teil[data-teil-id="kc"]');
     return { teile: b.querySelectorAll('.tp3-teil').length, soll: window.tp3.raum.main.teile.length,
       herdplatten: kc ? Array.prototype.filter.call(kc.querySelectorAll('.tp3-f'), function (f) { return /1\.5px solid #6b7270/.test(f.getAttribute('style')); }).length : -1,
-      kuecheFlaechen: kc ? kc.querySelectorAll('.tp3-f').length : -1 };
+      kuecheFlaechen: kc ? kc.querySelectorAll('.tp3-f').length : -1,
+      vitrine: ['kv', 'fl'].map(function (id) { var v = b.querySelector('.tp3-teil[data-teil-id="' + id + '"]'); if (!v) return null; var r = v.getBoundingClientRect();
+        var f = Array.prototype.map.call(v.querySelectorAll('.tp3-f'), function (x) { return x.getAttribute('style'); });
+        return { glas: f.filter(function (x) { return /rgba\(214,232,240,0\.30\)/.test(x); }).length, torte: f.filter(function (x) { return /conic-gradient\(from 30deg/.test(x); }).length,
+          steak: f.filter(function (x) { return /#9a2530/.test(x); }).length, w: Math.round(r.width), h: Math.round(r.height) }; }) };
   });
   pruef('eingerichtetes Lokal: alle ' + ein.soll + ' Teile stehen im Plan', ein.teile === ein.soll, JSON.stringify(ein));
+  pruef('Vitrinen (Ibo: "für Kuchen oder Fleisch"): Glas rundum und oben, Torten bzw. Steaks darin, sichtbar groß',
+    ein.vitrine[0] && ein.vitrine[1] && ein.vitrine[0].glas === 4 && ein.vitrine[0].torte >= 3 && ein.vitrine[1].glas === 4 && ein.vitrine[1].steak >= 4 && ein.vitrine[0].w > 20 && ein.vitrine[1].w > 40, JSON.stringify(ein.vitrine));
   pruef('Küche ist eingerichtet: Herd mit 4 Platten, Arbeitsflächen, Wände', ein.herdplatten === 4 && ein.kuecheFlaechen > 40, JSON.stringify(ein));
   await p.s.locator('#tp3').screenshot({ path: path.join(AUS, 'tischplan-eingerichtet-3d.png') });
   await p.s.click('#tp3AnsichtOben'); await p.s.waitForTimeout(150);
@@ -550,7 +591,7 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
   await p.s.click('#tp3Bearbeiten'); await p.s.waitForTimeout(150);
   await p.s.click('#tp3Leiste #tp3KatalogAuf'); await p.s.waitForTimeout(150);
   var kat = await p.s.evaluate(function () { return Array.prototype.map.call(document.querySelectorAll('#tp3Seite [data-neu-teil]'), function (x) { return x.getAttribute('data-neu-teil'); }); });
-  pruef('Katalog rechts: 27 Teile in Gruppen (Raum, Gastro, Gäste, Nebenräume, Draußen)', kat.length === 27 && kat.indexOf('thekenschrank') >= 0 && kat.indexOf('bankinsel') >= 0 && kat.indexOf('kueche') >= 0 && kat.indexOf('strandkorb') >= 0, kat.length);
+  pruef('Katalog rechts: 29 Teile in Gruppen (Raum, Gastro, Gäste, Nebenräume, Draußen)', kat.length === 29 && kat.indexOf('thekenschrank') >= 0 && kat.indexOf('kuchenvitrine') >= 0 && kat.indexOf('fleischtheke') >= 0 && kat.indexOf('bankinsel') >= 0 && kat.indexOf('kueche') >= 0 && kat.indexOf('strandkorb') >= 0, kat.length);
   var vorher = await p.s.evaluate(function () { return window.tp3.raum.main.teile.length; });
   for (var ki = 0; ki < kat.length; ki++) {
     await p.s.evaluate(function () { window.tp3.teilGewaehlt = null; window.tp3.gewaehlt = null; });
@@ -558,7 +599,7 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
     await p.s.click('#tp3Seite [data-neu-teil="' + kat[ki] + '"]');
   }
   var nachher = await p.s.evaluate(function () { return { n: window.tp3.raum.main.teile.length, tv: (window.tp3.raum.main.teile.filter(function (t) { return t.art === 'tv'; }).pop() || {}).y }; });
-  pruef('jedes Katalog-Teil lässt sich anlegen (+27), der Bildschirm hängt an der Wand', nachher.n === vorher + 27 && nachher.tv === 0, JSON.stringify(nachher) + ' vorher ' + vorher);
+  pruef('jedes Katalog-Teil lässt sich anlegen (+29), der Bildschirm hängt an der Wand', nachher.n === vorher + 29 && nachher.tv === 0, JSON.stringify(nachher) + ' vorher ' + vorher);
   pruef('kein Seitenfehler mit Einrichtung', !p.fehler.length, p.fehler.join(' | '));
   await p.ctx.close();
 
