@@ -14744,261 +14744,66 @@ function ladeStandZeigen(schluessel) {
 </head>
 <body>
 
-<!-- Splash Screen - Cinematic Intro -->
-<div id="splashScreen" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;">
+<!-- ==================== START-INTRO ====================
+     08.10.2026 -- Ibo: "ich will genau das haben, das andere geht dann weg".
+     Sein Video (Kiek-mol-in_App-Start v5): das goldene i, "Kiek", Flug durch
+     das i ins Gruen. Ersetzt den alten Splash (Partikel, Ringe, Ladebalken).
+     - Datei klein gemacht: volle Schaerfe (1080x1920), aber ohne Ton (Browser
+       spielen ohnehin nur stumm von selbst ab): 87 KB webm / 179 KB mp4 statt
+       4,4 MB -- auf Mobilfunk sonst langsamer geladen, als das Intro dauert.
+     - Quer (iPad, Rechner): dasselbe Video randlos (cover). Das Logo liegt bei
+       34-56 % der Hoehe und bleibt sichtbar. Sehr schmale Handys: ganz zeigen
+       (contain), sonst waere das K abgeschnitten.
+     - Kein Haengen: blockiertes Abspielen (Stromsparmodus), Fehler, kein Netz
+       oder ein Video, das nach 1,5 s nicht losgelaufen ist -> sofort weiter.
+       Spaetestens nach 4,5 s ist es in jedem Fall weg.
+     - Einmal pro Sitzung; "Bewegung reduzieren" -> gar nicht. -->
+<div id="splashScreen" aria-hidden="true">
     <style>
-        #splashScreen {
-            background: radial-gradient(ellipse at 30% 20%, #1a5f4a 0%, #0d3328 40%, #091f19 100%);
-        }
-
-        /* Ambient light that slowly breathes */
-        .splash-ambient {
-            position:absolute;inset:0;pointer-events:none;
-            background: radial-gradient(circle at 50% 45%, rgba(200,169,110,0.06) 0%, transparent 60%);
-            animation: splashAmbientPulse 4s ease-in-out infinite;
-        }
-        @keyframes splashAmbientPulse {
-            0%, 100% { opacity:0.3; transform:scale(1); }
-            50% { opacity:1; transform:scale(1.1); }
-        }
-
-        /* Particles */
-        .splash-particles { position:absolute;inset:0;overflow:hidden;pointer-events:none; }
-        .splash-particle {
-            position:absolute;
-            border-radius:50%;
-            animation: splashFloat linear infinite;
-        }
-        @keyframes splashFloat {
-            0% { transform:translateY(110vh) translateX(0) scale(0); opacity:0; }
-            10% { opacity:0.8; transform:translateY(90vh) translateX(5px) scale(0.8); }
-            50% { opacity:0.5; transform:translateY(50vh) translateX(-8px) scale(1); }
-            90% { opacity:0.2; }
-            100% { transform:translateY(-10vh) translateX(3px) scale(0.6); opacity:0; }
-        }
-
-        /* Logo entrance - slow dramatic zoom from far + blur clearing */
-        @keyframes splashLogoReveal {
-            0% { opacity:0; transform:scale(0.1); filter:blur(20px); }
-            30% { opacity:0.5; filter:blur(8px); }
-            60% { opacity:1; transform:scale(1.05); filter:blur(0); }
-            75% { transform:scale(0.97); }
-            85% { transform:scale(1.02); }
-            100% { opacity:1; transform:scale(1); filter:blur(0); }
-        }
-
-        /* Logo glow pulsing after reveal */
-        @keyframes splashLogoGlow {
-            0%, 100% { box-shadow:0 0 40px rgba(200,169,110,0.2), 0 0 80px rgba(26,95,74,0.3); }
-            50% { box-shadow:0 0 60px rgba(200,169,110,0.4), 0 0 120px rgba(26,95,74,0.5), 0 0 180px rgba(200,169,110,0.1); }
-        }
-
-        /* Expanding rings - sonar style */
-        .splash-ring {
-            position:absolute;
-            border-radius:50%;
-            border:2px solid rgba(200,169,110,0.4);
-            opacity:0;
-        }
-        @keyframes splashRingExpand {
-            0% { transform:scale(0.3); opacity:0.7; border-width:2px; }
-            40% { opacity:0.4; }
-            100% { transform:scale(3.5); opacity:0; border-width:0.5px; }
-        }
-
-        /* Text reveal - each letter fades in */
-        .splash-title {
-            font-family:'Epilogue',Georgia,serif;
-            font-size:36px;
-            font-weight:700;
-            color:white;
-            opacity:0;
-            position:relative;
-            overflow:hidden;
-        }
-        @keyframes splashTitleIn {
-            0% { opacity:0; transform:translateY(30px); letter-spacing:16px; }
-            60% { letter-spacing:4px; }
-            100% { opacity:1; transform:translateY(0); letter-spacing:3px; }
-        }
-
-        /* Gold shimmer sweep across text */
-        @keyframes splashShimmer {
-            0% { left:-120%; }
-            100% { left:120%; }
-        }
-
-        /* Tagline */
-        @keyframes splashTagline {
-            0% { opacity:0; transform:translateY(15px) scale(0.95); }
-            100% { opacity:0.6; transform:translateY(0) scale(1); }
-        }
-
-        /* Decorative line expanding from center */
-        .splash-line {
-            width:0;
-            height:1px;
-            background:linear-gradient(90deg, transparent, rgba(200,169,110,0.5), transparent);
-            transition: width 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-        }
-
-        /* Loading bar */
-        .splash-progress-track {
-            position:absolute;
-            bottom:55px;
-            width:80px;
-            height:2px;
-            background:rgba(255,255,255,0.08);
-            border-radius:2px;
-            overflow:hidden;
-            z-index:2;
-        }
-        .splash-progress-bar {
-            width:0%;
-            height:100%;
-            background:linear-gradient(90deg,#c8a96e,#e8c88a,#c8a96e);
-            background-size:200% 100%;
-            border-radius:2px;
-            transition:width 0.8s cubic-bezier(0.4,0,0.2,1);
-            box-shadow:0 0 12px rgba(200,169,110,0.6);
-            animation: splashBarShimmer 2s linear infinite;
-        }
-        @keyframes splashBarShimmer {
-            0% { background-position:200% 0; }
-            100% { background-position:-200% 0; }
-        }
-
-        /* Final fade out - cinematic zoom */
-        @keyframes splashCinematicOut {
-            0% { opacity:1; transform:scale(1); filter:blur(0); }
-            40% { opacity:1; transform:scale(1.02); }
-            100% { opacity:0; transform:scale(1.15); filter:blur(6px); }
-        }
+        #splashScreen { position: fixed; inset: 0; z-index: 999999; overflow: hidden; background: radial-gradient(ellipse 120% 70% at 50% 45%, #134b37 0%, #0f3f2e 62%, #0d3428 100%); transition: opacity 0.42s cubic-bezier(0.4, 0, 0.2, 1); }
+        /* Das Video endet in Flaechen-Gruen #134b37 -- die Raender ziehen mit. */
+        #splashScreen::before { content: ''; position: absolute; inset: 0; background: #134b37; opacity: 0; transition: opacity 0.35s ease; }
+        #splashScreen.ende::before { opacity: 1; }
+        #splashScreen.weg { opacity: 0; pointer-events: none; }
+        #splashVideo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 45%; }
+        @media (max-aspect-ratio: 11/20) { #splashVideo { object-fit: contain; } }
     </style>
-
-    <!-- Ambient glow -->
-    <div class="splash-ambient"></div>
-
-    <!-- Floating particles -->
-    <div class="splash-particles" id="splashParticles"></div>
-
-    <!-- Expanding rings (sonar effect) -->
-    <div class="splash-ring" id="splashRing1" style="width:180px;height:180px;"></div>
-    <div class="splash-ring" id="splashRing2" style="width:180px;height:180px;border-color:rgba(255,255,255,0.15);"></div>
-    <div class="splash-ring" id="splashRing3" style="width:180px;height:180px;border-color:rgba(200,169,110,0.2);"></div>
-
-    <!-- Logo -->
-    <div style="position:relative;z-index:2;">
-        <img id="splashLogo" src="icon-192.png" width="130" height="130" alt="Kiek mol in Logo" style="border-radius:28px;opacity:0;animation:splashLogoReveal 1.4s cubic-bezier(0.22,0.61,0.36,1) 0.3s both;">
-    </div>
-
-    <!-- Decorative line -->
-    <div class="splash-line" id="splashLine" style="margin-top:20px;"></div>
-
-    <!-- Text -->
-    <div style="position:relative;z-index:2;margin-top:16px;text-align:center;">
-        <div class="splash-title" id="splashTitle" style="animation:splashTitleIn 1.2s cubic-bezier(0.22,0.61,0.36,1) 1.2s both;">
-            Kiek mol <span style="color:#c8a96e;">in</span>
-            <div style="position:absolute;top:0;left:-120%;width:50%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.2),transparent);animation:splashShimmer 3s ease 2s infinite;pointer-events:none;"></div>
-        </div>
-        <div style="font-family:'Inter',sans-serif;font-size:13px;color:rgba(255,255,255,0.5);margin-top:10px;opacity:0;animation:splashTagline 0.8s ease 1.8s both;">Ostfriesland geniessen</div>
-    </div>
-
-    <!-- Loading bar -->
-    <div class="splash-progress-track">
-        <div class="splash-progress-bar" id="splashBar"></div>
-    </div>
+    <video id="splashVideo" muted playsinline autoplay preload="auto" disablepictureinpicture disableremoteplayback>
+        <source src="/intro/kiek-start-v5.webm" type="video/webm">
+        <source src="/intro/kiek-start-v5.mp4" type="video/mp4">
+    </video>
 </div>
 <script>
-(function(){
-    // Create floating particles - more variety
-    var pc = document.getElementById('splashParticles');
-    if(pc) {
-        for(var i=0;i<25;i++){
-            var p=document.createElement('div');
-            p.className='splash-particle';
-            var size = (1 + Math.random()*4);
-            var isGold = Math.random() > 0.4;
-            p.style.left = Math.random()*100+'%';
-            p.style.width = p.style.height = size+'px';
-            p.style.background = isGold
-                ? 'rgba(200,169,110,'+(0.2+Math.random()*0.4)+')'
-                : 'rgba(255,255,255,'+(0.1+Math.random()*0.2)+')';
-            if(size > 3) p.style.boxShadow = '0 0 '+(size*2)+'px '+p.style.background;
-            p.style.animationDelay = (Math.random()*4)+'s';
-            p.style.animationDuration = (5+Math.random()*5)+'s';
-            pc.appendChild(p);
-        }
+(function () {
+    var s = document.getElementById('splashScreen'), v = document.getElementById('splashVideo');
+    var fertig = false, geladen = document.readyState === 'complete', videoAus = false;
+    function weiter(sofort) {
+        if (fertig || !s) return;
+        fertig = true;
+        try { if (v) v.pause(); } catch (e) {}
+        function raus() { if (s.parentNode) s.parentNode.removeChild(s); if (typeof showOnboarding === 'function') showOnboarding(); }
+        if (sofort) { raus(); return; }
+        s.classList.add('weg');
+        setTimeout(raus, 440);
     }
-
-    // Staggered ring animations
-    function fireRing(id, delay) {
-        setTimeout(function(){
-            var ring = document.getElementById(id);
-            if(ring) ring.style.animation = 'splashRingExpand 2.5s ease-out forwards';
-        }, delay);
-    }
-    fireRing('splashRing1', 500);
-    fireRing('splashRing2', 1000);
-    fireRing('splashRing3', 1600);
-
-    // Logo glow after reveal
-    setTimeout(function(){
-        var logo = document.getElementById('splashLogo');
-        if(logo) logo.style.animation = 'splashLogoGlow 3s ease-in-out infinite';
-    }, 1800);
-
-    // Decorative line expands
-    setTimeout(function(){
-        var line = document.getElementById('splashLine');
-        if(line) line.style.width = '120px';
-    }, 1400);
-
-    // Progress bar - 3s
-    var bar = document.getElementById('splashBar');
-    if(bar){
-        setTimeout(function(){ bar.style.width='30%'; }, 300);
-        setTimeout(function(){ bar.style.width='55%'; }, 900);
-        setTimeout(function(){ bar.style.width='75%'; }, 1600);
-        setTimeout(function(){ bar.style.width='90%'; }, 2300);
-        setTimeout(function(){ bar.style.width='95%'; }, 2700);
-    }
+    window.hideSplash = function () { weiter(false); };
+    function vielleicht() { if (videoAus && geladen) weiter(false); }
+    // Einmal pro Sitzung; wer "Bewegung reduzieren" eingestellt hat, bekommt es nicht.
+    var gesehen = false, ruhig = false;
+    try { gesehen = !!sessionStorage.getItem('kmi_splash_seen'); sessionStorage.setItem('kmi_splash_seen', '1'); } catch (e) {}
+    try { ruhig = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+    if (gesehen || ruhig || !v) { weiter(true); return; }
+    window.addEventListener('load', function () { geladen = true; vielleicht(); });
+    v.addEventListener('timeupdate', function () { if (v.currentTime > 1.45) s.classList.add('ende'); });
+    v.addEventListener('ended', function () { videoAus = true; vielleicht(); });
+    // Fehler kommen an den <source>-Elementen an -- darum im Einfang-Modus.
+    v.addEventListener('error', function () { videoAus = true; vielleicht(); }, true);
+    try { var spiel = v.play(); if (spiel && spiel.catch) spiel.catch(function () { videoAus = true; vielleicht(); }); } catch (e) { videoAus = true; }
+    // Laeuft nach 1,5 s noch nicht (schlechtes Netz): nicht warten lassen.
+    setTimeout(function () { if (!v.currentTime) { videoAus = true; geladen = true; vielleicht(); } }, 1500);
+    // Sicherheitsnetz, falls 'load' oder 'ended' nie kommen.
+    setTimeout(function () { weiter(false); }, 4500);
 })();
-
-function hideSplash(){
-    var s=document.getElementById('splashScreen');
-    if(!s || s.dataset.hiding) return;
-    s.dataset.hiding='1';
-    var bar=document.getElementById('splashBar');
-    if(bar) bar.style.width='100%';
-    setTimeout(function(){
-        s.style.animation='splashCinematicOut 0.9s cubic-bezier(0.4,0,0.2,1) forwards';
-        setTimeout(function(){ s.remove(); if (typeof showOnboarding === 'function') showOnboarding(); }, 950);
-    }, 400);
-}
-
-// Splash so kurz wie möglich: er verdeckt den kompletten Bildschirm und
-// zählt damit voll auf die Google-Ladewertung (LCP) ein. Früher lag die
-// Mindestanzeige bei 3s + 0,95s Ausblenden, im schlechtesten Fall ~7s --
-// auf Mobilfunk der häufigste Absprungpunkt.
-// Wiederkehrende Besucher (heute schon da gewesen) sehen ihn gar nicht.
-var splashReady = false, splashLoaded = false;
-var SPLASH_MIN_MS = 600;
-try {
-    if (sessionStorage.getItem('kmi_splash_seen')) SPLASH_MIN_MS = 0;
-    sessionStorage.setItem('kmi_splash_seen', '1');
-} catch (e) {}
-if (SPLASH_MIN_MS === 0) {
-    hideSplash();
-} else {
-    setTimeout(function(){ splashReady = true; if(splashLoaded) hideSplash(); }, SPLASH_MIN_MS);
-    window.addEventListener('load', function(){
-        splashLoaded = true;
-        if(splashReady) hideSplash();
-    });
-    // Sicherheitsnetz, falls 'load' nie feuert (hängendes Bild/Script)
-    setTimeout(function(){ hideSplash(); }, 2500);
-}
 </script>
 
 <!-- Onboarding Tour -->
