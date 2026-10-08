@@ -14748,37 +14748,28 @@ function ladeStandZeigen(schluessel) {
      08.10.2026 -- Ibo: "ich will genau das haben, das andere geht dann weg".
      Sein Video (Kiek-mol-in_App-Start v5): das goldene i, "Kiek", Flug durch
      das i ins Gruen. Ersetzt den alten Splash (Partikel, Ringe, Ladebalken).
-     - Datei: volle Schaerfe (1080x1920), ohne Ton (Browser spielen ohnehin nur
-       stumm von selbst ab): 150 KB webm statt 4,4 MB; mp4 nur fuer alte Safaris.
-     - Groesse (Ibo: "Bildqualitaet nicht gut, wirkt zu gross"): vorher quer
-       randlos aufgezogen -- Logo ~1000 px breit und auf dem iPad mehr als
-       doppelt hochgerechnet, darum unscharf. Jetzt hoechstens 78 % der Hoehe,
-       nie hochgerechnet, Raender laufen weich in denselben Gruenverlauf aus.
+     - 1:1 (Ibo: "warum hat das so einen Rahmen -- einfach 1 zu 1"): randlos,
+       ohne Maske, ohne Verkleinern. Zwei Fassungen, beide aus seinem Video:
+         hoch 1080x2340 -- Original, oben/unten aus dem Hintergrund seines
+                           ersten Bildes verlaengert (lange Handys: kein Balken)
+         quer 2560x1440 -- Original in voller Hoehe, links/rechts ebenso
+       Gewaehlt wird beim Start nach der Lage des Geraets. Beim Flug durch das
+       i (ab 1,28 s) waechst das Video, bis das Original den ganzen Schirm
+       fuellt -- wie im Original, ohne Kante am Rand.
+     - Ohne Ton (Browser spielen ohnehin nur stumm von selbst ab): je ~170 KB
+       webm statt 4,4 MB; mp4 nur fuer alte Safaris.
      - Kein Haengen: blockiertes Abspielen (Stromsparmodus), Fehler, kein Netz
        oder ein Video, das nach 1,5 s nicht losgelaufen ist -> sofort weiter.
        Spaetestens nach 4,5 s ist es in jedem Fall weg.
      - Einmal pro Sitzung; "Bewegung reduzieren" -> gar nicht. -->
 <div id="splashScreen" aria-hidden="true">
     <style>
-        /* Grund = gemessene Farbe im Video (#114936, erst am Rand dunkler) -- sonst
-           saehe man, wo das Video aufhoert. */
+        /* Grund = gemessene Farbe im Video -- sichtbar nur bis das erste Bild da ist. */
         #splashScreen { position: fixed; inset: 0; z-index: 999999; overflow: hidden; background: radial-gradient(ellipse 80% 75% at 50% 50%, #114936 0%, #114936 45%, #0e3d2c 80%, #0b3124 100%); transition: opacity 0.42s cubic-bezier(0.4, 0, 0.2, 1); }
-        /* Das Video endet in Flaechen-Gruen #134b37 -- die Raender ziehen mit. */
-        #splashScreen::before { content: ''; position: absolute; inset: 0; background: #134b37; opacity: 0; transition: opacity 0.35s ease; }
-        #splashScreen.ende::before { opacity: 1; }
         #splashScreen.weg { opacity: 0; pointer-events: none; }
-        #splashVideo { position: absolute; left: 50%; top: 50%; height: min(78vh, 138vw); width: auto; aspect-ratio: 9 / 16; transform: translate(-50%, -50%);
-            -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 78%, transparent 100%); mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 78%, transparent 100%);
-            -webkit-mask-size: 100% 100%; mask-size: 100% 100%; -webkit-mask-position: 50% 50%; mask-position: 50% 50%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
-            transition: transform 0.4s cubic-bezier(0.55, 0, 0.75, 0.3), -webkit-mask-size 0.4s ease-in, mask-size 0.4s ease-in; }
-        /* Der Flug durch das i (ab ~1,35 s) fuellt wie im Original das ganze Bild:
-           das Video waechst mit, der weiche Rand geht auf -- sonst saehe man ein Oval. */
-        #splashScreen.flug #splashVideo { -webkit-mask-size: 420% 420%; mask-size: 420% 420%; }
+        #splashVideo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 50%; transition: transform 0.4s cubic-bezier(0.55, 0, 0.75, 0.3); }
     </style>
-    <video id="splashVideo" muted playsinline autoplay preload="auto" disablepictureinpicture disableremoteplayback>
-        <source src="/intro/kiek-start-v5-hd.webm" type="video/webm">
-        <source src="/intro/kiek-start-v5-hd.mp4" type="video/mp4">
-    </video>
+    <video id="splashVideo" muted playsinline autoplay preload="auto" disablepictureinpicture disableremoteplayback></video>
 </div>
 <script>
 (function () {
@@ -14800,24 +14791,29 @@ function ladeStandZeigen(schluessel) {
     try { gesehen = !!sessionStorage.getItem('kmi_splash_seen'); sessionStorage.setItem('kmi_splash_seen', '1'); } catch (e) {}
     try { ruhig = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
     if (gesehen || ruhig || !v) { weiter(true); return; }
+    // Hoch oder quer -- erst jetzt laden (wer es nicht sieht, laedt nichts).
+    var quer = false, webm = '';
+    try { quer = window.matchMedia('(orientation: landscape)').matches; } catch (e) {}
+    try { webm = v.canPlayType('video/webm; codecs="vp9"'); } catch (e) {}
+    v.src = '/intro/kiek-start-v5-' + (quer ? 'quer' : 'hoch') + (webm ? '.webm' : '.mp4');
     window.addEventListener('load', function () { geladen = true; vielleicht(); });
-    // Bildgenau statt 'timeupdate' (kommt nur alle ~250 ms): ab 1,28 s waechst das
-    // Video zum Flug durch das i auf die volle Flaeche, ab 1,6 s ziehen die Raender
-    // ins Flaechen-Gruen mit.
+    // Flug durch das i: bildgenau (nicht 'timeupdate', das kommt nur alle ~250 ms)
+    // so weit vergroessern, dass das Original (hoch 1080x1920 in 1080x2340,
+    // quer 810x1440 in 2560x1440) den ganzen Schirm deckt.
     function takt() {
         if (fertig) return;
-        var t = v.currentTime;
-        if (t > 1.28 && !s.classList.contains('flug')) {
-            var rc = v.getBoundingClientRect(), k = Math.max(window.innerHeight / (rc.height || 1), window.innerWidth / (rc.width || 1)) * 1.05;
-            v.style.transform = 'translate(-50%, -50%) scale(' + k.toFixed(3) + ')';
+        if (v.currentTime > 1.28 && !s.classList.contains('flug')) {
+            var W = window.innerWidth, H = window.innerHeight;
+            var bw = quer ? 2560 : 1080, bh = quer ? 1440 : 2340, ow = quer ? 810 : 1080, oh = quer ? 1440 : 1920;
+            var c = Math.max(W / bw, H / bh), k = Math.max(W / (ow * c), H / (oh * c)) * 1.02;
+            v.style.transform = 'scale(' + k.toFixed(3) + ')';
             s.classList.add('flug');
         }
-        if (t > 1.6) s.classList.add('ende');
         if (!v.ended) requestAnimationFrame(takt);
     }
     v.addEventListener('playing', function () { requestAnimationFrame(takt); });
     v.addEventListener('ended', function () { videoAus = true; vielleicht(); });
-    // Fehler kommen an den <source>-Elementen an -- darum im Einfang-Modus.
+    // Ladefehler (auch kein Netz) -- im Einfang-Modus, falls er an einem Kind ankommt.
     v.addEventListener('error', function () { videoAus = true; vielleicht(); }, true);
     try { var spiel = v.play(); if (spiel && spiel.catch) spiel.catch(function () { videoAus = true; vielleicht(); }); } catch (e) { videoAus = true; }
     // Laeuft nach 1,5 s noch nicht (schlechtes Netz): nicht warten lassen.

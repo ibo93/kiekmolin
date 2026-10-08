@@ -45,9 +45,20 @@ if (!fs.existsSync(AUS)) fs.mkdirSync(AUS);
     var rc = v ? v.getBoundingClientRect() : null;
     return { da: !!sp, zeit: v ? Math.round(v.currentTime * 100) / 100 : null, quelle: v ? v.currentSrc.split('/').pop() : null,
              breite: v ? v.offsetWidth : null, hoehe: v ? v.offsetHeight : null, fenster: [innerWidth, innerHeight],
-             pixel: v ? Math.round(v.offsetHeight * devicePixelRatio) : null, weg: sp ? sp.classList.contains('weg') : null };
+             bild: v ? [v.videoWidth, v.videoHeight] : null, dpr: devicePixelRatio,
+             maske: v ? getComputedStyle(v).webkitMaskImage || getComputedStyle(v).maskImage || 'none' : null, weg: sp ? sp.classList.contains('weg') : null };
   }
 
+  // cover: Massstab = max(Breite/Bildbreite, Hoehe/Bildhoehe) in Geraete-Pixeln;
+  // sichtbar = Anteil des Originals (1080 breit), der nicht abgeschnitten wird.
+  function rechne(z) {
+    if (!z || !z.bild || !z.bild[0]) return null;
+    var k = Math.max(z.breite / z.bild[0], z.hoehe / z.bild[1]);
+    var sichtbarBreite = Math.min(1, z.breite / (z.bild[0] * k));
+    var orig = z.bild[0] >= z.bild[1] ? 1440 * 9 / 16 : 1080;   // Breite des Originals in dieser Fassung
+    var origSichtbar = Math.min(1, (z.bild[0] * sichtbarBreite) / orig);
+    return { hoch: Math.round(k * z.dpr * 100) / 100, sichtbar: Math.round(origSichtbar * 100) / 100 };
+  }
   // 1. Handy hoch: das Video läuft und verschwindet danach
   var p = await seite();
   var t0 = Date.now();
@@ -58,8 +69,11 @@ if (!fs.existsSync(AUS)) fs.mkdirSync(AUS);
   var z1 = await p.s.evaluate(zustand);
   await p.s.screenshot({ path: path.join(AUS, 'intro-handy-1.png') });
   pruef('Handy: das Video läuft (' + z1.zeit + ' s weit)', z1.da && z1.zeit > 0.4, JSON.stringify(z1));
-  pruef('Handy: kleiner als der Bildschirm, nie hochgerechnet (' + z1.pixel + ' von 1920 Bildpunkten)', z1.breite > 100 && z1.breite < z1.fenster[0] && z1.hoehe <= z1.fenster[1] * 0.79 && z1.pixel <= 1960, JSON.stringify(z1));
-  pruef('Handy: kleine Datei wird geladen (webm/mp4 aus /intro/)', /^kiek-start-v5-hd\.(webm|mp4)$/.test(z1.quelle || ''), z1.quelle);
+  var r1 = rechne(z1);
+  // Ibo: "warum hat das so einen Rahmen -- einfach 1 zu 1"
+  pruef('Handy: 1:1 randlos über den ganzen Schirm, kein Rand (Maske), Hochfassung', z1.breite === z1.fenster[0] && z1.hoehe === z1.fenster[1] && /none/.test(z1.maske) && /hoch/.test(z1.quelle || ''), JSON.stringify(z1));
+  pruef('Handy: kaum hochgerechnet (' + (r1 && r1.hoch) + 'x), das ganze Logo sichtbar (' + (r1 && Math.round(r1.sichtbar * 100)) + ' % der Breite)', r1 && r1.hoch <= 1.2 && r1.sichtbar >= 0.98, JSON.stringify(r1));
+  pruef('Handy: kleine Datei wird geladen (webm/mp4 aus /intro/)', /^kiek-start-v5-(hoch|quer)\.(webm|mp4)$/.test(z1.quelle || ''), z1.quelle);
   var ende = await p.s.waitForFunction(function () { return !document.getElementById('splashScreen'); }, null, { timeout: 6000 }).then(function () { return Date.now() - t0; }).catch(function () { return -1; });
   pruef('Handy: danach ist es weg (nach ' + (ende / 1000).toFixed(1) + ' s, Video 1,9 s)', ende > 1500 && ende < 4800, ende);
   await p.s.screenshot({ path: path.join(AUS, 'intro-handy-danach.png') });
@@ -76,18 +90,27 @@ if (!fs.existsSync(AUS)) fs.mkdirSync(AUS);
   await p.s.waitForTimeout(1100);
   var z3 = await p.s.evaluate(zustand);
   await p.s.screenshot({ path: path.join(AUS, 'intro-ipad-quer.png') });
-  // Ibo: "Bildqualität nicht gut, wirkt zu groß" -- vorher randlos, Logo ~1000 px.
-  pruef('iPad quer: Video ' + z3.breite + ' x ' + z3.hoehe + ' px (Logo ~' + Math.round(z3.breite * 0.8) + ' px), nicht randlos, nie hochgerechnet', z3.breite > 100 && z3.breite < z3.fenster[0] * 0.35 && z3.pixel <= 1960 && z3.zeit > 0.5, JSON.stringify(z3));
+  var r3 = rechne(z3);
+  pruef('iPad quer: Querfassung randlos, Original in voller Höhe, nicht hochgerechnet (' + (r3 && r3.hoch) + 'x)', /quer/.test(z3.quelle || '') && z3.breite === z3.fenster[0] && /none/.test(z3.maske) && r3 && r3.hoch <= 1.2 && r3.sichtbar >= 0.99 && z3.zeit > 0.5, JSON.stringify(z3) + ' ' + JSON.stringify(r3));
   await p.ctx.close();
 
-  // 3b. Der Flug durch das i füllt das ganze Bild (kein Oval)
-  p = await seite({ viewport: { width: 1180, height: 820 }, dpr: 2 });
-  await p.s.goto('http://localhost:' + PORT + '/', { waitUntil: 'domcontentloaded' });
-  var flug = await p.s.waitForFunction(function () { var v = document.getElementById('splashVideo'); return v && v.currentTime > 1.85 ? true : false; }, null, { timeout: 5000, polling: 16 }).then(function () { return true; }).catch(function () { return false; });
-  var zf = await p.s.evaluate(function () { var v = document.getElementById('splashVideo'), sp = document.getElementById('splashScreen'); if (!v || !sp) return null; var rc = v.getBoundingClientRect(); return { flug: sp.classList.contains('flug'), deckt: rc.left <= 1 && rc.top <= 1 && rc.right >= innerWidth - 1 && rc.bottom >= innerHeight - 1, zeit: v.currentTime }; });
-  await p.s.screenshot({ path: path.join(AUS, 'intro-ipad-flug.png') });
-  pruef('Flug durch das i (ab 1,3 s): bei 1,85 s deckt das Video den ganzen Schirm, kein Oval', flug && zf && zf.flug && zf.deckt, JSON.stringify(zf));
-  await p.ctx.close();
+  // 3b. Flug durch das i: das Original deckt den ganzen Schirm -- keine Kante, keine Streifen
+  for (var fi = 0; fi < 2; fi++) {
+    var vp = fi ? { width: 1180, height: 820 } : { width: 390, height: 844 };
+    p = await seite({ viewport: vp, dpr: fi ? 2 : 3 });
+    await p.s.goto('http://localhost:' + PORT + '/', { waitUntil: 'domcontentloaded' });
+    await p.s.waitForFunction(function () { var v = document.getElementById('splashVideo'); return v && v.currentTime > 1.75; }, null, { timeout: 5000, polling: 16 }).catch(function () {});
+    var zf = await p.s.evaluate(function () {
+      var v = document.getElementById('splashVideo'), sp = document.getElementById('splashScreen'); if (!v || !sp) return null;
+      var quer = v.videoWidth > v.videoHeight, bw = v.videoWidth, bh = v.videoHeight, ow = quer ? 810 : 1080, oh = quer ? 1440 : 1920;
+      var m = new DOMMatrix(getComputedStyle(v).transform), k = m.a || 1, W = innerWidth, H = innerHeight;
+      var c = Math.max(W / bw, H / bh) * k;   // so gross erscheint ein Bildpunkt
+      return { flug: sp.classList.contains('flug'), zeit: v.currentTime, deckt: ow * c >= W - 1 && oh * c >= H - 1, original: [Math.round(ow * c), Math.round(oh * c)], schirm: [W, H] };
+    });
+    await p.s.screenshot({ path: path.join(AUS, 'intro-flug-' + (fi ? 'ipad' : 'handy') + '.png') });
+    pruef((fi ? 'iPad' : 'Handy') + ': beim Flug (1,75 s) deckt das Original den ganzen Schirm -- keine Kante', zf && zf.flug && zf.deckt, JSON.stringify(zf));
+    await p.ctx.close();
+  }
 
   // 4. Sehr schmales Handy: ganz zeigen, sonst wäre das K abgeschnitten
   p = await seite({ viewport: { width: 360, height: 800 } });
@@ -95,7 +118,8 @@ if (!fs.existsSync(AUS)) fs.mkdirSync(AUS);
   await p.s.waitForTimeout(1100);
   var z4 = await p.s.evaluate(zustand);
   await p.s.screenshot({ path: path.join(AUS, 'intro-schmal.png') });
-  pruef('schmales Handy (360 x 800): ganz im Bild, links und rechts Luft', z4.breite > 100 && z4.breite <= z4.fenster[0] * 0.85, JSON.stringify(z4));
+  var r4 = rechne(z4);
+  pruef('schmales Handy (360 x 800, 20:9): Logo (10-90 % der Breite) bleibt ganz im Bild (' + (r4 && Math.round(r4.sichtbar * 100)) + ' % sichtbar)', r4 && r4.sichtbar >= 0.9, JSON.stringify(z4) + ' ' + JSON.stringify(r4));
   await p.ctx.close();
 
   // 5. "Bewegung reduzieren": gar kein Intro
