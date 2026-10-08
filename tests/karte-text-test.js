@@ -24,9 +24,12 @@ function schneide(name) {
     var j = H.indexOf('{', i), d = 0;
     for (var k = j; k < H.length; k++) { if (H[k] === '{') d++; else if (H[k] === '}') { d--; if (!d) return H.slice(i, k + 1); } }
 }
-var kopf = H.slice(H.indexOf('var KARTE_SPALTENKOPF'), H.indexOf(';', H.indexOf('var KARTE_SPALTENKOPF')) + 1);
-var quelle = 'var _karteTextAus = {}, _karteTextAn = {};\n' + kopf + '\n'
-    + ['karteTextZeilen', 'karteTextPreise', 'karteTextNachbar', 'karteKopfName',
+function varBlock(name) { var i = H.indexOf('var ' + name); return H.slice(i, H.indexOf(';\n', i) + 1); }
+var quelle = 'var _karteTextAus = {}, _karteTextAn = {};\n'
+    + ['KARTE_SPALTENKOPF', 'KARTE_KATEGORIE_WOERTER', '_PDF_ALLERGEN'].map(varBlock).join('\n') + '\n'
+    + ['karteTextZeilen', 'kartePreisTreffer', 'karteTextPreise', 'karteTextNachbar', 'karteKopfName',
+       'karteTextKategorieWort', 'karteTextAuchZutat', 'karteTextHinweis', 'karteTextIstGerichtzeile',
+       'karteKlammernLesen', 'karteTextKopfFormal',
        'karteTextKopfMoeglich', 'karteTextIstKopf', 'karteTextVorschlaege',
        'karteAusText', 'karteTextZuItems'].map(schneide).join('\n');
 function frisch() {
@@ -49,9 +52,27 @@ t('kein Gericht heisst "(klein)" oder "(groß)"',
 t('kein Eintrag ohne Preis', items.filter(function (i) { return !i.price; }).length === 0,
   items.filter(function (i) { return !i.price; }).length);
 
-// --- Nicht raten ------------------------------------------------------------
-t('KEINE erfundenen Kategorien (frueher 75 statt 13)',
-  r.ueberschriften.length <= 2, r.ueberschriften.length + ': ' + r.ueberschriften.join(' | '));
+// --- Kategorien: genau die der Karte ----------------------------------------
+// 07.10.2026 (Ibo: "wenn ich es einfüge ... liest er die Karte nicht gut"):
+// vorher landeten alle 142 Gerichte unter "Sonstiges" -- aus Angst vor den
+// 75 erfundenen Kategorien von früher wurde gar nichts mehr erkannt. Jetzt
+// genau die 13 Kategorien, die auch der PDF-Leser aus derselben Karte holt.
+var katsText = [];
+items.forEach(function (i) { if (katsText.indexOf(i.category) < 0) katsText.push(i.category); });
+var KATS_PDF = ['Pizza', 'Familienpizza', 'Spaghetti', 'Rigatoni', 'Tortellini', 'Spezialität des Hauses',
+    'Pronto Spezial Schnitzel', 'Fleischgerichte', 'Baguette', 'Burger', 'Salate', 'Beilagen', 'Gefüllte Pizzabrötchen'];
+t('genau die 13 Kategorien der Karte (vorher: 0, alles "Sonstiges")',
+  katsText.length === 13 && KATS_PDF.every(function (k) { return katsText.indexOf(k) >= 0; }),
+  katsText.length + ': ' + katsText.join(' | '));
+t('kein Gericht unter "Sonstiges"', !items.some(function (i) { return i.category === 'Sonstiges'; }), '');
+t('Pizza Frutti di Mare ist Pizza, "Meeresfrüchte" ist ihre Zutat',
+  items.some(function (i) { return i.name === 'Pizza Frutti di Mare' && i.category === 'Pizza' && i.description === 'Meeresfrüchte'; }), '');
+t('umgebrochener Satz ("... Sahnesauce mit" / "Käse überbacken") bleibt Beschreibung',
+  r.ueberschriften.indexOf('Käse überbacken') < 0 && r.ueberschriften.indexOf('Knoblauchöl') < 0 && r.ueberschriften.indexOf('Sauce') < 0,
+  r.ueberschriften.join(' | '));
+t('keine Seitenfuss-Zeile in einer Beschreibung ("Alle Preise inkl. MwSt.")',
+  !items.some(function (i) { return /vorbehalten|MwSt|Zutaten:/.test(i.description); }),
+  (items.filter(function (i) { return /vorbehalten|MwSt|Zutaten:/.test(i.description); })[0] || {}).name);
 ['Salami', 'Putenschinken', 'Peperoni', 'Tzatziki', 'überbacken', 'scharf'].forEach(function (z) {
     t('Zutatenzeile "' + z + '" wird KEINE Kategorie',
       r.ueberschriften.indexOf(z) < 0, r.ueberschriften.join(' | '));
@@ -67,12 +88,14 @@ t('Spaltenkopf "KLEIN GROSS" wird nicht mal vorgeschlagen',
 
 // --- Klick wirkt ------------------------------------------------------------
 var G = frisch();
-G.an['nudeln'] = 1;
+G.an['salami'] = 1;
 var r2 = G.lesen(TEXT);
-t('angeklickte Ueberschrift sortiert die Gerichte darunter ein',
-  r2.ueberschriften.indexOf('Nudeln') >= 0, r2.ueberschriften.join(' | '));
-var unterNudeln = G.zuItems(r2.gerichte).filter(function (i) { return i.category === 'Nudeln'; });
-t('unter "Nudeln" landen wirklich Gerichte', unterNudeln.length > 5, unterNudeln.length);
+t('angeklickter Vorschlag wird Ueberschrift',
+  r2.ueberschriften.indexOf('Salami') >= 0, r2.ueberschriften.join(' | '));
+var G2 = frisch();
+G2.aus['baguette'] = 1;
+var r2b = G2.lesen(TEXT);
+t('abgewaehlte Ueberschrift ist keine mehr', r2b.ueberschriften.indexOf('Baguette') < 0, r2b.ueberschriften.join(' | '));
 
 // --- "#" erzwingt immer -----------------------------------------------------
 var K = frisch();
@@ -85,17 +108,22 @@ t('Gerichte landen unter der erzwungenen Ueberschrift',
   i3.map(function (x) { return x.category; }).join('|'));
 
 // --- Einzelheiten, die früher falsch waren --------------------------------
-function finde(nr) { return items.filter(function (i) { return i.dish_number === nr; }); }
-var m = finde('1')[0];
+function finde(name) { return items.filter(function (i) { return i.name === name; }); }
+var m = finde('Pizza Margherita')[0];
 t('Merkmal vor der Nummer ("V 1. Pizza Margherita") wird abgetrennt',
   !!m && m.name === 'Pizza Margherita', m && m.name);
 t('und wird zum Merkmal vegetarisch', !!m && m.is_vegetarian === true, m && m.is_vegetarian);
-t('Nummer wird erkannt', !!m && m.dish_number === '1', m && m.dish_number);
-t('Nummer mit Buchstabe (66A) bleibt erhalten', finde('66A').length > 0, 'fehlt');
+// Ibo, 07.10.2026: "die Nummern der Gerichte sollen bleiben" -- aus dem
+// Namen heraus, als eigenes Feld (wie beim PDF).
+t('Nummer wird erkannt und aus dem Namen genommen', !!m && m.dish_number === '1' && !/^\d/.test(m.name), m && m.dish_number);
+t('jedes Gericht der Karte behält seine Nummer', items.every(function (i) { return /^\d+[A-Z]?$/.test(i.dish_number); }),
+  (items.filter(function (i) { return !i.dish_number; })[0] || {}).name);
+t('"66 A. Döner XXL": Nummer 66A, Name "Döner XXL"', finde('Döner XXL').length === 1 && finde('Döner XXL')[0].dish_number === '66A',
+  JSON.stringify(finde('Döner XXL')[0]));
 t('Hinweiszeile "Extra Zutaten: klein 1,00 €" ist kein Gericht',
   !items.some(function (i) { return /^Zutaten/.test(i.name); }),
   items.filter(function (i) { return /Zutaten/.test(i.name); }).map(function (i) { return i.name; }).join(', '));
-var zwei = finde('2')[0];
+var zwei = finde('Pizza Salami')[0];
 t('zwei Preise in einer Zeile werden zu Groessen an EINEM Gericht',
   !!zwei && zwei.sizes && zwei.sizes.length === 2
   && zwei.sizes[0].price === 7 && zwei.sizes[1].price === 9,

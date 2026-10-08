@@ -31,7 +31,7 @@ var sb = {
 };
 sb.generateReservationSlots = function () { return sb.slots; };
 vm.createContext(sb);
-vm.runInContext(['minuten', 'resFuerTisch', 'zeitSpanne', 'belegtUm'].map(inTp).join('\n'), sb);
+vm.runInContext("var VERBUND = 'Zusammen mit: ';\n" + ['minuten', 'notizTisch', 'verbundNamen', 'resFuerTisch', 'zeitSpanne', 'belegtUm'].map(inTp).join('\n'), sb);
 var L = sb.tp.tische;
 t('18:29: noch keiner (Tisch zaehlt ab 30 Min. vorher)', sb.belegtUm(18 * 60 + 29, L) === 0, sb.belegtUm(18 * 60 + 29, L));
 t('18:30: Tisch a zaehlt schon', sb.belegtUm(18 * 60 + 30, L) === 1, sb.belegtUm(18 * 60 + 30, L));
