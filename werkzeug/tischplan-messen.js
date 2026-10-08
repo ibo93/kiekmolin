@@ -198,6 +198,37 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
   pruef('Plan wirft keinen Fehler', !p.fehler.length, p.fehler.join(' | '));
   await p.ctx.close();
 
+  // ---------- 1b. Tische zusammenschieben (08.10.2026) ----------
+  // Gruppe von 8 an Tisch 8 (4 Plätze): der Plan schlägt Tische in der Nähe vor.
+  p = await seite();
+  await p.s.evaluate(function (id) { window.tp3.gewaehlt = id; document.getElementById('tp3Bereiche').click(); }, uuid(8));
+  await p.s.evaluate(function (id) { document.querySelector('#tp3Boden .tp3-schild span[data-id="' + id + '"]').click(); }, uuid(8));
+  await p.s.waitForTimeout(200);
+  await p.s.fill('#tp3sName', 'Gruppe Probe'); await p.s.fill('#tp3sPers', '8'); await p.s.waitForTimeout(100);
+  var vor = await p.s.evaluate(function () { var d = document.getElementById('tp3Dazu'); return { text: d ? d.innerText.replace(/\s+/g, ' ') : '', chips: Array.prototype.map.call(document.querySelectorAll('#tp3Dazu [data-dazu]'), function (b) { return b.innerText.replace(/\s+/g, ' '); }) }; });
+  pruef('8 Personen an einem 4er-Tisch: "fehlen 4", Vorschläge in der Nähe (nicht der besetzte 9)', /fehlen 4/.test(vor.text) && vor.chips.length > 0 && !vor.chips.some(function (c) { return /^9 /.test(c); }), JSON.stringify(vor));
+  await p.s.click('#tp3Dazu [data-aktion="dazu-auto"]'); await p.s.waitForTimeout(100);
+  var nach = await p.s.evaluate(function (id10) { return { text: document.getElementById('tp3Dazu').innerText.replace(/\s+/g, ' '), dazu: window.tp3.dazu.slice(), name: document.getElementById('tp3sName').value,
+    markiert: !!document.querySelector('#tp3Boden .tp3-tisch.dazu[data-id="' + id10 + '"]') }; }, uuid(10));
+  pruef('"Passende Tische dazunehmen": Tisch 10 dazu, "passt für 8", im Plan markiert', nach.dazu.length === 1 && nach.dazu[0] === uuid(10) && /passt für 8/.test(nach.text) && nach.markiert, JSON.stringify(nach));
+  pruef('der eingetippte Name bleibt stehen (nur der Block wird neu gezeichnet)', nach.name === 'Gruppe Probe', nach.name);
+  await p.s.evaluate(function () { document.querySelector('#tp3Seite [data-aktion="reservieren"]').click(); });
+  await p.s.waitForTimeout(800);
+  var gp = p.geschrieben.filter(function (g) { return g.m === 'POST' && /rest\/v1\/reservations/.test(g.u); }).map(function (g) { return JSON.parse(g.body); })[0] || {};
+  pruef('gespeichert: table_id = Tisch 8, Notiz "Zusammen mit: Tisch 10", 8 Personen', gp.table_id === uuid(8) && gp.notes === 'Zusammen mit: Tisch 10' && gp.party_size === 8, JSON.stringify(gp));
+  // So kommt sie beim nächsten Laden zurück: im Plan an beiden Tischen, verbunden
+  var plan = await p.s.evaluate(function (g) {
+    window.tp3.res.push(Object.assign({ id: 'neu-gruppe', duration_minutes: 120 }, g, { reservation_time: g.reservation_time + ':00' }));
+    window.tp3.gewaehlt = null; document.querySelector('#tp3Bereiche [data-bereich="main"]').click();
+    var s10 = document.querySelector('#tp3Boden .tp3-schild span[data-id="' + g.zehn + '"]'), s8 = document.querySelector('#tp3Boden .tp3-schild span[data-id="' + g.table_id + '"]');
+    return { zehn: s10 && s10.parentNode.className + ' ' + s10.textContent, acht: s8 && s8.parentNode.className + ' ' + s8.textContent, linie: document.querySelectorAll('#tp3Boden .tp3-verbund').length };
+  }, Object.assign({}, gp, { zehn: uuid(10) }));
+  pruef('im Plan: beide Tische reserviert, Schild "mit 10" / "mit 8", gestrichelte Linie', /res/.test(plan.acht) && /mit 10/.test(plan.acht) && /res/.test(plan.zehn) && /mit 8/.test(plan.zehn) && plan.linie === 1, JSON.stringify(plan));
+  await p.s.click('#tp3AnsichtOben'); await p.s.waitForTimeout(150);
+  await p.s.locator('#tp3').screenshot({ path: path.join(AUS, 'tischplan-zusammen-oben.png') });
+  pruef('kein Seitenfehler beim Zusammenschieben', !p.fehler.length, p.fehler.join(' | '));
+  await p.ctx.close();
+
   // ---------- 1a. Alte Tisch-Regel in der Datenbank (gemessen 07.10.2026) ----------
   p = await seite({ altFk: true });
   await p.s.evaluate(function (id) { window.tp3.gewaehlt = id; document.getElementById('tp3Bereiche').click(); }, uuid(1));
@@ -246,7 +277,9 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
   pruef('Schieber auf 22:00: wieder frei, "0 von 1"', um22.art === 'frei' && /22:00/.test(um22.anzeige) && /^0 von 1/.test(um22.info), JSON.stringify(um22));
   var balken = await p.s.evaluate(function () { return Array.prototype.map.call(document.querySelectorAll('#tp3Balken i'), function (i) { return i.title + '|' + i.className; }); });
   pruef('Balken 19:00 orange (voll), 17:00 leer', balken.some(function (x) { return /^19:00 · 1 von 1/.test(x) && /eng/.test(x); }) && balken.some(function (x) { return /^17:00 · 0 von 1/.test(x) && !/eng/.test(x); }), balken.join(', '));
-  var dauer = await p.s.evaluate(function () { document.querySelector('#tp3Bereiche [data-bereich="main"]').click(); var r = document.getElementById('tp3Schieber'), t0 = performance.now(); for (var i = 0; i < 20; i++) { document.getElementById('tp3Jetzt').click(); } return (performance.now() - t0) / 20; });
+  // Median aus 5 Runden je 10 Bildern: eine einzelne Runde schwankte mit der
+  // Rechnerlast um ±50 % (gemessen 08.10.2026: dieselbe Fassung 14,7 und 22,9 ms).
+  var dauer = await p.s.evaluate(function () { document.querySelector('#tp3Bereiche [data-bereich="main"]').click(); var runden = []; for (var k = 0; k < 5; k++) { var t0 = performance.now(); for (var i = 0; i < 10; i++) { document.getElementById('tp3Jetzt').click(); } runden.push((performance.now() - t0) / 10); } runden.sort(function (a, b) { return a - b; }); return runden[2]; });
   // Zwei Zeiten, an denen sicher kein Tisch wechselt: die Probe-Reservierungen
   // liegen um "jetzt" herum (bis 70 min davor, 140 min danach) und um 19:00.
   // Vorher fest 20:15 -> 20:30: gegen 20:40 Uhr sprang Tisch 4 genau dort auf
@@ -490,7 +523,8 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
       { id: 'so', art: 'sofa', x: 3.5, y: 60, b: 2, t: 0.9, dreh: 90 },
       { id: 'ga', art: 'garderobe', x: 62, y: 96, b: 1.6, t: 0.5, dreh: 0 },
       { id: 'sa', art: 'saeule', x: 40, y: 50, b: 0.4, t: 0.4, dreh: 0 },
-      { id: 'pf', art: 'pflanze', x: 3, y: 5, b: 0.6, t: 0.6, dreh: 0 }] },
+      { id: 'pf', art: 'pflanze', x: 3, y: 5, b: 0.6, t: 0.6, dreh: 0 },
+      { id: 'bi', art: 'bankinsel', x: 40, y: 66, b: 2.4, t: 1.6, dreh: 0 }, { id: 'bk', art: 'blumenkasten', x: 30, y: 30, b: 1.8, t: 0.45, dreh: 90 }] },
     terrace: { breite: 8, tiefe: 5, teile: [
       { id: 'sc', art: 'schirm', x: 30, y: 45, b: 2.5, t: 2.5, dreh: 0 },
       { id: 'sk1', art: 'strandkorb', x: 75, y: 25, b: 1.25, t: 0.9, dreh: 0 }, { id: 'sk2', art: 'strandkorb', x: 75, y: 70, b: 1.25, t: 0.9, dreh: 180 }] }
@@ -516,7 +550,7 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
   await p.s.click('#tp3Bearbeiten'); await p.s.waitForTimeout(150);
   await p.s.click('#tp3Leiste #tp3KatalogAuf'); await p.s.waitForTimeout(150);
   var kat = await p.s.evaluate(function () { return Array.prototype.map.call(document.querySelectorAll('#tp3Seite [data-neu-teil]'), function (x) { return x.getAttribute('data-neu-teil'); }); });
-  pruef('Katalog rechts: 24 Teile in Gruppen (Raum, Gastro, Gäste, Nebenräume, Draußen)', kat.length === 24 && kat.indexOf('kueche') >= 0 && kat.indexOf('strandkorb') >= 0, kat.length);
+  pruef('Katalog rechts: 26 Teile in Gruppen (Raum, Gastro, Gäste, Nebenräume, Draußen)', kat.length === 26 && kat.indexOf('bankinsel') >= 0 && kat.indexOf('kueche') >= 0 && kat.indexOf('strandkorb') >= 0, kat.length);
   var vorher = await p.s.evaluate(function () { return window.tp3.raum.main.teile.length; });
   for (var ki = 0; ki < kat.length; ki++) {
     await p.s.evaluate(function () { window.tp3.teilGewaehlt = null; window.tp3.gewaehlt = null; });
@@ -524,7 +558,7 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
     await p.s.click('#tp3Seite [data-neu-teil="' + kat[ki] + '"]');
   }
   var nachher = await p.s.evaluate(function () { return { n: window.tp3.raum.main.teile.length, tv: (window.tp3.raum.main.teile.filter(function (t) { return t.art === 'tv'; }).pop() || {}).y }; });
-  pruef('jedes Katalog-Teil lässt sich anlegen (+24), der Bildschirm hängt an der Wand', nachher.n === vorher + 24 && nachher.tv === 0, JSON.stringify(nachher) + ' vorher ' + vorher);
+  pruef('jedes Katalog-Teil lässt sich anlegen (+26), der Bildschirm hängt an der Wand', nachher.n === vorher + 26 && nachher.tv === 0, JSON.stringify(nachher) + ' vorher ' + vorher);
   pruef('kein Seitenfehler mit Einrichtung', !p.fehler.length, p.fehler.join(' | '));
   await p.ctx.close();
 

@@ -18510,6 +18510,19 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 .tp3-boden.tp3-l { background: none !important; border-radius: 0 !important; }
                 .tp3-bodenteil { position: absolute; background-color: var(--tp3-belag-farbe); background-image: var(--tp3-belag); background-size: var(--tp3-belag-groesse); }
                 .tp3[data-bearbeiten="1"] .tp3-bodenteil { background-image: linear-gradient(rgba(0,61,51,0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(0,61,51,0.12) 1px, transparent 1px), var(--tp3-belag); background-size: 14px 14px, 14px 14px, var(--tp3-belag-groesse); }
+                /* Tische zusammenschieben */
+                .tp3-tisch.dazu { outline: 3px dashed #2563eb; outline-offset: 12px; border-radius: 16px; }
+                .tp3-dazu { display: flex; flex-direction: column; gap: 8px; }
+                .tp3-dazu-summe { font-size: 14px; font-weight: 600; color: var(--tp3-text); }
+                .tp3-dazu-summe b { color: var(--tp3-tief); }
+                .tp3-dazu-summe.fehlt { color: #b45309; }
+                .dark-mode .tp3-dazu-summe.fehlt { color: #fdba74; }
+                .tp3-dazu-liste { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+                .tp3-dazu-liste button { min-height: 48px; border-radius: 14px; border: 1px solid var(--tp3-rand); background: var(--tp3-karte); color: var(--tp3-text); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font: 600 11px Inter, sans-serif; cursor: pointer; padding: 4px; }
+                .tp3-dazu-liste button b { font-family: Epilogue, sans-serif; font-size: 15px; font-weight: 800; }
+                .tp3-dazu-liste button[aria-pressed="true"] { background: #dbe7fb; border: 2px dashed #2563eb; color: #1e3a8a; }
+                .dark-mode .tp3-dazu-liste button[aria-pressed="true"] { background: #1e2b45; color: #dbe7fb; border-color: #93c5fd; }
+                .tp3-dazu-liste button:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
                 .tp3-katalog { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
                 .tp3-katalog button { min-height: 72px; border: 0; border-radius: 16px; background: var(--tp3-zweit); color: var(--tp3-text); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; padding: 8px 4px; font: 700 11px Inter, sans-serif; line-height: 1.2; text-align: center; cursor: pointer; }
                 .tp3-katalog button:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
@@ -18719,7 +18732,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             <button type="button" data-teil="wc"><i style="width:26px;height:26px;border-radius:4px;"></i>WC</button>
                             <button type="button" data-teil="wand"><i style="width:44px;height:5px;border-radius:2px;background:currentColor;"></i>Wand</button>
                             <button type="button" data-teil="pflanze"><i style="width:22px;height:22px;border-radius:9999px;background:#3f7d4a;border-color:#3f7d4a;"></i>Pflanze</button>
-                            <button type="button" id="tp3KatalogAuf"><i style="width:26px;height:26px;border-radius:7px;border-style:dashed;"></i>Alles …<small>24 Teile</small></button>
+                            <button type="button" id="tp3KatalogAuf"><i style="width:26px;height:26px;border-radius:7px;border-style:dashed;"></i>Alles …<small>26 Teile</small></button>
                         </div>
                     </div>
                     <aside class="tp3-seite" id="tp3Seite" aria-live="polite"></aside>
@@ -18846,13 +18859,16 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     spielecke:  { name: 'Kinderecke',   b: 2.0, t: 2.0,  h: 10, oben: '#e7d7c1', f1: '#d9c8b0', f2: '#d9c8b0', still: true },
                     lager:      { name: 'Lager',        b: 2.0, t: 2.0,  h: 40, oben: 'var(--tp3-fliese)', f1: 'var(--tp3-wand-hell)', f2: 'var(--tp3-wand-dunkel)' },
                     schirm:     { name: 'Sonnenschirm', b: 2.5, t: 2.5,  h: 62, oben: 'rgba(245,240,230,0.8)', f1: '#3a3f3d', f2: '#3a3f3d', rund: true, still: true },
-                    strandkorb: { name: 'Strandkorb',   b: 1.25, t: 0.9, h: 44, oben: '#e9dfc9', f1: '#3b6ea5', f2: '#d8cdb5', still: true }
+                    strandkorb: { name: 'Strandkorb',   b: 1.25, t: 0.9, h: 44, oben: '#e9dfc9', f1: '#3b6ea5', f2: '#d8cdb5', still: true },
+                    // Ibo: "eine Bankinsel von beiden Seiten, in der Mitte Blumen"
+                    bankinsel:  { name: 'Bankinsel',    b: 2.4, t: 1.6, h: 30, oben: '#6b4f3a', f1: '#7a5638', f2: '#674629', still: true },
+                    blumenkasten: { name: 'Blumenkasten', b: 1.8, t: 0.45, h: 30, oben: '#5a4a3c', f1: '#3a3f3d', f2: '#2f3433', still: true }
                 };
                 // Katalog in der Seitenleiste (beim Bearbeiten, nichts gewählt).
                 var KATALOG = [
                     ['Raum', ['tuer', 'fenster', 'wand', 'saeule', 'treppe', 'raumteiler']],
                     ['Gastro', ['theke', 'kueche', 'kasse', 'kuehlung', 'buffet', 'barhocker']],
-                    ['Gäste', ['bank', 'sofa', 'garderobe', 'kamin', 'buehne', 'tv', 'spielecke', 'pflanze']],
+                    ['Gäste', ['bank', 'bankinsel', 'sofa', 'garderobe', 'kamin', 'buehne', 'tv', 'spielecke', 'pflanze', 'blumenkasten']],
                     ['Nebenräume', ['wc', 'lager']],
                     ['Draußen', ['schirm', 'strandkorb']]
                 ];
@@ -18984,6 +19000,20 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     st.forEach(function (q) { o += wand(q[0], t - d, q[1] - q[0], d); });
                     return o;
                 }
+                // Blumen in einem Kasten: Blattwerk und bunte Blüten (in 3D leicht gewölbt).
+                function blumen(x, y, b, t, z) {
+                    var drei = tp.ansicht === '3d', n = Math.max(2, Math.round(b / Math.max(6, t * 0.9))), d = b / n, r = Math.min(d, t) * 0.55, o = '';
+                    var farben = ['#e88aa8', '#f2c94c', '#fbfbf9', '#9b7fd1', '#e86b5a'];
+                    for (var i = 0; i < n; i++) {
+                        var cx = x + d * (i + 0.5), cy = y + t / 2, zz = drei ? z : 0;
+                        o += scheibe(cx, cy, r, zz + 0.3, 'radial-gradient(circle at 40% 35%,#7fb36f,#2f6b3b)');
+                        if (drei) o += scheibe(cx, cy, r * 0.75, zz + 3, 'radial-gradient(circle at 40% 35%,#8cc07a,#3c7a42)');
+                        [[-0.35, -0.25], [0.3, -0.3], [0.05, 0.3], [-0.3, 0.25], [0.35, 0.2]].forEach(function (q, j) {
+                            o += scheibe(cx + q[0] * r, cy + q[1] * r, Math.max(1.2, r * 0.22), zz + (drei ? 4 : 0.4), farben[(i + j) % farben.length]);
+                        });
+                    }
+                    return o;
+                }
                 function tuerLuecke(b) { var p = tp.ppm, d = Math.max(3, 0.12 * p), bis = b - d - 0.2 * p; return [Math.max(d, bis - 0.9 * p), bis]; }
                 var MOEBEL = {
                     kueche: function (b, t, w) {
@@ -19087,6 +19117,18 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         var r = b / 2, drei = tp.ansicht === '3d', o = scheibe(r, r, r * 0.12, 1, '#2f3433');
                         if (drei) o += kreuz(r, r, 3, 1, 60, '#3a3f3d');
                         return o + scheibe(r, r, r, drei ? 62 : 0, 'repeating-conic-gradient(rgba(246,242,234,0.82) 0 22.5deg,rgba(222,212,196,0.82) 22.5deg 45deg)', 'box-shadow:0 0 0 1.5px rgba(160,145,120,0.6);');
+                    },
+                    // Bankinsel: Pflanzkasten in der Mitte, auf beiden Seiten eine Bank, die
+                    // sich an den Kasten lehnt.
+                    bankinsel: function (b, t, w) {
+                        var p = tp.ppm, k0 = t * 0.32, kt = t * 0.36, o = '';
+                        o += kasten(0, 0, b, k0 - 1, 14, 'var(--tp3-sitz)', 'var(--tp3-sitz-seite)', 'var(--tp3-sitz-seite)', w, 4);
+                        o += kasten(0, k0 + kt + 1, b, t - k0 - kt - 1, 14, 'var(--tp3-sitz)', 'var(--tp3-sitz-seite)', 'var(--tp3-sitz-seite)', w, 4);
+                        o += kasten(0, k0, b, kt, 24, '#4a3a2c', '#7a5638', '#674629', w, 3);
+                        return o + blumen(b * 0.04, k0 + kt * 0.12, b * 0.92, kt * 0.76, 24);
+                    },
+                    blumenkasten: function (b, t, w) {
+                        return kasten(0, 0, b, t, 22, '#4a3a2c', '#3a3f3d', '#2f3433', w, 3) + blumen(b * 0.04, t * 0.14, b * 0.92, t * 0.72, 22);
                     },
                     strandkorb: function (b, t, w) {
                         var streifen = 'repeating-linear-gradient(90deg,#f6f3ec 0 5px,#3b6ea5 5px 10px)', korb = 'repeating-linear-gradient(45deg,#e2d6bc 0 2px,#cdbf9f 2px 4px)';
@@ -19196,7 +19238,60 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 // "Tisch: <Name>" in der Notiz = Reservierung, die ohne table_id
                 // gespeichert werden musste (siehe reservieren()).
                 function tischNotiz(t) { return 'Tisch: ' + t.name; }
-                function resFuerTisch(t) { return tp.res.filter(function (r) { return String(r.table_id || '') === String(t.id) || (!r.table_id && String(r.notes || '').indexOf(tischNotiz(t)) === 0); }); }
+                // Haupttisch aus der Notiz ("Tisch: <Name>", bis " · " oder Ende). Vorher
+                // reichte der Anfang: "Tisch: Tisch 1" passte auch zu "Tisch 10".
+                function notizTisch(r) { var n = String(r && r.notes || ''); if (n.indexOf('Tisch: ') !== 0) return null; return n.slice(7).split(' · ')[0].trim(); }
+                // ---------- Tische zusammenschieben (08.10.2026) ----------
+                // Grosse Gruppe: im Lokal schiebt man zwei, drei Tische zusammen. Ohne
+                // neue Spalte gespeichert: table_id = der angetippte Tisch, die anderen
+                // in der Notiz ("Zusammen mit: Tisch 4, Tisch 5"). Der Plan zeigt die
+                // Reservierung an allen und verbindet sie.
+                var VERBUND = 'Zusammen mit: ';
+                function verbundNamen(r) {
+                    var n = String(r && r.notes || ''), i = n.indexOf(VERBUND); if (i < 0) return [];
+                    return n.slice(i + VERBUND.length).split(' · ')[0].split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+                }
+                function verbundTische(r) {
+                    var nt = notizTisch(r), haupt = r.table_id ? tischVon(r.table_id) : tp.tische.find(function (t) { return t.name === nt; });
+                    var o = haupt ? [haupt] : [];
+                    verbundNamen(r).forEach(function (nm) { var t = tp.tische.find(function (x) { return x.name === nm; }); if (t && o.indexOf(t) < 0) o.push(t); });
+                    return o;
+                }
+                function resFuerTisch(t) { return tp.res.filter(function (r) { return String(r.table_id || '') === String(t.id) || (!r.table_id && notizTisch(r) === t.name) || verbundNamen(r).indexOf(t.name) >= 0; }); }
+                function freiUm(t, a) { return !resFuerTisch(t).some(function (r) { var b = minuten(r.reservation_time), e = b + (+r.duration_minutes || 120); return a < e && b < a + 120; }); }
+                // Freie Tische im selben Bereich, nächste zuerst (Abstand in Metern).
+                function dazuKandidaten(t, a) {
+                    var rm = raumVon(t.bereich || 'main'), jetztNah = tp.datum === heute() && Math.abs(a - jetztMin()) < 120;
+                    return tp.tische.filter(function (x) { return x !== t && x.bereich === t.bereich && freiUm(x, a) && !(jetztNah && zustand(x).art !== 'frei'); })
+                        .map(function (x) { return { t: x, d: Math.hypot((x.x - t.x) / 100 * rm.breite, (x.y - t.y) / 100 * rm.tiefe) }; })
+                        .sort(function (p, q) { return p.d - q.d; });
+                }
+                function dazuHtml(t, a, pers) {
+                    tp.dazu = (tp.dazu || []).filter(function (id) { var x = tischVon(id); return x && x !== t && freiUm(x, a); });
+                    var dazu = tp.dazu.map(tischVon), platz = dazu.reduce(function (s, x) { return s + (+x.plaetze || 0); }, +t.plaetze || 0);
+                    var o = '<div class="tp3-dazu" id="tp3Dazu">';
+                    if (pers <= t.plaetze && !dazu.length) return o + '<div class="tp3-unter">Größere Gruppe? Personen erhöhen – dann lassen sich Tische dazunehmen.</div></div>';
+                    var k = dazuKandidaten(t, a), fehlt = pers - platz;
+                    o += '<div class="tp3-ueber">Tische zusammenschieben</div>'
+                        + '<div class="tp3-dazu-summe' + (fehlt > 0 ? ' fehlt' : '') + '">' + [t].concat(dazu).map(function (x) { return esc(x.plaetze); }).join(' + ') + ' = <b>' + platz + ' Plätze</b>'
+                        + (fehlt > 0 ? ' · für ' + pers + ' Personen fehlen ' + fehlt : ' · passt für ' + pers) + '</div>';
+                    if (!k.length && !dazu.length) return o + '<div class="tp3-unter">Um ' + hhmm(a) + ' ist in diesem Bereich kein Tisch mehr frei.</div></div>';
+                    o += '<div class="tp3-dazu-liste">' + k.slice(0, 6).concat(dazu.filter(function (x) { return !k.slice(0, 6).some(function (q) { return q.t === x; }); }).map(function (x) { return { t: x, d: null }; })).map(function (q) {
+                        var an = tp.dazu.indexOf(q.t.id) >= 0;
+                        return '<button type="button" data-dazu="' + esc(q.t.id) + '" aria-pressed="' + an + '"><b>' + esc(q.t.nummer) + '</b><span>' + esc(q.t.plaetze) + ' Pl.' + (q.d != null ? ' · ' + m(q.d) : '') + '</span></button>';
+                    }).join('') + '</div>';
+                    if (fehlt > 0 && k.some(function (q) { return tp.dazu.indexOf(q.t.id) < 0; })) o += '<button type="button" class="tp3-knopf" data-aktion="dazu-auto" style="height:44px;">Passende Tische dazunehmen</button>';
+                    return o + '</div>';
+                }
+                function dazuWerte(t) {
+                    var z = $('tp3sZeit'), p = $('tp3sPers');
+                    return { a: minuten(z && z.value || (tp.zeit === 'jetzt' ? hhmm(Math.ceil(jetztMin() / 15) * 15) : tp.zeit)), pers: parseInt(p && p.value, 10) || Math.min(2, t.plaetze) };
+                }
+                function dazuAuffrischen(t) {
+                    var d = $('tp3Dazu'), w = dazuWerte(t);
+                    if (d) d.outerHTML = dazuHtml(t, w.a, w.pers);
+                    document.querySelectorAll('#tp3Boden .tp3-tisch').forEach(function (el) { el.classList.toggle('dazu', (tp.dazu || []).indexOf(el.getAttribute('data-id')) >= 0); });
+                }
                 function zustand(t) {
                     var T = zeitpunkt(), z = { art: 'frei', text: 'frei' };
                     var rs = resFuerTisch(t), aktiv = null;
@@ -19465,7 +19560,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     var cx = t.x / 100 * tp.W, cy = t.y / 100 * tp.T, kk = 1;
                     var gew = tp.gewaehlt === t.id;
                     // Groesse in Metern: im 12-m-Raum wie bisher, im 20-m-Raum kleiner.
-                    var o = '<div class="tp3-tisch" data-id="' + esc(t.id) + '" style="left:' + (cx - g.b * kk / 2) + 'px;top:' + (cy - g.t * kk / 2) + 'px;width:' + (g.b * kk) + 'px;height:' + (g.t * kk) + 'px;">';
+                    var o = '<div class="tp3-tisch' + (!tp.bearbeiten && (tp.dazu || []).indexOf(t.id) >= 0 ? ' dazu' : '') + '" data-id="' + esc(t.id) + '" style="left:' + (cx - g.b * kk / 2) + 'px;top:' + (cy - g.t * kk / 2) + 'px;width:' + (g.b * kk) + 'px;height:' + (g.t * kk) + 'px;">';
                     if (z.art === 'ruft') o += '<div class="tp3-ruft-hof" style="left:-16px;top:-16px;right:-16px;bottom:-16px;' + (tp.ansicht === '3d' ? 'transform:translateZ(0.5px);' : '') + '"></div>';
                     if (gew) o += '<div class="tp3-f" style="left:-12px;top:-12px;right:-12px;bottom:-12px;border-radius:16px;border:3px solid ' + '#003d33' + ';' + (tp.ansicht === '3d' ? 'transform:translateZ(0.5px);' : '') + '"></div>';
                     o += '<div class="tp3-b tp3-innen" style="left:0;top:0;width:' + g.b + 'px;height:' + g.t + 'px;transform-origin:0 0;transform:' + tischDreh(g, kk, t.drehung) + ';">';
@@ -19504,10 +19599,32 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     // Maße stehen rechts, sobald der Tisch gewählt ist.
                     if (tp.bearbeiten) { if (gew) inhalt += esc(t.plaetze) + ' Pl.'; }
                     else if (z.art === 'frei') { if (gew) inhalt += '<i>frei · ' + esc(t.plaetze) + ' Plätze</i>'; }
-                    else if (z.art === 'res' && gew && z.res) inhalt += esc(z.text + ' · ' + (z.res.guest_name || ''));
-                    else inhalt += esc(z.text);
+                    else {
+                        // Zusammengeschoben: "mit 4+5" am Schild
+                        var mit = z.res ? verbundTische(z.res).filter(function (x) { return x !== t; }).map(function (x) { return x.nummer; }) : [];
+                        var zus = mit.length ? ' · mit ' + mit.join('+') : '';
+                        if (z.art === 'res' && gew && z.res) inhalt += esc(z.text + zus + ' · ' + (z.res.guest_name || ''));
+                        else inhalt += esc(z.text + zus);
+                    }
                     o += '<div class="tp3-schild ' + klasse + '" style="' + schild + '"><span data-id="' + esc(t.id) + '">' + inhalt + '</span></div>';
                     return o + '</div>';
+                }
+                // Gestrichelte Linie zwischen zusammengeschobenen Tischen (zur gewählten Zeit).
+                function verbundLinien(liste) {
+                    var T = zeitpunkt(), o = '', drei = tp.ansicht === '3d', gesehen = {};
+                    tp.res.forEach(function (r) {
+                        if (gesehen[r.id]) return; gesehen[r.id] = 1;
+                        if (r.status === 'cancelled' || r.status === 'no_show' || r.status === 'finished') return;
+                        var a = minuten(r.reservation_time), e = a + (+r.duration_minutes || 120);
+                        if (!(T >= a - 30 && T < e)) return;
+                        var ts = verbundTische(r).filter(function (x) { return liste.indexOf(x) >= 0; });
+                        var farbe = r.status === 'seated' ? '#003d33' : '#2563eb';
+                        for (var i = 1; i < ts.length; i++) {
+                            var x1 = ts[i - 1].x / 100 * tp.W, y1 = ts[i - 1].y / 100 * tp.T, x2 = ts[i].x / 100 * tp.W, y2 = ts[i].y / 100 * tp.T, d = Math.hypot(x2 - x1, y2 - y1), w = Math.atan2(y2 - y1, x2 - x1);
+                            o += '<div class="tp3-f tp3-verbund" style="left:' + x1 + 'px;top:' + (y1 - 2) + 'px;width:' + d + 'px;height:4px;transform-origin:0 50%;transform:' + (drei ? 'translateZ(1px) ' : '') + 'rotate(' + w.toFixed(4) + 'rad);background:repeating-linear-gradient(90deg,' + farbe + ' 0 8px,transparent 8px 13px);border-radius:2px;"></div>';
+                        }
+                    });
+                    return o;
                 }
                 function zeichnen() {
                     var wurzel = $('tp3'); if (!wurzel) return;
@@ -19537,6 +19654,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     var liste = tp.tische.filter(function (t) { return t.bereich === tp.bereich; });
                     var h = bodenStuecke(raum) + modellLicht(raum) + waende() + masseHtml(raum);
                     raum.teile.forEach(function (teil) { h += teilHtml(teil); });
+                    if (!tp.bearbeiten) h += verbundLinien(liste);
                     liste.forEach(function (t) { h += tischHtml(t); });
                     boden.innerHTML = h;
                     var leer = $('tp3Leer'); if (leer) leer.remove();
@@ -19685,7 +19803,9 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     kamin: 'width:26px;height:16px;background:radial-gradient(ellipse at 50% 90%,#ff8c2b,#2f3533 70%);border-color:#2f3533;', buehne: 'width:34px;height:20px;background:#3b2f28;border-color:#3b2f28;', tv: 'width:30px;height:5px;background:#111414;border-color:#111414;',
                     spielecke: 'width:24px;height:24px;background:repeating-conic-gradient(#e7d7c1 0 25%,#b9d0c0 0 50%) 0 0/12px 12px;', pflanze: 'width:20px;height:20px;border-radius:9999px;background:#3f7d4a;border-color:#3f7d4a;',
                     wc: 'width:24px;height:24px;', lager: 'width:24px;height:24px;background:repeating-linear-gradient(0deg,#a98462 0 3px,transparent 3px 7px);',
-                    schirm: 'width:24px;height:24px;border-radius:9999px;background:repeating-conic-gradient(#f2ece0 0 45deg,#cfc3ad 45deg 90deg);', strandkorb: 'width:24px;height:20px;border-radius:10px 10px 3px 3px;background:repeating-linear-gradient(90deg,#f6f3ec 0 3px,#3b6ea5 3px 6px);' };
+                    schirm: 'width:24px;height:24px;border-radius:9999px;background:repeating-conic-gradient(#f2ece0 0 45deg,#cfc3ad 45deg 90deg);',
+                    bankinsel: 'width:30px;height:22px;background:linear-gradient(currentColor 0 30%,#6fa56a 30% 70%,currentColor 70%);border-color:transparent;border-radius:4px;opacity:0.85;',
+                    blumenkasten: 'width:30px;height:10px;background:radial-gradient(circle,#e88aa8 0 2px,transparent 2.5px) 0 0/7px 10px,#4f8a4f;border-color:#3a3f3d;', strandkorb: 'width:24px;height:20px;border-radius:10px 10px 3px 3px;background:repeating-linear-gradient(90deg,#f6f3ec 0 3px,#3b6ea5 3px 6px);' };
                 function katalogHtml() {
                     return '<div id="tp3Katalog" style="display:flex;flex-direction:column;gap:10px;margin-top:6px;"><div class="tp3-ueber">Einrichtung hinzufügen</div>'
                         + KATALOG.map(function (g) {
@@ -19715,6 +19835,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             + (tp.bearbeiten ? '' : heuteListe(null));
                         return;
                     }
+                    if (tp.dazuFuer !== t.id) { tp.dazu = []; tp.dazuFuer = t.id; }
                     var g = form(t), formName = { rund: 'rund', eckig: 'eckig', lang: 'lang' }[g.art];
                     var o = '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;"><div><h3>' + esc(t.name) + '</h3><div class="tp3-unter">'
                         + esc(t.plaetze) + ' Plätze · ' + formName + ' · ' + esc(bereichName(t.bereich)) + '</div></div>'
@@ -19725,7 +19846,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         var r = z.res, ende = hhmm(minuten(r.reservation_time) + (+r.duration_minutes || 120));
                         o += '<div class="tp3-karte res"><small>Reserviert · ' + esc(String(r.reservation_time).slice(0, 5)) + '–' + ende + '</small><strong>' + esc(r.guest_name || 'Gast') + '</strong>'
                             + '<span>' + esc(r.party_size || '?') + ' Personen' + (r.guest_phone ? ' · ' + esc(r.guest_phone) : '') + '</span>'
-                            + (r.notes ? '<span>Notiz: ' + esc(r.notes) + '</span>' : '') + '</div>'
+                            + verbundZeile(r, t) + (notizRest(r) ? '<span>Notiz: ' + esc(notizRest(r)) + '</span>' : '') + '</div>'
                             + '<button type="button" class="tp3-knopf haupt" data-aktion="da" style="height:52px;font-size:16px;">Gäste sind da</button>'
                             + '<div class="tp3-reihe"><button type="button" class="tp3-knopf" data-aktion="absagen">Absagen</button><button type="button" class="tp3-knopf rot" data-aktion="noshow">Nicht gekommen</button></div>';
                     } else if (z.art === 'bes' || z.art === 'ruft') {
@@ -19742,6 +19863,12 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     o += heuteListe(t);
                     s.innerHTML = o;
                 }
+                function notizRest(r) { return String(r.notes || '').split(' · ').filter(function (x) { return x.indexOf('Tisch: ') !== 0 && x.indexOf(VERBUND) !== 0; }).join(' · '); }
+                function verbundZeile(r, t) {
+                    var alle = verbundTische(r); if (alle.length < 2) return '';
+                    var platz = alle.reduce(function (s, x) { return s + (+x.plaetze || 0); }, 0);
+                    return '<span>Zusammen mit ' + esc(alle.filter(function (x) { return x !== t; }).map(function (x) { return x.name; }).join(', ')) + ' · ' + platz + ' Plätze</span>';
+                }
                 function heuteListe(t) {
                     var rs = t ? resFuerTisch(t) : tp.res.slice();
                     var T = zeitpunkt();
@@ -19749,9 +19876,10 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     if (!rs.length) return '<div class="tp3-ueber">' + titel + '</div><div class="tp3-unter" style="margin-top:-6px;">Keine Reservierung' + (t ? ' an diesem Tisch.' : '.') + '</div>';
                     return '<div class="tp3-ueber">' + titel + '</div><div class="tp3-heute">' + rs.map(function (r) {
                         var a = minuten(r.reservation_time), vorbei = tp.datum === heute() && a + (+r.duration_minutes || 120) <= jetztMin();
-                        var tisch = !t && r.table_id ? tischVon(r.table_id) : null;
+                        var alle = verbundTische(r), tische = !t && alle.length ? alle.map(function (x) { return x.name; }).join(' + ') : '';
+                        if (t && alle.length > 1) tische = 'mit ' + alle.filter(function (x) { return x !== t; }).map(function (x) { return x.name; }).join(' + ');
                         return '<div class="' + (vorbei ? 'vorbei' : '') + '"><b>' + esc(String(r.reservation_time).slice(0, 5)) + '</b><span style="flex:1;">' + esc(r.guest_name || 'Gast') + ' · ' + esc(r.party_size || '?') + ' P.'
-                            + (tisch ? ' · ' + esc(tisch.name) : (!t && !r.table_id ? ' · ohne Tisch' : '')) + '</span>' + (r.status === 'seated' ? '<small>sitzt</small>' : (vorbei ? '<small>vorbei</small>' : '')) + '</div>';
+                            + (tische ? ' · ' + esc(tische) : (!t ? ' · ohne Tisch' : '')) + '</span>' + (r.status === 'seated' ? '<small>sitzt</small>' : (vorbei ? '<small>vorbei</small>' : '')) + '</div>';
                     }).join('') + '</div>';
                 }
                 function schnellForm(t) {
@@ -19759,7 +19887,8 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     return '<div class="tp3-ueber" style="margin-top:4px;">Hier reservieren</div><div class="tp3-form">'
                         + '<label>Name<input class="tp3-feld" id="tp3sName" autocomplete="off"></label>'
                         + '<div class="tp3-reihe"><label>Uhrzeit<input class="tp3-feld" id="tp3sZeit" type="time" value="' + zeit + '"></label>'
-                        + '<label>Personen<input class="tp3-feld" id="tp3sPers" type="number" min="1" max="' + Math.max(t.plaetze, 20) + '" value="' + Math.min(2, t.plaetze) + '"></label></div>'
+                        + '<label>Personen<input class="tp3-feld" id="tp3sPers" type="number" min="1" max="60" value="' + Math.min(2, t.plaetze) + '"></label></div>'
+                        + dazuHtml(t, minuten(zeit), Math.min(2, t.plaetze))
                         + '<label>Telefon (freiwillig)<input class="tp3-feld" id="tp3sTel" type="tel" autocomplete="off"></label>'
                         + '<button type="button" class="tp3-knopf haupt" data-aktion="reservieren" style="height:48px;">Reservieren</button></div>';
                 }
@@ -19985,8 +20114,15 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     var name = ($('tp3sName').value || '').trim(), zeit = $('tp3sZeit').value, pers = parseInt($('tp3sPers').value, 10), tel = ($('tp3sTel').value || '').trim();
                     if (!name) { melden('Bitte einen Namen eintragen.', 'fehler'); $('tp3sName').focus(); return; }
                     if (!zeit || !pers) { melden('Bitte Uhrzeit und Personen eintragen.', 'fehler'); return; }
-                    var a = minuten(zeit), konflikt = resFuerTisch(t).find(function (r) { var b = minuten(r.reservation_time), e = b + (+r.duration_minutes || 120); return a < e && b < a + 120; });
-                    if (konflikt) { melden(t.name + ' ist um ' + String(konflikt.reservation_time).slice(0, 5) + ' schon für ' + (konflikt.guest_name || 'einen Gast') + ' reserviert.', 'fehler'); return; }
+                    var a = minuten(zeit), dazu = (tp.dazu || []).map(tischVon).filter(Boolean), alle = [t].concat(dazu);
+                    for (var ki = 0; ki < alle.length; ki++) {
+                        var konflikt = resFuerTisch(alle[ki]).find(function (r) { var b = minuten(r.reservation_time), e = b + (+r.duration_minutes || 120); return a < e && b < a + 120; });
+                        if (konflikt) { melden(alle[ki].name + ' ist um ' + String(konflikt.reservation_time).slice(0, 5) + ' schon für ' + (konflikt.guest_name || 'einen Gast') + ' reserviert.', 'fehler'); return; }
+                    }
+                    // Mehr Gäste als Plätze: nicht still durchwinken.
+                    var platz = alle.reduce(function (s, x) { return s + (+x.plaetze || 0); }, 0);
+                    if (pers > platz && !(await kinConfirm(pers + ' Personen, aber ' + (dazu.length ? 'zusammen ' : '') + 'nur ' + platz + ' Plätze.\n\nTrotzdem reservieren?'))) return;
+                    var verbund = dazu.length ? VERBUND + dazu.map(function (x) { return x.name; }).join(', ') : '';
                     // TISCH-ZUORDNUNG (07.10.2026, gemessen in postgres_logs):
                     // reservations.table_id verweist in der Datenbank noch auf die
                     // ALTE Tabelle "tables", der Plan liest aber restaurant_tables.
@@ -19995,6 +20131,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     // table_id speichern, der Tisch steht in der Notiz -- und der
                     // Plan zeigt die Reservierung trotzdem an diesem Tisch.
                     var daten = { restaurant_id: tp.rid, reservation_date: tp.datum, reservation_time: zeit, guest_name: name, guest_phone: tel || null, party_size: pers, table_id: t.id, status: 'confirmed', source: 'dashboard' };
+                    if (verbund) daten.notes = verbund;
                     async function schreiben(d) {
                         var r = await sbWrite(SUPABASE_URL + '/rest/v1/reservations', { method: 'POST', headers: kopf({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }), body: JSON.stringify(d) });
                         var z = await r.json().catch(function () { return []; });
@@ -20006,11 +20143,12 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         try { await schreiben(daten); }
                         catch (e1) {
                             if (!/reservations_table_id_fkey|23503/.test(String(e1 && e1.message))) throw e1;
-                            delete daten.table_id; daten.notes = tischNotiz(t);
+                            delete daten.table_id; daten.notes = tischNotiz(t) + (verbund ? ' · ' + verbund : '');
                             await schreiben(daten); ohneTisch = true;
                         }
                         melden(ohneTisch ? 'Reserviert – aber noch ohne feste Tischzuordnung in der Datenbank (der Tisch steht in der Notiz, der Plan zeigt sie trotzdem hier). Damit es fest gespeichert wird: datenbank/40-tisch-zuordnung.sql in Supabase einspielen.' : '', ohneTisch ? 'hinweis' : undefined);
-                        if (typeof showToast === 'function') showToast('Reserviert: ' + esc(name) + ', ' + zeit + ', ' + esc(t.name), 'success');
+                        if (typeof showToast === 'function') showToast('Reserviert: ' + esc(name) + ', ' + zeit + ', ' + esc(alle.map(function (x) { return x.name; }).join(' + ')), 'success');
+                        tp.dazu = [];
                         if (typeof window.resLoadReservations === 'function') try { window.resLoadReservations(); } catch (x) {}
                         await laden();
                     } catch (e) { melden('Nicht reserviert – ' + (e && e.message || e), 'fehler'); }
@@ -20146,6 +20284,12 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     $('tp3Seite').addEventListener('click', async function (e) {
                         var kt = e.target.closest('[data-neu-teil]');
                         if (kt) { neuesTeil(kt.getAttribute('data-neu-teil')); return; }
+                        var dz = e.target.closest('[data-dazu]');
+                        if (dz) {
+                            var tg = tischVon(tp.gewaehlt), id = dz.getAttribute('data-dazu');
+                            if (tg) { tp.dazu = tp.dazu || []; var i = tp.dazu.indexOf(id); if (i >= 0) tp.dazu.splice(i, 1); else tp.dazu.push(id); dazuAuffrischen(tg); }
+                            return;
+                        }
                         var ra = e.target.closest('[data-raum]');
                         if (ra && tp.bearbeiten) { raumAktion(ra.getAttribute('data-raum')); return; }
                         var t = tischVon(tp.gewaehlt);
@@ -20191,6 +20335,16 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         else if (a === 'besetzen') tischStatus(t, 'occupied');
                         else if (a === 'frei') { if (z.res && z.res.status === 'seated') await resStatus(z.res, 'finished'); tischStatus(t, 'available'); }
                         else if (a === 'reservieren') reservieren(t);
+                        else if (a === 'dazu-auto') {
+                            // nächste freie Tische, bis die Plätze reichen
+                            var w = dazuWerte(t), platz = (tp.dazu || []).map(tischVon).reduce(function (s, x) { return s + (+x.plaetze || 0); }, +t.plaetze || 0);
+                            dazuKandidaten(t, w.a).forEach(function (q) { if (platz < w.pers && tp.dazu.indexOf(q.t.id) < 0) { tp.dazu.push(q.t.id); platz += +q.t.plaetze || 0; } });
+                            dazuAuffrischen(t);
+                        }
+                    });
+                    $('tp3Seite').addEventListener('input', function (e) {
+                        if (e.target.id !== 'tp3sPers' && e.target.id !== 'tp3sZeit') return;
+                        var t = tischVon(tp.gewaehlt); if (t && !tp.bearbeiten) dazuAuffrischen(t);
                     });
                     $('tp3Seite').addEventListener('change', function (e) {
                         var t = tischVon(tp.gewaehlt); if (!t || !tp.bearbeiten) return;

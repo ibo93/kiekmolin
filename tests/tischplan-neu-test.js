@@ -58,7 +58,7 @@ t('fehlende Spalten (39-tischplan.sql): Plan laedt trotzdem und sagt es',
 t('Schnell-Reservierung schickt die echte Tisch-ID',
   /table_id: t\.id, status: 'confirmed', source: 'dashboard'/.test(TP), '');
 t('und prueft vorher auf Ueberschneidung am selben Tisch',
-  /konflikt = resFuerTisch\(t\)\.find/.test(TP), '');
+  /var konflikt = resFuerTisch\(alle\[ki\]\)\.find/.test(TP) && /alle = \[t\]\.concat\(dazu\)/.test(TP), '');  // seit 08.10.2026 an allen zusammengeschobenen Tischen
 
 // --- Status der Reservierung ---
 t('"Gaeste sind da" geht ueber updateReservationStatus und wertet das Ergebnis aus',
