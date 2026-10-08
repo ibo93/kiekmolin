@@ -511,7 +511,7 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
   var EINGERICHTET = {
     main: { breite: 16, tiefe: 10, form: 'L', ecke: 'or', ausB: 6, ausT: 4, teile: [
       { id: 'tu', art: 'tuer', x: 50, y: 100, b: 1.4, t: 0.3, dreh: 0 },
-      { id: 'th', art: 'theke', x: 20, y: 8, b: 4, t: 0.8, dreh: 0 },
+      { id: 'th', art: 'theke', x: 20, y: 9, b: 4, t: 0.8, dreh: 0 }, { id: 'ts', art: 'thekenschrank', x: 20, y: 2.3, b: 4, t: 0.45, dreh: 0 },
       { id: 'kb1', art: 'barhocker', x: 12, y: 16, b: 0.4, t: 0.4, dreh: 0 }, { id: 'kb2', art: 'barhocker', x: 18, y: 16, b: 0.4, t: 0.4, dreh: 0 }, { id: 'kb3', art: 'barhocker', x: 24, y: 16, b: 0.4, t: 0.4, dreh: 0 },
       { id: 'ka', art: 'kasse', x: 38, y: 8, b: 1.2, t: 0.6, dreh: 0 },
       { id: 'kue', art: 'kuehlung', x: 48, y: 5, b: 1.3, t: 0.7, dreh: 0 },
@@ -550,7 +550,7 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
   await p.s.click('#tp3Bearbeiten'); await p.s.waitForTimeout(150);
   await p.s.click('#tp3Leiste #tp3KatalogAuf'); await p.s.waitForTimeout(150);
   var kat = await p.s.evaluate(function () { return Array.prototype.map.call(document.querySelectorAll('#tp3Seite [data-neu-teil]'), function (x) { return x.getAttribute('data-neu-teil'); }); });
-  pruef('Katalog rechts: 26 Teile in Gruppen (Raum, Gastro, Gäste, Nebenräume, Draußen)', kat.length === 26 && kat.indexOf('bankinsel') >= 0 && kat.indexOf('kueche') >= 0 && kat.indexOf('strandkorb') >= 0, kat.length);
+  pruef('Katalog rechts: 27 Teile in Gruppen (Raum, Gastro, Gäste, Nebenräume, Draußen)', kat.length === 27 && kat.indexOf('thekenschrank') >= 0 && kat.indexOf('bankinsel') >= 0 && kat.indexOf('kueche') >= 0 && kat.indexOf('strandkorb') >= 0, kat.length);
   var vorher = await p.s.evaluate(function () { return window.tp3.raum.main.teile.length; });
   for (var ki = 0; ki < kat.length; ki++) {
     await p.s.evaluate(function () { window.tp3.teilGewaehlt = null; window.tp3.gewaehlt = null; });
@@ -558,7 +558,7 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
     await p.s.click('#tp3Seite [data-neu-teil="' + kat[ki] + '"]');
   }
   var nachher = await p.s.evaluate(function () { return { n: window.tp3.raum.main.teile.length, tv: (window.tp3.raum.main.teile.filter(function (t) { return t.art === 'tv'; }).pop() || {}).y }; });
-  pruef('jedes Katalog-Teil lässt sich anlegen (+26), der Bildschirm hängt an der Wand', nachher.n === vorher + 26 && nachher.tv === 0, JSON.stringify(nachher) + ' vorher ' + vorher);
+  pruef('jedes Katalog-Teil lässt sich anlegen (+27), der Bildschirm hängt an der Wand', nachher.n === vorher + 27 && nachher.tv === 0, JSON.stringify(nachher) + ' vorher ' + vorher);
   pruef('kein Seitenfehler mit Einrichtung', !p.fehler.length, p.fehler.join(' | '));
   await p.ctx.close();
 

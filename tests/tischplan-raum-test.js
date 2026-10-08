@@ -120,9 +120,9 @@ t('Gedeck nur, wo jemand sitzt; reserviert = Kärtchen; nicht beim Bearbeiten', 
 // Einrichtung (Ibo: "mit Küche einbauen, alles mögliche muss drin sein")
 var TEILE = new Function(H.slice(H.indexOf('var TEIL = {'), H.indexOf('};', H.indexOf('var TEIL = {')) + 2) + H.slice(H.indexOf('var KATALOG = ['), H.indexOf('];', H.indexOf('var KATALOG = [')) + 2) + '; return { TEIL: TEIL, KATALOG: KATALOG };')();
 var katArten = [].concat.apply([], TEILE.KATALOG.map(function (g) { return g[1]; }));
-t('Katalog: 26 Teile, jedes hat Name und Maße', katArten.length === 26 && katArten.every(function (a) { return TEILE.TEIL[a] && TEILE.TEIL[a].name && TEILE.TEIL[a].b > 0 && TEILE.TEIL[a].t > 0; }), katArten.filter(function (a) { return !TEILE.TEIL[a]; }).join(','));
-t('Katalog hat Küche, WC, Kasse, Bühne, Strandkorb, Bankinsel …', ['bankinsel', 'blumenkasten', 'kueche', 'wc', 'kasse', 'kuehlung', 'buehne', 'kamin', 'sofa', 'garderobe', 'schirm', 'strandkorb'].every(function (a) { return katArten.indexOf(a) >= 0; }), '');
-var Mb = new Function('var tp = { ppm: 50, ansicht: "oben" };' + ['flach', 'standX', 'standY', 'kreuz', 'scheibe', 'nahKanten', 'seiten', 'kasten', 'fliesen', 'wandRing', 'tuerLuecke', 'blumen'].map(fn).join('\n')
+t('Katalog: 27 Teile, jedes hat Name und Maße', katArten.length === 27 && katArten.every(function (a) { return TEILE.TEIL[a] && TEILE.TEIL[a].name && TEILE.TEIL[a].b > 0 && TEILE.TEIL[a].t > 0; }), katArten.filter(function (a) { return !TEILE.TEIL[a]; }).join(','));
+t('Katalog hat Küche, WC, Kasse, Bühne, Strandkorb, Bankinsel …', ['thekenschrank', 'bankinsel', 'blumenkasten', 'kueche', 'wc', 'kasse', 'kuehlung', 'buehne', 'kamin', 'sofa', 'garderobe', 'schirm', 'strandkorb'].every(function (a) { return katArten.indexOf(a) >= 0; }), '');
+var Mb = new Function('var tp = { ppm: 50, ansicht: "oben" };' + ['flach', 'standX', 'standY', 'kreuz', 'scheibe', 'nahKanten', 'seiten', 'kasten', 'fliesen', 'wandRing', 'tuerLuecke', 'blumen', 'glas'].map(fn).join('\n')
     + H.slice(H.indexOf("var STAHL = "), H.indexOf(';', H.indexOf("var STAHL = ")) + 1) + H.slice(H.indexOf('var MOEBEL = {'), H.indexOf('\n                };', H.indexOf('var MOEBEL = {')) + 19)
     + '; return { tp: tp, MOEBEL: MOEBEL, KAT: ' + JSON.stringify(katArten) + ' };')();
 var kue = Mb.MOEBEL.kueche(250, 180, 0);
