@@ -75,8 +75,10 @@ var zus = ctx.zusatzstoffeVon({ additives: ['nr:37', 'ohne:Gyros,Tzatziki', '1']
 t('die Markierungen sind aus den Zusatzstoffen raus',
   zus.join('|') === 'Farbstoff', zus.join('|'));
 t('echte Zusatzstoffe bleiben', ctx.zusatzstoffeVon({ additives: ['1', '2'] }).length === 2);
+// 08.10.2026: "lebendig:" dazugekommen (Lebendige Bilder) -- die Liste darf
+// wachsen, aber nr: und ohne: muessen drinbleiben.
 t('die Markierungen stehen an EINER Stelle',
-  /var ADDITIVE_MARKIERUNGEN = \['nr:', 'ohne:'\];/.test(h));
+  /var ADDITIVE_MARKIERUNGEN = \['nr:', 'ohne:'(, '[a-z]+:')*\];/.test(h) && (h.match(/var ADDITIVE_MARKIERUNGEN/g) || []).length === 1);
 t('und der Filter benutzt sie', /!istMarkierung\(a\)/.test(h));
 
 console.log('\n-- 3. Eingetragenes schlaegt Geratenes --');

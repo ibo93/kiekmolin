@@ -9192,6 +9192,57 @@
             }
         }
 
+        /* LEBENDIGE BILDER (08.10.2026): leise Bewegung über dem echten
+           Foto, höchstens 4 Gerichte je Lokal (siehe lebendigHtml). Nur
+           transform/opacity -- das rechnet die Grafikkarte, nicht das
+           Handy. Läuft nur, solange das Bild zu sehen ist (.laeuft). */
+        .kmi-lebendig { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+        .kmi-lebendig span { position: absolute; display: block; will-change: transform, opacity; }
+        /* Perlen: steigen auf und verblassen */
+        .kmi-lebendig-perlen span { bottom: -10px; width: 7px; height: 7px; border-radius: 50%; opacity: 0;
+            background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.95), rgba(255,255,255,0.35) 55%, rgba(255,255,255,0) 72%);
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.55); animation: kmiPerle 4.2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        .kmi-lebendig-perlen span:nth-child(1) { left: 38%; animation-delay: 0s; }
+        .kmi-lebendig-perlen span:nth-child(2) { left: 46%; width: 5px; height: 5px; animation-delay: 0.6s; animation-duration: 3.6s; }
+        .kmi-lebendig-perlen span:nth-child(3) { left: 53%; width: 9px; height: 9px; animation-delay: 1.3s; animation-duration: 4.8s; }
+        .kmi-lebendig-perlen span:nth-child(4) { left: 61%; width: 4px; height: 4px; animation-delay: 2.1s; }
+        .kmi-lebendig-perlen span:nth-child(5) { left: 43%; width: 6px; height: 6px; animation-delay: 2.7s; animation-duration: 3.9s; }
+        .kmi-lebendig-perlen span:nth-child(6) { left: 57%; animation-delay: 3.3s; animation-duration: 4.5s; }
+        .kmi-lebendig-perlen span:nth-child(7) { left: 49%; width: 4px; height: 4px; animation-delay: 1.8s; animation-duration: 3.3s; }
+        .kmi-lebendig-perlen span:nth-child(8) { left: 35%; width: 5px; height: 5px; animation-delay: 3.8s; }
+        @keyframes kmiPerle {
+            0% { transform: translate(0, 0) scale(0.6); opacity: 0; }
+            15% { opacity: 0.9; }
+            50% { transform: translate(3px, -95px) scale(1); }
+            85% { opacity: 0.7; }
+            100% { transform: translate(-2px, -190px) scale(1.1); opacity: 0; }
+        }
+        /* Dampf: weiche Schwaden steigen auf und werden breiter */
+        .kmi-lebendig-dampf span { bottom: 18%; left: 50%; width: 46%; height: 46%; margin-left: -23%; border-radius: 50%; opacity: 0;
+            background: radial-gradient(ellipse at center, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.18) 40%, rgba(255,255,255,0) 70%);
+            animation: kmiDampf 6.5s ease-out infinite; }
+        .kmi-lebendig-dampf span:nth-child(2) { animation-delay: 2.2s; left: 42%; }
+        .kmi-lebendig-dampf span:nth-child(3) { animation-delay: 4.4s; left: 58%; }
+        @keyframes kmiDampf {
+            0% { transform: translateY(20px) scale(0.5); opacity: 0; }
+            25% { opacity: 0.55; }
+            100% { transform: translateY(-90px) scale(1.7); opacity: 0; }
+        }
+        /* Lichtschimmer: ein heller Streifen läuft alle paar Sekunden über das Bild */
+        .kmi-lebendig-glanz span { top: -20%; bottom: -20%; left: 0; width: 45%;
+            background: linear-gradient(105deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.32) 50%, rgba(255,255,255,0) 100%);
+            transform: translateX(-120%); animation: kmiGlanz 5.5s ease-in-out infinite; }
+        @keyframes kmiGlanz {
+            0%, 55% { transform: translateX(-120%) skewX(-8deg); }
+            100% { transform: translateX(330%) skewX(-8deg); }
+        }
+        /* Pause steht NACH den Arten und ist spezifischer: die Kurzform
+           "animation:" oben setzt den Zustand sonst wieder auf "läuft"
+           (gemessen: aus dem Blick gescrollt lief es weiter). */
+        .kmi-lebendig:not(.laeuft) span { animation-play-state: paused; }
+        /* Wer am Gerät "weniger Bewegung" eingestellt hat, sieht das Foto. */
+        @media (prefers-reduced-motion: reduce) { .kmi-lebendig { display: none; } }
+
         /* WARUM DIE GERICHTKARTE KEIN GLAS HAT -- UND WARUM DIE ZAHLEN
            DARUNTER TROTZDEM MIT VORSICHT ZU LESEN SIND.
 
@@ -53548,7 +53599,7 @@ window.ZUSATZSTOFFE = ZUSATZSTOFFE;
 // Deshalb die Liste hier oben: wer eine neue Markierung erfindet,
 // traegt sie EINMAL ein und nicht in drei Filtern, von denen er den
 // dritten vergisst.
-var ADDITIVE_MARKIERUNGEN = ['nr:', 'ohne:'];
+var ADDITIVE_MARKIERUNGEN = ['nr:', 'ohne:', 'lebendig:'];
 
 function istMarkierung(a) {
   var t = String(a || '');
@@ -53594,6 +53645,67 @@ function zutatenEingetragen(item) {
     .filter(Boolean);
 }
 window.zutatenEingetragen = zutatenEingetragen;
+
+// ==================== LEBENDIGE BILDER ====================
+//
+// Ibo, 08.10.2026: "wenn die Bilder einfügen, dass es lebendiger wird --
+// bei Getränke, Shisha und andere Sachen, nur 3-4 animierte Sachen".
+//
+// Über dem ECHTEN Foto des Wirts läuft eine leise Bewegung: Perlen im
+// Getränk, Dampf über Shisha oder heißem Gericht, ein Lichtschimmer. Kein
+// Video, kein Datenvolumen -- nur CSS über dem Bild, das ohnehin lädt.
+//
+// Höchstens LEBENDIG_MAX pro Lokal: eine Karte, in der sich alles bewegt,
+// ist unruhig, und die Hingucker heben sich nicht mehr ab.
+// Gespeichert in additives als "lebendig:perlen", wie "nr:37" und
+// "ohne:..." -- kein neues Datenbankfeld.
+var LEBENDIG_MAX = 4;
+var LEBENDIG_ARTEN = { perlen: 'Perlen (Getränke)', dampf: 'Dampf (Shisha, heiße Gerichte)', glanz: 'Lichtschimmer' };
+function lebendigEintrag(item) {
+  var roh = (item && item.additives) || [];
+  if (!Array.isArray(roh)) return '';
+  var e = roh.filter(function (a) { return String(a || '').indexOf('lebendig:') === 0; })[0];
+  var art = e ? String(e).slice(9).trim() : '';
+  return LEBENDIG_ARTEN[art] ? art : '';
+}
+// Nur mit echtem Foto -- über dem Platzhalter-Motiv wäre es Spielerei.
+function lebendigArt(item) {
+  return (item && (item.image_url || item.image)) ? lebendigEintrag(item) : '';
+}
+function lebendigVorschlag(item) {
+  var txt = ((item && (item.category || item.category_name || '')) + ' ' + ((item && item.name) || '')).toLowerCase();
+  if (/shisha|hookah|wasserpfeife|tabak/.test(txt)) return 'dampf';
+  var m = typeof motivFuer === 'function' ? motivFuer(item) : 'teller';
+  if (m === 'getraenk') return 'perlen';
+  if (['pizza', 'doener', 'suppe', 'pasta', 'burger', 'fisch', 'pommes'].indexOf(m) >= 0) return 'dampf';
+  return 'glanz';
+}
+// Welche Gerichte bewegt sein dürfen: die ersten LEBENDIG_MAX in Kartenfolge.
+// Steht (über einen anderen Weg) mehr in der Datenbank, bleibt der Rest still.
+function lebendigErlaubt(items) {
+  var erlaubt = {}, n = 0;
+  (items || []).forEach(function (it) { if (n < LEBENDIG_MAX && lebendigArt(it)) { erlaubt[it.id] = true; n++; } });
+  return erlaubt;
+}
+function lebendigHtml(art) {
+  if (!art) return '';
+  var teile = { perlen: 8, dampf: 3, glanz: 1 }[art] || 0, o = '';
+  for (var i = 0; i < teile; i++) o += '<span></span>';
+  return '<div class="kmi-lebendig kmi-lebendig-' + art + '" aria-hidden="true">' + o + '</div>';
+}
+// Bewegung nur, solange das Bild zu sehen ist (Akku, ruhiger Bildlauf).
+var _lebendigBeob = null;
+function lebendigBeobachten(root) {
+  if (_lebendigBeob) _lebendigBeob.disconnect();
+  var els = root ? root.querySelectorAll('.kmi-lebendig') : [];
+  if (!els.length) return;
+  if (!('IntersectionObserver' in window)) { Array.prototype.forEach.call(els, function (e) { e.classList.add('laeuft'); }); return; }
+  if (!_lebendigBeob) _lebendigBeob = new IntersectionObserver(function (eintraege) {
+    eintraege.forEach(function (e) { e.target.classList.toggle('laeuft', e.isIntersecting); });
+  }, { rootMargin: '80px' });
+  Array.prototype.forEach.call(els, function (e) { _lebendigBeob.observe(e); });
+}
+window.lebendigArt = lebendigArt;
 
 // LMIV-Pflichtallergene (EU-Verordnung 1169/2011)
 var LMIV_ALLERGENS = [
@@ -55092,6 +55204,7 @@ function renderKarteDurchgehend(items, kategorien) {
     reihen.forEach(function (r) { r.versatz = flach.length; flach = flach.concat(r.items); });
     window._menuDisplayItems = flach;
     window._menuUngefiltert = flach;
+    window._lebendigErlaubt = lebendigErlaubt(flach);
 
     var html = '';
     reihen.forEach(function (r) {
@@ -55115,6 +55228,7 @@ function renderKarteDurchgehend(items, kategorien) {
               + '</section>';
     });
     container.innerHTML = html;
+    lebendigBeobachten(container);
 
     kategorieLeisteMitlaufen();
 
@@ -55300,6 +55414,7 @@ function gerichtKartenHtml(items, versatz) {
         // statt der grauen Gabel.
         html += '<div style="position:relative;height:192px;overflow:hidden;">';
         html += gerichtBild(item, 'width:100%;height:100%;');
+        if (!window._lebendigErlaubt || window._lebendigErlaubt[item.id]) html += lebendigHtml(lebendigArt(item));
         if (badgeText) {
             html += '<div style="position:absolute;top:12px;right:12px;background:rgba(255,255,255,0.9);-webkit-backdrop-filter: blur(12px);backdrop-filter:blur(12px);padding:4px 12px;border-radius:9999px;font-size:10px;font-weight:700;color:var(--ink-deep);letter-spacing:0.1em;text-transform:uppercase;">' + badgeText + '</div>';
         }
@@ -55362,6 +55477,7 @@ function renderMenuItemsForGuest(items) {
 
     // Items global cachen für sicheren Zugriff per Index
     window._menuDisplayItems = items;
+    window._lebendigErlaubt = lebendigErlaubt(items);
 
     // Beliebteste Gerichte: Ranking aus gecachten Daten
     var popularMap = window._menuPopularItems || {};
@@ -55369,6 +55485,7 @@ function renderMenuItemsForGuest(items) {
     // Stitch Grid Layout (1 col mobile, 2 cols md, 3 cols lg)
     var html = '<div class="stitch-menu-grid">' + gerichtKartenHtml(items, 0) + '</div>';
     container.innerHTML = html;
+    lebendigBeobachten(container);
 
     // Async: Beschreibungen per API übersetzen (wenn nicht DE)
     if (currentLanguage !== 'de') {
@@ -78308,6 +78425,7 @@ function editMenuItem(itemId) {
         '<input type="url" id="editItemImage" value="' + escapeHtml(item.image_url || '') + '" placeholder="https://beispiel.de/gericht.jpg" style="flex:1;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:13px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' +
         (item.image_url ? '<img src="' + escapeHtml(item.image_url) + '" alt="' + escapeHtml(item.name || 'Gericht') + '" loading="lazy" style="width:44px;height:44px;border-radius:16px;object-fit:cover;border:1px solid var(--border-color);">' : '<div style="width:44px;height:44px;border-radius:16px;background:var(--bg-secondary);border:1px solid var(--border-color);display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="font-size:18px;color:var(--slate);">change_history</span></div>') +
         '</div></div>' +
+        lebendigFeldHtml(item) +
         buildAllergenChipsHtml(item.allergens || [], 'editMenuItemAllergens', { name: item.name, description: item.description }) +
         '<button onclick="saveEditedItem(\'' + itemId + '\')" style="width:100%;padding:14px;background:var(--primary);color:white;border:none;border-radius:9999px;font-size:15px;font-weight:700;cursor:pointer;">Speichern</button>' +
         '</div>';
@@ -78367,6 +78485,28 @@ function groessenAusMaske() {
 }
 window.groessenAusMaske = groessenAusMaske;
 
+// "Bild lebendig" im Dialog. Höchstens LEBENDIG_MAX Gerichte je Lokal:
+// sind die schon vergeben, steht da, welche -- statt dass die Wahl still
+// nicht gespeichert wird (Regel 6).
+function lebendigAndere(item) {
+    var alle = (typeof menuItems !== 'undefined' && Array.isArray(menuItems)) ? menuItems : (window.menuItems || []);
+    return alle.filter(function (i) { return i.id !== item.id && lebendigEintrag(i); });
+}
+function lebendigFeldHtml(item) {
+    var jetzt = lebendigEintrag(item), andere = lebendigAndere(item), voll = !jetzt && andere.length >= LEBENDIG_MAX;
+    var vorschlag = lebendigVorschlag(item);
+    var opt = '<option value="">Aus</option>' + Object.keys(LEBENDIG_ARTEN).map(function (k) {
+        return '<option value="' + k + '"' + (jetzt === k ? ' selected' : '') + '>' + LEBENDIG_ARTEN[k] + (k === vorschlag ? ' – passt hier' : '') + '</option>';
+    }).join('');
+    var hinweis = voll
+        ? 'Schon ' + LEBENDIG_MAX + ' lebendige Bilder: ' + andere.map(function (i) { return escapeHtml(i.name || ''); }).join(', ') + '. Erst dort ausschalten.'
+        : 'Leise Bewegung über dem Foto, damit es ins Auge fällt. Höchstens ' + LEBENDIG_MAX + ' Gerichte (' + andere.length + ' vergeben). Wirkt nur mit Foto.';
+    return '<div><label for="editItemLebendig" style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:4px;">Bild lebendig (optional)</label>'
+        + '<select id="editItemLebendig"' + (voll ? ' disabled' : '') + ' style="width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:14px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;">' + opt + '</select>'
+        + '<p style="font-size:11px;color:var(--slate);margin-top:4px;">' + hinweis + '</p></div>';
+}
+window.lebendigFeldHtml = lebendigFeldHtml;
+
 async function saveEditedItem(itemId) {
     var name = document.getElementById('editItemName').value.trim();
     var desc = document.getElementById('editItemDesc').value.trim();
@@ -78395,9 +78535,21 @@ async function saveEditedItem(itemId) {
     // Gerichtenummer in additives speichern
     var currentItem = menuItems.find(function(i) { return i.id === itemId; });
     var additives = (currentItem?.additives || []).filter(function(a) {
-        return typeof a !== 'string' || !(a.startsWith('nr:') || a.startsWith('ohne:'));
+        return typeof a !== 'string' || !(a.startsWith('nr:') || a.startsWith('ohne:') || a.startsWith('lebendig:'));
     });
     if (dishNr) additives.push('nr:' + dishNr);
+
+    // Bild lebendig -- höchstens LEBENDIG_MAX je Lokal, hier noch einmal
+    // geprüft (zwei offene Fenster könnten sonst je eins mehr setzen).
+    var _lebSel = document.getElementById('editItemLebendig');
+    var _leb = _lebSel ? (_lebSel.disabled ? '' : _lebSel.value) : lebendigEintrag(currentItem);
+    if (_leb && LEBENDIG_ARTEN[_leb]) {
+        if (!lebendigEintrag(currentItem) && lebendigAndere(currentItem || { id: itemId }).length >= LEBENDIG_MAX) {
+            showToast('Schon ' + LEBENDIG_MAX + ' lebendige Bilder – erst bei einem anderen Gericht ausschalten.', 'error'); return;
+        }
+        if (!imageUrl) showToast('Hinweis: „Bild lebendig“ wirkt erst, wenn ein Foto hinterlegt ist.', 'info');
+        additives.push('lebendig:' + _leb);
+    }
 
     // Zutaten zum Abwaehlen. Leer heisst leer -- dann wird wieder aus der
     // Beschreibung gelesen, und der Wirt kann seinen Eintrag auch wieder
