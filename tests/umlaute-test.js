@@ -328,11 +328,13 @@ t('"true" schlaegt NICHT an', !ASCII_UMLAUT.test('return true'));
 // ---- 2. Der Schluessel bleibt, das Label wird angezeigt ---------------------
 // Genau die Verwechslung, die diesen Fund ausgeloest hat.
 t('der interne Schluessel heisst weiterhin tuerkisch',
-  /data-filter="tuerkisch"/.test(APP) && /cuisine === 'tuerkisch'/.test(APP));
+  /data-filter="tuerkisch"/.test(APP) && /kuecheFamilie\('tuerkisch'\)/.test(APP) && /'tuerkisch': \['tuerkisch'/.test(APP));
 t('angezeigt wird daraus "Türkisch"',
   /'tuerkisch':\s*'Türkisch'/.test(APP));
-t('und der Filter-Chip zeigt "Döner", nicht "Doener"',
-  /data-filter="tuerkisch"[^>]*>Döner</.test(APP));
+// 08.10.2026, Ibo: "bei der Küche gibt es nicht Türkisch" -- der Chip heisst
+// jetzt "Türkisch" und findet Döner, Kebabhaus, Holzkohlegrill mit.
+t('und der Filter-Chip zeigt "Türkisch", nicht "Tuerkisch"',
+  /data-filter="tuerkisch"[^>]*>Türkisch</.test(APP) && !/>Tuerkisch</.test(APP));
 // Nur der SLUG ist empfindlich -- er steht in veroeffentlichten Adressen.
 // Die keywords-Liste enthaelt bewusst beide Schreibweisen, damit Google
 // beide Suchbegriffe findet; die darf der Waechter nicht anfassen.
