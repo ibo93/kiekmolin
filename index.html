@@ -18732,7 +18732,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             <button type="button" data-teil="wc"><i style="width:26px;height:26px;border-radius:4px;"></i>WC</button>
                             <button type="button" data-teil="wand"><i style="width:44px;height:5px;border-radius:2px;background:currentColor;"></i>Wand</button>
                             <button type="button" data-teil="pflanze"><i style="width:22px;height:22px;border-radius:9999px;background:#3f7d4a;border-color:#3f7d4a;"></i>Pflanze</button>
-                            <button type="button" id="tp3KatalogAuf"><i style="width:26px;height:26px;border-radius:7px;border-style:dashed;"></i>Alles …<small>26 Teile</small></button>
+                            <button type="button" id="tp3KatalogAuf"><i style="width:26px;height:26px;border-radius:7px;border-style:dashed;"></i>Alles …<small>27 Teile</small></button>
                         </div>
                     </div>
                     <aside class="tp3-seite" id="tp3Seite" aria-live="polite"></aside>
@@ -18862,12 +18862,14 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     strandkorb: { name: 'Strandkorb',   b: 1.25, t: 0.9, h: 44, oben: '#e9dfc9', f1: '#3b6ea5', f2: '#d8cdb5', still: true },
                     // Ibo: "eine Bankinsel von beiden Seiten, in der Mitte Blumen"
                     bankinsel:  { name: 'Bankinsel',    b: 2.4, t: 1.6, h: 30, oben: '#6b4f3a', f1: '#7a5638', f2: '#674629', still: true },
-                    blumenkasten: { name: 'Blumenkasten', b: 1.8, t: 0.45, h: 30, oben: '#5a4a3c', f1: '#3a3f3d', f2: '#2f3433', still: true }
+                    blumenkasten: { name: 'Blumenkasten', b: 1.8, t: 0.45, h: 30, oben: '#5a4a3c', f1: '#3a3f3d', f2: '#2f3433', still: true },
+                    // Ibo: "was fehlt: der Thekenschrank, Gläser und so"
+                    thekenschrank: { name: 'Thekenschrank', b: 3.0, t: 0.45, h: 56, oben: '#5a4231', f1: '#6b4f3a', f2: '#5a4231', still: true }
                 };
                 // Katalog in der Seitenleiste (beim Bearbeiten, nichts gewählt).
                 var KATALOG = [
                     ['Raum', ['tuer', 'fenster', 'wand', 'saeule', 'treppe', 'raumteiler']],
-                    ['Gastro', ['theke', 'kueche', 'kasse', 'kuehlung', 'buffet', 'barhocker']],
+                    ['Gastro', ['theke', 'thekenschrank', 'kueche', 'kasse', 'kuehlung', 'buffet', 'barhocker']],
                     ['Gäste', ['bank', 'bankinsel', 'sofa', 'garderobe', 'kamin', 'buehne', 'tv', 'spielecke', 'pflanze', 'blumenkasten']],
                     ['Nebenräume', ['wc', 'lager']],
                     ['Draußen', ['schirm', 'strandkorb']]
@@ -19014,6 +19016,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     }
                     return o;
                 }
+                function glas(cx, cy, r, z) { return scheibe(cx, cy, r, z + 0.2, 'radial-gradient(circle at 35% 35%,#ffffff,rgba(200,225,240,0.85))', 'box-shadow:0 0 0 1px rgba(110,140,160,0.7);'); }
                 function tuerLuecke(b) { var p = tp.ppm, d = Math.max(3, 0.12 * p), bis = b - d - 0.2 * p; return [Math.max(d, bis - 0.9 * p), bis]; }
                 var MOEBEL = {
                     kueche: function (b, t, w) {
@@ -19126,6 +19129,33 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         o += kasten(0, k0 + kt + 1, b, t - k0 - kt - 1, 14, 'var(--tp3-sitz)', 'var(--tp3-sitz-seite)', 'var(--tp3-sitz-seite)', w, 4);
                         o += kasten(0, k0, b, kt, 24, '#4a3a2c', '#7a5638', '#674629', w, 3);
                         return o + blumen(b * 0.04, k0 + kt * 0.12, b * 0.92, kt * 0.76, 24);
+                    },
+                    // Theke: Steinplatte auf Holz, Zapfanlage, Gläser an der Kante.
+                    theke: function (b, t, w, gew) {
+                        var p = tp.ppm, H = 46, drei = tp.ansicht === '3d', zz = drei ? H + 0.3 : 0;
+                        var o = kasten(0, 0, b, t, H, 'linear-gradient(135deg,#454b49,#262b29)', '#7a5638', '#674629', w, 3, gew ? '3px solid #003d33' : '');
+                        // Zapfanlage: Säule mit Hähnen (von oben ein Stahlbalken)
+                        var zx = b * 0.32, zb = Math.min(0.6 * p, b * 0.25);
+                        o += flach(zx, t * 0.22, zb, Math.max(3, t * 0.14), zz, 'background:' + STAHL + ';border-radius:2px;box-shadow:0 1px 2px rgba(0,0,0,0.4);');
+                        if (drei) { o += kreuz(zx + zb / 2, t * 0.29, 3, H, 12, '#c9cecc') + standX(zx, zx + zb, t * 0.29, H + 9, 4, 'background:' + STAHL + ';border-radius:2px;'); }
+                        // Gläser an der Gastseite
+                        var n = Math.max(2, Math.floor(b / (0.35 * p)));
+                        for (var i = 0; i < n; i++) { var gx = b * 0.08 + (b * 0.84) * (i + 0.5) / n; if (Math.abs(gx - (zx + zb / 2)) < zb * 0.8) continue; o += glas(gx, t * 0.7, Math.max(1.6, 0.04 * p), zz); }
+                        return o;
+                    },
+                    // Thekenschrank (Rückbuffet): Fächer mit Gläsern und Flaschen.
+                    thekenschrank: function (b, t, w) {
+                        var p = tp.ppm, drei = tp.ansicht === '3d';
+                        var faecher = 'repeating-linear-gradient(to bottom,#3b2b20 0 2px,transparent 2px 25%),'
+                            + 'repeating-linear-gradient(90deg,rgba(214,232,244,0.9) 0 3px,transparent 3px 6px,#3f6b4e 6px 9px,transparent 9px 12px,#7a3b2e 12px 15px,transparent 15px 18px,#c9a24a 18px 21px,transparent 21px 26px),'
+                            + 'linear-gradient(#2b211a,#3b2b20)';
+                        var o = kasten(0, 0, b, t, 56, '#5a4231', faecher, '#5a4231', w, 2);
+                        if (!drei) {
+                            // von oben: Flaschen und Gläser auf der Ablage
+                            var n = Math.max(3, Math.floor(b / (0.12 * p))), farben = ['#3f6b4e', '#7a3b2e', '#c9a24a', '#2f4a6b'];
+                            for (var i = 0; i < n; i++) o += i % 3 === 2 ? glas(b * (i + 0.5) / n, t * 0.5, Math.max(1.4, 0.035 * p), 0) : scheibe(b * (i + 0.5) / n, t * 0.5, Math.max(1.4, 0.035 * p), 0, farben[i % farben.length], 'box-shadow:0 0 0 1px rgba(0,0,0,0.3);');
+                        }
+                        return o;
                     },
                     blumenkasten: function (b, t, w) {
                         return kasten(0, 0, b, t, 22, '#4a3a2c', '#3a3f3d', '#2f3433', w, 3) + blumen(b * 0.04, t * 0.14, b * 0.92, t * 0.72, 22);
@@ -19804,6 +19834,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     spielecke: 'width:24px;height:24px;background:repeating-conic-gradient(#e7d7c1 0 25%,#b9d0c0 0 50%) 0 0/12px 12px;', pflanze: 'width:20px;height:20px;border-radius:9999px;background:#3f7d4a;border-color:#3f7d4a;',
                     wc: 'width:24px;height:24px;', lager: 'width:24px;height:24px;background:repeating-linear-gradient(0deg,#a98462 0 3px,transparent 3px 7px);',
                     schirm: 'width:24px;height:24px;border-radius:9999px;background:repeating-conic-gradient(#f2ece0 0 45deg,#cfc3ad 45deg 90deg);',
+                    thekenschrank: 'width:34px;height:12px;background:repeating-linear-gradient(90deg,#c9a24a 0 3px,#3f6b4e 3px 6px,#d6e8f4 6px 9px,#7a3b2e 9px 12px);border-color:#5a4231;',
                     bankinsel: 'width:30px;height:22px;background:linear-gradient(currentColor 0 30%,#6fa56a 30% 70%,currentColor 70%);border-color:transparent;border-radius:4px;opacity:0.85;',
                     blumenkasten: 'width:30px;height:10px;background:radial-gradient(circle,#e88aa8 0 2px,transparent 2.5px) 0 0/7px 10px,#4f8a4f;border-color:#3a3f3d;', strandkorb: 'width:24px;height:20px;border-radius:10px 10px 3px 3px;background:repeating-linear-gradient(90deg,#f6f3ec 0 3px,#3b6ea5 3px 6px);' };
                 function katalogHtml() {
