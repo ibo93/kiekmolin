@@ -23,7 +23,8 @@ var tage = U.proTag([{ created_at: '2026-10-08T10:00:00Z', total: '20.50', statu
 t('Tagessumme ohne Stornos, späte Bestellung am nächsten Tag', tage['2026-10-08'].summe === 20.5 && tage['2026-10-08'].anzahl === 1 && tage['2026-10-09'].summe === 10, JSON.stringify(tage));
 t('Tagesbalken nutzt umsatzProTag und das eigene Lokal zuerst', /var rid = umsatzRid\(\);/.test(H) && /dailyTotals\.push\(proTag\[dayStr\] \? proTag\[dayStr\]\.summe : 0\);/.test(H) && !/o\.created_at\.startsWith\(dayStr\)/.test(H), '');
 t('Tagesbalken: Fehler wird gesagt, nicht "Keine Daten"', /Umsätze konnten nicht geladen werden/.test(H), '');
-t('Startkarte: heute groß, Monat darunter, Fehler sichtbar', /dashRevenue\.textContent = heute\.summe\.toFixed\(0\) \+ '€';/.test(H) && /' · Monat ' \+ monat\.toFixed\(0\) \+ ' €'/.test(H) && /'Umsatz nicht geladen'/.test(H), '');
+// Seit R-3 (Kassen-Umsatz): heute = App + Kasse, Monat ebenso.
+t('Startkarte: heute groß, Monat darunter, Fehler sichtbar', /var tage = umsatzProTag\(orders\), heute = tage\[_heuteTag\]/.test(H) && /' · Monat ' \+ \(monat \+ kasseMonat\)\.toFixed\(0\) \+ ' €'/.test(H) && /'Umsatz nicht geladen'/.test(H), '');
 t('Monatsbeginn als echter Zeitpunkt, nicht "…-01T00:00:00"', !/'-01T00:00:00';\n\s*supabaseGet\('orders', 'select=total,status&restaurant_id/.test(H) && /var monthStart = tagesBeginnIso\(new Date\(now\.getFullYear\(\), now\.getMonth\(\), 1\)\);/.test(H), '');
 
 // ---- Gutschein in die Datenbank

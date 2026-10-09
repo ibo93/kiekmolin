@@ -40,7 +40,7 @@ var vor = M('2026-09', daten, '2026-10-09');
 t('vergangener Monat: alle 30 Tage', vor.tage.length === 30 && vor.summe === 0, vor.tage.length);
 var ohne = M('2026-10', { orders: [], reservierungen: [], einw: null, waFehler: 'WhatsApp-Angebote noch nicht eingerichtet (datenbank/42 einspielen).' }, '2026-10-09');
 t('ohne SQL 42: WhatsApp-Teil sagt es, statt Nullen zu zeigen (Regel 6)', ohne.wa === null && /datenbank\/42/.test(ohne.waFehler), JSON.stringify(ohne.wa));
-t('Bericht sagt ehrlich: nur App, nicht die Kasse', /Nur was über die App lief\. Barverkauf an der Kasse im Lokal ist nicht enthalten\./.test(H), '');
+t('Bericht ohne Kasse sagt ehrlich: nur App', /Nur was über die App lief\. Die Kasse im Lokal ist nicht enthalten\./.test(H), '');
 t('Monatsbericht hängt am Umsatz-Bereich und lädt mit', /id="monatsberichtPanel"/.test(H) && /renderDailyRevenueChart\(\);\n    monatsberichtLaden\(\);/.test(H), '');
 
 // Kundenliste

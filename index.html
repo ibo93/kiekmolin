@@ -16986,6 +16986,8 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                                 <span class="material-symbols-outlined" style="font-size:14px;">trending_up</span>
                                 <span>Umsatz (bezahlt)</span>
                             </div>
+                            <!-- Kassen-Umsatz eintragen (nur Gastronom, siehe kasseDialog) -->
+                            <button type="button" id="dashKasseBtn" style="display:none;margin-top:10px;padding:8px 14px;min-height:40px;border-radius:9999px;border:1px solid var(--border-color);background:var(--bg-card);color:var(--ink-deep);font-size:12px;font-weight:700;cursor:pointer;">Kasse heute eintragen</button>
                         </div>
                         <div style="background:rgba(255,255,255,0.8);border-radius:48px;padding:24px;box-shadow:0 2px 8px rgba(0,0,0,0.05);min-width:180px;flex:1;">
                             <p style="font-family:Inter,sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-secondary);margin:0 0 4px;">Reservierungen</p>
@@ -27807,20 +27809,36 @@ function subscribeWebPush() {
             customer_phone: phone,
             customer_email: adminMail || email,
             restaurant_id: gastroRestaurantId,
-            user_agent: navigator.userAgent || null
+            user_agent: navigator.userAgent || null,
+            // Angebote per Push nur mit eigenem Haken (datenbank/43) -- die
+            // Erlaubnis fuer Status-Meldungen ist kein Ja zu Werbung.
+            angebote: pushAngebote(),
+            angebote_at: pushAngebote() ? new Date().toISOString() : null
         };
         try {
             var _supaKey = (typeof SUPABASE_KEY !== 'undefined') ? SUPABASE_KEY : ((typeof SUPA_KEY !== 'undefined') ? SUPA_KEY : null);
             if (typeof SUPABASE_URL !== 'undefined' && _supaKey) {
-                fetch(SUPABASE_URL + '/rest/v1/push_subscriptions?on_conflict=endpoint', {
-                    method: 'POST',
-                    headers: {
-                        'apikey': _supaKey,
-                        'Authorization': 'Bearer ' + _supaKey,
-                        'Content-Type': 'application/json',
-                        'Prefer': 'resolution=merge-duplicates,return=minimal'
-                    },
-                    body: JSON.stringify(record)
+                var _pushSpeichern = function (daten) {
+                    return fetch(SUPABASE_URL + '/rest/v1/push_subscriptions?on_conflict=endpoint', {
+                        method: 'POST',
+                        headers: {
+                            'apikey': _supaKey,
+                            'Authorization': 'Bearer ' + _supaKey,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'resolution=merge-duplicates,return=minimal'
+                        },
+                        body: JSON.stringify(daten)
+                    });
+                };
+                _pushSpeichern(record).then(function (r) {
+                    // Fehlt die Spalte angebote (SQL 43 noch nicht da), darf das
+                    // die Anmeldung fuer den STATUS nicht kosten: ohne sie nochmal.
+                    if (r.ok || r.status !== 400) return;
+                    return r.text().then(function (t) {
+                        if (!/angebote/.test(t || '')) return;
+                        delete record.angebote; delete record.angebote_at;
+                        return _pushSpeichern(record);
+                    });
                 }).catch(function(e) { console.warn('Push-Sub upsert fehlgeschlagen:', e); });
             }
         } catch (e) { console.warn('Push-Sub speichern fehlgeschlagen:', e); }
@@ -27830,6 +27848,16 @@ function subscribeWebPush() {
         return null;
     });
 }
+
+// Angebote per Push: eigener Haken, auf diesem Gerät gemerkt und mit dem Abo
+// gespeichert. Standard: aus.
+function pushAngebote() { try { return localStorage.getItem('kmi_push_angebote') === '1'; } catch (e) { return false; } }
+function pushAngeboteSetzen(an) {
+    try { localStorage.setItem('kmi_push_angebote', an ? '1' : '0'); } catch (e) {}
+    try { subscribeWebPush(); } catch (e) {}
+    if (typeof showToast === 'function') showToast(an ? 'Angebote per Push: an' : 'Angebote per Push: aus – du bekommst nur noch deinen Status.', 'success');
+}
+window.pushAngeboteSetzen = pushAngeboteSetzen;
 
 // HTML für den "Push aktivieren"-Banner (Order/Reservation-Bestätigung)
 function renderPushOptInBanner() {
@@ -27863,7 +27891,12 @@ function renderPushOptInBanner() {
         return ''
             + '<div class="kmi-push-banner" style="background:rgba(0,61,51,0.05);border:1px solid rgba(0,61,51,0.15);border-radius:16px;padding:12px 16px;display:flex;align-items:center;gap:10px;text-align:left;font-family:Inter,sans-serif;">'
             +   '<span class="material-symbols-outlined" style="font-size:20px;color:var(--ink-strong);flex-shrink:0;">notifications_active</span>'
-            +   '<div class="kmi-push-banner__sub" style="font-size:13px;color:var(--ink-strong);font-weight:600;">Benachrichtigungen sind an — du siehst jede Status-Änderung.</div>'
+            +   '<div style="flex:1;"><div class="kmi-push-banner__sub" style="font-size:13px;color:var(--ink-strong);font-weight:600;">Benachrichtigungen sind an — du siehst jede Status-Änderung.</div>'
+            // Eigene Zustimmung für Werbung (datenbank/43): leer voreingestellt.
+            +   '<label for="pushAngeboteKasten" style="display:flex;align-items:flex-start;gap:8px;margin-top:8px;font-size:12px;line-height:1.4;color:rgba(0,61,51,0.75);cursor:pointer;font-weight:400;">'
+            +     '<input type="checkbox" id="pushAngeboteKasten" onchange="pushAngeboteSetzen(this.checked)"' + (pushAngebote() ? ' checked' : '') + ' style="margin:1px 0 0;width:15px;height:15px;flex:0 0 auto;accent-color:var(--primary);">'
+            +     '<span>Auch Angebote und Stempel-Erinnerungen der Lokale, bei denen ich bestelle. Abschalten jederzeit hier.</span>'
+            +   '</label></div>'
             + '</div>';
     }
     if (perm === 'denied') {
@@ -33553,6 +33586,95 @@ async function loadResRestaurantSelect() {
 }
 
 // Reservierungen für Restaurant laden
+// ==================== GÄSTEPROFIL BEI RESERVIERUNGEN ====================
+//
+// Wer reserviert, war vielleicht schon zehnmal da -- oder bestellt jede Woche
+// online. Bisher sah der Wirt nur den Namen. Jetzt: ein Abzeichen an der
+// Reservierung ("Stammgast · 6 Besuche", "Neu") und auf Tipp das Profil:
+// Besuche, Bestellungen, Umsatz, letzter Besuch, Lieblingstisch, Notizen
+// früherer Besuche. Zugeordnet über die normierte Telefonnummer (waNummer),
+// nur innerhalb DIESES Lokals.
+var GP_BESUCHT = { confirmed: 1, reminded: 1, seated: 1, finished: 1, completed: 1 };
+// Reine Rechnung -- damit sie im Test echt läuft.
+function gastProfil(telefon, daten, heute) {
+    var z = waNummer(telefon); if (!z) return null;
+    var res = (daten.reservierungen || []).filter(function (r) { return waNummer(r.guest_phone) === z; });
+    var frueher = res.filter(function (r) { return String(r.reservation_date || '') < heute; });
+    var besuche = frueher.filter(function (r) { return GP_BESUCHT[r.status]; });
+    var ord = (daten.bestellungen || []).filter(function (o) { return waNummer(o.customer_phone) === z && o.status !== 'cancelled'; });
+    var tische = {};
+    besuche.forEach(function (r) { var nr = (daten.tischNr || {})[r.table_id]; if (nr) tische[nr] = (tische[nr] || 0) + 1; });
+    var lieb = Object.keys(tische).sort(function (a, b) { return tische[b] - tische[a]; })[0] || null;
+    var letzte = besuche.map(function (r) { return r.reservation_date; }).sort().pop() || null;
+    var notizen = frueher.filter(function (r) { return r.notes && String(r.notes).trim(); })
+        .sort(function (a, b) { return a.reservation_date < b.reservation_date ? 1 : -1; }).slice(0, 3)
+        .map(function (r) { return { datum: r.reservation_date, text: String(r.notes).trim() }; });
+    var umsatz = ord.reduce(function (s, o) { return s + (parseFloat(o.total) || 0); }, 0);
+    var stamm = besuche.length >= 3 || ord.length >= 5;
+    return { telefon: z, besuche: besuche.length, abgesagt: frueher.filter(function (r) { return r.status === 'cancelled'; }).length,
+             nichtErschienen: frueher.filter(function (r) { return r.status === 'no_show'; }).length,
+             bestellungen: ord.length, umsatz: umsatz, letzterBesuch: letzte, lieblingsTisch: lieb, lieblingsTischMal: lieb ? tische[lieb] : 0,
+             notizen: notizen, stamm: stamm, neu: !besuche.length && !ord.length };
+}
+function gpChipText(p) {
+    if (!p) return '';
+    if (p.stamm) return 'Stammgast · ' + (p.besuche ? p.besuche + (p.besuche === 1 ? ' Besuch' : ' Besuche') : p.bestellungen + ' Bestellungen');
+    if (p.neu) return 'Neu';
+    return p.besuche ? (p.besuche + 1) + '. Besuch' : p.bestellungen + '× bestellt';
+}
+var _gp = { daten: null, rid: null };
+async function gastProfileLaden(rid) {
+    var chips = document.querySelectorAll('.kmi-gp-chip[data-tel]');
+    if (!chips.length) return;
+    var q = 'restaurant_id=eq.' + encodeURIComponent(rid);
+    try {
+        var erg = await Promise.all([
+            supabaseGet('reservations', q + '&select=guest_phone,reservation_date,status,notes,table_id&guest_phone=not.is.null&order=reservation_date.desc&limit=5000'),
+            supabaseGet('orders', q + '&select=customer_phone,total,status,created_at&customer_phone=not.is.null&order=created_at.desc&limit=5000'),
+            supabaseGet('restaurant_tables', q + '&select=id,table_number').catch(function () { return []; })
+        ]);
+        // table_id zeigt auf restaurant_tables (SQL 40). Gelöschte Tische tragen
+        // eine negative Platzhalter-Nummer (nummerFreigeben) -- kein Lieblingstisch.
+        var tischNr = {}; (erg[2] || []).forEach(function (t) { if (t.table_number != null && String(t.table_number).charAt(0) !== '-') tischNr[t.id] = String(t.table_number); });
+        _gp = { daten: { reservierungen: erg[0] || [], bestellungen: erg[1] || [], tischNr: tischNr }, rid: rid };
+    } catch (e) {
+        // Nicht still leer (Regel 6): ein leeres Abzeichen sähe aus wie "neuer Gast".
+        chips.forEach(function (c) { c.textContent = 'Profil nicht geladen'; c.title = String(e && e.message || e); c.style.display = ''; c.onclick = null; });
+        return;
+    }
+    var heute = todayStrLocal();
+    chips.forEach(function (c) {
+        var p = gastProfil(c.getAttribute('data-tel'), _gp.daten, heute);
+        if (!p) return;
+        c.textContent = gpChipText(p);
+        c.style.display = '';
+        if (p.stamm) { c.style.background = 'rgba(22,163,74,0.12)'; c.style.color = '#15803d'; }
+        c.onclick = function (ev) { ev.stopPropagation(); gastProfilZeigen(c.getAttribute('data-tel'), c.getAttribute('data-name')); };
+    });
+}
+function gastProfilZeigen(telefon, name) {
+    if (!_gp.daten) return;
+    var p = gastProfil(telefon, _gp.daten, todayStrLocal()); if (!p) return;
+    var zeile = function (l, w) { return '<div style="display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--border-color);font-size:14px;"><span style="color:var(--text-secondary);">' + l + '</span><b style="text-align:right;">' + w + '</b></div>'; };
+    var h = '<div class="kmi-gp-profil">'
+        + '<div style="font-size:13px;color:var(--text-secondary);margin-bottom:8px;">' + escapeHtml(gpChipText(p)) + ' · <a href="tel:+' + p.telefon + '" style="color:inherit;">+' + p.telefon + '</a></div>'
+        + zeile('Besuche (Reservierung)', p.besuche)
+        + zeile('Bestellungen über die App', p.bestellungen + (p.bestellungen ? ' · ' + formatPrice(p.umsatz) : ''))
+        + zeile('Letzter Besuch', p.letzterBesuch ? waDatum(p.letzterBesuch) : '–')
+        + zeile('Lieblingstisch', p.lieblingsTisch ? 'Tisch ' + escapeHtml(p.lieblingsTisch) + ' (' + p.lieblingsTischMal + '×)' : '–')
+        + (p.abgesagt ? zeile('Abgesagt', p.abgesagt + '×') : '')
+        + (p.nichtErschienen ? zeile('Nicht erschienen', p.nichtErschienen + '×') : '');
+    if (p.notizen.length) h += '<div style="margin-top:12px;font-size:13px;font-weight:700;">Notizen früherer Besuche</div>'
+        + p.notizen.map(function (n) { return '<div style="margin-top:6px;padding:8px 12px;border-radius:12px;background:var(--bg-secondary);font-size:13px;"><span style="color:var(--text-secondary);">' + waDatum(n.datum) + ':</span> ' + escapeHtml(n.text) + '</div>'; }).join('');
+    h += '<p style="margin:12px 0 0;font-size:11px;color:var(--slate);">Nur dieses Lokal, zugeordnet über die Telefonnummer.</p></div>';
+    showGenericModal('Gästeprofil – ' + escapeHtml(name || 'Gast'), h);
+}
+window.gastProfilZeigen = gastProfilZeigen;
+function gpChipHtml(r) {
+    var z = waNummer(r.guest_phone); if (!z) return '';
+    return '<button type="button" class="kmi-gp-chip" data-tel="' + z + '" data-name="' + escapeHtml(r.guest_name || 'Gast') + '" style="display:none;margin-left:8px;vertical-align:middle;padding:3px 10px;min-height:24px;border:none;border-radius:9999px;background:rgba(0,61,51,0.08);color:var(--ink-deep);font-size:11px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;"></button>';
+}
+
 async function loadReservationsForRestaurant(restaurantId) {
     try {
     if (!restaurantId) return;
@@ -33655,7 +33777,7 @@ async function loadReservationsForRestaurant(restaurantId) {
 
                     // Guest Info
                     html += '<div style="margin-bottom:16px;">';
-                    html += '<div style="font-family:Epilogue,sans-serif;font-size:20px;font-weight:700;color:var(--ink-deep);">' + escapeHtml(r.guest_name || 'Gast') + '</div>';
+                    html += '<div style="font-family:Epilogue,sans-serif;font-size:20px;font-weight:700;color:var(--ink-deep);">' + escapeHtml(r.guest_name || 'Gast') + gpChipHtml(r) + '</div>';
                     html += '<div style="display:flex;flex-wrap:wrap;gap:12px;font-family:Inter,sans-serif;font-size:13px;color:var(--text-secondary);margin-top:6px;">';
                     html += '<span style="display:flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:16px;">groups</span>' + (r.party_size || 2) + ' Personen</span>';
                     html += '<span style="display:flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:16px;">calendar_today</span>' + dateStr + '</span>';
@@ -33683,7 +33805,7 @@ async function loadReservationsForRestaurant(restaurantId) {
                     html += '<span style="font-size:9px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;">' + dateStr + '</span>';
                     html += '</div>';
                     html += '<div>';
-                    html += '<div style="font-size:15px;font-weight:700;color:var(--ink-deep);font-family:Epilogue,sans-serif;">' + escapeHtml(r.guest_name || 'Gast') + '</div>';
+                    html += '<div style="font-size:15px;font-weight:700;color:var(--ink-deep);font-family:Epilogue,sans-serif;">' + escapeHtml(r.guest_name || 'Gast') + gpChipHtml(r) + '</div>';
                     html += '<div style="display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text-secondary);margin-top:2px;">';
                     html += '<span>' + (r.party_size || 2) + ' Pers.</span>';
                     html += '<span>Tisch ' + tblNum + '</span>';
@@ -33750,6 +33872,7 @@ async function loadReservationsForRestaurant(restaurantId) {
             }
 
             container.innerHTML = html;
+            gastProfileLaden(restaurantId);
         } else {
             // Fehlte: bei abgelehnter Anfrage blieb "Lade Reservierungen..." fuer immer stehen.
             container.innerHTML = '<div class="kmi-stand fehler" role="alert"><span><b>Reservierungen nicht geladen</b> (HTTP ' + response.status + '). Es kann sein, dass welche da sind.</span>'
@@ -35124,7 +35247,6 @@ async function deleteAttraction(id) {
 
 // ==================== MARKETING ====================
 var _mktCustomers = [];
-var _mktCampaigns = [];
 var _mktFilter = 'all';
 
 async function loadCustomerAnalytics() {
@@ -35219,8 +35341,7 @@ async function loadCustomerAnalytics() {
         if (el('mktInactiveCount')) el('mktInactiveCount').textContent = inactive;
         if (el('mktLostCount')) el('mktLostCount').textContent = lost;
 
-        // Kampagnen laden -- WhatsApp-Zustimmungen VOR der Liste, die zeigt sie an.
-        loadMarketingCampaigns();
+        // WhatsApp-Zustimmungen VOR der Liste laden -- die zeigt sie an.
         await waLaden();
 
         // Gutscheine rendern
@@ -35681,145 +35802,7 @@ function sendMarketingWhatsApp(phone, encodedName) {
     window.open('https://wa.me/' + ziel + '?text=' + encodeURIComponent(message), '_blank');
 }
 
-// Kampagnen laden/rendern
-function loadMarketingCampaigns() {
-    _mktCampaigns = JSON.parse(localStorage.getItem('kmi_marketing_campaigns') || '[]');
-    renderMarketingCampaigns();
-}
 
-function renderMarketingCampaigns() {
-    var container = document.getElementById('marketingCampaigns');
-    if (!container) return;
-
-    if (_mktCampaigns.length === 0) {
-        container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-secondary);">'
-            + '<span class="material-symbols-outlined" style="font-size:48px;display:block;margin:0 auto 12px;opacity:0.4;">send</span>'
-            + 'Noch keine Kampagnen erstellt.<br>Erstelle eine Kampagne um inaktive Kunden automatisch anzusprechen.</div>';
-        return;
-    }
-
-    var html = '';
-    _mktCampaigns.forEach(function(c, i) {
-        var triggerText = 'Nach ' + c.triggerDays + ' Tagen Inaktivitaet';
-        var matchCount = _mktCustomers.filter(function(cu) { return cu.daysSince >= c.triggerDays; }).length;
-        html += '<div style="padding:16px;background:var(--bg-secondary);border-radius:16px;display:flex;align-items:center;gap:16px;">';
-        html += '<div style="flex:1;">';
-        html += '<div style="display:flex;align-items:center;gap:8px;">';
-        html += '<strong style="color:var(--text-primary);">' + (c.name || 'Kampagne ' + (i+1)) + '</strong>';
-        html += '<span style="padding:2px 10px;border-radius:50px;background:' + (c.active ? '#dcfce7' : '#f3f4f6') + ';color:' + (c.active ? '#16a34a' : '#9ca3af') + ';font-size:11px;font-weight:600;">' + (c.active ? 'Aktiv' : 'Pausiert') + '</span>';
-        html += '</div>';
-        html += '<div style="color:var(--text-secondary);font-size:13px;margin-top:4px;">' + triggerText + ' · ' + c.discountPercent + '% Rabatt · ' + matchCount + ' betroffene Kunden</div>';
-        html += '</div>';
-        html += '<label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;">';
-        html += '<input type="checkbox" ' + (c.active ? 'checked' : '') + ' onchange="toggleCampaign(' + i + ', this.checked)" style="opacity:0;width:0;height:0;">';
-        html += '<span style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:' + (c.active ? 'var(--primary)' : '#ccc') + ';border-radius:24px;transition:0.3s;"></span>';
-        html += '<span style="position:absolute;top:2px;left:' + (c.active ? '22px' : '2px') + ';width:20px;height:20px;background:var(--bg-card);border-radius:50%;transition:0.3s;box-shadow:0 1px 3px rgba(0,0,0,0.2);"></span>';
-        html += '</label>';
-        html += '<button onclick="deleteCampaign(' + i + ')" style="padding:6px;border:none;background:transparent;cursor:pointer;color:var(--text-secondary);"><span class="material-symbols-outlined" style="font-size:18px;">delete</span></button>';
-        html += '</div>';
-    });
-    container.innerHTML = html;
-}
-
-function toggleCampaign(index, active) {
-    _mktCampaigns[index].active = active;
-    localStorage.setItem('kmi_marketing_campaigns', JSON.stringify(_mktCampaigns));
-    renderMarketingCampaigns();
-}
-
-function deleteCampaign(index) {
-    _mktCampaigns.splice(index, 1);
-    localStorage.setItem('kmi_marketing_campaigns', JSON.stringify(_mktCampaigns));
-    renderMarketingCampaigns();
-    showToast('Kampagne gelöscht', 'success');
-}
-
-function openCreateCampaignModal() {
-    var modal = document.createElement('div');
-    modal.id = 'campaignModal';
-    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10002;';
-    modal.innerHTML = '<div style="background:var(--bg-card);border-radius:20px;padding:32px;width:90%;max-width:440px;box-shadow:0 20px 60px rgba(0,0,0,0.15);">'
-        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">'
-        + '<h3 style="font-size:20px;font-weight:700;color:var(--text-primary);">Neue Kampagne</h3>'
-        + '<button onclick="document.getElementById(\'campaignModal\').remove()" style="border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--text-secondary);">x</button>'
-        + '</div>'
-        + '<div style="display:flex;flex-direction:column;gap:16px;">'
-        + '<div><label style="font-size:13px;font-weight:600;color:var(--text-primary);display:block;margin-bottom:6px;">Kampagnen-Name</label>'
-        + '<input type="text" id="campName" value="Kunden zurückholen" style="width:100%;padding:10px 14px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;box-sizing:border-box;"></div>'
-        + '<div><label style="font-size:13px;font-weight:600;color:var(--text-primary);display:block;margin-bottom:6px;">Trigger: Nach wie vielen Tagen?</label>'
-        + '<div style="display:flex;gap:8px;">'
-        + '<button onclick="document.getElementById(\'campDays\').value=14" class="dash-btn dash-btn-secondary" style="border-radius:50px;padding:8px 16px;font-size:13px;">14 Tage</button>'
-        + '<button onclick="document.getElementById(\'campDays\').value=30" class="dash-btn dash-btn-secondary" style="border-radius:50px;padding:8px 16px;font-size:13px;">30 Tage</button>'
-        + '<button onclick="document.getElementById(\'campDays\').value=60" class="dash-btn dash-btn-secondary" style="border-radius:50px;padding:8px 16px;font-size:13px;">60 Tage</button>'
-        + '<input type="number" id="campDays" value="14" min="1" style="width:60px;padding:8px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);text-align:center;font-size:14px;"></div></div>'
-        + '<div><label style="font-size:13px;font-weight:600;color:var(--text-primary);display:block;margin-bottom:6px;">Rabatt (%)</label>'
-        + '<div style="display:flex;gap:8px;">'
-        + '<button onclick="document.getElementById(\'campDiscount\').value=5" class="dash-btn dash-btn-secondary" style="border-radius:50px;padding:8px 16px;font-size:13px;">5%</button>'
-        + '<button onclick="document.getElementById(\'campDiscount\').value=10" class="dash-btn dash-btn-secondary" style="border-radius:50px;padding:8px 16px;font-size:13px;">10%</button>'
-        + '<button onclick="document.getElementById(\'campDiscount\').value=15" class="dash-btn dash-btn-secondary" style="border-radius:50px;padding:8px 16px;font-size:13px;">15%</button>'
-        + '<button onclick="document.getElementById(\'campDiscount\').value=20" class="dash-btn dash-btn-secondary" style="border-radius:50px;padding:8px 16px;font-size:13px;">20%</button>'
-        + '<input type="number" id="campDiscount" value="10" min="1" max="50" style="width:60px;padding:8px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);text-align:center;font-size:14px;"></div></div>'
-        + '<div><label style="font-size:13px;font-weight:600;color:var(--text-primary);display:block;margin-bottom:6px;">WhatsApp-Nachricht</label>'
-        + '<textarea id="campMessage" rows="3" style="width:100%;padding:10px 14px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;resize:vertical;box-sizing:border-box;">Hallo {name}! Wir vermissen dich bei {restaurant}! Hier ist dein persönlicher Gutschein: {code} ({discount}% Rabatt). Bestelle jetzt: {link}</textarea>'
-        + '<div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">Platzhalter: {name}, {restaurant}, {code}, {discount}, {link}</div></div>'
-        + '<button onclick="saveCampaign()" class="dash-btn dash-btn-primary" style="width:100%;border-radius:50px;padding:12px;font-size:14px;margin-top:8px;">Kampagne erstellen</button>'
-        + '</div></div>';
-    document.body.appendChild(modal);
-    modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
-}
-
-function saveCampaign() {
-    var name = document.getElementById('campName').value.trim();
-    var days = parseInt(document.getElementById('campDays').value) || 14;
-    var discount = parseInt(document.getElementById('campDiscount').value) || 10;
-    var message = document.getElementById('campMessage').value.trim();
-
-    if (!name) { showToast('Bitte Kampagnen-Name eingeben', 'error'); return; }
-
-    _mktCampaigns.push({
-        name: name,
-        triggerDays: days,
-        discountPercent: discount,
-        message: message,
-        active: true,
-        createdAt: new Date().toISOString()
-    });
-    localStorage.setItem('kmi_marketing_campaigns', JSON.stringify(_mktCampaigns));
-    document.getElementById('campaignModal')?.remove();
-    renderMarketingCampaigns();
-    showToast('Kampagne "' + name + '" erstellt', 'success');
-}
-
-// Kampagne ausführen: Alle betroffenen Kunden per WhatsApp kontaktieren
-function executeCampaign(index) {
-    var campaign = _mktCampaigns[index];
-    if (!campaign) return;
-    var targets = _mktCustomers.filter(function(c) { return c.daysSince >= campaign.triggerDays; });
-    if (targets.length === 0) { showToast('Keine Kunden für diese Kampagne', 'info'); return; }
-
-    var restaurant = APP_DATA.restaurants[0];
-    var restaurantName = restaurant ? restaurant.name : 'Restaurant';
-    var link = 'kiekmolin.de/' + (restaurant ? restaurant.slug : '');
-
-    targets.forEach(function(c) {
-        var code = 'KIEK-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-        // Speichere Gutschein
-        var coupons = JSON.parse(localStorage.getItem('kmi_marketing_coupons') || '[]');
-        coupons.push({
-            code: code,
-            discount_percent: campaign.discountPercent,
-            customer_phone: c.phone,
-            customer_name: c.name,
-            campaign_name: campaign.name,
-            created_at: new Date().toISOString(),
-            valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-            used: false
-        });
-        localStorage.setItem('kmi_marketing_coupons', JSON.stringify(coupons));
-    });
-
-    showToast(targets.length + ' Gutscheine erstellt. Öffne WhatsApp für jeden Kunden.', 'success');
-}
 
 // ==================== GUTSCHEIN-MANAGEMENT ====================
 
@@ -36232,6 +36215,68 @@ async function loadStatistics() {
 }
 
 // ==================== REVENUE ====================
+// ==================== KASSEN-UMSATZ (datenbank/43) ====================
+//
+// Die App kennt nur, was über sie bestellt wurde. Der Wirt trägt abends EINE
+// Zahl ein -- was die Kasse im Lokal gemacht hat --, dann zeigen Startseite,
+// Tagesabschluss und Monatsbericht den ganzen Tag. Eine Zeile je Tag;
+// nochmal eintragen ersetzt.
+//
+// Deutsche Schreibweise: "1.234,50" = 1234,50 (menuPreisLesen machte daraus
+// "ungültig"). "1.234" ohne Komma = 1234 (Tausenderpunkt), "12.5" = 12,50.
+function kasseBetrag(text) {
+    var t = String(text == null ? '' : text).replace(/[€\s]/g, '');
+    if (!t) return null;
+    if (t.indexOf(',') >= 0) t = t.replace(/\./g, '').replace(',', '.');
+    else if (/^\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, '');
+    if (!/^\d+(\.\d{1,2})?$/.test(t)) return null;
+    var n = Number(t);
+    return isFinite(n) && n >= 0 && n < 1000000 ? Math.round(n * 100) / 100 : null;
+}
+// { 'YYYY-MM-DD': { betrag, notiz } } -- wirft bei Fehler (404 = SQL 43 fehlt).
+async function kasseLaden(rid, von, bis) {
+    var z = await supabaseGet('kassen_umsatz', 'restaurant_id=eq.' + encodeURIComponent(rid) + '&tag=gte.' + von + '&tag=lte.' + bis + '&select=tag,betrag,notiz&limit=400');
+    var m = {};
+    (z || []).forEach(function (x) { m[x.tag] = { betrag: parseFloat(x.betrag) || 0, notiz: x.notiz || '' }; });
+    return m;
+}
+async function kasseSpeichern(rid, tag, betrag, notiz) {
+    var res = await fetch(SUPABASE_URL + '/rest/v1/kassen_umsatz?on_conflict=restaurant_id,tag', {
+        method: 'POST',
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=representation' },
+        body: JSON.stringify({ restaurant_id: rid, tag: tag, betrag: betrag, notiz: notiz || null, erfasst_at: new Date().toISOString() })
+    });
+    if (!res.ok) {
+        var t = ''; try { var j = await res.json(); t = j.message || ''; } catch (e) {}
+        throw new Error(res.status === 404 || /kassen_umsatz/.test(t) ? 'Kassen-Umsatz ist noch nicht eingerichtet (datenbank/43 einspielen)' : 'HTTP ' + res.status + (t ? ': ' + t : ''));
+    }
+    var z = await res.json().catch(function () { return []; });
+    if (!Array.isArray(z) || !z.length) throw new Error('keine Berechtigung');
+    return z[0];
+}
+// Kleiner Dialog: von der Startkarte aus.
+function kasseDialog(rid, tag, vorhanden, danach) {
+    var feld = 'width:100%;padding:12px 14px;border:1.5px solid var(--border-color);border-radius:16px;font-size:16px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;';
+    showGenericModal('Kasse ' + (tag === todayStrLocal() ? 'heute' : waDatum(tag)),
+        '<div style="display:flex;flex-direction:column;gap:12px;">'
+        + '<label style="font-size:13px;font-weight:600;">Was hat die Kasse im Lokal gemacht? (ohne App-Bestellungen)'
+        + '<input id="kasseBetragFeld" inputmode="decimal" placeholder="z. B. 1.234,50" value="' + (vorhanden ? String(vorhanden.betrag).replace('.', ',') : '') + '" style="' + feld + 'margin-top:6px;"></label>'
+        + '<label style="font-size:13px;font-weight:600;">Notiz (optional)<input id="kasseNotizFeld" maxlength="120" placeholder="z. B. Geburtstagsfeier" value="' + escapeHtml(vorhanden ? vorhanden.notiz : '') + '" style="' + feld + 'margin-top:6px;font-size:14px;"></label>'
+        + '<p id="kasseMeldung" style="margin:0;font-size:13px;color:var(--danger,#b91c1c);"></p>'
+        + '<button type="button" id="kasseSpeichernBtn" style="width:100%;padding:14px;background:var(--primary);color:white;border:none;border-radius:9999px;font-size:15px;font-weight:700;cursor:pointer;">Speichern</button></div>');
+    document.getElementById('kasseSpeichernBtn').onclick = async function () {
+        var b = kasseBetrag(document.getElementById('kasseBetragFeld').value), m = document.getElementById('kasseMeldung');
+        if (b === null) { m.textContent = 'Bitte einen Betrag eintragen, z. B. 1.234,50'; return; }
+        this.disabled = true; this.textContent = 'Speichert …';
+        try {
+            await kasseSpeichern(rid, tag, b, (document.getElementById('kasseNotizFeld').value || '').trim());
+            closeGenericModal(); showToast('Kasse ' + formatPrice(b) + ' eingetragen.', 'success');
+            if (typeof danach === 'function') danach();
+        } catch (e) { m.textContent = 'Nicht gespeichert – ' + (e && e.message || e); this.disabled = false; this.textContent = 'Speichern'; }
+    };
+}
+window.kasseDialog = kasseDialog;
+
 // ==================== UMSATZ NACH DEUTSCHER ZEIT ====================
 //
 // Ibo, 09.10.2026: "ich will Umsatz sehen jeden Tag für den Gastronomen".
@@ -36381,7 +36426,8 @@ async function loadRevenue() {
 // "Umsatz sehen jeden Tag". Ein Bericht je Monat: Umsatz Tag für Tag
 // (deutsche Zeit), Bestellart, Reservierungen, und die WhatsApp-Angebote --
 // neue Zustimmungen nach Quelle, verschickt, eingelöst, Umsatz daraus.
-// Ehrlich: nur was über die App lief; die Kasse im Lokal sieht die App nicht.
+// Die Kasse im Lokal kommt dazu, wenn der Wirt sie abends einträgt
+// (kassen_umsatz, datenbank/43) -- je Tag getrennt: App, Kasse, Gesamt.
 var MB_MONATE = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
 function mbMonatsauswahl() {
     var sel = document.getElementById('monatsberichtMonat'); if (!sel || sel.options.length) return;
@@ -36397,9 +36443,12 @@ function mbRechnen(monat, daten, heute) {
     var j = +monat.slice(0, 4), m = +monat.slice(5, 7), tageImMonat = new Date(j, m, 0).getDate();
     var bisTag = (heute && heute.slice(0, 7) === monat) ? +heute.slice(8, 10) : tageImMonat;
     var proTag = umsatzProTag(daten.orders || []), tage = [], summe = 0, anzahl = 0;
+    var kasse = daten.kasse || null, kasseSumme = 0, kasseTage = 0;
     for (var t = 1; t <= bisTag; t++) {
         var k = monat + '-' + String(t).padStart(2, '0'), x = proTag[k] || { summe: 0, anzahl: 0 };
-        tage.push({ tag: k, summe: x.summe, anzahl: x.anzahl }); summe += x.summe; anzahl += x.anzahl;
+        var kb = kasse && kasse[k] ? kasse[k].betrag : null;
+        tage.push({ tag: k, summe: x.summe, anzahl: x.anzahl, kasse: kb, gesamt: x.summe + (kb || 0) }); summe += x.summe; anzahl += x.anzahl;
+        if (kb !== null) { kasseSumme += kb; kasseTage++; }
     }
     var art = { delivery: 0, pickup: 0, dine_in: 0, sonst: 0 }, storno = 0;
     (daten.orders || []).forEach(function (o) {
@@ -36424,7 +36473,7 @@ function mbRechnen(monat, daten, heute) {
                eingeloestBestellung: ein.filter(function (e) { return e.quelle === 'bestellung'; }).length,
                eingeloestReservierung: ein.filter(function (e) { return e.quelle === 'reservierung'; }).length };
     }
-    return { monat: monat, tage: tage, summe: summe, anzahl: anzahl, schnitt: anzahl ? summe / anzahl : 0, storno: storno, art: art,
+    return { monat: monat, tage: tage, summe: summe, anzahl: anzahl, kasse: kasse ? kasseSumme : null, kasseTage: kasseTage, gesamt: summe + kasseSumme, kasseFehler: daten.kasseFehler || '', schnitt: anzahl ? summe / anzahl : 0, storno: storno, art: art,
              reservierungen: res.length, gaeste: res.reduce(function (s, r) { return s + (parseInt(r.party_size, 10) || 0); }, 0), wa: wa, waFehler: daten.waFehler || '' };
 }
 var _mbLetzter = null;
@@ -36448,15 +36497,21 @@ async function monatsberichtLaden() {
         daten.einw = await supabaseGet('gast_einwilligungen', q + '&select=quelle,erstmals_at,widerrufen_at&limit=20000');
         daten.empf = await supabaseGet('wa_kampagnen_empfaenger', q + '&select=quelle,gesendet_at,eingeloest_at,bestell_id,umsatz&limit=20000');
     } catch (e) { daten.einw = null; daten.waFehler = /HTTP 404/.test(e.message) ? 'WhatsApp-Angebote noch nicht eingerichtet (datenbank/42 einspielen).' : 'WhatsApp-Zahlen nicht geladen (' + e.message + ').'; }
+    try { daten.kasse = await kasseLaden(rid, monat + '-01', monat + '-' + String(new Date(j, m, 0).getDate()).padStart(2, '0')); }
+    catch (e) { daten.kasse = null; daten.kasseFehler = /HTTP 404|kassen_umsatz/.test(e.message) ? 'Kassen-Umsatz noch nicht eingerichtet (datenbank/43 einspielen) – der Bericht zeigt nur die App.' : 'Kasse nicht geladen (' + e.message + ') – der Bericht zeigt nur die App.'; }
     _mbLetzter = mbRechnen(monat, daten, umsatzTag(new Date()));
     box.innerHTML = mbHtml(_mbLetzter);
 }
 function mbHtml(b) {
     var eu = function (x) { return formatPrice(x || 0); }, tn = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
     var kachel = function (zahl, text) { return '<div style="flex:1;min-width:130px;padding:14px 16px;border-radius:18px;background:var(--bg-secondary,#f4f5f6);"><div style="font-size:20px;font-weight:800;color:var(--ink-deep);">' + zahl + '</div><div style="font-size:12px;color:var(--text-secondary);">' + text + '</div></div>'; };
-    var o = '<div class="mb-kopf" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;">' + kachel(eu(b.summe), 'Umsatz') + kachel(b.anzahl, 'Bestellungen') + kachel(eu(b.schnitt), 'Ø je Bestellung') + kachel(b.reservierungen + ' · ' + b.gaeste, 'Reservierungen · Gäste') + '</div>';
-    o += '<h4 style="margin:0 0 8px;font-size:14px;">Tag für Tag</h4><div style="max-height:340px;overflow:auto;margin-bottom:16px;"><table class="mb-tage" style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="text-align:left;color:var(--text-secondary);"><th style="padding:6px;">Tag</th><th style="padding:6px;text-align:right;">Bestellungen</th><th style="padding:6px;text-align:right;">Umsatz</th></tr></thead><tbody>'
-        + b.tage.slice().reverse().map(function (t) { var d = new Date(t.tag + 'T12:00:00'); return '<tr style="border-top:1px solid var(--border-color);"><td style="padding:6px;">' + tn[d.getDay()] + ' ' + waDatum(t.tag) + '</td><td style="padding:6px;text-align:right;">' + (t.anzahl || '–') + '</td><td style="padding:6px;text-align:right;font-weight:600;">' + (t.summe ? eu(t.summe) : '–') + '</td></tr>'; }).join('')
+    var mitKasse = b.kasse !== null && b.kasse !== undefined;
+    var o = '<div class="mb-kopf" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;">'
+        + (mitKasse ? kachel(eu(b.gesamt), 'Umsatz gesamt') + kachel(eu(b.summe), 'davon App') + kachel(eu(b.kasse), 'davon Kasse (' + b.kasseTage + ' Tage eingetragen)') : kachel(eu(b.summe), 'Umsatz App'))
+        + kachel(b.anzahl, 'Bestellungen') + kachel(eu(b.schnitt), 'Ø je Bestellung') + kachel(b.reservierungen + ' · ' + b.gaeste, 'Reservierungen · Gäste') + '</div>';
+    o += '<h4 style="margin:0 0 8px;font-size:14px;">Tag für Tag</h4><div style="max-height:340px;overflow:auto;margin-bottom:16px;"><table class="mb-tage" style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="text-align:left;color:var(--text-secondary);"><th style="padding:6px;">Tag</th><th style="padding:6px;text-align:right;">Bestellungen</th><th style="padding:6px;text-align:right;">App</th>' + (mitKasse ? '<th style="padding:6px;text-align:right;">Kasse</th><th style="padding:6px;text-align:right;">Gesamt</th>' : '') + '</tr></thead><tbody>'
+        + b.tage.slice().reverse().map(function (t) { var d = new Date(t.tag + 'T12:00:00'); return '<tr style="border-top:1px solid var(--border-color);"><td style="padding:6px;">' + tn[d.getDay()] + ' ' + waDatum(t.tag) + '</td><td style="padding:6px;text-align:right;">' + (t.anzahl || '–') + '</td><td style="padding:6px;text-align:right;' + (mitKasse ? '' : 'font-weight:600;') + '">' + (t.summe ? eu(t.summe) : '–') + '</td>'
+            + (mitKasse ? '<td style="padding:6px;text-align:right;">' + (t.kasse === null ? '<span title="nicht eingetragen">–</span>' : eu(t.kasse)) + '</td><td style="padding:6px;text-align:right;font-weight:600;">' + (t.gesamt ? eu(t.gesamt) : '–') + '</td>' : '') + '</tr>'; }).join('')
         + '</tbody></table></div>';
     o += '<h4 style="margin:0 0 8px;font-size:14px;">Nach Bestellart</h4><p class="mb-art" style="margin:0 0 16px;font-size:13px;color:var(--text-secondary);">Lieferung ' + eu(b.art.delivery) + ' · Abholung ' + eu(b.art.pickup) + ' · Vor Ort ' + eu(b.art.dine_in) + (b.art.sonst ? ' · sonst ' + eu(b.art.sonst) : '') + (b.storno ? ' · ' + b.storno + ' storniert' : '') + '</p>';
     o += '<h4 style="margin:0 0 8px;font-size:14px;">WhatsApp-Angebote</h4>';
@@ -36464,7 +36519,8 @@ function mbHtml(b) {
     else o += '<p class="mb-wa" style="margin:0 0 12px;font-size:13px;line-height:1.6;color:var(--text-secondary);">Neue Zustimmungen: <b>' + b.wa.neuBestellung + '</b> aus Bestellung · <b>' + b.wa.neuReservierung + '</b> aus Reservierung · ' + b.wa.abgemeldet + ' abgemeldet<br>'
         + 'Angebote verschickt: <b>' + b.wa.verschickt + '</b> · eingelöst: <b>' + b.wa.eingeloest + '</b> (online ' + b.wa.online + ' · im Lokal ' + b.wa.imLokal + ') · Umsatz daraus: <b>' + eu(b.wa.umsatz) + '</b><br>'
         + 'Eingelöst von Gästen aus Bestellung ' + b.wa.eingeloestBestellung + ' · aus Reservierung ' + b.wa.eingeloestReservierung + '</p>';
-    o += '<p style="margin:0;font-size:11px;color:var(--slate);">Nur was über die App lief. Barverkauf an der Kasse im Lokal ist nicht enthalten.</p>';
+    if (b.kasseFehler) o += '<p class="mb-kasse-fehler" style="margin:0 0 6px;font-size:12px;color:var(--danger,#b91c1c);">' + escapeHtml(b.kasseFehler) + '</p>';
+    o += '<p style="margin:0;font-size:11px;color:var(--slate);">' + (mitKasse ? 'Kasse = was im Lokal abends eingetragen wurde; Tage mit „–“ fehlen noch.' : 'Nur was über die App lief. Die Kasse im Lokal ist nicht enthalten.') + '</p>';
     return o;
 }
 function monatsberichtDrucken() {
@@ -36687,12 +36743,29 @@ function updateDashboard() {
                 var now = new Date();
                 var monthStart = tagesBeginnIso(new Date(now.getFullYear(), now.getMonth(), 1));
                 var _revLbl = document.getElementById('dashRevenueLabel');
+                var _heuteTag = umsatzTag(new Date()), _monatErster = _heuteTag.slice(0, 8) + '01';
+                // Kasse dazu (datenbank/43). Fehlt sie, bleibt es beim App-Umsatz --
+                // aber der Knopf sagt, was fehlt, statt still nichts zu tun.
+                var _kasse = kasseLaden(_gRestId, _monatErster, _heuteTag).catch(function (e) { return { _fehler: String(e && e.message || e) }; });
                 supabaseGet('orders', 'select=total,status,created_at&restaurant_id=eq.' + _gRestId + '&created_at=gte.' + encodeURIComponent(monthStart) + '&status=neq.cancelled').then(function(orders) {
                     if (!Array.isArray(orders)) throw new Error('keine Antwort');
-                    var tage = umsatzProTag(orders), heute = tage[umsatzTag(new Date())] || { summe: 0, anzahl: 0 }, monat = 0;
-                    Object.keys(tage).forEach(function (k) { monat += tage[k].summe; });
-                    dashRevenue.textContent = heute.summe.toFixed(0) + '€';
-                    if (_revLbl) _revLbl.textContent = heute.anzahl + ' Bestellung' + (heute.anzahl === 1 ? '' : 'en') + ' · Monat ' + monat.toFixed(0) + ' €';
+                    return _kasse.then(function (kasse) {
+                        var tage = umsatzProTag(orders), heute = tage[_heuteTag] || { summe: 0, anzahl: 0 }, monat = 0, kasseMonat = 0;
+                        Object.keys(tage).forEach(function (k) { monat += tage[k].summe; });
+                        var kf = kasse && kasse._fehler, kh = (!kf && kasse[_heuteTag]) ? kasse[_heuteTag].betrag : null;
+                        if (!kf) Object.keys(kasse).forEach(function (k) { kasseMonat += kasse[k].betrag; });
+                        dashRevenue.textContent = (heute.summe + (kh || 0)).toFixed(0) + '€';
+                        if (_revLbl) _revLbl.textContent = 'App ' + heute.summe.toFixed(0) + ' € · Kasse ' + (kh === null ? '–' : kh.toFixed(0) + ' €') + ' · Monat ' + (monat + kasseMonat).toFixed(0) + ' €';
+                        var kb = document.getElementById('dashKasseBtn');
+                        if (kb) {
+                            kb.style.display = '';
+                            kb.textContent = kh === null ? 'Kasse heute eintragen' : 'Kasse ändern';
+                            kb.onclick = function () {
+                                if (kf && /404|kassen_umsatz/.test(kf)) { showToast('Kassen-Umsatz ist noch nicht eingerichtet: datenbank/43 in Supabase einspielen.', 'error'); return; }
+                                kasseDialog(_gRestId, _heuteTag, kh === null ? null : kasse[_heuteTag], function () { if (typeof updateDashboard === 'function') updateDashboard(); });
+                            };
+                        }
+                    });
                 }).catch(function() {
                     dashRevenue.textContent = '–';
                     if (_revLbl) _revLbl.textContent = 'Umsatz nicht geladen';
@@ -59782,26 +59855,12 @@ async function submitOrder() {
     // Die Bitte um eine Bewertung steht jetzt in der Bestätigungs-E-Mail.
 
 
-    // WhatsApp-Benachrichtigung ans Restaurant senden (im Hintergrund)
-    try {
-        // Nur die hinterlegte WhatsApp-Nummer. Der Rueckfall auf das Telefon
-        // war auch hier drin und schickt die Bestellung an einen
-        // Festnetzanschluss, den es bei WhatsApp nicht gibt.
-        var restPhone = waNummer(currentOrderRestaurant?.whatsapp);
-        if (restPhone) {
-            var restMsg = '<span class="ki"><span class="material-symbols-outlined" style="font-size:18px;">notifications</span></span> *Neue Bestellung über Kiek mol in!*\n\n' +
-                '<span class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 2v2h6V2M9 10h6M9 14h4"/></svg></span> Nr: *' + (order.order_number || orderNumber) + '*\n' +
-                '<span class="ki"><span class="material-symbols-outlined" style="font-size:18px;">group</span></span> ' + name + (phone ? ' · <span class="ki"><span class="material-symbols-outlined" style="font-size:18px;">phone</span></span> ' + phone : '') + '\n' +
-                (orderType === 'delivery' ? '<span class="ki"><span class="material-symbols-outlined" style="font-size:18px;">laptop</span></span> Lieferung' : '<span class="ki"><span class="material-symbols-outlined" style="font-size:18px;">account_balance</span></span> Abholung') + '\n\n' +
-                orderCart.map(function(i) { return '• ' + i.quantity + 'x ' + i.name; }).join('\n') + '\n\n' +
-                '<span class="ki"><span class="material-symbols-outlined" style="font-size:18px;">attach_money</span></span> Gesamt: ' + formatPrice(total) + '\n\n' +
-                'Dashboard öffnen: ' + window.location.origin;
-            // Hinweis: Das öffnet WhatsApp nicht automatisch - das wird dem Betreiber als Option angeboten
-            if (currentOrderRestaurant) {
-                currentOrderRestaurant._lastOrderWhatsAppUrl = 'https://wa.me/' + restPhone + '?text=' + encodeURIComponent(restMsg);
-            }
-        }
-    } catch(e) {}
+    // HIER STAND EINE WHATSAPP AN DAS RESTAURANT ("Neue Bestellung ..."),
+    // gebaut und in currentOrderRestaurant._lastOrderWhatsAppUrl abgelegt --
+    // gelesen hat sie nie jemand. Der Text bestand ausserdem aus rohem HTML
+    // (<span class="ki">...), das in WhatsApp als Zeichensalat angekommen
+    // waere. Entfernt am 09.10.2026; der Wirt erfaehrt neue Bestellungen
+    // ueber Push, Ton und Dashboard.
 
     // Live-Tracking starten
     startOrderTracking(order.id);
@@ -60234,73 +60293,11 @@ function stopOrderTracking() {
     if (trackingPollingInterval) { clearInterval(trackingPollingInterval); trackingPollingInterval = null; }
 }
 
-// ==================== WHATSAPP BESTELLBESTÄTIGUNG ====================
 
-function sendWhatsAppOrderConfirmation() {
-    var orderNumber = document.getElementById('confirmOrderNumber')?.textContent || '';
-    var customerPhone = document.getElementById('checkoutPhone')?.value?.trim() || '';
-    // Auch aus gespeicherter Bestellung lesen falls Checkout schon geschlossen
-    if (!customerPhone && customerActiveOrder) customerPhone = customerActiveOrder.customer_phone || '';
-    var text = buildOrderSummaryText(orderNumber);
-    
-    // Kundennummer formatieren für WhatsApp
-    var waNumber = waNummer(customerPhone);
 
-    if (waNumber && waNumber.length >= 10) {
-        // WhatsApp mit Bestellbestätigung direkt an den Kunden
-        window.open('https://wa.me/' + waNumber + '?text=' + encodeURIComponent(text), '_blank');
-    } else if (navigator.share) {
-        navigator.share({ title: 'Bestellung ' + orderNumber, text: text }).catch(function() {});
-    } else {
-        try { navigator.clipboard.writeText(text); } catch(e) {}
-        showToast('Bestellbestätigung kopiert!', 'success');
-    }
-}
 
-function fallbackWhatsApp(text) {
-    window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
-}
 
-function buildOrderSummaryText(orderNumber) {
-    var items = orderCart.length > 0 ? orderCart : [];
-    var itemsText = '';
 
-    // Versuche Items aus dem Beleg zu lesen falls Warenkorb schon leer
-    var receiptItems = document.getElementById('receiptItems');
-    if (receiptItems && receiptItems.textContent.trim()) {
-        itemsText = receiptItems.textContent.trim();
-    } else {
-        itemsText = items.map(function(i) { 
-            // i.price = Positions-Gesamtpreis (Menge steckt schon drin)
-            var price = i.price ? ' · ' + (Number(i.price) || 0).toFixed(2).replace('.', ',') + ' €' : '';
-            return '  • ' + i.quantity + 'x ' + i.name + price; 
-        }).join('\n');
-    }
-
-    var totalEl = document.getElementById('receiptTotal');
-    var total = totalEl ? totalEl.textContent.replace('Gesamt', '').trim() : '';
-
-    var orderType = document.querySelector('input[name="orderType"]:checked')?.value || 'pickup';
-    var typeText = orderType === 'delivery' ? '<span class="ki"><span class="material-symbols-outlined" style="font-size:18px;">laptop</span></span> Lieferung' : '<span class="ki"><span class="material-symbols-outlined" style="font-size:18px;">account_balance</span></span> Abholung';
-    var restName = currentOrderRestaurant?.name || 'Restaurant';
-    var restPhone = currentOrderRestaurant?.phone || '';
-    var restStreet = currentOrderRestaurant?.street || '';
-    var restCity = (currentOrderRestaurant?.zip || '') + ' ' + (currentOrderRestaurant?.city || '');
-
-    var msg = '<span class="ki"><span class="material-symbols-outlined" style="font-size:24px;color:#16a34a;">check</span></span> *Bestellbestätigung*\n' +
-           '━━━━━━━━━━━━━━━\n\n' +
-           ' *' + restName + '*\n' +
-           (restStreet ? '' + restStreet + ', ' + restCity.trim() + '\n' : '') +
-           (restPhone ? '<span class="ki"><span class="material-symbols-outlined" style="font-size:18px;">phone</span></span> ' + restPhone + '\n' : '') +
-           '\n<span class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h4V5M14 9h4V5M4 19h4v-4M14 19h4v-4"/></svg></span> Bestellnr: *' + orderNumber + '*\n' +
-           typeText + '\n\n' +
-           '*Deine Bestellung:*\n' +
-           itemsText + '\n\n' +
-           '<span class="ki"><span class="material-symbols-outlined" style="font-size:18px;">attach_money</span></span> *Gesamt: ' + total + '*\n\n' +
-           '_Bestellt über kiekmolin.de_ <span class="ki" style="color:#0ea5e9"><span class="material-symbols-outlined" style="font-size:18px;">waves</span></span>';
-
-    return msg;
-}
 
 // ==================== PUSH-BENACHRICHTIGUNGEN ====================
 
@@ -62249,57 +62246,7 @@ async function cancelOrderWithReason(orderId, reason, refundNeeded) {
     showToast('Storniert. Kunde wurde benachrichtigt.', 'success');
 }
 
-// WhatsApp Status-Update an Kunden (nur manuell verfügbar)
-function sendCustomerStatusWhatsApp(order, status) {
-    var phone = order.customer_phone || '';
-    if (!phone) return;
-    
-    // Dieselbe Umrechnung wie ueberall. Vorher stand sie hier von Hand und
-    // liess ein fuehrendes "+" stehen -- wa.me/+49... ist keine gueltige
-    // Adresse.
-    var waNumber = waNummer(phone);
-    if (!waNumber || waNumber.length < 10) return;
 
-    var restName = '';
-    if (order.restaurant_id && APP_DATA.restaurants) {
-        var rest = APP_DATA.restaurants.find(r => r.id === order.restaurant_id);
-        if (rest) restName = rest.name;
-    }
-    restName = restName || order.restaurant_name || 'Restaurant';
-
-    var messages = {
-        'accepted': '<span class="ki"><span class="material-symbols-outlined" style="font-size:24px;color:#16a34a;">check</span></span> *Bestellung bestätigt!*\n\n' +
-            'Hallo ' + (order.customer_name || '') + '!\n' +
-            'Deine Bestellung *#' + (order.order_number || '') + '* bei ' + restName + ' wurde bestätigt.\n\n' +
-            (order.estimated_minutes ? '⏱ Geschätzte Zeit: *ca. ' + order.estimated_minutes + ' Minuten*\n\n' : '') +
-            'Wir melden uns, sobald es fertig ist! ',
-        'preparing': '<span class="ki"><span class="material-symbols-outlined" style="font-size:18px;">person</span></span> *Deine Bestellung wird zubereitet!*\n\n' +
-            '#' + (order.order_number || '') + ' bei ' + restName + '\n' +
-            'Dein Essen wird jetzt frisch zubereitet. Nicht mehr lange! <span class="ki" style="color:#16a34a"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/></svg></span>',
-        'ready': '<span class="ki"><span class="material-symbols-outlined" style="font-size:18px;">notifications</span></span> *Deine Bestellung ist FERTIG!*\n\n' +
-            '#' + (order.order_number || '') + ' bei ' + restName + '\n\n' +
-            (order.order_type === 'delivery' ? '<span class="ki"><span class="material-symbols-outlined" style="font-size:18px;">laptop</span></span> Wird gleich losgeschickt!' : (order.order_type === 'dine_in' ? '<span class="ki"><span class="material-symbols-outlined" style="font-size:18px;">restaurant</span></span> Wird jetzt an deinen Tisch gebracht!' : '<span class="ki"><span class="material-symbols-outlined" style="font-size:18px;">account_balance</span></span> Du kannst sie jetzt abholen!\nEinfach deinen Namen nennen.')) +
-            '\n\nGuten Appetit! <span class="ki"><span class="material-symbols-outlined" style="font-size:24px;">auto_fix_high</span></span>',
-        'out_for_delivery': '<span class="ki"><span class="material-symbols-outlined" style="font-size:18px;">laptop</span></span> *Dein Essen ist unterwegs!*\n\n' +
-            '#' + (order.order_number || '') + ' von ' + restName + '\n' +
-            'Halte schon mal Teller und Besteck bereit! <span class="ki" style="color:#16a34a"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/></svg></span>',
-        'delivered': '<span class="ki"><span class="material-symbols-outlined" style="font-size:24px;">auto_fix_high</span></span> *Guten Appetit!*\n\n' +
-            'Deine Bestellung von ' + restName + ' wurde geliefert.\n' +
-            'Danke für deine Bestellung über _kiekmolin.de_ <span class="ki" style="color:#0ea5e9"><span class="material-symbols-outlined" style="font-size:18px;">waves</span></span>',
-        'picked_up': '<span class="ki"><span class="material-symbols-outlined" style="font-size:24px;">auto_fix_high</span></span> *Guten Appetit!*\n\n' +
-            'Danke für deine Bestellung bei ' + restName + '!\n' +
-            'Bestellt über _kiekmolin.de_ <span class="ki" style="color:#0ea5e9"><span class="material-symbols-outlined" style="font-size:18px;">waves</span></span>',
-        'cancelled': '<span class="ki"><span class="material-symbols-outlined" style="font-size:24px;color:#ef4444;">close</span></span> *Bestellung storniert*\n\n' +
-            'Leider wurde deine Bestellung #' + (order.order_number || '') + ' bei ' + restName + ' storniert.\n' +
-            'Bitte kontaktiere das Restaurant für Details.'
-    };
-
-    var msg = messages[status];
-    if (!msg) return;
-
-    var url = 'https://wa.me/' + waNumber + '?text=' + encodeURIComponent(msg);
-    window.open(url, '_blank');
-}
 
 // Bon drucken - Professionell nach §14 UStG
 async function printOrder(orderId) {
@@ -82270,6 +82217,10 @@ async function openDayCloseReport(selectedRestaurantId) {
             if (res) reservations = res;
         }
     } catch(e) { console.error('Tagesabschluss laden:', e); _abschlussFehler.push(e && e.message || 'Laden fehlgeschlagen'); }
+    // Kasse im Lokal (datenbank/43): eine Zahl, abends eingetragen.
+    var kasseHeute = null, kasseFehlt = '';
+    try { var _km = await kasseLaden(restaurantId, today, today); kasseHeute = _km[today] || null; }
+    catch (e) { kasseFehlt = /404|kassen_umsatz/.test(String(e && e.message || e)) ? 'Kassen-Umsatz ist noch nicht eingerichtet (datenbank/43 einspielen).' : 'Kasse nicht geladen: ' + (e && e.message || e); }
 
     var totalOrders = orders.length;
     var completedOrders = orders.filter(function(o) { return o.status === 'delivered' || o.status === 'ready' || o.status === 'completed'; }).length;
@@ -82330,9 +82281,15 @@ async function openDayCloseReport(selectedRestaurantId) {
 
         // Umsatz-Karte
         '<div style="background:linear-gradient(135deg,var(--primary),#2d8a6e);border-radius:14px;padding:20px;color:white;margin-bottom:16px;text-align:center;">' +
-        '<div style="font-size:13px;opacity:0.8;">Tagesumsatz</div>' +
-        '<div style="font-size:36px;font-weight:700;margin:4px 0;">' + revenue.toFixed(2).replace('.', ',') + ' €</div>' +
-        '<div style="font-size:12px;opacity:0.7;">inkl. ' + tips.toFixed(2).replace('.', ',') + ' € Trinkgeld</div></div>' +
+        '<div style="font-size:13px;opacity:0.8;">Tagesumsatz' + (kasseHeute ? ' gesamt' : '') + '</div>' +
+        '<div style="font-size:36px;font-weight:700;margin:4px 0;">' + (revenue + (kasseHeute ? kasseHeute.betrag : 0)).toFixed(2).replace('.', ',') + ' €</div>' +
+        '<div style="font-size:13px;opacity:0.9;">App ' + revenue.toFixed(2).replace('.', ',') + ' € (inkl. ' + tips.toFixed(2).replace('.', ',') + ' € Trinkgeld)'
+            + ' · Kasse ' + (kasseHeute ? kasseHeute.betrag.toFixed(2).replace('.', ',') + ' €' : 'nicht eingetragen') + '</div>' +
+        (kasseHeute && kasseHeute.notiz ? '<div style="font-size:12px;opacity:0.8;margin-top:2px;">' + escapeHtml(kasseHeute.notiz) + '</div>' : '') +
+        (kasseFehlt
+            ? '<div style="font-size:12px;margin-top:10px;background:rgba(0,0,0,0.25);border-radius:10px;padding:8px;">' + escapeHtml(kasseFehlt) + '</div>'
+            : '<button type="button" id="dayCloseKasseBtn" style="margin-top:12px;padding:8px 16px;min-height:40px;border-radius:9999px;border:1px solid rgba(255,255,255,0.6);background:rgba(255,255,255,0.15);color:white;font-size:13px;font-weight:700;cursor:pointer;">' + (kasseHeute ? 'Kasse ändern' : 'Kasse eintragen') + '</button>') +
+        '</div>' +
 
         // Stats Grid
         '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;">' +
@@ -82360,6 +82317,11 @@ async function openDayCloseReport(selectedRestaurantId) {
         '</div></div>';
 
     document.body.appendChild(overlay);
+    var _kb = document.getElementById('dayCloseKasseBtn');
+    if (_kb) _kb.onclick = function () {
+        overlay.remove();
+        kasseDialog(restaurantId, today, kasseHeute, function () { openDayCloseReport(restaurantId); });
+    };
 }
 
 // ==================== TAGESANGEBOT AUTO-ROTATION ====================
