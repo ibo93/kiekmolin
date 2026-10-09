@@ -61,6 +61,10 @@ var TABELLEN = [
   // (datenbank/34-rueckrufe.sql ist optional). Dann meldet der Bericht
   // "Veraltete Liste" -- und das ist die Wahrheit, nicht ein Fehlalarm.
   { name: 'callbacks',          stufe: 'person',      was: 'Rueckruf-Wuensche mit Telefonnummer' },
+  // datenbank/42 + 43 (09.10.2026). Stehen hier, auch solange sie noch
+  // nicht eingespielt sind -- dann meldet der Bericht "fehlt", die Wahrheit.
+  { name: 'gast_einwilligungen',     stufe: 'person',  was: 'WhatsApp-Zustimmungen: Telefon, Name, Zeitpunkt' },
+  { name: 'wa_kampagnen_empfaenger', stufe: 'person',  was: 'Empfaenger je Angebot: Telefon, Code, Einloesung' },
 
   { name: 'restaurants',        stufe: 'betrieb',     was: 'Stammdaten der Betriebe' },
   { name: 'menu_items',         stufe: 'betrieb',     was: 'Gerichte und Preise' },
@@ -81,6 +85,8 @@ var TABELLEN = [
   { name: 'jobs',               stufe: 'betrieb',     was: 'Stellenanzeigen' },
   { name: 'vertrag_fassungen',  stufe: 'betrieb',     was: 'Vertragstexte und Fassungen' },
   { name: 'guest_funnel',       stufe: 'betrieb',     was: 'Gasttrichter: Karte, Warenkorb, Bestellung' },
+  { name: 'wa_kampagnen',       stufe: 'betrieb',     was: 'WhatsApp-Angebote des Wirts (SQL 42)' },
+  { name: 'kassen_umsatz',      stufe: 'betrieb',     was: 'Kassen-Umsatz je Tag (SQL 43)' },
 
   { name: 'attractions',        stufe: 'oeffentlich', was: 'Ausflugsziele' },
   { name: 'accommodations',     stufe: 'oeffentlich', was: 'Unterkuenfte' },

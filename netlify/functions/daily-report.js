@@ -77,6 +77,13 @@ exports.handler = async function () {
         console.error('[daily-report] Laden fehlgeschlagen:', e.message);
         return { statusCode: 500, body: e.message };
     }
+    // Kasse im Lokal (datenbank/43), abends vom Wirt eingetragen. Fehlt die
+    // Tabelle noch, bleibt der Bericht beim App-Umsatz und sagt nichts Falsches.
+    var kasse = null;
+    try {
+        kasse = {};
+        (await sbGet('kassen_umsatz?tag=eq.' + today + '&select=restaurant_id,betrag,notiz&limit=500')).forEach(function (k) { kasse[k.restaurant_id] = k; });
+    } catch (e) { console.warn('[daily-report] Kasse nicht geladen (datenbank/43?):', e.message); kasse = null; }
 
     var sent = 0, skipped = 0;
     for (var i = 0; i < restaurants.length; i++) {
@@ -88,8 +95,10 @@ exports.handler = async function () {
         var cancelled = ro.length - valid.length;
         var rres = reservations.filter(function (x) { return x.restaurant_id === r.id; });
 
+        var kr = kasse && kasse[r.id] ? kasse[r.id] : null, kb = kr ? (Number(kr.betrag) || 0) : 0;
+
         // Nichts los heute + nichts morgen -> keine Mail
-        if (!valid.length && !rres.length) { skipped++; continue; }
+        if (!valid.length && !rres.length && !kr) { skipped++; continue; }
 
         var revenue = valid.reduce(function (s, o) { return s + (Number(o.total) || 0); }, 0);
         var tips = valid.reduce(function (s, o) { return s + (Number(o.tip) || 0); }, 0);
@@ -117,7 +126,9 @@ exports.handler = async function () {
                 '<td style="padding:7px 0;font-weight:700;text-align:right;">' + val + '</td></tr>';
         }
         var stats = '<table style="width:100%;border-collapse:collapse;font-size:14px;margin:8px 0 4px;">' +
-            row('Umsatz heute', eur(revenue)) +
+            (kr
+                ? row('Umsatz heute gesamt', eur(revenue + kb)) + row('davon App', eur(revenue)) + row('davon Kasse', eur(kb) + (kr.notiz ? ' <span style="font-weight:400;color:#6b7280;">(' + esc(kr.notiz) + ')</span>' : ''))
+                : row('Umsatz heute (App)', eur(revenue)) + (kasse ? row('Kasse', '<span style="font-weight:400;color:#6b7280;">noch nicht eingetragen</span>') : '')) +
             row('Bestellungen', String(valid.length) + (typeParts.length ? ' <span style="font-weight:400;color:#6b7280;">(' + typeParts.join(', ') + ')</span>' : '')) +
             (tips > 0 ? row('Trinkgeld', eur(tips)) : '') +
             (cancelled > 0 ? row('Storniert', String(cancelled)) : '') +
@@ -158,7 +169,7 @@ exports.handler = async function () {
         '</div>';
 
         try {
-            await sendMail(r.email, 'Feierabend-Report: ' + valid.length + ' Bestellungen · ' + eur(revenue) + ' – ' + r.name, html);
+            await sendMail(r.email, 'Feierabend-Report: ' + valid.length + ' Bestellungen · ' + eur(revenue + kb) + ' – ' + r.name, html);
             sent++;
         } catch (e) {
             console.error('[daily-report] Mail an', r.name, 'fehlgeschlagen:', e.message);

@@ -207,6 +207,25 @@ async function preisCheck(order) {
     return preisPruefung.pruefe(order, daten);
 }
 
+// WhatsApp-Angebot eingeloest? (datenbank/42) Kam die Bestellung mit einem
+// persoenlichen Kampagnen-Code, beim Gast eintragen: wann, welche Bestellung,
+// wie viel Umsatz -- daraus rechnet der Monatsbericht. Nur mit dem
+// Dienstschluessel, und eine Bestellung haengt NIE davon ab: fehlt die
+// Tabelle (SQL 42 nicht eingespielt), steht es im Protokoll, mehr nicht.
+async function kampagneEingeloest(order, id) {
+    var code = String(order.coupon_code || '').trim().toUpperCase();
+    if (!code || !SERVICE_KEY) return;
+    try {
+        var res = await fetch(SUPABASE_URL + '/rest/v1/wa_kampagnen_empfaenger?code=eq.' + encodeURIComponent(code)
+            + '&restaurant_id=eq.' + encodeURIComponent(order.restaurant_id) + '&eingeloest_at=is.null', {
+            method: 'PATCH',
+            headers: { 'apikey': SERVICE_KEY, 'Authorization': 'Bearer ' + SERVICE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            body: JSON.stringify({ eingeloest_at: new Date().toISOString(), bestell_id: id ? String(id) : null, umsatz: parseFloat(order.total) || 0 })
+        });
+        if (!res.ok && res.status !== 404) console.warn('[order-save] Kampagnen-Einloesung nicht eingetragen', res.status, code);
+    } catch (e) { console.warn('[order-save] Kampagnen-Einloesung', e && e.message); }
+}
+
 exports.handler = async function (event) {
     if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS, body: '' };
     if (event.httpMethod !== 'POST') return json(405, { ok: false, error: 'Nur POST' });
@@ -274,6 +293,7 @@ exports.handler = async function (event) {
         var r = await resilientInsert(order);
         if (r.ok) {
             var id = (r.data && r.data[0] && r.data[0].id) || null;
+            await kampagneEingeloest(order, id);
             return json(200, {
                 ok: true, id: id, via: SERVICE_KEY ? 'service' : 'anon',
                 // Damit der Browser dem Gast nicht "wird gleich bestaetigt"
