@@ -82,10 +82,16 @@ exports.handler = async function (event) {
 
     var jetzt = new Date();
     var von = new Date(jetzt.getTime() - tage * 864e5).toISOString();
+    // Fester Zeitraum fuer den Monatsbericht: ?von=2026-09-01&bis=2026-10-01 (bis = ausschliesslich)
+    var bis = null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(q.von || '')) && /^\d{4}-\d{2}-\d{2}$/.test(String(q.bis || '')) && q.von < q.bis) {
+        von = new Date(q.von + 'T00:00:00Z').toISOString(); bis = new Date(q.bis + 'T00:00:00Z').toISOString();
+    }
+    var BIS = bis ? '&created_at=lt.' + encodeURIComponent(bis) : '';
     var antwort = {
         ok: true,
         restaurant: { id: rest.id, name: rest.name, slug: rest.slug || null },
-        zeitraum: { von: von, bis: jetzt.toISOString(), tage: tage },
+        zeitraum: { von: von, bis: bis || jetzt.toISOString(), tage: bis ? null : tage },
         kampagnenSpalte: true,
         kampagnen: [],
         gesamt: null,
@@ -93,17 +99,17 @@ exports.handler = async function (event) {
     };
 
     // ---- 1. Gaeste-Beweis --------------------------------------------
-    var res1 = await holen('reservations?restaurant_id=eq.' + R + '&created_at=gte.' + encodeURIComponent(von)
+    var res1 = await holen('reservations?restaurant_id=eq.' + R + '&created_at=gte.' + encodeURIComponent(von) + BIS
         + '&status=' + NICHT_IN + '&select=kampagne,party_size&limit=10000');
-    var ord1 = await holen('orders?restaurant_id=eq.' + R + '&created_at=gte.' + encodeURIComponent(von)
+    var ord1 = await holen('orders?restaurant_id=eq.' + R + '&created_at=gte.' + encodeURIComponent(von) + BIS
         + '&status=' + NICHT_IN + '&select=kampagne,total&limit=10000');
     if (spalteFehlt(res1) || spalteFehlt(ord1)) {
         // Nicht still leer zurueckgeben: "keine Buchungen ueber Videos" sieht
         // genauso aus wie "Spalte fehlt" -- und das eine ist falsch.
         antwort.kampagnenSpalte = false;
         antwort.hinweis = 'datenbank/41-kampagne.sql ist noch nicht eingespielt -- Buchungen ueber Videos werden noch nicht gezaehlt.';
-        res1 = await holen('reservations?restaurant_id=eq.' + R + '&created_at=gte.' + encodeURIComponent(von) + '&status=' + NICHT_IN + '&select=party_size&limit=10000');
-        ord1 = await holen('orders?restaurant_id=eq.' + R + '&created_at=gte.' + encodeURIComponent(von) + '&status=' + NICHT_IN + '&select=total&limit=10000');
+        res1 = await holen('reservations?restaurant_id=eq.' + R + '&created_at=gte.' + encodeURIComponent(von) + BIS + '&status=' + NICHT_IN + '&select=party_size&limit=10000');
+        ord1 = await holen('orders?restaurant_id=eq.' + R + '&created_at=gte.' + encodeURIComponent(von) + BIS + '&status=' + NICHT_IN + '&select=total&limit=10000');
     }
     if (!res1.ok || !ord1.ok) return json(502, { ok: false, error: 'Buchungen konnten nicht gelesen werden', status: res1.ok ? ord1.status : res1.status });
 

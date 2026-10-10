@@ -135,6 +135,10 @@ var FEHLT = '{"code":"PGRST204","message":"Could not find the \'kampagne\' colum
   t('Stornierte zaehlen nicht (status not.in.(cancelled...))', abgefragt.filter(function (u) { return /\/(reservations|orders)\?/.test(u); }).every(function (u) { return /status=not\.in\.\(cancelled/.test(u); }), abgefragt);
   spalteDa = false; var zf = JSON.parse((await zahlen('geheim-studio-1234')).body); spalteDa = true;
   t('SPALTE FEHLT: nicht still "0 ueber Videos", sondern Hinweis auf 41-kampagne.sql', zf.ok === true && zf.kampagnenSpalte === false && /41-kampagne\.sql/.test(zf.hinweis || '') && zf.gesamt.reservierungen === 4, zf);
+  abgefragt = [];
+  var zm = JSON.parse((await KZ.handler({ httpMethod: 'GET', headers: { authorization: 'Bearer geheim-studio-1234' }, queryStringParameters: { restaurant: 'die-millis', von: '2026-09-01', bis: '2026-10-01' } })).body);
+  var buchAbfragen = abgefragt.filter(function (u) { return /\/(reservations|orders)\?.*created_at/.test(u); });
+  t('fester Zeitraum (Monatsbericht): von UND bis in jeder Buchungs-Abfrage', zm.ok && zm.zeitraum.von.indexOf('2026-09-01') === 0 && zm.zeitraum.bis.indexOf('2026-10-01') === 0 && buchAbfragen.length >= 2 && buchAbfragen.every(function (u) { return /created_at=gte\.2026-09-01/.test(u) && /created_at=lt\.2026-10-01/.test(u); }), buchAbfragen);
   var zu = await zahlen('geheim-studio-1234', 'gibt-es-nicht');
   t('unbekanntes Restaurant: 404 statt leerer Zahlen', zu.statusCode === 404, zu.statusCode);
 
