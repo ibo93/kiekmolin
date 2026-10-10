@@ -55,6 +55,7 @@
 var alarmModul = require('./lib/alarm');
 var ZAHLSPERRE = require('./lib/zahlsperre');
 var AKTIONEN = require('./lib/aktionen');
+var KAMPAGNE = require('./lib/kampagne');
 
 var SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co';
 var SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY || '';
@@ -107,6 +108,11 @@ function sauber(r) {
         occasion:         text(r.occasion, 60) || null,
         table_id:         (tisch.indexOf('-') > 0) ? tisch : null,
         source:           'app',
+        /* Aus welchem Video der Gast kam (?ref= am Link, lib/kampagne.js).
+           Streng geprueft, sonst null. Fehlt die Spalte noch (datenbank/
+           41-kampagne.sql nicht eingespielt), wirft der selbst-heilende
+           Insert unten sie raus -- die Reservierung geht trotzdem durch. */
+        kampagne:         KAMPAGNE.pruefe(r.kampagne) || undefined, // ohne Code gar nicht mitschicken
         /* Einwilligung in die EINE Bewertungsanfrage per Mail. Nur true,
            wenn der Gast das Haekchen gesetzt UND eine Adresse angegeben
            hat -- eine Einwilligung ohne Adresse ist keine.
