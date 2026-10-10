@@ -131,16 +131,22 @@ exports.handler = async function (event) {
         orders.forEach(function (o) { if (o.customer_phone) phones[String(o.customer_phone).trim()] = 1; });
     } catch (e) { return json(500, { ok: false, error: 'Bestellungen nicht lesbar' }); }
 
+    // NUR wer Angeboten per Push zugestimmt hat (datenbank/43). Die Erlaubnis
+    // fuer Status-Meldungen reicht fuer Werbung nicht -- anderer Zweck.
+    // Fehlt die Spalte noch, wird NIEMAND angeschrieben (nicht: alle).
     var subs;
     try {
-        subs = await sbGet('push_subscriptions?select=id,endpoint,p256dh_key,auth_key,customer_phone&limit=5000');
-    } catch (e) { return json(500, { ok: false, error: 'Push-Abonnenten nicht lesbar' }); }
+        subs = await sbGet('push_subscriptions?select=id,endpoint,p256dh_key,auth_key,customer_phone&angebote=eq.true&limit=5000');
+    } catch (e) {
+        if (/-> 400/.test(e.message)) return json(200, { ok: false, error: 'Angebote per Push sind noch nicht eingerichtet: datenbank/43-push-angebote-kasse.sql in Supabase einspielen.' });
+        return json(500, { ok: false, error: 'Push-Abonnenten nicht lesbar' });
+    }
 
     var targets = (subs || []).filter(function (s) {
         return s.customer_phone && phones[String(s.customer_phone).trim()];
     });
     if (!targets.length) {
-        return json(200, { ok: false, error: 'Noch keine Push-Abonnenten unter den Gästen dieses Restaurants. (Gäste aktivieren Push nach einer Bestellung.)' });
+        return json(200, { ok: false, error: 'Noch hat kein Gast dieses Restaurants Angeboten per Push zugestimmt. (Das Kästchen erscheint, wenn Gäste nach einer Bestellung Benachrichtigungen erlauben.)' });
     }
 
     var payload = JSON.stringify({

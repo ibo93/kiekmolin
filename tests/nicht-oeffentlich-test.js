@@ -113,7 +113,8 @@ console.log('\n-- 6. Und der naechste neue Ordner faellt auf --');
 // Eine Liste veraltet. Wer morgen einen Ordner mit einem eigenen
 // Server anlegt, denkt nicht an netlify.toml -- und dann liegt der
 // wieder offen. Also wird hier jedes Mal NEU nachgesehen.
-var ERLAUBT = ['public', 'logos', 'en', 'node_modules', '.git', '.github', '.netlify', 'dist'];
+// intro: das Start-Video (08.10.2026) -- soll öffentlich sein, jeder Gast lädt es.
+var ERLAUBT = ['public', 'logos', 'en', 'intro', 'node_modules', '.git', '.github', '.netlify', 'dist'];
 var offen = fs.readdirSync(KMI).filter(function (name) {
     var voll = path.join(KMI, name);
     if (name.charAt(0) === '.' || !fs.statSync(voll).isDirectory()) return false;

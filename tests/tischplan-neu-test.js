@@ -58,7 +58,7 @@ t('fehlende Spalten (39-tischplan.sql): Plan laedt trotzdem und sagt es',
 t('Schnell-Reservierung schickt die echte Tisch-ID',
   /table_id: t\.id, status: 'confirmed', source: 'dashboard'/.test(TP), '');
 t('und prueft vorher auf Ueberschneidung am selben Tisch',
-  /konflikt = resFuerTisch\(t\)\.find/.test(TP), '');
+  /var konflikt = resFuerTisch\(alle\[ki\]\)\.find/.test(TP) && /alle = \[t\]\.concat\(dazu\)/.test(TP), '');  // seit 08.10.2026 an allen zusammengeschobenen Tischen
 
 // --- Status der Reservierung ---
 t('"Gaeste sind da" geht ueber updateReservationStatus und wertet das Ergebnis aus',
@@ -86,7 +86,7 @@ t('3D und "Von oben", das Geraet merkt sich die Wahl',
 t('Bearbeiten immer von oben (genaues Setzen), danach zurueck',
   /tp\.ansichtVorBearbeiten = tp\.ansicht; tp\.ansicht = 'oben'/.test(TP), '');
 t('Schilder stehen aufrecht (Gegendrehung) und behalten ihre Groesse',
-  /rotateZ\(' \+ \(-winkel\(\)\) \+ 'deg\) rotateX\(-' \+ NEIGUNG \+ 'deg\) scale\(' \+ k/.test(TP) && /var k = Math\.min\(1\.8, 1 \/ \(tp\.s \|\| 1\)\)/.test(TP), '');
+  /rotateZ\(' \+ \(-winkel\(\)\) \+ 'deg\) rotateX\(-' \+ NEIGUNG \+ 'deg\) scale\(' \+ k/.test(TP) && /var k = Math\.min\(1\.[0-8], 1 \/ \(tp\.s \|\| 1\)\)/.test(TP), '');
 t('ueberdeckte Schilder weichen aus', /function entzerren\(\)/.test(TP) && /bodenStellen\(\); entzerren\(\);/.test(TP), '');
 var roh = TP.split('\n').filter(function (z) { return /guest_name|\bname\b/.test(z) && /'<|innerHTML|showToast/.test(z) && /\+ *(r|z\.res|konflikt)?\.?(guest_name|name)\b(?! *[:=])/.test(z.replace(/esc\([^)]*\)/g, '')); });
 t('Namen (Gaeste, Tische) werden escaped, bevor sie in HTML oder Toast landen', roh.length === 0, roh.map(function (z) { return z.trim().slice(0, 90); }).join(' | '));

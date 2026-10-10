@@ -38,10 +38,13 @@ console.log('\n-- Der Splash bleibt nicht liegen --');
 
 // Ein Splash, der nur ausgeblendet statt entfernt wird, animiert weiter:
 // opacity:0 stoppt keine Animation, display:none schon, remove() sicher.
-var hs = h.slice(h.indexOf('function hideSplash'));
+// Seit 08.10.2026 ist der Splash ein Video (Start-Intro); weiter() blendet aus
+// und nimmt ihn dann heraus -- ein pausiertes, verstecktes Video bliebe sonst
+// samt Decoder im Speicher.
+var hs = h.slice(h.indexOf('function weiter(sofort)', h.indexOf('id="splashScreen"')));
 hs = hs.slice(0, 600);
 t('der Splash wird aus dem Dokument entfernt, nicht nur versteckt',
-  /s\.remove\(\)/.test(hs), hs.slice(0, 200));
+  /function raus\(\) \{ if \(s\.parentNode\) s\.parentNode\.removeChild\(s\);/.test(hs) && /setTimeout\(raus, 440\)/.test(hs), hs.slice(0, 200));
 
 console.log('\n' + (ok === n ? `Alle ${n} Tests bestanden.` : `${n - ok} von ${n} FEHLGESCHLAGEN.`));
 process.exit(ok === n ? 0 : 1);

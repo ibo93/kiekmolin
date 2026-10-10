@@ -40,9 +40,9 @@
 // wirft jedes Geraet beim naechsten Aufruf den alten Stand weg. Nach
 // einer Aenderung an einem Gaesteweg MUSS er hochgezaehlt werden --
 // sonst ist die Reparatur auf dem Server heil und beim Gast nicht.
-// v80 am 10.10.2026: Reservierung, Warteliste und Bestellung geben den Video-Code
+// v88 am 10.10.2026: Reservierung, Warteliste und Bestellung geben den Video-Code
 // (?ref=, KMI_KAMPAGNE) mit -- ohne neue Fassung zaehlten die Geraete nichts.
-var CACHE = 'kmi-shell-v80';
+var CACHE = 'kmi-shell-v88';
 var SHELL = '/';
 // Nur Dateien, die es sicher gibt. Eine fehlende Datei laesst sonst die
 // gesamte Installation scheitern und der Worker uebernimmt nie.

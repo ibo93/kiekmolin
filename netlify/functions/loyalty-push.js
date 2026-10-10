@@ -170,13 +170,17 @@ exports.handler = async function() {
 
       // Subscriptions des Kunden holen (Kunden-Subs haben restaurant_id = NULL,
       // Match via customer_phone)
+      // Stempel-Erinnerungen und "wir vermissen dich" sind Werbung: nur an
+      // Geraete mit Zustimmung (datenbank/43). Fehlt die Spalte, geht nichts
+      // raus -- einmal ins Protokoll, nicht fuer jeden Gast.
       let subs;
       try {
         subs = await sbGet(
           'push_subscriptions?customer_phone=eq.' + encodeURIComponent(row.customer_phone) +
-          '&select=endpoint,p256dh_key,auth_key,id'
+          '&angebote=eq.true&select=endpoint,p256dh_key,auth_key,id'
         );
       } catch (e) {
+        if (/-> 400/.test(e.message)) { console.warn('[loyalty-push] Spalte angebote fehlt (datenbank/43) -- keine Werbe-Push.'); break; }
         console.warn('[loyalty-push] subs lookup failed for', row.customer_phone, e.message);
         continue;
       }

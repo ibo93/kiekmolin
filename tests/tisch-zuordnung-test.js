@@ -56,9 +56,9 @@ function t(l, c, x) { n++; if (c === true) ok++; console.log((c === true ? 'OK  
 
   // Tischplan
   t('Tischplan: bei reservations_table_id_fkey zweiter Versuch ohne Tisch, Notiz "Tisch: <Name>"',
-    /if \(!\/reservations_table_id_fkey\|23503\/\.test\(String\(e1 && e1\.message\)\)\) throw e1;\s*delete daten\.table_id; daten\.notes = tischNotiz\(t\);/.test(H), '');
+    /if \(!\/reservations_table_id_fkey\|23503\/\.test\(String\(e1 && e1\.message\)\)\) throw e1;\s*delete daten\.table_id; daten\.notes = tischNotiz\(t\)( \+ \(verbund \? ' · ' \+ verbund : ''\))?;/.test(H), '');
   t('... sagt es als Hinweis mit Dateiname', /datenbank\/40-tisch-zuordnung\.sql in Supabase einspielen\.' : '', ohneTisch \? 'hinweis'/.test(H), '');
-  t('... und zeigt solche Reservierungen am Tisch', /\(!r\.table_id && String\(r\.notes \|\| ''\)\.indexOf\(tischNotiz\(t\)\) === 0\)/.test(H), '');
+  t('... und zeigt solche Reservierungen am Tisch', /\(!r\.table_id && notizTisch\(r\) === t\.name\)/.test(H) && /function notizTisch\(r\) \{ var n = String\(r && r\.notes \|\| ''\); if \(n\.indexOf\('Tisch: '\) !== 0\) return null; return n\.slice\(7\)\.split\(' · '\)\[0\]\.trim\(\); \}/.test(H), '');
   // Listen
   t('keine Liste mehr fest auf tables:table_id(...seats) -- alle ueber den Rueckfall',
     !/select=\*,tables:table_id\(id,table_number,seats\)/.test(H) && !/\.select\('\*, tables:table_id\(id, table_number, seats\)'\)/.test(H) && (H.match(/resMitTischLaden\(function \(sel\)/g) || []).length === 2 && /RES_TISCH_EINBETTUNG\[_st\]/.test(H), '');
