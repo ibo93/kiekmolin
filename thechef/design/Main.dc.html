@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Lager scannen</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&amp;family=IBM+Plex+Mono:wght@400;600&amp;display=swap">
+<style>
+body{margin:0;font-family:-apple-system,"SF Pro Text","Helvetica Neue",sans-serif;background:#F4F3EF;color:#141413}
+a{color:#1F4FD1}a:hover{color:#173C9E}
+button,a{transition:transform .15s ease}
+button:active,a:active{transform:scale(.97)}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes breathe{0%,100%{box-shadow:0 0 0 0 rgba(31,79,209,.28)}50%{box-shadow:0 0 0 18px rgba(31,79,209,0)}}
+
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div dir="{{t.dir}}" style="width: 390px; height: 844px; position: relative; isolation: isolate; overflow: hidden; box-sizing: border-box; padding: 62px 16px 0 16px; background: #F4F3EF; display: flex; flex-direction: column; gap: 18px; font-family: -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif; color: #141413">
+  <div style="position: absolute; left: -120px; top: -140px; width: 360px; height: 360px; border-radius: 50%; background: radial-gradient(circle, rgba(31,79,209,0.14), rgba(31,79,209,0) 70%); z-index: -1"></div>
+  <div style="position: absolute; right: -130px; top: -60px; width: 300px; height: 300px; border-radius: 50%; background: radial-gradient(circle, rgba(255,149,0,0.10), rgba(255,149,0,0) 70%); z-index: -1"></div>
+  <div style="display: flex; justify-content: space-between; align-items: flex-end; padding: 0 4px; animation: rise .5s cubic-bezier(.2,.8,.2,1) both">
+    <div style="display: flex; flex-direction: column; gap: 2px">
+      <div style="font-size: 13px; font-weight: 700; letter-spacing: 1.2px; color: #5F5E5A">ÖZ KEBAB</div>
+      <h1 style="margin: 0; font-size: 34px; font-weight: 700; letter-spacing: -0.6px">{{t.hello}}</h1>
+    </div>
+    <button aria-label="Sprache wählen" style="height: 44px; padding: 0 14px; border-radius: 22px; background: rgba(255,255,255,0.24); backdrop-filter: blur(12px) saturate(210%) brightness(1.06); -webkit-backdrop-filter: blur(12px) saturate(210%) brightness(1.06); border: none; box-shadow: inset 1.5px 1.5px 0 rgba(255,255,255,0.95), inset -1px -1px 0 rgba(255,255,255,0.55), inset 0 0 18px rgba(255,255,255,0.5), 0 10px 28px rgba(20,20,19,0.14), 0 1px 3px rgba(20,20,19,0.08); color: #141413; font: inherit; font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 6px; cursor: pointer">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"></circle><path d="M3.5 12h17M12 3.5c2.5 2.5 3.5 5.5 3.5 8.5s-1 6-3.5 8.5c-2.5-2.5-3.5-5.5-3.5-8.5s1-6 3.5-8.5z"></path></svg> {{t.code}}
+    </button>
+  </div>
+  <div style="display: flex; flex-direction: column; gap: 10px; padding: 0 4px; animation: rise .5s cubic-bezier(.2,.8,.2,1) .05s both">
+    <div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-size: 20px; font-weight: 700">{{t.today}}</span><span style="font-size: 15px; font-weight: 700; color: #5F5E5A">{{t.progress}}</span></div>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px">
+      <div style="height: 8px; border-radius: 4px; background: #34C759"></div>
+      <div style="height: 8px; border-radius: 4px; background: #D6D3CA"></div>
+      <div style="height: 8px; border-radius: 4px; background: #D6D3CA"></div>
+    </div>
+  </div>
+  <div style="display: flex; flex-direction: column; gap: 12px">
+    <div style="display: flex; align-items: center; gap: 14px; padding: 16px 18px; min-height: 92px; box-sizing: border-box; background: #FFFFFF; border-radius: 26px">
+      <span style="width: 56px; height: 56px; border-radius: 28px; background: #F1F0EC; color: #5F5E5A; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14.8V5a2 2 0 0 0-4 0v9.8a4 4 0 1 0 4 0z"></path><path d="M12 9v7"></path></svg></span>
+      <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 20px; font-weight: 700">{{t.a1}}</span><span style="font-size: 15px; font-weight: 600; color: #1B7A45">{{t.done}}</span></span>
+      <span style="width: 44px; height: 44px; border-radius: 22px; background: #34C759; color: #FFFFFF; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+    </div>
+    <a href="Scan.dc.html" style="position: relative; overflow: hidden; text-decoration: none; display: flex; align-items: center; gap: 14px; padding: 18px; min-height: 128px; box-sizing: border-box; border-radius: 28px; background: radial-gradient(90% 80% at 15% 0%, rgba(255,255,255,0.32), rgba(255,255,255,0) 55%), {{accent}}; color: #FFFFFF; box-shadow: inset 1.5px 1.5px 0 rgba(255,255,255,0.5), 0 18px 36px rgba(31,79,209,0.32); animation: rise .6s cubic-bezier(.2,.8,.2,1) .12s both">
+      <span style="width: 60px; height: 60px; border-radius: 30px; background: rgba(255,255,255,0.2); box-shadow: inset 1px 1px 0 rgba(255,255,255,0.5); display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9"></path><path d="M9.5 4.5L12 6l2.5-1.5M9.5 19.5L12 18l2.5 1.5"></path></svg></span>
+      <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 3px"><span style="font-size: 13px; font-weight: 800; letter-spacing: 1px; opacity: .9">{{t.now}}</span><span style="font-size: 24px; font-weight: 800; letter-spacing: -0.3px">{{t.a2}}</span></span>
+      <span style="width: 72px; height: 72px; border-radius: 36px; background: #FFFFFF; color: {{accent}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 8px 20px rgba(0,0,0,0.18); animation: breathe 3.2s ease-in-out 1.2s infinite"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg></span>
+    </a>
+    <div style="display: flex; align-items: center; gap: 14px; padding: 16px 18px; min-height: 92px; box-sizing: border-box; border-radius: 26px; background: rgba(255,255,255,0.24); backdrop-filter: blur(12px) saturate(210%) brightness(1.06); -webkit-backdrop-filter: blur(12px) saturate(210%) brightness(1.06); border: none; box-shadow: inset 1.5px 1.5px 0 rgba(255,255,255,0.95), inset -1px -1px 0 rgba(255,255,255,0.55), inset 0 0 18px rgba(255,255,255,0.5), 0 10px 28px rgba(20,20,19,0.14), 0 1px 3px rgba(20,20,19,0.08);">
+      <span style="width: 56px; height: 56px; border-radius: 28px; background: rgba(255,255,255,0.7); color: #3D3C39; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"></path><path d="M3 8l9 5 9-5M12 13v8"></path></svg></span>
+      <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 20px; font-weight: 700">{{t.a3}}</span><span style="font-size: 15px; font-weight: 600; color: #5F5E5A">{{t.open}}</span></span>
+      <span style="width: 44px; height: 44px; border-radius: 22px; box-sizing: border-box; border: 2px dashed #B9B6AD"></span>
+    </div>
+  </div>
+  <a href="Weggeworfen.dc.html" style="align-self: center; margin-top: 4px; height: 52px; padding: 0 22px; border-radius: 26px; text-decoration: none; background: rgba(255,255,255,0.24); backdrop-filter: blur(12px) saturate(210%) brightness(1.06); -webkit-backdrop-filter: blur(12px) saturate(210%) brightness(1.06); border: none; box-shadow: inset 1.5px 1.5px 0 rgba(255,255,255,0.95), inset -1px -1px 0 rgba(255,255,255,0.55), inset 0 0 18px rgba(255,255,255,0.5), 0 10px 28px rgba(20,20,19,0.14), 0 1px 3px rgba(20,20,19,0.08); color: #141413; font-size: 17px; font-weight: 700; display: flex; align-items: center; gap: 10px; animation: rise .5s cubic-bezier(.2,.8,.2,1) .2s both"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"></path></svg> {{t.waste}}</a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#1F4FD1","options":["#1F4FD1","#0E7A4E","#C25A06","#6A2FB8"]},"sprache":{"editor":"select","default":"de","options":["de","tr","ku","ar","en"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const T = {
+      de: { dir: 'ltr', code: 'DE', hello: 'Hallo, Halil', today: 'Heute scannen', progress: '1 von 3 erledigt', a1: 'Kühlhaus', a2: 'Tiefkühler', a3: 'Trockenlager', done: 'Erledigt · 08:12', now: 'JETZT DRAN', open: 'Offen', waste: 'Weggeworfen' },
+      tr: { dir: 'ltr', code: 'TR', hello: 'Merhaba, Halil', today: 'Bugün taranacak', progress: '3 alandan 1 tamam', a1: 'Soğuk oda', a2: 'Derin dondurucu', a3: 'Kuru depo', done: 'Tamamlandı · 08:12', now: 'SIRADAKİ', open: 'Açık', waste: 'Çöpe atıldı' },
+      ku: { dir: 'ltr', code: 'KU', hello: 'Silav, Halil', today: 'Îro skan bike', progress: '1 ji 3 qediya', a1: 'Odeya sar', a2: 'Cemidok', a3: 'Depoya hişk', done: 'Qediya · 08:12', now: 'NIHA DORA TE YE', open: 'Vekirî', waste: 'Hate avêtin' },
+      ar: { dir: 'rtl', code: 'AR', hello: 'مرحباً، خليل', today: 'المسح اليوم', progress: 'تم 1 من 3', a1: 'غرفة التبريد', a2: 'المجمّد', a3: 'المخزن الجاف', done: 'تم · 08:12', now: 'الآن دورك', open: 'مفتوح', waste: 'هدر' },
+      en: { dir: 'ltr', code: 'EN', hello: 'Hi, Halil', today: 'Scan today', progress: '1 of 3 done', a1: 'Cold room', a2: 'Freezer', a3: 'Dry storage', done: 'Done · 08:12', now: 'UP NEXT', open: 'Open', waste: 'Thrown away' }
+    };
+    return { accent: this.props.accent ?? '#1F4FD1', t: T[this.props.sprache] || T.de };
+  }
+}
+</script>
+</body>
+</html>

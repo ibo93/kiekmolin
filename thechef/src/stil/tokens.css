@@ -1,0 +1,155 @@
+/* The Chef – Design-Tokens. Alle Werte aus design/*.dc.html abgelesen.
+   Eine Stelle für Farben, Glas, Radien, Bewegung. Hell/Dunkel/Glas/Bewegung
+   werden über data-Attribute an <html> geschaltet (siehe src/lib/darstellung.ts). */
+
+@import '@fontsource-variable/bricolage-grotesque/opsz.css';
+
+/* Zahlen-Schrift NUR für Ziffern (THECHEF.md): dieselbe Datei, aber nur für
+   0–9 und Zahlzeichen. "12 kg", "4 Kisten", "٤ صناديق": die Ziffern in
+   Bricolage, jedes Wort in der Systemschrift – auch Arabisch bleibt sauber. */
+@font-face {
+  font-family: 'Chef Ziffern';
+  /* Variable Datei mit Optik-Achse (opsz) wie im Design: große Zahlen werden
+     schmaler und straffer, kleine bleiben lesbar. Die feste 800er-Datei war
+     überall auf der kleinsten Optik – dadurch breit gezogen. */
+  src: url('../../node_modules/@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-opsz-normal.woff2') format('woff2-variations');
+  font-weight: 200 800;
+  font-display: swap;
+  unicode-range: U+0030-0039, U+002B-002E, U+0025, U+20AC, U+2212;
+}
+
+:root {
+  --bg: #F4F3EF;
+  --karte: #FFFFFF;
+  --text: #141413;
+  --text2: #5F5E5A;
+  --text3: #3D3C39;
+  --linie: #EFEDE8;
+  --flaeche: #F1F0EC;
+  --leer: #D6D3CA;
+  --gestrichelt: #B9B6AD;
+  --akzent: #1F4FD1;
+  --akzent-druck: #173C9E;
+  --akzent-schatten: rgba(31, 79, 209, 0.32);
+
+  /* Ampel – nie nur Farbe: immer mit Wort/Symbol */
+  --gruen: #34C759;   --gruen-text: #1B7A45; --gruen-bg: #E6F6EA;
+  --gelb: #FF9F0A;    --gelb-text: #8A5300;  --gelb-bg: #FFF1D6;
+  --rot: #D92D4B;     --rot-text: #C21F3D;   --rot-bg: #FCE8EB;
+
+  --dunkelkarte: #141413;
+  --dunkelkarte-text: #FFFFFF;
+  --dunkelkarte-fl: #2C2C2E;
+
+  /* Liquid Glass – nur Navigation, Toolbar-Knöpfe, Umschalter, Sheets */
+  --glas-bg: rgba(255, 255, 255, 0.24);
+  --glas-filter: blur(12px) saturate(210%) brightness(1.06);
+  --glas-schatten: inset 1.5px 1.5px 0 rgba(255, 255, 255, 0.95), inset -1px -1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 0 18px rgba(255, 255, 255, 0.5), 0 10px 28px rgba(20, 20, 19, 0.14), 0 1px 3px rgba(20, 20, 19, 0.08);
+  --glas-aktiv: rgba(255, 255, 255, 0.6);
+  --glas-aktiv-schatten: inset 1px 1px 0 rgba(255, 255, 255, 1), inset -1px -1px 0 rgba(255, 255, 255, 0.6), 0 2px 10px rgba(20, 20, 19, 0.1);
+  --glanz: radial-gradient(90% 70% at 30% 10%, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0) 55%);
+  --sheet-bg: rgba(250, 249, 246, 0.9);
+
+  --fleck-blau: rgba(31, 79, 209, 0.14);
+  --fleck-orange: rgba(255, 149, 0, 0.10);
+
+  --r-karte: 26px;
+  --r-karte-gross: 28px;
+  --r-kachel: 20px;
+  --r-mini: 14px;
+  --touch: 50px;   /* × Maßstab 0,88 = 44 pt – Mindestmaß aus der Spec */
+  --haupt: 68px;   /* × 0,88 ≈ 60 pt */
+  --rand: 16px;
+
+  --schrift: -apple-system, 'SF Pro Text', 'Segoe UI', Roboto, 'Noto Sans', 'Noto Sans Arabic', 'Geeza Pro', 'Helvetica Neue', sans-serif;
+  --schrift-zahl: 'Chef Ziffern', -apple-system, 'SF Pro Display', 'Segoe UI', Roboto, 'Noto Sans Arabic', sans-serif;
+  --schrift-marke: 'Bricolage Grotesque Variable', -apple-system, sans-serif; /* nur die Wortmarke "Chef" */
+  --federn: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --massstab: 0.88;
+  /* iOS zoomt beim Antippen jedes Feld heran, dessen Schrift unter 16 px liegt –
+     gemessen NACH dem Maßstab. Felder daher nie kleiner als 16 px auf dem Gerät. */
+  --feld-min: calc(16px / var(--massstab));
+
+  color-scheme: light;
+}
+
+:root[data-glas='getoent'] { --glas-bg: rgba(255, 255, 255, 0.82); }
+
+:root[data-modus='dunkel'] {
+  --bg: #050506;
+  --karte: #1C1C1E;
+  --text: #F5F5F7;
+  --text2: #A1A1A6;
+  --text3: #D1D1D6;
+  --linie: #2C2C2E;
+  --flaeche: #2C2C2E;
+  --leer: #3A3A3C;
+  --gestrichelt: #636366;
+  --gruen: #30D158;   --gruen-text: #30D158; --gruen-bg: rgba(48, 209, 88, 0.18);
+  --gelb: #FF9F0A;    --gelb-text: #FFB340;  --gelb-bg: rgba(255, 159, 10, 0.16);
+  /* Text-Rot heller als die Fläche: #FF453A auf #2C2C2E hatte nur 4,1:1 (gemessen 03.10.2026) */
+  --rot: #FF453A;     --rot-text: #FF6961;   --rot-bg: rgba(255, 69, 58, 0.18);
+  --dunkelkarte: #2C2C2E;
+  --dunkelkarte-fl: #3A3A3C;
+  --glas-bg: rgba(40, 40, 44, 0.38);
+  --glas-schatten: inset 1px 1px 0 rgba(255, 255, 255, 0.3), inset -1px -1px 0 rgba(255, 255, 255, 0.1), 0 6px 18px rgba(0, 0, 0, 0.4);
+  --glas-aktiv: rgba(255, 255, 255, 0.14);
+  --glas-aktiv-schatten: inset 1px 1px 0 rgba(255, 255, 255, 0.3), 0 2px 10px rgba(0, 0, 0, 0.3);
+  --glanz: radial-gradient(90% 70% at 30% 10%, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0) 55%);
+  --sheet-bg: rgba(28, 28, 30, 0.88);
+  --fleck-blau: rgba(47, 107, 255, 0.16);
+  --fleck-orange: rgba(255, 159, 10, 0.08);
+  color-scheme: dark;
+}
+:root[data-modus='dunkel'][data-glas='getoent'] { --glas-bg: rgba(30, 30, 32, 0.88); }
+
+/* ─────────────────────────────── Grundlage */
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+/* Maßstab der ganzen App. Die Mockups sind für 390 px gezeichnet; 1:1 übernommen
+   wirkte alles zu groß (Rückmeldung 28.09.2026). Eine Stelle für Schrift, Abstände,
+   Karten und Knöpfe gleichermaßen – Verhältnisse aus dem Design bleiben erhalten. */
+html { zoom: var(--massstab); }
+body {
+  font-family: var(--schrift);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+input, select, textarea { font-size: var(--feld-min); }
+button { cursor: pointer; }
+a { color: var(--akzent); }
+img { display: block; max-width: 100%; }
+[hidden] { display: none !important; }
+
+button, a, .drueckbar { transition: transform 0.15s ease; }
+button:active:not(:disabled), a:active, .drueckbar:active { transform: scale(0.97); }
+button:disabled { opacity: 0.5; cursor: default; }
+:focus-visible { outline: 3px solid var(--akzent); outline-offset: 2px; }
+
+.zahl { font-family: var(--schrift-zahl); font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.etikett { font-size: 13px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
+.leise { color: var(--text2); }
+.nur-vorleser { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ─────────────────────────────── Bewegung */
+
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes breathe { 0%, 100% { box-shadow: 0 0 0 0 var(--akzent-schatten); } 50% { box-shadow: 0 0 0 18px rgba(31, 79, 209, 0); } }
+@keyframes pop { 0% { opacity: 0; transform: scale(0); } 70% { opacity: 1; transform: scale(1.2); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes drehen { to { transform: rotate(360deg); } }
+@keyframes puls { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+.einblenden { animation: rise 0.5s var(--federn) both; }
+
+:root[data-bewegung='aus'] *, :root[data-bewegung='aus'] *::before, :root[data-bewegung='aus'] *::after {
+  animation: none !important; transition: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

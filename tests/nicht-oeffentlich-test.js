@@ -73,7 +73,7 @@ console.log('\n-- 2. Jeder Werkzeug-Ordner ist gesperrt --');
 // Alles hier liegt im Repo und wird von der App NICHT geladen.
 var ZU = ['/agentur/*', '/telefon-retter/*', '/telefon-retter-v2/*', '/sichtbarkeit/*', '/tests/*',
           '/datenbank/*', '/marketing/*', '/tools/*', '/tailwind/*',
-          '/werkzeug/*', '/netlify/*', '/prospects.json'];
+          '/werkzeug/*', '/netlify/*', '/thechef/*', '/prospects.json'];
 ZU.forEach(function (pfad) {
     var r = regeln[pfad];
     t(pfad + ' ist gesperrt', !!r && r.status === 404, r ? ('status ' + r.status) : 'keine Regel');
