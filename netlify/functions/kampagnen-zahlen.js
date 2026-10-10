@@ -74,7 +74,11 @@ exports.handler = async function (event) {
     var tage = Math.max(1, Math.min(400, parseInt(q.tage, 10) || 30));
 
     var istId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(wer);
-    var rr = await holen('restaurants?' + (istId ? 'id=eq.' : 'slug=eq.') + encodeURIComponent(wer) + '&select=id,name,slug&limit=1');
+    var wo = 'restaurants?' + (istId ? 'id=eq.' : 'slug=eq.') + encodeURIComponent(wer);
+    // Ruhetag und Oeffnungszeiten fuer "zu" je Tag (Leere-Tische-Vorschlag nicht am Ruhetag). Gibt es
+    // eine der Spalten nicht, ohne sie weiter -- dann steht "zu" auf null (unbekannt), nicht auf false.
+    var rr = await holen(wo + '&select=id,name,slug,rest_day,opening_hours&limit=1');
+    if (rr.status === 400) rr = await holen(wo + '&select=id,name,slug&limit=1');
     if (!rr.ok) return json(502, { ok: false, error: 'Restaurant konnte nicht gelesen werden', status: rr.status });
     var rest = Array.isArray(rr.daten) && rr.daten[0];
     if (!rest) return json(404, { ok: false, error: 'Restaurant nicht gefunden: ' + wer });
@@ -134,6 +138,21 @@ exports.handler = async function (event) {
 
     // ---- 2. Auslastung der naechsten 14 Tage --------------------------
     var heute = berlinDatum(jetzt), bis14 = berlinDatum(new Date(jetzt.getTime() + 13 * 864e5));
+    // zu an diesem Tag? Wie die Gaesteseite (index.html, Reservierungs-Kalender): rest_day 0=Mo..6=So,
+    // opening_hours flach (mo_start/mo_end) oder verschachtelt ({ mo: { closed: true } }).
+    function zuAm(datum) {
+        var hatRuhetag = rest.rest_day !== undefined, oh = rest.opening_hours;
+        if (typeof oh === 'string') { try { oh = JSON.parse(oh); } catch (e) { oh = null; } }
+        if (!hatRuhetag && !(oh && typeof oh === 'object')) return null;
+        var wt = new Date(datum + 'T12:00:00Z').getUTCDay(); // 0=So
+        if (rest.rest_day !== null && rest.rest_day !== undefined && Number(rest.rest_day) === (wt + 6) % 7) return true;
+        if (oh && typeof oh === 'object') {
+            var k = ['so', 'mo', 'di', 'mi', 'do', 'fr', 'sa'][wt];
+            if (Object.prototype.hasOwnProperty.call(oh, k + '_start')) return !(oh[k + '_start'] && oh[k + '_end']);
+            if (oh[k] && (oh[k].closed === true || oh[k] === 'closed')) return true;
+        }
+        return false;
+    }
     var aus = await holen('reservations?restaurant_id=eq.' + R + '&reservation_date=gte.' + heute + '&reservation_date=lte.' + bis14
         + '&status=' + NICHT_IN + '&select=reservation_date,reservation_time,party_size&limit=10000');
     var tische = await holen('restaurant_tables?restaurant_id=eq.' + R + '&is_active=eq.true&select=max_capacity&limit=1000');
@@ -141,7 +160,7 @@ exports.handler = async function (event) {
         var tageListe = [];
         for (var i = 0; i < 14; i++) {
             var d = berlinDatum(new Date(jetzt.getTime() + i * 864e5));
-            tageListe.push({ datum: d, reservierungen: 0, personen: 0, abends: 0 });
+            tageListe.push({ datum: d, reservierungen: 0, personen: 0, abends: 0, zu: zuAm(d) });
         }
         var nachDatum = {};
         tageListe.forEach(function (t) { nachDatum[t.datum] = t; });

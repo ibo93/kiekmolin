@@ -106,11 +106,12 @@ var FEHLT = '{"code":"PGRST204","message":"Could not find the \'kampagne\' colum
 
   // ---- 4. kampagnen-zahlen ----------------------------------------------
   process.env.STUDIO_ZAHLEN_TOKEN = 'geheim-studio-1234';
-  var abgefragt = [];
+  var abgefragt = [], ruhetagSpalte = true;
   var RES = [{ kampagne: 'reel-pizzatag', party_size: 4 }, { kampagne: 'reel-pizzatag', party_size: 2 }, { kampagne: null, party_size: 3 }, { kampagne: 'story-tartufo', party_size: 2 }];
   var ORD = [{ kampagne: 'reel-pizzatag', total: 24.5 }, { kampagne: null, total: 11 }];
   global.fetch = async function (url) {
     var u = decodeURIComponent(String(url)); abgefragt.push(u);
+    if (/\/restaurants\?slug=eq\.die-millis.*rest_day/.test(u)) return ruhetagSpalte ? antwort([{ id: RID, name: 'Die Millis', slug: 'die-millis', rest_day: 0, opening_hours: { di_start: '', di_end: '' } }]) : antwort('{"code":"42703","message":"column restaurants.rest_day does not exist"}', 400);
     if (/\/restaurants\?slug=eq\.die-millis/.test(u)) return antwort([{ id: RID, name: 'Die Millis', slug: 'die-millis' }]);
     if (/\/restaurants\?/.test(u)) return antwort([]);
     if (/\/reservations\?.*reservation_date=gte/.test(u)) return antwort([{ reservation_date: new Date().toISOString().slice(0, 10), reservation_time: '19:00', party_size: 4 }]);
@@ -130,6 +131,10 @@ var FEHLT = '{"code":"PGRST204","message":"Could not find the \'kampagne\' colum
   t('Zahlen je Video stimmen (2 Reservierungen, 6 Personen, 1 Bestellung, 24,50 EUR)', z.statusCode === 200 && pz.reservierungen === 2 && pz.personen === 6 && pz.bestellungen === 1 && pz.umsatz === 24.5, d);
   t('Gesamt und Anteil ueber Videos', d.gesamt && d.gesamt.reservierungen === 4 && d.gesamt.ueberVideos.reservierungen === 3 && d.gesamt.umsatz === 35.5, d.gesamt);
   t('Auslastung: 14 Tage, Plaetze aus dem Tischplan (10)', d.auslastung && d.auslastung.tage.length === 14 && d.auslastung.plaetze === 10 && d.auslastung.tage[0].personen === 4, d.auslastung);
+  var wtag = function (x) { return new Date(x.datum + 'T12:00:00Z').getUTCDay(); };
+  t('Ruhetag (Montag, rest_day 0) und Dienstag ohne Zeiten sind "zu", Mittwoch offen', d.auslastung.tage.every(function (x) { var w = wtag(x); return w === 1 || w === 2 ? x.zu === true : x.zu === false; }), d.auslastung.tage.map(function (x) { return x.datum + ':' + x.zu; }));
+  ruhetagSpalte = false; var dn = JSON.parse((await zahlen('geheim-studio-1234')).body); ruhetagSpalte = true;
+  t('ohne rest_day-Spalte: weiter mit Zahlen, "zu" ist unbekannt (null) statt falsch "offen"', dn.ok === true && dn.auslastung.tage.every(function (x) { return x.zu === null; }), dn.auslastung && dn.auslastung.tage.slice(0, 2));
   t('KEINE Gastdaten abgefragt (kein guest_/customer_/phone/email/notes im select)', abgefragt.every(function (u) { var s = (u.match(/select=([^&]*)/) || [])[1] || ''; return !/guest_|customer_|phone|email|notes|address/.test(s); }), abgefragt);
   t('KEINE Gastdaten in der Antwort', !/Celina|0151|guest_|customer_/.test(z.body), z.body.slice(0, 200));
   t('Stornierte zaehlen nicht (status not.in.(cancelled...))', abgefragt.filter(function (u) { return /\/(reservations|orders)\?/.test(u); }).every(function (u) { return /status=not\.in\.\(cancelled/.test(u); }), abgefragt);
