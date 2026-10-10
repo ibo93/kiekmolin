@@ -48,7 +48,10 @@ var ALLOWED = [
     // verschickt review-mail nichts (BGH VI ZR 225/17). Fehlt die Spalte
     // noch, wirft der selbst-heilende Insert sie raus -- eine Bestellung
     // darf nicht an einer Bewertungsspalte scheitern.
-    'review_consent'
+    'review_consent',
+    // Aus welchem Video der Gast kam (lib/kampagne.js). Wird vor dem Insert
+    // streng geprueft; fehlt die Spalte noch, wirft der Insert sie raus.
+    'kampagne'
 ];
 
 // Selbst-heilender Insert: fehlt eine Spalte in der Tabelle, entfernen und erneut.
@@ -86,6 +89,7 @@ async function resilientInsert(payload) {
 var preisPruefung = require('./lib/preis-pruefung');
 var WARTEZEIT = require('./lib/wartezeit');
 var ZAHLSPERRE = require('./lib/zahlsperre');
+var KAMPAGNE = require('./lib/kampagne');
 
 function kopf() {
     return { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY };
@@ -214,6 +218,8 @@ exports.handler = async function (event) {
     var body;
     try { body = JSON.parse(event.body || '{}'); } catch (e) { return json(400, { ok: false, error: 'Ungueltiges JSON' }); }
     var order = body.order || body;
+    // ohne gueltigen Code gar nicht mitschicken -- normale Bestellungen laufen wie bisher
+    if (order && typeof order === 'object') { var _k = KAMPAGNE.pruefe(order.kampagne); if (_k) order.kampagne = _k; else delete order.kampagne; }
     if (!order || typeof order !== 'object' || !order.order_number) {
         return json(400, { ok: false, error: 'order/order_number fehlt' });
     }

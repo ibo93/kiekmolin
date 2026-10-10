@@ -585,6 +585,11 @@
 
     // GLOBALE SUPABASE - EINZIGE DEFINITION
     var SUPABASE_URL = 'https://mvrgmbdokdzmumdyezha.supabase.co';
+    // KAMPAGNE: aus welchem Video der Gast kam (?ref=reel-pizzatag am Link, gesetzt vom Studio von
+    // Kurani Design). Nur im Arbeitsspeicher -- kein Cookie, kein localStorage: bucht der Gast in
+    // dieser Sitzung, steht der Code an der Reservierung/Bestellung; spaeter nicht. Gleiche strenge
+    // Pruefung wie auf dem Server (netlify/functions/lib/kampagne.js).
+    var KMI_KAMPAGNE = (function () { try { var k = String(new URLSearchParams(location.search).get('ref') || '').trim().toLowerCase(); return /^[a-z0-9][a-z0-9-]{2,47}$/.test(k) ? k : null; } catch (e) { return null; } })();
     var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cmdtYmRva2R6bXVtZHllemhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1NjEyOTgsImV4cCI6MjA4MTEzNzI5OH0.7Ciwa2UKUHwtorvq3p6sN69XmVvPg0Kvg5lgrovxpDw';
     // Aliases für Kompatibilität
     var SUPA_URL = SUPABASE_URL;
@@ -28500,7 +28505,8 @@ async function saveReservationToSupabase(reservation) {
                 table_id: (reservation.tableId && String(reservation.tableId).includes('-')) ? reservation.tableId : null,
                 guest_email: reservation.guestEmail || null,
                 occasion: reservation.occasion || null,
-                review_consent: reservation.reviewConsent === true
+                review_consent: reservation.reviewConsent === true,
+                kampagne: (typeof KMI_KAMPAGNE !== 'undefined' && KMI_KAMPAGNE) || undefined
             })
         });
 
@@ -31695,7 +31701,8 @@ async function submitWaitlistEntry() {
                 party_size: partySize,
                 reservation_date: date,
                 reservation_time: wishTime || '19:00',
-                notes: '[Warteliste] Tag war ausgebucht' + (wishTime ? ' · Wunschzeit ' + wishTime : ' · Uhrzeit egal')
+                notes: '[Warteliste] Tag war ausgebucht' + (wishTime ? ' · Wunschzeit ' + wishTime : ' · Uhrzeit egal'),
+                kampagne: (typeof KMI_KAMPAGNE !== 'undefined' && KMI_KAMPAGNE) || undefined
             })
         });
         var wlAntwort = await res.json().catch(function () { return null; });
@@ -57652,6 +57659,7 @@ async function submitOrder() {
         };
 
         var _orderPayload = {
+            kampagne: (typeof KMI_KAMPAGNE !== 'undefined' && KMI_KAMPAGNE) || undefined, // aus welchem Video (siehe KMI_KAMPAGNE oben)
             order_number: orderNumber,
             restaurant_id: currentOrderRestaurant?.id,
             restaurant_name: currentOrderRestaurant?.name || '',
