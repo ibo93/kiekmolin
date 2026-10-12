@@ -92,12 +92,17 @@ t('bei Abholung die des Restaurants -- vorher stand dort gar nichts',
   /titel: 'Abholung bei'/.test(BON) && /roh: restName \+ \(restAdresse/.test(BON));
 t('und die Telefonnummer passt jeweils dazu',
   /tel: order\.customer_phone/.test(BON) && /tel: restPhone/.test(BON));
-t('die Uhrzeit steht dabei, wenn das Restaurant eine genannt hat',
-  /Lieferung gegen ' : 'Abholbereit gegen '/.test(BON));
+// Seit 12.10.2026 ("noch besser der Bon") gross oben neben der Nummer.
+t('die Uhrzeit steht dabei, wenn das Restaurant eine genannt hat -- gross oben',
+  /\$\{fertigStr \? '<div class="auftrag-zeit">' \+ \(lieferung \? 'Ankunft' : \(order\.order_type === 'dine_in' \? 'Fertig' : 'Abholbereit'\)\)/.test(BON));
+t('die Bestellnummer steht gross oben (am Tresen lesbar)',
+  /<div class="auftrag-nr">#\$\{escapeHtml\(belegNr\)\}<\/div>/.test(BON) && /\.auftrag-nr \{ font-size: 30px; font-weight: 900/.test(BON));
 t('ohne genannte Uhrzeit steht dort nichts Erfundenes',
   /var fertigStr = '';/.test(BON) && /if \(order\.estimated_time\)/.test(BON));
-t('ohne Adresse faellt der Block weg statt leer dazustehen (und am Tisch ganz)',
-  /if \(order\.order_type !== 'dine_in' && wegZiel\.roh && wegZiel\.roh\.replace/.test(BON));
+// Seit 12.10.2026 nur bei Lieferung: bei Abholung steht der Gast im Lokal
+// (Adresse steht im Kopf, Zeit oben), am Tisch sitzt er schon.
+t('der Weg-Kasten nur bei Lieferung, und ohne Adresse gar nicht',
+  /if \(lieferung && wegZiel\.roh && wegZiel\.roh\.replace/.test(BON));
 
 t('die Bestellart steht als Wort oben auf dem Beleg',
   /<div class="art-chip">\$\{artText\}<\/div>/.test(BON));

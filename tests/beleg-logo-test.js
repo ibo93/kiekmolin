@@ -39,6 +39,8 @@ var zeilen = new Function('order', 'escapeHtml', 'formatPrice', fn('optionText')
     { items: [{ name: 'Pizza', quantity: 1, price: 12, selected_options: [{ group: 'item_sizes', option: 'groß', price: 12, price_type: 'replace' }, { group: 'extra', option: 'Extra Käse', price: 1.5, price_type: 'add' }] }] },
     function (x) { return String(x); }, function (x) { return x.toFixed(2).replace('.', ',') + ' €'; });
 t('Größe und Extras je Gericht (Größe ohne Aufpreis, Extra mit)', /→ groß<\/div>/.test(zeilen) && /→ Extra Käse \(\+1,50 €\)/.test(zeilen), zeilen);
+t('Rechtstext in einem Satz statt vier Zeilen', /Bestellbestätigung, kein Kassenbon \(§ 146a AO, ohne TSE\)/.test(pb) && pb.indexOf('i.V.m. KassenSichV') < 0, '');
+t('Kopf ohne Etikett -- die Bestellart steht jetzt groß bei der Nummer', /<div class="auftrag-rechts">\s*<div class="art-chip">\$\{artText\}<\/div>/.test(pb), '');
 t('kein "Bezahlt: Bar" mehr bei Barzahlung -- die Zeile sagt, ob kassiert werden muss', /var zahlZeile = _zst\.marke/.test(pb) && /\$\{escapeHtml\(zahlZeile\)\}/.test(pb) && !/Bezahlt: \$\{zahlartText\}/.test(pb), '');
 
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' Tests FEHLGESCHLAGEN.'));

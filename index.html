@@ -62540,8 +62540,12 @@ function printOrderBrowser(orderId) {
           };
 
     var wegHtml = '';
-    // Am Tisch braucht niemand einen Weg -- der Gast sitzt schon da.
-    if (order.order_type !== 'dine_in' && wegZiel.roh && wegZiel.roh.replace(/[,\s]/g, '')) {
+    // NUR BEI LIEFERUNG (12.10.2026, "noch besser der Bon"). Am Tisch sitzt
+    // der Gast schon da, und bei Abholung steht er im Lokal, wenn er den Bon
+    // bekommt -- Adresse und Telefon des Hauses stehen ohnehin im Kopf, die
+    // Uhrzeit jetzt gross oben neben der Nummer. Der Kasten mit dem QR-Code
+    // zum Restaurant war dort ein zweiter QR-Code ohne Nutzen.
+    if (lieferung && wegZiel.roh && wegZiel.roh.replace(/[,\s]/g, '')) {
         // Zwei Fassungen derselben Adresse, mit Absicht: die eine geht in den
         // Beleg und muss escapt sein, die andere in die Karten-Adresse und
         // darf es NICHT -- encodeURIComponent('&amp;') verstuemmelt sie.
@@ -62552,7 +62556,6 @@ function printOrderBrowser(orderId) {
                 '<div class="weg-titel">' + wegZiel.titel + '</div>' +
                 '<div class="weg-adresse">' + wegZiel.zeile + '</div>' +
                 (wegZiel.tel ? '<div class="weg-tel">Tel: ' + escapeHtml(wegZiel.tel) + '</div>' : '') +
-                (fertigStr ? '<div class="weg-zeit">' + (lieferung ? 'Lieferung gegen ' : 'Abholbereit gegen ') + fertigStr + ' Uhr</div>' : '') +
               '</div>' +
               '<div class="weg-qr">' +
                 '<img alt="QR-Code zum Öffnen der Bestellseite" src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&ecc=M&margin=0&data='
@@ -62609,7 +62612,7 @@ function printOrderBrowser(orderId) {
                  letter-spacing: -0.005em; color: #000; line-height: 1.12; }
     .haus-zeile { font-size: 8pt; color: #555; margin-top: 7px; letter-spacing: 0.01em; }
     /* Umrissen statt gefuellt -- ruhiger, und der Blick bleibt beim Namen. */
-    .art-chip { flex-shrink: 0; border: 1.5px solid #000; color: #000; border-radius: 999px;
+    .art-chip { display: inline-block; flex-shrink: 0; border: 1.5px solid #000; color: #000; border-radius: 999px;
                 padding: 6px 16px; font-size: 8pt; font-weight: 700; letter-spacing: 0.18em;
                 text-transform: uppercase; white-space: nowrap; }
     /* DIE Linie des Belegs. Erst war hier zusaetzlich ein Briefkopf-Streifen
@@ -62619,6 +62622,12 @@ function printOrderBrowser(orderId) {
        Markenzeichen, vom Hausgruen ins Gelb. */
     .trennlinie { height: 2.5px; margin-bottom: 22px; border-radius: 2px;
                   background: #000; }
+    .auftrag { display: flex; align-items: center; justify-content: space-between; gap: 24px;
+               padding-bottom: 14px; margin-bottom: 16px; border-bottom: 1px solid #ddd; }
+    .auftrag-nr { font-size: 30pt; font-weight: 800; letter-spacing: -0.02em; line-height: 1; }
+    .auftrag-rechts { text-align: right; }
+    .auftrag-zeit { font-size: 12pt; font-weight: 700; margin-top: 6px; }
+    .auftrag-datum { font-size: 8pt; color: #555; margin-top: 3px; }
     .zwei { display: flex; gap: 32px; margin-bottom: 6px; }
     .zwei > div { flex: 1; }
     .feldname { font-size: 7pt; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase;
@@ -62635,7 +62644,7 @@ function printOrderBrowser(orderId) {
     .zusatz { font-size: 8.5pt; color: #555; margin-top: 3px; }
     .wunsch { font-size: 8.5pt; font-weight: 700; color: #000; margin-top: 3px; }
     /* Die Summe in warmem Papierweiss abgesetzt. */
-    .summen { margin-left: auto; width: 68mm; margin-top: 4px; border-collapse: collapse;
+    .summen { margin-left: auto; width: 68mm; margin-top: 4px; border-collapse: separate; border-spacing: 0;
               border: 1px solid #000; border-radius: 6px; }
     .summen tr td { padding: 4px 14px; font-size: 9.5pt; color: #333; }
     .summen tr:first-child td { padding-top: 12px; }
@@ -62688,10 +62697,16 @@ function printOrderBrowser(orderId) {
     .trennlinie { height: 2px; background: #000; margin-bottom: 10px; }
     .haus-name { font-size: 16px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; }
     .haus-zeile { font-size: 9px; margin-top: 3px; }
-    .art-chip { display: inline-block; margin-top: 7px; background: #000; color: #fff;
-                border-radius: 999px; padding: 3px 12px; font-size: 9px; font-weight: 800;
+    .art-chip { display: inline-block; background: #000; color: #fff;
+                border-radius: 999px; padding: 3px 10px; font-size: 10px; font-weight: 800;
                 letter-spacing: 0.12em; text-transform: uppercase; }
-    .zwei { margin: 10px 0 0; }
+    .auftrag { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+               padding-bottom: 8px; border-bottom: 1px solid #000; }
+    .auftrag-nr { font-size: 30px; font-weight: 900; letter-spacing: -0.5px; line-height: 1; }
+    .auftrag-rechts { text-align: right; }
+    .auftrag-zeit { font-size: 13px; font-weight: 800; margin-top: 4px; }
+    .auftrag-datum { font-size: 9px; color: #444; margin-top: 2px; }
+    .zwei { margin: 8px 0 0; }
     .zwei > div + div { margin-top: 8px; }
     .feldname { font-size: 8px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #555; }
     .feldwert { font-size: 11px; }
@@ -62699,12 +62714,12 @@ function printOrderBrowser(orderId) {
     table.pos { width: 100%; border-collapse: collapse; margin-top: 10px; }
     table.pos th { font-size: 8px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
                    color: #555; text-align: left; padding: 0 0 4px; border-bottom: 1px solid #000; }
-    table.pos td { padding: 5px 0; border-bottom: 1px dotted #bbb; vertical-align: top; }
-    .anz { width: 26px; font-weight: 700; }
+    table.pos td { padding: 5px 0; border-bottom: 1px dotted #999; vertical-align: top; font-size: 12px; font-weight: 700; }
+    .anz { width: 26px; font-weight: 800; }
     .preis { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-    .zusatz { font-size: 9px; color: #444; }
-    .wunsch { font-size: 10px; font-weight: 700; }
-    .summen { width: 100%; margin-top: 8px; }
+    .zusatz { font-size: 10px; color: #333; font-weight: 400; }
+    .wunsch { font-size: 11px; font-weight: 800; }
+    .summen { width: 100%; margin-top: 8px; border-collapse: collapse; }
     .summen tr td { padding: 2px 0; font-size: 11px; }
     .summen tr td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
     .gesamt td { border-top: 2px solid #000; padding-top: 6px !important; font-size: 15px; font-weight: 800; }
@@ -62773,16 +62788,20 @@ function printOrderBrowser(orderId) {
         <div class="haus-name">${escapeHtml(restName.trim())}</div>
         <div class="haus-zeile">${[restAdresse, restPhone ? 'Tel: ' + restPhone : '', restEmail, restWebsite].filter(Boolean).map(escapeHtml).join(' · ')}</div>
     </div>
-    <div class="art-chip">${artText}</div>
 </div>
 <div class="trennlinie"></div>
 
-<div class="zwei">
-    <div>
-        <div class="feldname">Beleg</div>
-        <div class="beleg-nr">${escapeHtml(belegNr)}</div>
-        <div class="feldwert" style="color:#5b6663;">${datumStr} · ${zeitStr} Uhr</div>
+<!-- Nummer und Uhrzeit GROSS: am Tresen aus einem Meter lesbar. -->
+<div class="auftrag">
+    <div class="auftrag-nr">#${escapeHtml(belegNr)}</div>
+    <div class="auftrag-rechts">
+        <div class="art-chip">${artText}</div>
+        ${fertigStr ? '<div class="auftrag-zeit">' + (lieferung ? 'Ankunft' : (order.order_type === 'dine_in' ? 'Fertig' : 'Abholbereit')) + ' ca. ' + fertigStr + ' Uhr</div>' : ''}
+        <div class="auftrag-datum">Bestellt ${datumStr} · ${zeitStr} Uhr</div>
     </div>
+</div>
+
+<div class="zwei">
     <div>
         <div class="feldname">${lieferung ? 'Lieferung an' : (order.order_type === 'dine_in' ? 'Gast' : 'Abholung durch')}</div>
         <div class="feldwert" style="font-weight:700;">${escapeHtml(order.customer_name || 'Gast')}</div>
@@ -62827,9 +62846,8 @@ ${wegHtml}
 
 <div class="fuss">
     <div class="rechtstext">
-        Dieses Dokument ist eine Bestellbestätigung und kein steuerlicher Beleg im Sinne
-        des § 146a AO i.V.m. KassenSichV. Erstellt ohne TSE, kein Kassenbon — den
-        offiziellen Kassenbon stellt das Restaurant aus. Alle Preise inkl. ${mwstSatz} % MwSt.
+        Bestellbestätigung, kein Kassenbon (§ 146a AO, ohne TSE) – den Kassenbon gibt das Restaurant aus.
+        Preise inkl. ${mwstSatz} % MwSt.
     </div>
     ${markeHtml}
 </div>
