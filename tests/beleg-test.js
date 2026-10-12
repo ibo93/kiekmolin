@@ -92,17 +92,24 @@ t('bei Abholung die des Restaurants -- vorher stand dort gar nichts',
   /titel: 'Abholung bei'/.test(BON) && /roh: restName \+ \(restAdresse/.test(BON));
 t('und die Telefonnummer passt jeweils dazu',
   /tel: order\.customer_phone/.test(BON) && /tel: restPhone/.test(BON));
-t('die Uhrzeit steht dabei, wenn das Restaurant eine genannt hat',
-  /Lieferung gegen ' : 'Abholbereit gegen '/.test(BON));
+// Seit 12.10.2026 ("noch besser der Bon") gross oben neben der Nummer.
+t('die Uhrzeit steht dabei, wenn das Restaurant eine genannt hat -- gross oben',
+  /\$\{fertigStr \? '<div class="auftrag-zeit">' \+ \(lieferung \? 'Ankunft' : \(order\.order_type === 'dine_in' \? 'Fertig' : 'Abholbereit'\)\)/.test(BON));
+t('die Bestellnummer steht riesig oben (am Tresen aus einem Meter lesbar)',
+  /<div class="auftrag-nr">#\$\{escapeHtml\(belegNr\)\}<\/div>/.test(BON)
+  && +((BON.match(/\.auftrag-nr \{ font-size: (\d+)px; font-weight: 900/) || [])[1]) >= 48
+  && +((BON.match(/\.auftrag-nr \{ font-size: (\d+)pt; font-weight: 900/) || [])[1]) >= 40);
 t('ohne genannte Uhrzeit steht dort nichts Erfundenes',
   /var fertigStr = '';/.test(BON) && /if \(order\.estimated_time\)/.test(BON));
-t('ohne Adresse faellt der Block weg statt leer dazustehen',
-  /if \(wegZiel\.roh && wegZiel\.roh\.replace/.test(BON));
+// Seit 12.10.2026 nur bei Lieferung: bei Abholung steht der Gast im Lokal
+// (Adresse steht im Kopf, Zeit oben), am Tisch sitzt er schon.
+t('der Weg-Kasten nur bei Lieferung, und ohne Adresse gar nicht',
+  /if \(lieferung && wegZiel\.roh && wegZiel\.roh\.replace/.test(BON));
 
 t('die Bestellart steht als Wort oben auf dem Beleg',
   /<div class="art-chip">\$\{artText\}<\/div>/.test(BON));
-t('und die Ueberschrift beim Kunden passt zur Bestellart',
-  /lieferung \? 'Lieferung an' : 'Abholung durch'/.test(BON));
+t('und die Ueberschrift beim Kunden passt zur Bestellart (auch Vor Ort)',
+  /lieferung \? 'Lieferung an' : \(order\.order_type === 'dine_in' \? 'Gast' : 'Abholung durch'\)/.test(BON));
 
 // ---- 3. Erst drucken, wenn die Bilder da sind ------------------------------
 // Vorher: setTimeout(print, 300) -- eine geratene Zahl. QR-Code und Logo
@@ -185,38 +192,41 @@ t('und stapelt sich dabei nicht -- ein offenes Fenster kommt vorher weg',
       /Courier/.test(alt) && /size: 80mm auto/.test(alt) && !/istRolle/.test(alt));
 })();
 
-// ---- 7b. Die Gestaltung: Briefbogen, nicht Kassenzettel -------------------
-// Gewuenscht war "stilvoller". Was den Unterschied macht, wird hier
-// festgehalten -- sonst faellt es beim naechsten Umbau still wieder weg.
-t('Hausname, Adresse und Dank stehen in einer Serifenschrift',
-  (BON.match(/font-family: Baskerville, 'Hoefler Text', Georgia, 'Times New Roman', serif/g) || []).length >= 4,
-  (BON.match(/font-family: Baskerville[^;]*/g) || []).length);
-// Gewaehlt wurde "Baskerville oder Georgia" -- beides erfuellt, weil eine
-// Schriftangabe eine Rangfolge ist: Mac bekommt Baskerville, Windows Georgia.
-t('Baskerville steht vorn, Georgia faengt Windows auf',
-  /Baskerville, 'Hoefler Text', Georgia, 'Times New Roman', serif/.test(BON));
-t('kein Geraet faellt auf Times zurueck, ohne vorher Georgia zu finden',
-  BON.indexOf("'Times New Roman', serif") > BON.indexOf('Georgia'));
-// "Baskerville Old Face" liegt zwar auf Windows, ist aber eine
-// Auszeichnungsschrift mit ganz anderen Formen -- als Rueckfall waere sie
-// eine Ueberraschung, keine Absicherung.
-t('die falsche Baskerville ist nicht dabei',
-  BON.indexOf('Baskerville Old Face') < 0);
+// ---- 7b. Die Gestaltung: das Design vom 12.10.2026 ----------------------
+// Mit Claude Design entworfen, von Ibo freigegeben ("ja mach das"). Eine
+// kraeftige serifenlose Schrift statt Briefbogen-Serife, klare Rangfolge.
+t('keine Serifenschrift mehr -- das Design ist durchgehend serifenlos',
+  BON.indexOf('Baskerville') < 0 && BON.indexOf('Georgia') < 0 && BON.indexOf('Times New Roman') < 0,
+  (BON.match(/Baskerville|Georgia|Times New Roman/g) || []).join(','));
+t('Hausname, Nummer, Summe und Dank in unserer Anzeigeschrift (Epilogue, sonst kraeftige Systemschrift)',
+  (BON.match(/\.anzeige, \.haus-name, \.auftrag-nr, \.auftrag-zeit, \.gesamt td, \.dank \{ font-family: Epilogue, -apple-system/g) || []).length === 2,
+  (BON.match(/font-family: Epilogue/g) || []).length);
+t('der Hinweis steht VOR den Gerichten -- wer kocht, liest ihn zuerst',
+  BON.indexOf('${hinweisHtml}') > 0 && BON.indexOf('${hinweisHtml}') < BON.indexOf('<table class="pos">'));
+t('ob kassiert werden muss, steht schwarz hinterlegt unter der Summe',
+  /<div class="zahlart">\$\{escapeHtml\(zahlZeile\)\}<\/div>/.test(BON)
+  && (BON.match(/\.zahlart \{[^}]*background: #000; color: #fff/g) || []).length === 2);
 // Der Beleg darf nicht am Netz haengen: eine Schrift, die nicht rechtzeitig
 // kommt, wuerde die Zeilen nachtraeglich umbrechen -- mitten im Druck.
 t('das Druckfenster laedt keine Schrift aus dem Netz',
   BON.indexOf('fonts.googleapis') < 0 && BON.indexOf('@font-face') < 0
   && BON.indexOf('fonts.gstatic') < 0);
-t('die Trennlinie traegt das Markenzeichen, vom Hausgruen ins Gelb',
-  /\.trennlinie \{[\s\S]{0,220}linear-gradient\(90deg, #00251e 0%, #003d33 55%, #fed65b 100%\)/.test(BON));
+// SCHWARZ-WEISS (Ibo, 12.10.2026: "beim Ausdrucken muss es schon
+// schwarz-weiss sein"). Die farbige Gestaltung vom Briefbogen ist raus.
+t('die Trennlinie ist schwarz, kein Farbverlauf',
+  /\.trennlinie \{[\s\S]{0,220}background: #000; \}/.test(BON) && BON.indexOf('#fed65b') < 0);
 t('nur EINE solche Linie -- der zusaetzliche Randstreifen ist raus',
   BON.indexOf('randstreifen') < 0);
-t('abgesetzte Flaechen in warmem Papierweiss, nicht in kuehlem Grau',
-  (BON.match(/#faf7ee/g) || []).length >= 2 && BON.indexOf('#f7faf9') < 0);
-t('die Bestellart steht als Umriss da, nicht als gefuellte Flaeche',
-  /\.art-chip \{[^}]*border: 1\.5px solid #003d33; color: #003d33/.test(BON));
-t('der Weg-Block hat eine Kante in Hausfarbe statt eines Rahmens ringsum',
-  /\.weg \{[^}]*border-left: 3px solid #003d33/.test(BON));
+t('keine getoenten Flaechen -- die Summe traegt eine dicke schwarze Linie',
+  BON.indexOf('#faf7ee') < 0 && (BON.match(/\.gesamt td \{ border-top: 3px solid #000/g) || []).length === 2);
+t('die Bestellart steht als schwarze Pille da (Rolle und A4)',
+  (BON.match(/\.art-chip \{[^}]*background: #000; color: #fff/g) || []).length === 2);
+t('der Weg-Block hat einen schwarzen Rahmen',
+  (BON.match(/\.weg \{[^}]*border: 2px solid #000/g) || []).length === 2);
+t('keine Hausfarbe mehr im ganzen Bon (Gruen/Gold/Orange)',
+  !/#003d33|#00251e|#fed65b|#c2410c|#9a3412/.test(BON), (BON.match(/#003d33|#00251e|#fed65b|#c2410c|#9a3412/g) || []).join(','));
+t('auch ein buntes Logo des Lokals kommt grau aufs Papier',
+  /img \{ filter: grayscale\(1\); \}/.test(BON));
 t('Zahlen stehen untereinander -- Ziffern gleicher Breite',
   /font-variant-numeric: tabular-nums/.test(BON));
 

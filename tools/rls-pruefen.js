@@ -65,6 +65,8 @@ var TABELLEN = [
   // nicht eingespielt sind -- dann meldet der Bericht "fehlt", die Wahrheit.
   { name: 'gast_einwilligungen',     stufe: 'person',  was: 'WhatsApp-Zustimmungen: Telefon, Name, Zeitpunkt' },
   { name: 'wa_kampagnen_empfaenger', stufe: 'person',  was: 'Empfaenger je Angebot: Telefon, Code, Einloesung' },
+  // datenbank/44 (12.10.2026): Fahrer mit Namen und dem Fingerabdruck ihres Links.
+  { name: 'fahrer',                  stufe: 'person',  was: 'Fahrer: Name, Link-Fingerabdruck, Rueckweg' },
 
   { name: 'restaurants',        stufe: 'betrieb',     was: 'Stammdaten der Betriebe' },
   { name: 'menu_items',         stufe: 'betrieb',     was: 'Gerichte und Preise' },

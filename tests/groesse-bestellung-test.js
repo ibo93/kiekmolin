@@ -84,8 +84,10 @@ if (bon) {
 // Die Fallunterscheidung stand frueher hier ausgeschrieben. Sie steckt jetzt
 // in optionAufpreis -- an einer Stelle statt an fuenf. Geprueft wird beides:
 // dass die Anzeige die Funktion nimmt, und dass die Funktion es richtig macht.
-t('Kuechenanzeige rechnet den Aufpreis mit optionAufpreis',
-  /var optPrice = optionAufpreis\(opt\);/.test(H));
+// Seit 12.10.2026 gibt es nur noch EINEN Bon (printOrderBrowser); er
+// traegt Groesse und Extras je Gericht.
+t('der Bon rechnet den Aufpreis mit optionAufpreis',
+  /var auf = optionAufpreis\(o\);/.test(H) && /item\.selected_options\.map\(function \(o\) \{\s*var n = optionText\(o\)/.test(H));
 t('und optionAufpreis weist eine Groesse nicht als Aufpreis aus',
   /if \(!o \|\| o\.price_type === 'replace'\) return 0;/.test(H));
 

@@ -119,9 +119,9 @@ t('die Bestellkarte im Dashboard zeigt sie an',
 // jetzt die Klasse "wunsch" -- und die ist in BEIDEN Papierformaten
 // hervorgehoben, sonst waere die Regel nur auf einem Blatt eingehalten.
 t('auf dem Bon steht sie in einer eigenen, hervorgehobenen Klasse',
-  /item\.notes \? '<div class="wunsch">' \+ escapeHtml\(item\.notes\)/.test(H));
+  /item\.notes \? '<div class="wunsch">„' \+ escapeHtml\(item\.notes\) \+ '“<\/div>'/.test(H));
 t('und die faellt in beiden Papierformaten auf',
-  (H.match(/\.wunsch \{[^}]*font-weight: 700/g) || []).length === 2,
+  (H.match(/\.wunsch \{[^}]*font-weight: (700|800)/g) || []).length === 2,
   (H.match(/\.wunsch \{[^}]*\}/g) || []).join(' | '));
 // Der Warenkorb schreibt "notes", das Kassensystem las nur "note" -- genau der
 // Fehler, den es bei den Größen schon gab (Küche las opt.name statt option).

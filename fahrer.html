@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#003d33">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Fahrer">
+<title>Fahrer · Kiek mol in</title>
+<!--
+  DIE SEITE DES FAHRERS (12.10.2026)
+  Ibo: "wenn Lieferant er drueckt ein Knopf, dass er zurueck kommt zum
+  Laden, so machen die das Essen fuer die Bestellung schon fertig".
+
+  Eine eigene, kleine Seite statt der ganzen App: der Fahrer steht mit dem
+  Handy an der Haustuer des Gastes, oft mit schlechtem Netz. index.html
+  ist ueber ein Megabyte -- diese Seite ein paar Kilobyte.
+
+  Der persoenliche Link (#t=...) steht im Teil nach dem #. Der geht nie an
+  einen Server und landet in keinem Protokoll. Beim ersten Oeffnen merkt
+  sich das Handy ihn und nimmt ihn aus der Adresszeile.
+-->
+<style>
+  @font-face{font-family:'Epilogue';font-display:swap;font-weight:100 900;src:url(/public/fonts/epilogue-latin.woff2) format('woff2');}
+  @font-face{font-family:'Inter';font-display:swap;font-weight:100 900;src:url(/public/fonts/inter-latin.woff2) format('woff2');}
+  :root { --gruen:#003d33; --gruen-tief:#00251e; --gold:#fed65b; --grund:#fafafa; --karte:#ffffff; --tinte:#191c1d; --leise:#404946; --linie:rgba(0,0,0,0.08); --fehler:#991b1b; --fehler-grund:#fef2f2; }
+  @media (prefers-color-scheme: dark) {
+    :root { --grund:#0a1612; --karte:#1a2e27; --tinte:#e8eeec; --leise:#9ca8a4; --linie:rgba(255,255,255,0.08); --fehler:#fecaca; --fehler-grund:#3a1414; }
+  }
+  * { box-sizing:border-box; margin:0; }
+  html, body { background:var(--grund); color:var(--tinte); }
+  body { font-family:Inter, system-ui, -apple-system, 'Segoe UI', sans-serif; font-size:16px; line-height:1.5;
+         min-height:100vh; padding:max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); }
+  .wrap { max-width:460px; margin:0 auto; display:flex; flex-direction:column; gap:16px; }
+  .kopf { display:flex; align-items:center; gap:10px; }
+  .logo { background:var(--gruen); color:#fff; font-family:Epilogue, Inter, sans-serif; font-weight:800; font-size:15px;
+          padding:4px 10px; border-radius:8px; }
+  .kopf-text { font-size:13px; font-weight:600; color:var(--leise); }
+  h1 { font-family:Epilogue, Inter, sans-serif; font-weight:800; font-size:28px; line-height:1.1; letter-spacing:-0.02em; }
+  .haus { font-size:14px; color:var(--leise); margin-top:2px; }
+  .karte { background:var(--karte); border-radius:28px; padding:20px; border:1px solid var(--linie); }
+  .etikett { font-size:12px; font-weight:700; letter-spacing:0.15em; text-transform:uppercase; color:var(--leise); }
+  .stand { font-family:Epilogue, Inter, sans-serif; font-weight:800; font-size:26px; line-height:1.15; margin-top:6px; }
+  .stand-zeile { font-size:15px; color:var(--leise); margin-top:4px; }
+  .warten { margin-top:14px; padding-top:14px; border-top:1px solid var(--linie); font-size:15px; font-weight:600; }
+  button { font:inherit; cursor:pointer; border:none; -webkit-tap-highlight-color:transparent; }
+  .gross { width:100%; min-height:72px; border-radius:9999px; background:var(--gruen); color:#fff;
+           font-family:Epilogue, Inter, sans-serif; font-weight:800; font-size:20px; }
+  .gross:active { background:var(--gruen-tief); }
+  .minuten { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:8px; margin-top:12px; }
+  .minuten button { min-height:56px; border-radius:16px; background:var(--gold); color:var(--gruen-tief); font-weight:800; font-size:17px; }
+  .minuten-titel { font-size:14px; font-weight:600; margin-top:14px; }
+  .zwei { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .neben { min-height:56px; border-radius:9999px; background:transparent; color:var(--tinte);
+           border:2px solid var(--tinte); font-weight:700; font-size:16px; }
+  button:focus-visible { outline:3px solid var(--gold); outline-offset:2px; }
+  button[disabled] { opacity:0.55; cursor:default; }
+  .meldung { min-height:22px; font-size:14px; font-weight:600; text-align:center; }
+  .meldung.fehler { background:var(--fehler-grund); color:var(--fehler); padding:12px 14px; border-radius:16px; }
+  .tipp { font-size:13px; color:var(--leise); text-align:center; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <div class="kopf"><span class="logo">Kiek</span><span class="kopf-text">Fahrer</span></div>
+
+  <div>
+    <h1 id="gruss">Hallo!</h1>
+    <div class="haus" id="haus">Dein Stand wird geladen …</div>
+  </div>
+
+  <section class="karte" aria-labelledby="standTitel">
+    <div class="etikett" id="standTitel">Dein Stand</div>
+    <div class="stand" id="stand">…</div>
+    <div class="stand-zeile" id="standZeile"></div>
+    <div class="warten" id="warten" hidden></div>
+  </section>
+
+  <section id="knoepfe" hidden>
+    <button type="button" class="gross" id="rueckwegKnopf" aria-expanded="false" aria-controls="minutenWahl">Bin auf dem Rückweg</button>
+    <div id="minutenWahl" hidden>
+      <div class="minuten-titel">Wann bist du im Laden?</div>
+      <div class="minuten" role="group" aria-label="Minuten bis zum Laden">
+        <button type="button" data-min="5">5 Min</button>
+        <button type="button" data-min="10">10 Min</button>
+        <button type="button" data-min="15">15 Min</button>
+        <button type="button" data-min="20">20 Min</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="zwei" id="nebenKnoepfe" hidden>
+    <button type="button" class="neben" data-aktion="los">Losgefahren</button>
+    <button type="button" class="neben" data-aktion="da">Bin im Laden</button>
+  </div>
+
+  <div class="meldung" id="meldung" role="status" aria-live="polite"></div>
+  <p class="tipp" id="tipp" hidden>Tipp: Leg dir diese Seite auf den Startbildschirm („Zum Home-Bildschirm“) – dann ist sie mit einem Tipp da.</p>
+</main>
+<script>
+(function () {
+  'use strict';
+  var ADRESSE = '/.netlify/functions/fahrer';
+  var SPEICHER = 'kmi_fahrer_t';
+  var geheim = '';
+
+  // Link aus der Adresse holen, merken und aus der Adresszeile nehmen.
+  var m = /(?:^|[#&])t=([A-Za-z0-9_-]{32,64})/.exec(location.hash || '');
+  if (m) {
+    geheim = m[1];
+    try { localStorage.setItem(SPEICHER, geheim); } catch (e) {}
+    try { history.replaceState(null, '', location.pathname); } catch (e) {}
+  } else {
+    try { geheim = localStorage.getItem(SPEICHER) || ''; } catch (e) {}
+  }
+
+  var $ = function (id) { return document.getElementById(id); };
+  function meldung(text, fehler) {
+    var el = $('meldung');
+    el.textContent = text || '';
+    el.className = 'meldung' + (fehler ? ' fehler' : '');
+  }
+  function uhr(iso) {
+    var d = new Date(iso);
+    return isNaN(d.getTime()) ? '' : d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function zeigen(d) {
+    $('gruss').textContent = 'Hallo ' + d.name + '!';
+    $('haus').textContent = d.haus ? 'Fahrer bei ' + d.haus : 'Fahrer';
+    var stand = $('stand'), zeile = $('standZeile');
+    if (d.status === 'rueckweg') {
+      stand.textContent = 'Auf dem Rückweg';
+      zeile.textContent = d.zurueck_um ? 'Die Küche rechnet mit dir um ca. ' + uhr(d.zurueck_um) + ' Uhr.' : '';
+    } else if (d.status === 'unterwegs') {
+      stand.textContent = 'Unterwegs';
+      zeile.textContent = 'Wenn du abgeliefert hast: „Bin auf dem Rückweg“ tippen.';
+    } else {
+      stand.textContent = 'Im Laden';
+      zeile.textContent = 'Beim Losfahren „Losgefahren“ tippen.';
+    }
+    var w = $('warten');
+    w.hidden = false;
+    // Unbekannt ist nicht null: lieber sagen, dass wir es nicht wissen.
+    if (d.wartend === null || d.wartend === undefined) w.textContent = 'Wie viele Lieferungen warten, ist gerade nicht bekannt.';
+    else if (d.wartend === 0) w.textContent = 'Im Laden wartet gerade keine Lieferung.';
+    else w.textContent = 'Im Laden ' + (d.wartend === 1 ? 'wartet 1 Lieferung' : 'warten ' + d.wartend + ' Lieferungen') + '.';
+    $('knoepfe').hidden = false;
+    $('nebenKnoepfe').hidden = false;
+    $('tipp').hidden = false;
+  }
+
+  function sperren(an) {
+    Array.prototype.forEach.call(document.querySelectorAll('button'), function (b) { b.disabled = an; });
+  }
+
+  async function holen() {
+    if (!geheim) {
+      $('stand').textContent = 'Kein Fahrer-Link';
+      $('haus').textContent = '';
+      meldung('Bitte den Link öffnen, den du vom Laden per WhatsApp bekommen hast.', true);
+      return;
+    }
+    try {
+      var r = await fetch(ADRESSE, { headers: { 'X-Fahrer': geheim }, cache: 'no-store' });
+      var d = await r.json().catch(function () { return {}; });
+      if (!r.ok || !d.ok) {
+        if (r.status === 401) { try { localStorage.removeItem(SPEICHER); } catch (e) {} }
+        $('stand').textContent = r.status === 401 ? 'Link gilt nicht' : 'Nicht erreichbar';
+        meldung(d.error || ('Fehler ' + r.status), true);
+        return;
+      }
+      zeigen(d);
+      if ($('meldung').classList.contains('fehler')) meldung('');
+    } catch (e) {
+      meldung('Kein Netz – dein Stand konnte nicht geladen werden.', true);
+    }
+  }
+
+  async function senden(aktion, minuten) {
+    sperren(true);
+    meldung('Wird gesendet …');
+    try {
+      var r = await fetch(ADRESSE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ t: geheim, aktion: aktion, minuten: minuten })
+      });
+      var d = await r.json().catch(function () { return {}; });
+      if (!r.ok || !d.ok) { meldung('Nicht gesendet: ' + (d.error || 'Fehler ' + r.status) + ' Die Küche weiß es noch nicht.', true); return; }
+      zeigen(d);
+      $('minutenWahl').hidden = true;
+      $('rueckwegKnopf').setAttribute('aria-expanded', 'false');
+      meldung('Gesendet um ' + uhr(new Date().toISOString()) + ' Uhr – die Küche sieht es.');
+      try { if (navigator.vibrate) navigator.vibrate(60); } catch (e) {}
+    } catch (e) {
+      meldung('Kein Netz – nicht gesendet. Bitte noch einmal tippen.', true);
+    } finally {
+      sperren(false);
+    }
+  }
+
+  $('rueckwegKnopf').addEventListener('click', function () {
+    var wahl = $('minutenWahl');
+    wahl.hidden = !wahl.hidden;
+    this.setAttribute('aria-expanded', String(!wahl.hidden));
+  });
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-min],[data-aktion]');
+    if (!b || b.disabled) return;
+    if (b.hasAttribute('data-min')) senden('rueckweg', parseInt(b.getAttribute('data-min'), 10));
+    else senden(b.getAttribute('data-aktion'));
+  });
+
+  holen();
+  setInterval(function () { if (!document.hidden) holen(); }, 30000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) holen(); });
+})();
+</script>
+</body>
+</html>

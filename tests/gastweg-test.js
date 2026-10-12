@@ -112,7 +112,7 @@ t('bei einem Fehler bleibt das Formular offen',
 var save = src.slice(src.indexOf('async function saveReservationToSupabase'));
 save = save.slice(0, save.indexOf('\nfunction ', 10));
 t('saveReservationToSupabase verschluckt den Fehler nicht mehr',
-  /throw new Error\(fehlerText\)/.test(save) && /throw e;/.test(save), 'verschluckt ihn');
+  /(throw new Error\(fehlerText\)|var _resFehler = new Error\(fehlerText\);[\s\S]{0,600}throw _resFehler;)/.test(save) && /throw e;/.test(save), 'verschluckt ihn');
 
 
 console.log('\n-- 6. Die Bestellpositionen fordern die Zeile nicht zurueck --');
