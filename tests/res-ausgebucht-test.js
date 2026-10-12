@@ -27,7 +27,10 @@ t('Text für Gäste: "vom 12. Oktober bis 31. Oktober ausgebucht"', /^vom 12\. O
 var las = fn('loadAvailableSlots');
 t('Datum gewählt + ausgebucht: keine Uhrzeiten, Hinweis, Warteliste sichtbar', /var _ab = _abRest \? ausgebuchtAm\(_abRest, date\) : null;/.test(las) && /_abWl\.style\.display = 'block';/.test(las) && /return;\s*\}\s*\} catch \(e\) \{\}\s*try \{\s*\/\/ Bestehende Reservierungen/.test(las), '');
 t('Kalender: ausgebuchte Tage durchgestrichen, aber wählbar (Warteliste)', /class="kmi-cal-voll" onclick="resCalSelectDate/.test(fn('resCalRender')) && /text-decoration:line-through/.test(fn('resCalRender')), '');
-t('Server lehnt ab -> Gast liest "Ausgebucht", nicht "HTTP 409"', /if \(antwort && antwort\.ausgebucht\) \{\s*_resFehler\.gastText = 'Ausgebucht/.test(fn('saveReservationToSupabase')), '');
+var vollText = new Function(fn('reservierungVollText') + '; return reservierungVollText;')();
+t('Server lehnt ab -> Gast liest "Ausgebucht", nicht "HTTP 409"', /if \(antwort && antwort\.ausgebucht\) \{\s*_resFehler\.gastText = reservierungVollText\(antwort\);/.test(fn('saveReservationToSupabase'))
+  && /^Ausgebucht – /.test(vollText({ ausgebucht: true })), vollText({ ausgebucht: true }));
+t('Silvester-Kontingent mit Restplätzen: "nur noch 3 Plätze frei", nicht "ausgebucht"', /nur noch 3 Plätze frei/.test(vollText({ ausgebucht: true, kontingent: true, frei: 3, titel: 'Silvester' })) && /^Ausgebucht/.test(vollText({ ausgebucht: true, kontingent: true, frei: 0 })), vollText({ ausgebucht: true, kontingent: true, frei: 3 }));
 
 // Dashboard
 t('Dashboard: Knöpfe "Rest dieses Monats" / "Nächsten Monat" / eigener Zeitraum', /data-ausgebucht="monat"/.test(H) && /data-ausgebucht="naechster"/.test(H) && /data-ausgebucht="eigen"/.test(H) && /id="ausgebuchtListe"/.test(H), '');
