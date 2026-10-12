@@ -89,9 +89,10 @@ var feldCode = cq.slice(vonF, bisF);
 t('der Block wurde gefunden', feldCode.length > 80, feldCode.length);
 
 function felder(modus) {
-    var welt = { currentAcceptModus: modus, minutes: 45, Date: Date };
+    var welt = { currentAcceptModus: modus, minutes: 45, Date: Date, dashboardOrders: [{ id: 'o1', order_type: 'pickup' }], currentAcceptOrderId: 'o1' };
     vm.createContext(welt);
-    vm.runInContext(feldCode + '; this._feld = _feld;', welt);
+    // Seit den drei Schritten (12.10.2026) entscheidet annahmeStatus().
+    vm.runInContext(schneide(h, 'function annahmeStatus(') + '\n' + feldCode + '; this._feld = _feld;', welt);
     return welt._feld;
 }
 var fZeit = felder('zeit'), fAnnehmen = felder('annehmen');
@@ -100,7 +101,7 @@ t('beim Aendern wird NUR die Zeit geschrieben',
   JSON.stringify(fZeit));
 t('der Status bleibt unberuehrt -- sonst springt eine Bestellung aus der Zubereitung zurueck',
   !!fZeit && !('status' in fZeit), JSON.stringify(fZeit));
-t('beim Annehmen dagegen schon', !!fAnnehmen && fAnnehmen.status === 'accepted', JSON.stringify(fAnnehmen));
+t('beim Annehmen dagegen schon -- und zwar gleich "in Zubereitung" (drei Schritte)', !!fAnnehmen && fAnnehmen.status === 'preparing' && !!fAnnehmen.preparing_at && !!fAnnehmen.accepted_at, JSON.stringify(fAnnehmen));
 t('und die Uhrzeit wird neu ausgerechnet',
   !!fZeit && typeof fZeit.estimated_time === 'string' && fZeit.estimated_time.length > 20, fZeit && fZeit.estimated_time);
 

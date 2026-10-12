@@ -22925,11 +22925,6 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     Neu
                     <span class="kin-filter-count new" id="ordersCountNew">0</span>
                 </button>
-                <button class="kin-filter-tab" onclick="filterOrders('accepted', this)" data-status="accepted">
-                    <span class="material-symbols-outlined" style="font-size:14px;color:#3b82f6;">check</span>
-                    Angenommen
-                    <span class="kin-filter-count" id="ordersCountAccepted">0</span>
-                </button>
                 <button class="kin-filter-tab" onclick="filterOrders('preparing', this)" data-status="preparing">
                     <span class="material-symbols-outlined" style="font-size:14px;color:#8b5cf6;">skillet</span>
                     Zubereitung
@@ -61385,7 +61380,10 @@ function renderDashboardOrders() {
     }
     
     if (orderFilterStatus !== 'all') {
-        filtered = filtered.filter(o => o.status === orderFilterStatus);
+        // "Zubereitung" umfasst auch "angenommen" -- seit den drei Schritten
+        // ist das derselbe Schritt (12.10.2026).
+        var _inArbeit = ['accepted', 'confirmed', 'preparing'];
+        filtered = filtered.filter(o => orderFilterStatus === 'preparing' ? _inArbeit.indexOf(o.status) >= 0 : o.status === orderFilterStatus);
     }
 
     // Sortieren: Neueste zuerst, aber "received" ganz oben
@@ -61529,79 +61527,25 @@ function renderDashboardOrders() {
                 `;
                 break;
             case 'accepted':
-                actionsHtml = `
-                    <button class="kin-order-btn reject" onclick="openCancelOrderDialog('${order.id}')" title="Bestellung stornieren" aria-label="Stornieren" style="background:rgba(239,68,68,0.08);color:#dc2626;border-color:rgba(239,68,68,0.25);">
-                        <span class="material-symbols-outlined" style="font-size:18px;">cancel</span>
-                        Storno
-                    </button>
-                    <button class="kin-order-btn" onclick="zeitAendern('${order.id}')" title="Dem Gast eine neue Zeit sagen" style="background:rgba(217,119,6,0.08);color:#b45309;border-color:rgba(217,119,6,0.25);">
-                        <span class="material-symbols-outlined" style="font-size:18px;">schedule</span>
-                        Zeit ändern
-                    </button>
-                    <button class="kin-order-btn next" onclick="updateOrderStatus('${order.id}', 'preparing')">
-                        <span class="material-symbols-outlined" style="font-size:18px;">light_mode</span>
-                        Zubereiten
-                    </button>
-                `;
-                break;
+            case 'confirmed':
             case 'preparing':
+            case 'ready':
+            case 'out_for_delivery':
+                // Drei Schritte (12.10.2026): nach "Annehmen" EIN Knopf fuer
+                // den naechsten Schritt -- siehe naechsterSchritt().
+                var _ns = naechsterSchritt(order), _laeuft = order.status !== 'ready' && order.status !== 'out_for_delivery';
                 actionsHtml = `
                     <button class="kin-order-btn reject" onclick="openCancelOrderDialog('${order.id}')" title="Bestellung stornieren" aria-label="Stornieren" style="background:rgba(239,68,68,0.08);color:#dc2626;border-color:rgba(239,68,68,0.25);">
                         <span class="material-symbols-outlined" style="font-size:18px;">cancel</span>
-                    </button>
+                    </button>` + (_laeuft ? `
                     <button class="kin-order-btn" onclick="zeitAendern('${order.id}')" title="Dem Gast eine neue Zeit sagen" style="background:rgba(217,119,6,0.08);color:#b45309;border-color:rgba(217,119,6,0.25);">
                         <span class="material-symbols-outlined" style="font-size:18px;">schedule</span>
                         Zeit ändern
-                    </button>
-                    <button class="kin-order-btn next" onclick="updateOrderStatus('${order.id}', 'ready')">
-                        <span class="material-symbols-outlined" style="font-size:18px;">check_circle</span>
-                        Fertig
-                    </button>
-                `;
-                break;
-            case 'ready':
-                if (order.order_type === 'delivery') {
-                    actionsHtml = `
-                        <button class="kin-order-btn reject" onclick="openCancelOrderDialog('${order.id}')" title="Stornieren" style="background:rgba(239,68,68,0.08);color:#dc2626;border-color:rgba(239,68,68,0.25);">
-                            <span class="material-symbols-outlined" style="font-size:18px;">cancel</span>
-                        </button>
-                        <button class="kin-order-btn next" onclick="updateOrderStatus('${order.id}', 'out_for_delivery')">
-                            <span class="material-symbols-outlined" style="font-size:18px;">inventory_2</span>
-                            Fahrer los
-                        </button>
-                    `;
-                } else if (order.order_type === 'dine_in') {
-                    actionsHtml = `
-                        <button class="kin-order-btn reject" onclick="openCancelOrderDialog('${order.id}')" title="Stornieren" style="background:rgba(239,68,68,0.08);color:#dc2626;border-color:rgba(239,68,68,0.25);">
-                            <span class="material-symbols-outlined" style="font-size:18px;">cancel</span>
-                        </button>
-                        <button class="kin-order-btn next" onclick="updateOrderStatus('${order.id}', 'picked_up')">
-                            <span class="material-symbols-outlined" style="font-size:14px;">restaurant</span>
-                            Serviert
-                        </button>
-                    `;
-                } else {
-                    actionsHtml = `
-                        <button class="kin-order-btn reject" onclick="openCancelOrderDialog('${order.id}')" title="Stornieren" style="background:rgba(239,68,68,0.08);color:#dc2626;border-color:rgba(239,68,68,0.25);">
-                            <span class="material-symbols-outlined" style="font-size:18px;">cancel</span>
-                        </button>
-                        <button class="kin-order-btn next" onclick="updateOrderStatus('${order.id}', 'picked_up')">
-                            <span class="material-symbols-outlined" style="font-size:18px;">check_circle</span>
-                            Abgeholt
-                        </button>
-                    `;
-                }
-                break;
-            case 'out_for_delivery':
-                actionsHtml = `
-                    <button class="kin-order-btn reject" onclick="openCancelOrderDialog('${order.id}')" title="Stornieren" style="background:rgba(239,68,68,0.08);color:#dc2626;border-color:rgba(239,68,68,0.25);">
-                        <span class="material-symbols-outlined" style="font-size:18px;">cancel</span>
-                    </button>
-                    <button class="kin-order-btn next" onclick="updateOrderStatus('${order.id}', 'delivered')">
-                        <span class="material-symbols-outlined" style="font-size:18px;">check_circle</span>
-                        Geliefert
-                    </button>
-                `;
+                    </button>` : '') + (_ns ? `
+                    <button class="kin-order-btn next" data-schritt="${_ns.status}" onclick="updateOrderStatus('${order.id}', '${_ns.status}')">
+                        <span class="material-symbols-outlined" style="font-size:18px;">${_ns.icon}</span>
+                        ${_ns.text}
+                    </button>` : '');
                 break;
         }
 
@@ -61741,8 +61685,7 @@ function updateOrderStats() {
     // Tab Counts (mit null-checks)
     el = document.getElementById('ordersCountAll'); if (el) el.textContent = dashboardOrders.length;
     el = document.getElementById('ordersCountNew'); if (el) el.textContent = dashboardOrders.filter(o => o.status === 'received').length;
-    el = document.getElementById('ordersCountAccepted'); if (el) el.textContent = dashboardOrders.filter(o => o.status === 'accepted').length;
-    el = document.getElementById('ordersCountPreparing'); if (el) el.textContent = dashboardOrders.filter(o => o.status === 'preparing').length;
+    el = document.getElementById('ordersCountPreparing'); if (el) el.textContent = dashboardOrders.filter(o => ['accepted', 'confirmed', 'preparing'].indexOf(o.status) >= 0).length;
     el = document.getElementById('ordersCountReady'); if (el) el.textContent = dashboardOrders.filter(o => o.status === 'ready').length;
     el = document.getElementById('ordersCountDelivery'); if (el) el.textContent = dashboardOrders.filter(o => o.status === 'out_for_delivery').length;
 
@@ -62068,6 +62011,26 @@ function selectTimeOption(btn, minutes) {
 }
 
 // Bestellung mit Zeit bestätigen
+// Status nach "Annehmen": sofort "preparing", nur eine Vorbestellung, die
+// mehr als eine Stunde in der Zukunft liegt, bleibt "accepted".
+function annahmeStatus(order, jetzt) {
+    jetzt = jetzt || Date.now();
+    if (order && order.scheduled_at) {
+        var t = new Date(order.scheduled_at).getTime();
+        if (!isNaN(t) && t - jetzt > 60 * 60 * 1000) return 'accepted';
+    }
+    return 'preparing';
+}
+// Der EINE naechste Schritt nach dem Annehmen -- Lieferung: Unterwegs,
+// sonst: Fertig. Danach: Zugestellt / Abgeholt / Serviert.
+function naechsterSchritt(order) {
+    var s = order && order.status, typ = order && order.order_type;
+    if (s === 'accepted' || s === 'confirmed' || s === 'preparing') return typ === 'delivery' ? { status: 'out_for_delivery', text: 'Unterwegs', icon: 'local_shipping' } : { status: 'ready', text: 'Fertig', icon: 'check_circle' };
+    if (s === 'ready') return typ === 'delivery' ? { status: 'out_for_delivery', text: 'Unterwegs', icon: 'local_shipping' } : typ === 'dine_in' ? { status: 'picked_up', text: 'Serviert', icon: 'restaurant' } : { status: 'picked_up', text: 'Abgeholt', icon: 'check_circle' };
+    if (s === 'out_for_delivery') return { status: 'delivered', text: 'Zugestellt', icon: 'check_circle' };
+    return null;
+}
+
 async function confirmAcceptOrder() {
     try {
     if (!currentAcceptOrderId) return;
@@ -62097,10 +62060,18 @@ async function confirmAcceptOrder() {
     // Kueche faenge von vorne an.
     var _nurZeit = currentAcceptModus === 'zeit';
     var _neueZeit = new Date(Date.now() + minutes * 60000).toISOString();
+    // DREI SCHRITTE WIE BEI LIEFERANDO (Ibo, 12.10.2026: "annehmen ist auch
+    // direkt zubereitet"). Annehmen setzt die Bestellung gleich auf
+    // "preparing" -- der eigene Knopf "Zubereiten" entfaellt. Ausnahme:
+    // eine Vorbestellung fuer spaeter bleibt "accepted" (bestaetigt), sonst
+    // laese der Gast "wird zubereitet" fuer morgen Mittag.
+    var _acOrder = (typeof dashboardOrders !== 'undefined' ? dashboardOrders : []).find(function (o) { return o.id === currentAcceptOrderId; });
+    var _neuerStatus = annahmeStatus(_acOrder);
+    var _jetztIso = new Date().toISOString();
     var _feld = _nurZeit
         ? { estimated_minutes: minutes, estimated_time: _neueZeit }
-        : { status: 'accepted', estimated_minutes: minutes, estimated_time: _neueZeit,
-            accepted_at: new Date().toISOString() };
+        : { status: _neuerStatus, estimated_minutes: minutes, estimated_time: _neueZeit, accepted_at: _jetztIso };
+    if (!_nurZeit && _neuerStatus === 'preparing') _feld.preparing_at = _jetztIso;
 
     try {
         const response = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${currentAcceptOrderId}&select=id`, {
@@ -62130,7 +62101,7 @@ async function confirmAcceptOrder() {
             // Lokal aktualisieren
             const order = dashboardOrders.find(o => o.id === currentAcceptOrderId);
             if (order) {
-                if (!_nurZeit) order.status = 'accepted';
+                if (!_nurZeit) order.status = _neuerStatus;
                 order.estimated_minutes = minutes;
                 order.estimated_time = _neueZeit;
             }
@@ -62254,13 +62225,20 @@ async function updateOrderStatus(orderId, newStatus) {
                 'apikey': SUPABASE_KEY,
                 'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
-                'Prefer': 'return=minimal'
+                // representation statt minimal: verwirft RLS die Aenderung
+                // still, kaeme sonst 204 -- und der Knopf saehe erfolgreich aus.
+                'Prefer': 'return=representation'
             },
             body: JSON.stringify(updateData)
         });
         if (!_stRes.ok) {
             console.error('Status-Update fehlgeschlagen:', _stRes.status);
             showToast('Status konnte nicht gespeichert werden (Fehler ' + _stRes.status + ')', 'error');
+            return;
+        }
+        var _stZeilen = null; try { _stZeilen = await _stRes.json(); } catch (e) { _stZeilen = null; }
+        if (!Array.isArray(_stZeilen) || !_stZeilen.length) {
+            showToast('Nicht gespeichert: die Datenbank hat die Änderung ohne Fehlermeldung verworfen.', 'error');
             return;
         }
     } catch (e) {
@@ -62277,10 +62255,10 @@ async function updateOrderStatus(orderId, newStatus) {
 
         const labels = {
             'preparing': 'In Zubereitung',
-            'ready': 'Fertig zur Abholung',
-            'out_for_delivery': 'Fahrer unterwegs',
-            'delivered': 'Geliefert',
-            'picked_up': 'Abgeholt'
+            'ready': (order.order_type === 'pickup' ? 'Fertig zur Abholung' : 'Fertig'),
+            'out_for_delivery': 'Unterwegs',
+            'delivered': 'Zugestellt',
+            'picked_up': (order.order_type === 'dine_in' ? 'Serviert' : 'Abgeholt')
         };
         showToast('Status: ' + labels[newStatus]);
     }
