@@ -118,7 +118,9 @@ var ALLOWED = [
     'payment_method', 'table_number', 'coupon_code', 'requested_time', 'created_at', 'scheduled_at',
     'payment_status', 'payment_reference',
     // Sofort-Bestaetigung -- dieselben Felder wie in order-save.
-    'accepted_at', 'estimated_minutes', 'estimated_time'
+    'accepted_at', 'estimated_minutes', 'estimated_time',
+    // Aus welchem Video der Gast kam -- geprueft unten, wie in order-save.
+    'kampagne'
 ];
 
 // Selbst-heilender Insert: fehlt eine Spalte, raus damit und erneut.
@@ -292,6 +294,7 @@ exports.handler = async function (event) {
 
     var aktion = (event.queryStringParameters || {}).action || body.action || '';
     var order = body.order || {};
+    { var _k = require('./lib/kampagne').pruefe(order.kampagne); if (_k) order.kampagne = _k; else delete order.kampagne; }
 
     try {
         // ---------------- Zugangsdaten setzen (aus dem Dashboard) -------

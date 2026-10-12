@@ -173,7 +173,8 @@ t('sauber() ist herausschneidbar', quellSauber.length > 100, quellSauber.length)
 
 var sauber = null;
 try {
-    sauber = vm.runInNewContext('(' + quellSauber + ')', { parseInt: parseInt, String: String });
+    sauber = vm.runInNewContext('(' + quellSauber + ')', { parseInt: parseInt, String: String,
+        KAMPAGNE: require('../netlify/functions/lib/kampagne') }); // seit 10.10.2026 (Video-Code, tests/kampagne-test.js)
 } catch (e) { console.log('     (sauber nicht ausfuehrbar: ' + e.message + ')'); }
 
 t('sauber() ist ausfuehrbar', typeof sauber === 'function');
