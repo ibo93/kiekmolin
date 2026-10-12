@@ -62483,13 +62483,18 @@ function printOrderBrowser(orderId) {
     // Items HTML
     // Der Gerichtname kam ungeschuetzt aus der Datenbank in den Beleg --
     // als einziges Feld hier. Sonderwunsch und Zusaetze waren schon escapt.
+    // Die Nummer steht vor dem Gericht in einer eigenen Spalte (Design
+    // 12.10.2026). Fuehrt das Lokal keine Nummern, faellt die Spalte weg
+    // statt leer mitzulaufen.
+    var mitNummern = (order.items || []).some(function (item) { return !!bonGerichtNr(item); });
     var itemsHtml = (order.items || []).map(function(item) {
         return '<tr>' +
+            (mitNummern ? '<td class="nr">' + (bonGerichtNr(item) ? '<span class="gnr">' + escapeHtml(bonGerichtNr(item)) + '</span>' : '') + '</td>' : '') +
             '<td class="anz">' + (parseInt(item.quantity, 10) || 1) + '×</td>' +
-            '<td>' + (bonGerichtNr(item) ? '<span class="gnr">' + escapeHtml(bonGerichtNr(item)) + '</span>' : '') + escapeHtml(item.name || '') +
-                // Groesse und Extras je Gericht -- stand bisher nur auf dem
-                // Kuechenbon. Eine Groesse ersetzt den Preis (optionAufpreis 0),
-                // ein Extra kommt obendrauf und steht mit Preis da.
+            '<td><div class="gname">' + escapeHtml(item.name || '') + '</div>' +
+                // Groesse und Extras je Gericht. Eine Groesse ersetzt den
+                // Preis (optionAufpreis 0), ein Extra kommt obendrauf und
+                // steht mit Preis da.
                 ((item.selected_options && item.selected_options.length)
                     ? item.selected_options.map(function (o) {
                           var n = optionText(o); if (!n) return '';
@@ -62497,9 +62502,9 @@ function printOrderBrowser(orderId) {
                           return '<div class="zusatz">→ ' + escapeHtml(n) + (auf > 0 ? ' (+' + formatPrice(auf) + ')' : '') + '</div>';
                       }).join('')
                     : (item.options ? '<div class="zusatz">' + escapeHtml(item.options) + '</div>' : '')) +
-                // Sonderwunsch hervorgehoben. Wer in der Küche steht,
-                // überliest eine graue Kleinschrift.
-                (item.notes ? '<div class="wunsch">' + escapeHtml(item.notes) + '</div>' : '') +
+                // Sonderwunsch in Anfuehrung und kursiv -- als Wort des Gastes
+                // erkennbar, nicht als Teil des Gerichts.
+                (item.notes ? '<div class="wunsch">„' + escapeHtml(item.notes) + '“</div>' : '') +
             '</td>' +
             '<td class="preis">' + formatPrice(item.price) + '</td>' +
         '</tr>';
@@ -62586,192 +62591,172 @@ function printOrderBrowser(orderId) {
 
     // Zwei Papierformate, ein Markup. Was sich unterscheidet, ist die
     // Gestaltung -- nicht der Inhalt.
-    // DER BELEG ALS BRIEFBOGEN, NICHT ALS KASSENZETTEL.
     //
-    // Gewuenscht war "stilvoller". Vier Dinge machen den Unterschied:
+    // DAS DESIGN (12.10.2026, mit Claude Design entworfen, von Ibo
+    // freigegeben: "ja mach das"). Streng schwarz-weiss, eine kraeftige
+    // serifenlose Schrift, und eine klare Rangfolge -- was der Tresen aus
+    // einem Meter lesen muss, ist am groessten:
     //
-    //   1. Eine Schriftmischung. Der Hausname und die Danksagung in einer
-    //      Serifenschrift, alles Uebrige serifenlos. Das ist der Griff, den
-    //      jede gute Speisekarte macht, und er kostet nichts.
+    //   1. die Bestellnummer, riesig, darunter die Bestellart als schwarze
+    //      Pille und die Uhrzeit;
+    //   2. der Hinweis zur Bestellung, umrahmt, VOR den Gerichten -- wer
+    //      kocht, liest ihn, bevor er anfaengt;
+    //   3. jedes Gericht mit seiner Nummer im Rahmen;
+    //   4. die Summe und darunter, schwarz hinterlegt, ob noch kassiert
+    //      werden muss.
     //
-    //      WELCHE Serifenschrift, ist keine Geschmacksfrage allein: das
-    //      Druckfenster laedt bewusst KEINE Schrift aus dem Netz. Ein Beleg
-    //      darf nicht am WLAN haengen, und eine Schrift, die nicht rechtzeitig
-    //      kommt, wuerde die Zeilen nachtraeglich umbrechen. Also nur, was auf
-    //      dem Rechner ohnehin liegt.
-    //
-    //      Gewaehlt wurde "Baskerville oder Georgia". Beides geht: eine
-    //      Schriftangabe IST eine Rangfolge. Der Browser nimmt die erste, die
-    //      auf dem Geraet liegt.
-    //
-    //        Baskerville / Hoefler Text -- auf jedem Mac und iPad. Fein und
-    //          ruhig, die eleganteste der Auswahl.
-    //        Georgia -- ueberall, auch auf Windows. Kraeftiger, aber sicher.
-    //
-    //      Damit bekommt ein Mac Baskerville, ein Windows-Rechner Georgia.
-    //      Kein Geraet faellt auf Times zurueck.
-    //
-    //      NICHT dabei: "Baskerville Old Face". Die liegt zwar auf Windows,
-    //      ist aber eine Auszeichnungsschrift mit ganz anderen Formen -- als
-    //      Rueckfall waere sie eine Ueberraschung, keine Absicherung.
-    //   2. Ein Briefkopf-Streifen in Hausfarbe an der oberen Blattkante.
-    //   3. Warmes Papierweiss statt Grau fuer die abgesetzten Flaechen --
-    //      #faf7ee gehoert zur Marke, das kuehle #f7faf9 tat es nicht.
-    //   4. Luft. Groessere Abstaende, duennere Linien, weniger Rahmen. Ein
-    //      Dokument wirkt teuer, wenn wenig darauf steht und das wenige
-    //      Platz hat.
+    // Keine Schrift aus dem Netz: ein Beleg darf nicht am WLAN haengen, und
+    // eine Schrift, die zu spaet kommt, bricht die Zeilen mitten im Druck
+    // um. Epilogue (unsere Ueberschriftenschrift) steht vorn und greift, wo
+    // sie installiert ist; sonst die kraeftige Systemschrift.
     var stilA4 = `
-    @page { size: A4; margin: 18mm 20mm 16mm; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-           font-size: 10pt; color: #000; line-height: 1.5; max-width: 170mm; margin: 0 auto;
+    @page { size: A4; margin: 16mm 17mm 14mm; }
+    body { font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+           font-size: 10.5pt; color: #000; line-height: 1.45; max-width: 176mm; margin: 0 auto;
            font-variant-numeric: tabular-nums; }
-    .kopf { display: flex; align-items: flex-start; justify-content: space-between;
-            gap: 20px; padding-bottom: 16px; }
-    .haus-name { font-family: Baskerville, 'Hoefler Text', Georgia, 'Times New Roman', serif; font-size: 23pt; font-weight: 400;
-                 letter-spacing: -0.005em; color: #000; line-height: 1.12; }
-    .haus-zeile { font-size: 8pt; color: #555; margin-top: 7px; letter-spacing: 0.01em; }
-    /* Umrissen statt gefuellt -- ruhiger, und der Blick bleibt beim Namen. */
-    .art-chip { display: inline-block; flex-shrink: 0; border: 1.5px solid #000; color: #000; border-radius: 999px;
-                padding: 6px 16px; font-size: 8pt; font-weight: 700; letter-spacing: 0.18em;
-                text-transform: uppercase; white-space: nowrap; }
-    /* DIE Linie des Belegs. Erst war hier zusaetzlich ein Briefkopf-Streifen
-       an der Blattkante geplant -- im Druck sitzt position:fixed aber INNEN
-       am Seitenrand und lag damit quer ueber dem Hausnamen. Zwei Linien
-       waeren ohnehin eine zu viel gewesen: jetzt traegt diese eine das
-       Markenzeichen, vom Hausgruen ins Gelb. */
-    .trennlinie { height: 2.5px; margin-bottom: 22px; border-radius: 2px;
+    .anzeige, .haus-name, .auftrag-nr, .auftrag-zeit, .gesamt td, .dank { font-family: Epilogue, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; }
+    .oben { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 24px; align-items: start; }
+    .kopf { grid-column: 1; grid-row: 1; }
+    .haus-name { font-size: 25pt; font-weight: 900; letter-spacing: -0.02em; line-height: 1; text-transform: uppercase; }
+    .haus-zeile { font-size: 10pt; margin-top: 4px; }
+    .auftrag { grid-column: 2; grid-row: 1; text-align: right; }
+    .trennlinie { grid-column: 1 / -1; grid-row: 2; height: 3px; margin: 16px 0 18px;
                   background: #000; }
-    .auftrag { display: flex; align-items: center; justify-content: space-between; gap: 24px;
-               padding-bottom: 14px; margin-bottom: 16px; border-bottom: 1px solid #ddd; }
-    .auftrag-nr { font-size: 30pt; font-weight: 800; letter-spacing: -0.02em; line-height: 1; }
-    .auftrag-rechts { text-align: right; }
-    .auftrag-zeit { font-size: 12pt; font-weight: 700; margin-top: 6px; }
-    .auftrag-datum { font-size: 8pt; color: #555; margin-top: 3px; }
-    .zwei { display: flex; gap: 32px; margin-bottom: 6px; }
-    .zwei > div { flex: 1; }
-    .feldname { font-size: 7pt; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase;
-                color: #777; margin-bottom: 6px; }
-    .feldwert { font-size: 10pt; }
-    .beleg-nr { font-size: 12.5pt; font-weight: 700; letter-spacing: 0.02em; color: #000; }
-    table.pos { width: 100%; border-collapse: collapse; margin-top: 22px; }
-    table.pos th { font-size: 7pt; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase;
-                   color: #777; text-align: left; padding: 0 0 9px; border-bottom: 1px solid #000; }
-    table.pos td { padding: 11px 0; border-bottom: 1px solid #ddd; vertical-align: top; }
-    table.pos tr:last-child td { border-bottom: none; }
-    .anz { width: 30px; font-weight: 700; color: #555; font-size: 9pt; }
-    .preis { text-align: right; white-space: nowrap; font-weight: 600; }
-    .gnr { display: inline-block; min-width: 7mm; margin-right: 8px; padding: 0 4px; border: 1.2px solid #000;
-           border-radius: 3px; text-align: center; font-weight: 800; font-size: 9pt; }
-    .zusatz { font-size: 8.5pt; color: #555; margin-top: 3px; }
-    .wunsch { font-size: 8.5pt; font-weight: 700; color: #000; margin-top: 3px; }
-    /* Die Summe in warmem Papierweiss abgesetzt. */
-    .summen { margin-left: auto; width: 68mm; margin-top: 4px; border-collapse: separate; border-spacing: 0;
-              border: 1px solid #000; border-radius: 6px; }
-    .summen tr td { padding: 4px 14px; font-size: 9.5pt; color: #333; }
-    .summen tr:first-child td { padding-top: 12px; }
+    .auftrag-nr { font-size: 48pt; font-weight: 900; letter-spacing: -0.04em; line-height: 0.9; margin-top: 4px; }
+    .auftrag-rechts { margin-top: 8px; }
+    .art-chip { display: inline-block; background: #000; color: #fff; border-radius: 999px;
+                padding: 3px 12px; font-size: 9pt; font-weight: 800; letter-spacing: 0.12em;
+                text-transform: uppercase; white-space: nowrap; }
+    .auftrag-zeit { font-size: 15pt; font-weight: 800; margin-top: 8px; }
+    .auftrag-datum { font-size: 9pt; margin-top: 2px; }
+    .gast { margin-bottom: 4px; }
+    .feldname { font-size: 8pt; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 3px; }
+    .feldwert { font-size: 11pt; }
+    .gast-name { font-weight: 700; font-size: 12pt; }
+    .hinweis { margin-top: 14px; padding: 10px 14px; border: 2px solid #000; border-radius: 9px; }
+    .hinweis .feldname { font-weight: 800; }
+    .hinweis-text { font-size: 11.5pt; font-weight: 600; }
+    table.pos { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    table.pos th { font-size: 8pt; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;
+                   text-align: left; padding: 0 0 6px; border-bottom: 2px solid #000; }
+    table.pos td { padding: 9px 0; border-bottom: 1px solid #000; vertical-align: baseline; }
+    table.pos th.preis { text-align: right; }
+    .nr { width: 13mm; }
+    .anz { width: 12mm; font-weight: 800; font-size: 12.5pt; }
+    .gname { font-weight: 700; font-size: 12.5pt; }
+    .preis { text-align: right; white-space: nowrap; font-weight: 700; font-size: 12pt; }
+    .gnr { display: inline-block; min-width: 9mm; padding: 0 4px; border: 1.5px solid #000;
+           border-radius: 5px; text-align: center; font-weight: 800; font-size: 11pt; }
+    .zusatz { font-size: 10pt; margin-top: 2px; }
+    .wunsch { font-size: 10pt; font-style: italic; font-weight: 700; margin-top: 2px; }
+    .summen-block { display: flex; flex-direction: row-reverse; justify-content: space-between; align-items: flex-start; gap: 24px; margin-top: 14px; }
+    .summen-rechts { width: 78mm; }
+    .summen { width: 100%; border-collapse: collapse; }
+    .summen tr td { padding: 3px 0; font-size: 10.5pt; }
     .summen tr td:last-child { text-align: right; }
-    .gesamt td { padding-top: 9px !important; padding-bottom: 4px !important;
-                 font-size: 14pt; font-weight: 700; color: #000;
-                 border-top: 1.5px solid #000; }
-    .gesamt td:first-child { font-family: Baskerville, 'Hoefler Text', Georgia, 'Times New Roman', serif; font-weight: 400; letter-spacing: 0.02em; }
-    .zahlart { text-align: right; font-size: 8.5pt; color: #000; font-weight: 700; padding-top: 0 !important;
-               padding-bottom: 12px !important; letter-spacing: 0.04em; }
-    /* Der Weg-Block: kein Kasten, sondern eine warme Flaeche mit Haarlinie. */
-    .weg { display: flex; gap: 22px; align-items: center; margin-top: 26px; padding: 18px 20px;
-           border: 1px solid #000; border-radius: 6px; border-left: 3px solid #000; }
+    .summen .gesamt td { border-top: 3px solid #000; padding-top: 8px !important; font-size: 17pt; font-weight: 900; }
+    .summen .gesamt td:last-child { font-size: 23pt; }
+    .zahlart { margin-top: 10px; background: #000; color: #fff; text-align: center; font-weight: 800;
+               font-size: 11pt; letter-spacing: 0.1em; padding: 7px 10px; border-radius: 999px; text-transform: uppercase; }
+    .weg { display: flex; gap: 18px; align-items: center; margin-top: 14px; padding: 12px 14px;
+           border: 2px solid #000; border-radius: 9px; }
     .weg-text { flex: 1; }
-    .weg-titel { font-size: 7pt; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: #777; }
-    .weg-adresse { font-family: Baskerville, 'Hoefler Text', Georgia, 'Times New Roman', serif; font-size: 13pt; font-weight: 400;
-                   color: #000; margin-top: 6px; line-height: 1.35; }
-    .weg-tel { font-size: 9pt; color: #555; margin-top: 5px; }
-    .weg-zeit { font-size: 9pt; font-weight: 700; color: #000; margin-top: 3px; }
+    .weg-titel { font-size: 8pt; font-weight: 800; letter-spacing: 0.15em; text-transform: uppercase; }
+    .weg-adresse { font-size: 13pt; font-weight: 800; margin-top: 3px; line-height: 1.3; }
+    .weg-tel { font-size: 10pt; margin-top: 3px; }
     .weg-qr { text-align: center; flex-shrink: 0; }
-    .weg-qr img { width: 29mm; height: 29mm; display: block; background: #fff; padding: 2mm; border-radius: 6px; }
-    .weg-qr-text { font-size: 6.5pt; color: #777; margin-top: 5px; max-width: 33mm; line-height: 1.35; }
-    .hinweis { margin-top: 14px; padding: 10px 14px; border: 2px solid #000; border-radius: 6px; break-inside: avoid; }
-    .hinweis-text { font-size: 11pt; font-weight: 700; }
-    .steuer { margin-top: 26px; }
-    .steuer table { border-collapse: collapse; }
-    .steuer th, .steuer td { font-size: 8pt; padding: 4px 18px 4px 0; text-align: left; color: #333; }
-    .steuer th { font-weight: 700; color: #777; border-bottom: 1px solid #ddd;
-                 font-size: 7pt; letter-spacing: 0.12em; text-transform: uppercase; }
-    .dank { font-family: Baskerville, 'Hoefler Text', Georgia, 'Times New Roman', serif; font-size: 13pt; color: #000;
-            margin-top: 26px; letter-spacing: 0.01em; }
-    .fuss { margin-top: 14px; padding-top: 12px; border-top: 1px solid #ddd;
-            display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; }
-    .rechtstext { font-size: 6.5pt; color: #777; line-height: 1.6; max-width: 106mm; }
-    .marke { text-align: right; flex-shrink: 0; }
-    .marke-zeile { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
-    .marke-logo { width: 12mm; height: 12mm; border-radius: 2.5mm; }
-    .marke-name { font-family: Baskerville, 'Hoefler Text', Georgia, 'Times New Roman', serif; font-size: 11pt; color: #000; }
-    .marke-url { font-size: 7pt; color: #777; letter-spacing: 0.08em; margin-top: 2px; }
-    .marke-qr { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 8px; }
-    .marke-qr img { width: 20mm; height: 20mm; }
-    .marke-qr-text { font-size: 7pt; color: #444; line-height: 1.4; text-align: right; }
+    .weg-qr img { width: 26mm; height: 26mm; display: block; }
+    .weg-qr-text { font-size: 7.5pt; margin-top: 4px; max-width: 30mm; line-height: 1.3; }
+    .steuer { width: 72mm; }
+    .steuer table { border-collapse: collapse; width: 100%; }
+    .steuer th, .steuer td { font-size: 9pt; padding: 2px 0; text-align: left; }
+    .steuer th { font-weight: 700; border-bottom: 1px solid #000; }
+    .steuer td + td, .steuer th + th { text-align: right; }
+    .dank { font-size: 17pt; font-weight: 800; text-align: center; margin-top: 30px; }
+    .rechtstext { font-size: 8.5pt; text-align: center; margin-top: 4px; }
+    .fuss { margin-top: 16px; padding-top: 14px; border-top: 1px dashed #000; }
+    .marke { display: flex; flex-direction: row-reverse; align-items: center; justify-content: space-between; gap: 16px; }
+    .marke-text { display: flex; align-items: center; gap: 12px; }
+    .marke-logo { width: 20mm; height: 8mm; }
+    .marke-url { font-size: 10pt; font-weight: 700; }
+    .marke-qr-bild { width: 22mm; height: 22mm; display: block; }
+    .marke-qr-text { font-size: 10pt; line-height: 1.35; }
     `;
 
     var stilRolle = `
     @page { size: 80mm auto; margin: 4mm; }
-    body { font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
-           font-size: 11px; width: 72mm; margin: 0 auto; color: #000; line-height: 1.4; }
-    .kopf { text-align: center; padding-bottom: 8px; }
-    .trennlinie { height: 2px; background: #000; margin-bottom: 10px; }
-    .haus-name { font-size: 16px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; }
-    .haus-zeile { font-size: 9px; margin-top: 3px; }
+    body { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+           font-size: 12px; width: 72mm; margin: 0 auto; color: #000; line-height: 1.4;
+           font-variant-numeric: tabular-nums; }
+    .anzeige, .haus-name, .auftrag-nr, .auftrag-zeit, .gesamt td, .dank { font-family: Epilogue, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; }
+    .oben { display: flex; flex-direction: column; align-items: center; text-align: center; }
+    .haus-name { font-size: 22px; font-weight: 900; letter-spacing: -0.02em; line-height: 1.05; text-transform: uppercase; }
+    .haus-zeile { font-size: 11px; margin-top: 2px; }
+    .kopf img { margin: 0 auto 6px !important; }
+    .trennlinie { align-self: stretch; height: 3px; margin: 12px 0;
+                  background: #000; }
+    .auftrag { display: flex; flex-direction: column; align-items: center; }
+    .auftrag .feldname { letter-spacing: 0.2em; }
+    .auftrag-nr { font-size: 60px; font-weight: 900; letter-spacing: -0.04em; line-height: 0.95; margin-top: 4px; }
+    .auftrag-rechts { display: flex; flex-direction: column; align-items: center; margin-top: 6px; }
     .art-chip { display: inline-block; background: #000; color: #fff;
-                border-radius: 999px; padding: 3px 10px; font-size: 10px; font-weight: 800;
+                border-radius: 999px; padding: 3px 12px; font-size: 12px; font-weight: 800;
                 letter-spacing: 0.12em; text-transform: uppercase; }
-    .auftrag { display: flex; align-items: center; justify-content: space-between; gap: 8px;
-               padding-bottom: 8px; border-bottom: 1px solid #000; }
-    .auftrag-nr { font-size: 30px; font-weight: 900; letter-spacing: -0.5px; line-height: 1; }
-    .auftrag-rechts { text-align: right; }
-    .auftrag-zeit { font-size: 13px; font-weight: 800; margin-top: 4px; }
-    .auftrag-datum { font-size: 9px; color: #444; margin-top: 2px; }
-    .zwei { margin: 8px 0 0; }
-    .zwei > div + div { margin-top: 8px; }
-    .feldname { font-size: 8px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #555; }
-    .feldwert { font-size: 11px; }
-    .beleg-nr { font-size: 13px; font-weight: 800; }
-    table.pos { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    table.pos th { font-size: 8px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
-                   color: #555; text-align: left; padding: 0 0 4px; border-bottom: 1px solid #000; }
-    table.pos td { padding: 5px 0; border-bottom: 1px dotted #999; vertical-align: top; font-size: 12px; font-weight: 700; }
-    .anz { width: 26px; font-weight: 800; }
-    .preis { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-    .gnr { display: inline-block; min-width: 22px; margin-right: 5px; padding: 0 3px; border: 1.5px solid #000;
-           border-radius: 3px; text-align: center; font-weight: 900; font-size: 11px; }
-    .zusatz { font-size: 10px; color: #333; font-weight: 400; }
-    .wunsch { font-size: 11px; font-weight: 800; }
-    .summen { width: 100%; margin-top: 8px; border-collapse: collapse; }
-    .summen tr td { padding: 2px 0; font-size: 11px; }
-    .summen tr td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
-    .gesamt td { border-top: 2px solid #000; padding-top: 6px !important; font-size: 15px; font-weight: 800; }
-    .zahlart { text-align: right; font-size: 11px !important; color: #000; font-weight: 800; padding-top: 4px !important; }
-    .weg { margin-top: 10px; padding: 9px; border: 2px dashed #000; border-radius: 4px; text-align: center; }
-    .weg-titel { font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
-    .weg-adresse { font-size: 12px; font-weight: 700; margin-top: 4px; }
-    .weg-tel, .weg-zeit { font-size: 10px; margin-top: 2px; }
-    .weg-zeit { font-weight: 700; }
-    .weg-qr img { width: 34mm; height: 34mm; display: block; margin: 7px auto 0; }
-    .weg-qr-text { font-size: 8px; color: #555; margin-top: 3px; }
-    .hinweis { margin-top: 8px; padding: 7px 8px; border: 2px solid #000; border-radius: 4px; }
-    .hinweis-text { font-size: 13px; font-weight: 800; }
+    .auftrag-zeit { font-size: 17px; font-weight: 800; margin-top: 6px; }
+    .auftrag-datum { font-size: 11px; margin-top: 2px; }
+    .gast { margin-top: 12px; padding-top: 10px; border-top: 1px dashed #000; }
+    .feldname { font-size: 11px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; }
+    .feldwert { font-size: 12px; }
+    .gast-name { font-weight: 700; font-size: 14px; }
+    .hinweis { margin-top: 10px; padding: 8px 10px; border: 2px solid #000; border-radius: 9px; }
+    .hinweis .feldname { font-weight: 800; letter-spacing: 0.1em; }
+    .hinweis-text { font-size: 13px; font-weight: 700; }
+    table.pos { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    table.pos th { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+                   text-align: left; padding: 0 0 5px; border-bottom: 2px solid #000; }
+    table.pos td { padding: 7px 0; border-bottom: 1px dotted #000; vertical-align: baseline; }
+    table.pos th { padding-right: 6px; }
+    table.pos th.preis { text-align: right; padding-right: 0; }
+    .nr { width: 32px; }
+    .anz { width: 32px; font-weight: 800; font-size: 14px; }
+    .gname { font-weight: 700; font-size: 14px; line-height: 1.25; }
+    .preis { text-align: right; white-space: nowrap; font-weight: 700; font-size: 13px; padding-left: 4px !important; }
+    .gnr { display: inline-block; min-width: 24px; padding: 0 2px; border: 1.5px solid #000;
+           border-radius: 5px; text-align: center; font-weight: 800; font-size: 12px; }
+    .zusatz { font-size: 11px; }
+    .wunsch { font-size: 12px; font-style: italic; font-weight: 700; }
+    .summen-block { margin-top: 8px; }
+    .summen { width: 100%; border-collapse: collapse; }
+    .summen tr td { padding: 2px 0; font-size: 12px; }
+    .summen tr td:last-child { text-align: right; }
+    .summen .gesamt td { border-top: 3px solid #000; padding-top: 6px !important; font-size: 18px; font-weight: 900; }
+    .summen .gesamt td:last-child { font-size: 22px; }
+    .zahlart { margin-top: 10px; background: #000; color: #fff; text-align: center; font-weight: 800;
+               font-size: 13px; letter-spacing: 0.08em; padding: 7px 8px; border-radius: 999px; text-transform: uppercase; }
+    .weg { display: flex; gap: 10px; align-items: center; margin-top: 10px; padding: 9px 10px;
+           border: 2px solid #000; border-radius: 9px; }
+    .weg-text { flex: 1; min-width: 0; }
+    .weg-titel { font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+    .weg-adresse { font-size: 14px; font-weight: 800; margin-top: 2px; line-height: 1.25; }
+    .weg-tel { font-size: 11px; margin-top: 2px; }
+    .weg-qr { flex-shrink: 0; text-align: center; }
+    .weg-qr img { width: 20mm; height: 20mm; display: block; }
+    .weg-qr-text { font-size: 9px; margin-top: 2px; max-width: 22mm; line-height: 1.25; }
     .steuer { margin-top: 10px; }
     .steuer table { width: 100%; border-collapse: collapse; }
-    .steuer th, .steuer td { font-size: 9px; padding: 2px 0; text-align: left; }
-    .steuer th { font-weight: 700; border-bottom: 1px dotted #999; }
+    .steuer th, .steuer td { font-size: 11px; padding: 1px 0; text-align: left; }
+    .steuer th { font-weight: 700; border-bottom: 1px solid #000; }
     .steuer td + td, .steuer th + th { text-align: right; }
-    .fuss { margin-top: 12px; padding-top: 8px; border-top: 1px dashed #000; text-align: center; }
-    .rechtstext { font-size: 8px; color: #444; line-height: 1.5; margin-top: 8px; }
-    .marke { margin-top: 10px; }
-    .marke-zeile { display: flex; align-items: center; justify-content: center; gap: 6px; }
-    .marke-logo { width: 10mm; height: 10mm; border-radius: 2mm; }
-    .marke-name { font-size: 11px; text-align: left; }
-    .marke-url { font-size: 8px; color: #555; text-align: left; }
-    .marke-qr { margin-top: 8px; text-align: center; }
-    .marke-qr img { width: 24mm; height: 24mm; display: block; margin: 0 auto; }
-    .marke-qr-text { font-size: 8px; color: #333; margin-top: 3px; line-height: 1.4; }
-    .dank { font-size: 13px; font-weight: 700; margin-top: 8px; }
+    .dank { font-size: 18px; font-weight: 800; text-align: center; margin-top: 12px; }
+    .rechtstext { font-size: 11px; text-align: center; line-height: 1.35; margin-top: 4px; }
+    .fuss { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #000; }
+    .marke { display: flex; align-items: center; gap: 10px; }
+    .marke-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .marke-logo { width: 17mm; height: 7mm; }
+    .marke-url { font-size: 11px; font-weight: 700; }
+    .marke-qr-bild { width: 24mm; height: 24mm; display: block; flex-shrink: 0; }
+    .marke-qr-text { font-size: 11px; line-height: 1.3; }
+    .marke-qr-text strong { font-weight: 400; }
     `;
 
     // UNSER LOGO UNTEN, DAS DES LOKALS OBEN (Ibo, 12.10.2026: "beim Bon
@@ -62781,17 +62766,17 @@ function printOrderBrowser(orderId) {
     // Bilder, die nicht laden, blendet bonDruckenWennFertig aus.
     var _bestellUrl = restSlug ? 'https://kiekmolin.de/' + encodeURIComponent(restSlug) : '';
     var markeHtml = '<div class="marke">'
-        + '<div class="marke-zeile"><svg class="marke-logo" viewBox="0 0 48 48" role="img" aria-label="Kiek mol in"><rect width="48" height="48" rx="10" fill="#000"/><text x="24" y="30.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="16.5" fill="#fff">Kiek</text></svg>'
-        + '<div><div class="marke-name"><strong>Kiek mol</strong> <em>in</em></div><div class="marke-url">kiekmolin.de</div></div></div>'
+        + (_bestellUrl ? '<img class="marke-qr-bild" src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&ecc=M&margin=0&data=' + encodeURIComponent(_bestellUrl) + '" alt="QR-Code: nächstes Mal direkt bestellen">' : '')
+        + '<div class="marke-text">'
+        + '<svg class="marke-logo" viewBox="0 0 64 26" role="img" aria-label="Kiek mol in"><rect width="64" height="26" rx="6" fill="#000"/><text x="32" y="18.5" text-anchor="middle" font-family="Epilogue, Helvetica, Arial, sans-serif" font-weight="800" font-size="16" fill="#fff">Kiek</text></svg>'
         + (_bestellUrl
-            ? '<div class="marke-qr"><img src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&ecc=M&margin=0&data=' + encodeURIComponent(_bestellUrl) + '" alt="QR-Code: nächstes Mal direkt bestellen">'
-              + '<div class="marke-qr-text">Nächstes Mal direkt hier bestellen<br><strong>' + escapeHtml(_bestellUrl.replace('https://', '')) + '</strong></div></div>'
-            : '')
-        + '</div>';
+            ? '<div class="marke-qr-text"><b>Nächstes Mal direkt hier bestellen</b><br><strong>' + escapeHtml(_bestellUrl.replace('https://', '')) + '</strong></div>'
+            : '<div class="marke-url">kiekmolin.de</div>')
+        + '</div></div>';
 
     let printContent = `
 <!DOCTYPE html>
-<html lang="de"><head><meta charset="UTF-8"><title>Beleg ${belegNr}</title>
+<html lang="de"><head><meta charset="UTF-8"><title>Bon ${belegNr}</title>
 <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -62801,77 +62786,75 @@ function printOrderBrowser(orderId) {
     img { filter: grayscale(1); }
     /* Nichts darf mitten in einem Block umbrechen -- daran ist der alte
        Beleg auf A4 gescheitert und lief auf zwei Blaetter. */
-    .weg, .steuer, .fuss, table.pos tr { break-inside: avoid; page-break-inside: avoid; }
+    .weg, .hinweis, .steuer, .fuss, .summen-block, table.pos tr { break-inside: avoid; page-break-inside: avoid; }
     ${istRolle ? stilRolle : stilA4}
 </style></head><body>
 
+<div class="oben">
 <div class="kopf">
     <div>
         ${logoHtml}
         <div class="haus-name">${escapeHtml(restName.trim())}</div>
-        <div class="haus-zeile">${[restAdresse, restPhone ? 'Tel: ' + restPhone : '', restEmail, restWebsite].filter(Boolean).map(escapeHtml).join(' · ')}</div>
+        ${restAdresse ? '<div class="haus-zeile">' + escapeHtml(restAdresse) + '</div>' : ''}
+        ${[restPhone ? 'Tel. ' + restPhone : '', restEmail, restWebsite].filter(Boolean).length ? '<div class="haus-zeile">' + [restPhone ? 'Tel. ' + restPhone : '', restEmail, restWebsite].filter(Boolean).map(escapeHtml).join(' · ') + '</div>' : ''}
     </div>
 </div>
 <div class="trennlinie"></div>
 
 <!-- Nummer und Uhrzeit GROSS: am Tresen aus einem Meter lesbar. -->
 <div class="auftrag">
+    <div class="feldname">Bestellung</div>
     <div class="auftrag-nr">#${escapeHtml(belegNr)}</div>
     <div class="auftrag-rechts">
         <div class="art-chip">${artText}</div>
         ${fertigStr ? '<div class="auftrag-zeit">' + (lieferung ? 'Ankunft' : (order.order_type === 'dine_in' ? 'Fertig' : 'Abholbereit')) + ' ca. ' + fertigStr + ' Uhr</div>' : ''}
-        <div class="auftrag-datum">Bestellt ${datumStr} · ${zeitStr} Uhr</div>
+        <div class="auftrag-datum">Bestellt ${datumStr}, ${zeitStr} Uhr</div>
     </div>
 </div>
-
-<div class="zwei">
-    <div>
-        <div class="feldname">${lieferung ? 'Lieferung an' : (order.order_type === 'dine_in' ? 'Gast' : 'Abholung durch')}</div>
-        <div class="feldwert" style="font-weight:700;">${escapeHtml(order.customer_name || 'Gast')}</div>
-        ${order.customer_phone ? '<div class="feldwert" style="color:#5b6663;">' + escapeHtml(order.customer_phone) + '</div>' : ''}
-    </div>
 </div>
 
-<table class="pos">
-    <thead><tr><th>Anz</th><th>Artikel</th><th class="preis">Preis</th></tr></thead>
-    <tbody>${itemsHtml}</tbody>
-</table>
+<div class="gast">
+    <div class="feldname">${lieferung ? 'Lieferung an' : (order.order_type === 'dine_in' ? 'Gast' : 'Abholung durch')}</div>
+    <div class="gast-name">${escapeHtml(order.customer_name || 'Gast')}</div>
+    ${order.customer_phone ? '<div class="feldwert">' + escapeHtml(order.customer_phone) + '</div>' : ''}
+</div>
+
+${wegHtml}
 
 ${hinweisHtml}
 
+<table class="pos">
+    <thead><tr>${mitNummern ? '<th class="nr">Nr.</th>' : ''}<th class="anz">Anz</th><th>Gericht</th><th class="preis">EUR</th></tr></thead>
+    <tbody>${itemsHtml}</tbody>
+</table>
+
+<div class="summen-block"><div class="summen-rechts">
 <table class="summen">
     <tr><td>Zwischensumme</td><td>${formatPrice(zwischensumme)}</td></tr>
     ${liefergebuehr > 0 ? '<tr><td>Liefergebühr</td><td>' + formatPrice(liefergebuehr) + '</td></tr>' : ''}
     ${rabatt > 0 ? '<tr><td>Rabatt</td><td>– ' + formatPrice(rabatt) + '</td></tr>' : ''}
     ${trinkgeld > 0 ? '<tr><td>Trinkgeld</td><td>' + formatPrice(trinkgeld) + '</td></tr>' : ''}
-    <tr class="gesamt"><td>Gesamt</td><td>${formatPrice(bruttoGesamt)}</td></tr>
-    <tr><td colspan="2" class="zahlart">${escapeHtml(zahlZeile)}</td></tr>
+    <tr class="gesamt"><td>Summe</td><td>${formatPrice(bruttoGesamt)}</td></tr>
 </table>
-
-${wegHtml}
-
+<div class="zahlart">${escapeHtml(zahlZeile)}</div>
+</div>
 <div class="steuer">
-    <div>
-        <div class="feldname">MwSt.-Ausweis gem. §14 UStG</div>
-        <table style="margin-top:5px;">
-            <tr><th>Satz</th><th>Netto</th><th>MwSt</th><th>Brutto</th></tr>
-            <tr>
-                <td>${mwstSatz},00 %</td>
-                <td>${formatPrice(nettoGesamt)}</td>
-                <td>${formatPrice(mwstBetrag)}</td>
-                <td>${formatPrice(bruttoGesamt)}</td>
-            </tr>
-        </table>
-    </div>
+    <table>
+        <tr><th>MwSt</th><th>Netto</th><th>Steuer</th><th>Brutto</th></tr>
+        <tr>
+            <td>${mwstSatz} %</td>
+            <td>${formatPrice(nettoGesamt)}</td>
+            <td>${formatPrice(mwstBetrag)}</td>
+            <td>${formatPrice(bruttoGesamt)}</td>
+        </tr>
+    </table>
+</div>
 </div>
 
-<div class="dank">Vielen Dank für Ihre Bestellung!</div>
+<div class="dank">Vielen Dank!</div>
+<div class="rechtstext">Bestellbestätigung, kein Kassenbon (§ 146a AO, ohne TSE) – den Kassenbon gibt das Restaurant aus.</div>
 
 <div class="fuss">
-    <div class="rechtstext">
-        Bestellbestätigung, kein Kassenbon (§ 146a AO, ohne TSE) – den Kassenbon gibt das Restaurant aus.
-        Preise inkl. ${mwstSatz} % MwSt.
-    </div>
     ${markeHtml}
 </div>
 
