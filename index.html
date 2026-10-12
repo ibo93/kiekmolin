@@ -62424,6 +62424,7 @@ function printOrderBrowser(orderId) {
     var restEmail = rest ? rest.email : '';
     var restLogo = rest ? rest.logo : null;
     var restWebsite = rest ? rest.website : '';
+    var restSlug = rest && rest.slug ? String(rest.slug) : '';
 
     // Adresse formatieren
     var restAdresse = '';
@@ -62643,8 +62644,13 @@ function printOrderBrowser(orderId) {
             display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; }
     .rechtstext { font-size: 6.5pt; color: #9aa39f; line-height: 1.6; max-width: 106mm; }
     .marke { text-align: right; flex-shrink: 0; }
+    .marke-zeile { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+    .marke-logo { width: 12mm; height: 12mm; border-radius: 2.5mm; }
     .marke-name { font-family: Baskerville, 'Hoefler Text', Georgia, 'Times New Roman', serif; font-size: 11pt; color: #00251e; }
     .marke-url { font-size: 7pt; color: #9aa39f; letter-spacing: 0.08em; margin-top: 2px; }
+    .marke-qr { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+    .marke-qr img { width: 20mm; height: 20mm; }
+    .marke-qr-text { font-size: 7pt; color: #5b6663; line-height: 1.4; text-align: right; }
     `;
 
     var stilRolle = `
@@ -62690,11 +62696,31 @@ function printOrderBrowser(orderId) {
     .steuer td + td, .steuer th + th { text-align: right; }
     .fuss { margin-top: 12px; padding-top: 8px; border-top: 1px dashed #000; text-align: center; }
     .rechtstext { font-size: 8px; color: #444; line-height: 1.5; margin-top: 8px; }
-    .marke { margin-top: 8px; }
-    .marke-name { font-size: 11px; }
-    .marke-url { font-size: 8px; color: #555; }
+    .marke { margin-top: 10px; }
+    .marke-zeile { display: flex; align-items: center; justify-content: center; gap: 6px; }
+    .marke-logo { width: 10mm; height: 10mm; border-radius: 2mm; }
+    .marke-name { font-size: 11px; text-align: left; }
+    .marke-url { font-size: 8px; color: #555; text-align: left; }
+    .marke-qr { margin-top: 8px; text-align: center; }
+    .marke-qr img { width: 24mm; height: 24mm; display: block; margin: 0 auto; }
+    .marke-qr-text { font-size: 8px; color: #333; margin-top: 3px; line-height: 1.4; }
     .dank { font-size: 13px; font-weight: 700; margin-top: 8px; }
     `;
+
+    // UNSER LOGO UNTEN, DAS DES LOKALS OBEN (Ibo, 12.10.2026: "beim Bon
+    // muss unser Logo"). Oben steht der Verkaeufer -- das Lokal. Unten der
+    // Absender der Bestellung, mit QR-Code zur Seite GENAU dieses Lokals:
+    // wer ihn scannt, bestellt beim naechsten Mal wieder direkt dort.
+    // Bilder, die nicht laden, blendet bonDruckenWennFertig aus.
+    var _bestellUrl = restSlug ? 'https://kiekmolin.de/' + encodeURIComponent(restSlug) : '';
+    var markeHtml = '<div class="marke">'
+        + '<div class="marke-zeile"><img class="marke-logo" src="' + location.origin + '/kiek-logo.png" alt="Kiek mol in">'
+        + '<div><div class="marke-name"><strong>Kiek mol</strong> <em>in</em></div><div class="marke-url">kiekmolin.de</div></div></div>'
+        + (_bestellUrl
+            ? '<div class="marke-qr"><img src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&ecc=M&margin=0&data=' + encodeURIComponent(_bestellUrl) + '" alt="QR-Code: nächstes Mal direkt bestellen">'
+              + '<div class="marke-qr-text">Nächstes Mal direkt hier bestellen<br><strong>' + escapeHtml(_bestellUrl.replace('https://', '')) + '</strong></div></div>'
+            : '')
+        + '</div>';
 
     let printContent = `
 <!DOCTYPE html>
@@ -62771,10 +62797,7 @@ ${wegHtml}
         des § 146a AO i.V.m. KassenSichV. Erstellt ohne TSE, kein Kassenbon — den
         offiziellen Kassenbon stellt das Restaurant aus. Alle Preise inkl. ${mwstSatz} % MwSt.
     </div>
-    <div class="marke">
-        <div class="marke-name"><strong>Kiek mol</strong> <em>in</em></div>
-        <div class="marke-url">kiekmolin.de</div>
-    </div>
+    ${markeHtml}
 </div>
 
 </body></html>`;
