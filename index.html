@@ -14633,6 +14633,30 @@
 .dark-mode .fahrer-hinweis, .dark-mode .fahrer-chip.fahrer-rueckweg, .dark-mode .fahrer-chip.fahrer-gleich { background: #ffd54f; color: #00251e; border-color: #ffd54f; }
 .dark-mode .fahrer-fehler { background: #3a1414; color: #fecaca; }
 .dark-mode .fahrer-klein.fahrer-weg { border-color: #fca5a5; color: #fca5a5; }
+/* BESONDERER ABEND (Silvester ...) ganz oben auf der Lokalseite. Deckend,
+   kein Glas (Inhalt). Gold nur als Flaeche/Zierde, Schrift in lp-Tokens. */
+.abend-bereich { max-width: 1280px; margin: 0 auto; padding: 0 24px 72px; display: grid; gap: 24px; }
+.abend-karte { background: var(--lp-karte, #ffffff); color: var(--lp-tinte, var(--ink-deep, #00251e)); border: 2px solid var(--lp-akzent, #735c00); border-radius: 28px; padding: 28px 24px; scroll-margin-top: 170px; }
+.abend-vorzeile { font-family: Epilogue, sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.3em; text-transform: uppercase; color: var(--lp-akzent, #735c00); margin-bottom: 10px; }
+.abend-titel { font-family: Epilogue, sans-serif; font-size: clamp(30px, 5vw, 48px); font-weight: 800; line-height: 1.05; letter-spacing: -0.02em; margin: 0; color: var(--lp-tinte, var(--ink-deep, #00251e)); }
+.abend-text { margin: 10px 0 0; font-size: 15px; line-height: 1.6; color: var(--lp-text, var(--text-secondary, #404946)); }
+.abend-fakten { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.abend-preis, .abend-platz { display: inline-flex; align-items: center; padding: 8px 14px; border-radius: 9999px; font-size: 14px; font-weight: 700; background: var(--lp-akzent-hell, #fff4cc); color: var(--lp-akzent-text, #5c4600); }
+.abend-platz.abend-voll { background: #fef2f2; color: #991b1b; }
+.abend-spalten { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; margin-top: 22px; }
+.abend-zwischen { font-family: Epilogue, sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: var(--lp-gedaempft, #6b7280); margin: 0 0 10px; }
+.abend-menue, .abend-ablauf { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.abend-menue li { color: var(--lp-tinte, var(--ink-deep, #00251e)); font-size: 16px; line-height: 1.45; padding-bottom: 8px; border-bottom: 1px solid var(--lp-rand, rgba(0,0,0,0.08)); }
+.abend-menue li:last-child { border-bottom: none; }
+.abend-ablauf-zeile, .abend-ablauf li { color: var(--lp-tinte, var(--ink-deep, #00251e)); display: flex; gap: 12px; font-size: 15px; line-height: 1.45; }
+.abend-uhr { font-weight: 800; min-width: 48px; font-variant-numeric: tabular-nums; }
+.abend-knopf { margin-top: 24px; width: 100%; min-height: 56px; border: none; border-radius: 9999px; background: var(--marke, #003d33); color: #ffffff; font-family: Epilogue, sans-serif; font-size: 16px; font-weight: 800; cursor: pointer; }
+.abend-knopf:focus-visible { outline: 3px solid var(--lp-akzent, #735c00); outline-offset: 3px; }
+@media (min-width: 720px) { .abend-karte { padding: 36px 40px; } .abend-knopf { width: auto; padding: 0 36px; } }
+.dark-mode .abend-platz.abend-voll { background: #3a1414; color: #fecaca; }
+/* ".dark-mode li" setzt Listen mit !important grau (#9ca8a4) -- die Regel kennt den Block nicht.
+   Menue und Ablauf sind hier der Inhalt, nicht Nebentext. */
+.dark-mode #restaurantLanding .abend-menue li, .dark-mode #restaurantLanding .abend-ablauf li { color: var(--lp-tinte, #f3f4f4) !important; }
 .andrang-wahl { display: flex; gap: 4px; padding: 4px; border-radius: 9999px; background: rgba(255,255,255,0.12); }
 .andrang-wahl button { flex: 1; min-height: 40px; padding: 0 8px; border: 0; border-radius: 9999px; background: transparent; color: #ffffff; font: 600 13px Inter, sans-serif; cursor: pointer; white-space: nowrap; }
 .andrang-wahl button[aria-pressed="true"] { background: #ffffff; color: #00251e; font-weight: 800; }
@@ -21896,6 +21920,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         <button type="button" class="dash-btn" onclick="aktionFormular('ladies')" style="padding:8px 14px;border-radius:9999px;border:1px solid var(--border-color);background:var(--bg-card);font-size:13px;font-weight:700;cursor:pointer;">+ Ladies Night</button>
                         <button type="button" class="dash-btn" onclick="aktionFormular('party')" style="padding:8px 14px;border-radius:9999px;border:1px solid var(--border-color);background:var(--bg-card);font-size:13px;font-weight:700;cursor:pointer;">+ Party</button>
                         <button type="button" class="dash-btn" onclick="aktionFormular('happyhour')" style="padding:8px 14px;border-radius:9999px;border:1px solid var(--border-color);background:var(--bg-card);font-size:13px;font-weight:700;cursor:pointer;">+ Happy Hour</button>
+                        <button type="button" class="dash-btn" onclick="aktionFormular('silvester')" style="padding:8px 14px;border-radius:9999px;border:1px solid var(--border-color);background:var(--bg-card);font-size:13px;font-weight:700;cursor:pointer;">+ Silvester / besonderer Abend</button>
                         <button type="button" class="dash-btn" onclick="aktionFormular('online')" style="padding:8px 14px;border-radius:9999px;border:1px solid var(--border-color);background:var(--bg-card);font-size:13px;font-weight:700;cursor:pointer;">+ 10 % Online-Reservierung</button>
                         <button type="button" class="dash-btn" onclick="aktionFormular('eigene')" style="padding:8px 14px;border-radius:9999px;border:none;background:#735c00;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">+ Eigene Aktion</button>
                     </div>
@@ -26310,6 +26335,10 @@ function ausgebuchtZeitraeume(restaurant, heute) {
         var m = String(f).match(/^ausgebucht:(\d{4}-\d{2}-\d{2}):(\d{4}-\d{2}-\d{2})$/);
         if (m && m[1] <= m[2] && m[2] >= heute) liste.push({ von: m[1], bis: m[2] });
     });
+    // Ausgebuchte besondere Abende (Silvester-Kontingent voll), gemerkt von
+    // abendPlaetzeLaden -- dann gibt es auch dort die Warteliste.
+    var abende = (restaurant && typeof window !== 'undefined' && window._abendVoll && window._abendVoll[restaurant.id]) || [];
+    abende.forEach(function (z) { if (z.bis >= heute) liste.push({ von: z.von, bis: z.bis, titel: z.titel }); });
     return liste.sort(function (a, b) { return a.von < b.von ? -1 : 1; });
 }
 function ausgebuchtAm(restaurant, tag) {
@@ -29653,6 +29682,16 @@ function sendReservationEmail(reservationId, eventType) {
     } catch(e) {}
 }
 
+// Was der Gast liest, wenn der Server "ausgebucht" sagt. Bei einem
+// besonderen Abend (Silvester-Kontingent) gibt es oft noch Plaetze -- nur
+// nicht fuer so viele Personen.
+function reservierungVollText(antwort) {
+    if (antwort && antwort.kontingent && antwort.frei > 0) {
+        return 'Für ' + (antwort.titel || 'diesen Abend') + ' sind nur noch ' + antwort.frei + (antwort.frei === 1 ? ' Platz' : ' Plätze')
+            + ' frei. Reserviere gern für weniger Personen oder setz dich auf die Warteliste.';
+    }
+    return 'Ausgebucht – an diesem Tag ist leider alles voll. Wähle gern ein anderes Datum oder setz dich auf die Warteliste.';
+}
 async function saveReservationToSupabase(reservation) {
     // ZWEI STILLE AUSGAENGE, GEFUNDEN AM 06.10.2026.
     //
@@ -29817,7 +29856,7 @@ async function saveReservationToSupabase(reservation) {
             // Ausgebucht (der Wirt hat den Zeitraum gerade eingetragen, die
             // App kannte ihn noch nicht): klar sagen, nicht "HTTP 409".
             if (antwort && antwort.ausgebucht) {
-                _resFehler.gastText = 'Ausgebucht – an diesem Tag ist leider alles voll. Wähle gern ein anderes Datum oder setz dich auf die Warteliste.';
+                _resFehler.gastText = reservierungVollText(antwort);
                 _resFehler.ausgebucht = true;
             }
             throw _resFehler;
@@ -31755,7 +31794,7 @@ function updateDailyForecast(daily) {
 }
 
 // ==================== RESERVATION FUNCTIONS ====================
-function openReservation(restaurantId) {
+function openReservation(restaurantId, datum) {
     const restaurant = APP_DATA.restaurants.find(r => r.id == restaurantId);
     if (!restaurant) {
         console.error('Restaurant nicht gefunden:', restaurantId);
@@ -31822,6 +31861,12 @@ function openReservation(restaurantId) {
     setTimeout(function() {
         resCalInit();
         resGuestInit();
+        // Vom Block "besonderer Abend": gleich dieser Tag, nicht heute.
+        if (datum && /^\d{4}-\d{2}-\d{2}$/.test(datum) && datum >= todayStrLocal()) {
+            _resCalYear = Number(datum.slice(0, 4)); _resCalMonth = Number(datum.slice(5, 7)) - 1;
+            resCalSelectDate(datum);
+            return;
+        }
         if (typeof loadAvailableSlots === 'function') loadAvailableSlots();
         if (typeof updateResSummary === 'function') updateResSummary();
     }, 200);
@@ -45822,6 +45867,9 @@ async function showRestaurantLanding(rest) {
             })()}
         </div>
 
+        <!-- Besonderer Abend (Silvester ...) GANZ OBEN, vor allem anderen:
+             der QR-Code auf der gedruckten Karte fuehrt hierher. -->
+        <div id="lpAbend"></div>
         <!-- Tagesangebote. Wird nach dem Einhaengen von
              renderRestaurantSpecials gefuellt und bleibt leer, wenn das
              Haus heute keines hat. -->
@@ -46141,6 +46189,7 @@ async function showRestaurantLanding(rest) {
     // #lpSpecials noch nicht.
     if (typeof renderRestaurantSpecials === 'function') renderRestaurantSpecials(rest.id);
     if (typeof renderRestaurantAktionen === 'function') renderRestaurantAktionen(rest.id);
+    if (typeof renderRestaurantAbend === 'function') renderRestaurantAbend(rest.id);
 
     // Sticky Bottom Bar entfernt (Liquid Glass Redesign - Action Bar ist oben sticky)
     var oldSticky = document.getElementById('lpStickyBar');
@@ -82004,12 +82053,21 @@ function aktionenLaden(restaurantId, alsWirt) {
     if (!restaurantId) return Promise.resolve([]);
     var schluessel = restaurantId + (alsWirt ? ':wirt' : '');
     if (!alsWirt && _aktionenCache[schluessel]) return _aktionenCache[schluessel];
-    var url = SUPABASE_URL + '/rest/v1/aktionen?restaurant_id=eq.' + encodeURIComponent(restaurantId)
+    // Mit den Feldern fuer einen besonderen Abend (SQL 45: Menue, Ablauf,
+    // Preis, Plaetze). FEHLEN DIE SPALTEN, antwortet Supabase mit 400 -- und
+    // dann waeren ALLE Aktionen weg, auch die Ladies Night, die mit SQL 45
+    // nichts zu tun hat. Darum: einmal ohne die neuen Felder nachfragen.
+    var basis = SUPABASE_URL + '/rest/v1/aktionen?restaurant_id=eq.' + encodeURIComponent(restaurantId)
         + (alsWirt ? '' : '&aktiv=eq.true')
-        + '&select=id,titel,beschreibung,art,gilt_fuer,vorteil,wochentage,datum,von,bis,gueltig_ab,gueltig_bis,aktiv,reihenfolge'
-        + '&order=reihenfolge.asc,erstellt_am.asc';
+        + '&select=id,titel,beschreibung,art,gilt_fuer,vorteil,wochentage,datum,von,bis,gueltig_ab,gueltig_bis,aktiv,reihenfolge';
+    var ende = '&order=reihenfolge.asc,erstellt_am.asc';
     var token = (alsWirt && typeof kmiToken === 'function') ? kmiToken() : SUPABASE_KEY;
-    var p = fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + token } })
+    var kopf = { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + token } };
+    var p = fetch(basis + ',menue,ablauf,preis_pp,plaetze' + ende, kopf)
+        .then(function (res) {
+            if (res.status !== 400) { if (res.ok) window._aktionenAbendFehlt = false; return res; }
+            return fetch(basis + ende, kopf).then(function (r2) { if (r2.ok) window._aktionenAbendFehlt = true; return r2; });
+        })
         .then(function (res) {
             if (res.status === 404 || res.status === 400) { window._aktionenTabelleFehlt = true; return []; }
             if (!res.ok) return [];
@@ -82064,6 +82122,141 @@ function renderRestaurantAktionen(restaurantId) {
     });
 }
 window.renderRestaurantAktionen = renderRestaurantAktionen;
+
+// ---- BESONDERER ABEND GANZ OBEN (Silvester ...) ---------------------------
+//
+// Ibo, 12.10.2026, fuer Luett Italia: Der QR-Code auf der gedruckten
+// Silvester-Karte fuehrt auf die Seite des Lokals -- "und der Silvester-Block
+// kommt rein in der Hauptseite". Mit Menue, Ablauf, Preis und Restplaetzen.
+//
+// Welche Aktion das ist: eine einmalige (mit Datum), heute oder spaeter,
+// hoechstens 120 Tage voraus, mit Menue, Ablauf, Preis ODER Plaetzen
+// (SQL 45). Am Tag danach ist sie von selbst weg -- ein gedruckter QR-Code
+// fuehrt dann einfach auf die normale Seite.
+//
+// Die Restplaetze zaehlt der Server (aktion-plaetze.js). Kommt keine Zahl,
+// steht KEINE da -- lieber nichts als eine erfundene.
+var ABEND_TAGE_VORAUS = 120;
+function abendAktionen(liste, heute) {
+    var h = heute || aktionDatumVon(new Date());
+    var grenze = new Date(h + 'T12:00:00'); grenze.setDate(grenze.getDate() + ABEND_TAGE_VORAUS);
+    var bis = aktionDatumVon(grenze);
+    return (Array.isArray(liste) ? liste : []).filter(function (a) {
+        if (!a || a.aktiv === false || !a.datum) return false;
+        var d = String(a.datum).slice(0, 10);
+        if (d < h || d > bis) return false;
+        return !!(a.menue || a.ablauf || a.preis_pp != null || a.plaetze != null);
+    }).sort(function (x, y) { return String(x.datum) < String(y.datum) ? -1 : 1; }).slice(0, 2);
+}
+// "Silvester 2026" -> ["silvester-2026", "silvester"]: beides als Sprungmarke,
+// damit der QR-Code mit #silvester auch dann passt, wenn der Titel laenger ist.
+function abendAnker(titel) {
+    var s = String(titel || '').toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+        .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    if (!s) return [];
+    var erstes = s.split('-')[0];
+    return erstes && erstes !== s ? [s, erstes] : [s];
+}
+function abendPreis(p) {
+    var n = Number(p);
+    if (!(n >= 0) || p === null || p === '') return '';
+    return (Math.round(n * 100) % 100 ? n.toFixed(2).replace('.', ',') : String(Math.round(n))) + ' € pro Person';
+}
+// Was ueber den Plaetzen steht. Viele freie Plaetze als genaue Zahl ("58 von
+// 60") wirkt leer -- erst ab 20 freien wird gezaehlt.
+function abendPlaetzeText(frei) {
+    if (frei == null) return '';
+    if (frei <= 0) return 'Ausgebucht – Warteliste offen';
+    if (frei === 1) return 'Nur noch 1 Platz frei';
+    if (frei <= 20) return 'Nur noch ' + frei + ' Plätze frei';
+    return 'Noch Plätze frei';
+}
+function abendZeilenHtml(text, alsAblauf) {
+    return String(text || '').split(/\r?\n/).map(function (z) { return z.replace(/^\s*[-–•*]\s*/, '').trim(); })
+        .filter(Boolean).map(function (z) {
+            if (alsAblauf) {
+                var m = /^(\d{1,2}[:.]\d{2})\s*(?:Uhr)?\s*[-–:]?\s*(.*)$/i.exec(z);
+                if (m) return '<li class="abend-ablauf-zeile"><span class="abend-uhr">' + escapeHtml(m[1].replace('.', ':')) + '</span><span>' + escapeHtml(m[2]) + '</span></li>';
+            }
+            return '<li>' + escapeHtml(z) + '</li>';
+        }).join('');
+}
+function abendKarteHtml(a, rid) {
+    var anker = abendAnker(a.titel);
+    var preis = a.preis_pp != null ? abendPreis(a.preis_pp) : '';
+    var datum = String(a.datum).slice(0, 10);
+    return '<article class="abend-karte" id="abend-' + escapeHtml(a.id) + '" data-anker="' + escapeHtml(anker.join(' ')) + '" aria-labelledby="abendTitel-' + escapeHtml(a.id) + '">'
+        + '<div class="abend-vorzeile">' + escapeHtml(aktionZeitplanText(a)) + '</div>'
+        + '<h2 class="abend-titel" id="abendTitel-' + escapeHtml(a.id) + '">' + escapeHtml(a.titel || '') + '</h2>'
+        + (a.beschreibung ? '<p class="abend-text">' + escapeHtml(a.beschreibung) + '</p>' : '')
+        + '<div class="abend-fakten">'
+        +   (preis ? '<span class="abend-preis">' + escapeHtml(preis) + '</span>' : '')
+        +   (a.plaetze != null ? '<span class="abend-platz" data-abend-platz="' + escapeHtml(a.id) + '" role="status" aria-live="polite" hidden></span>' : '')
+        + '</div>'
+        + '<div class="abend-spalten">'
+        +   (a.menue ? '<section><h3 class="abend-zwischen">Menü</h3><ul class="abend-menue">' + abendZeilenHtml(a.menue, false) + '</ul></section>' : '')
+        +   (a.ablauf ? '<section><h3 class="abend-zwischen">Ablauf</h3><ul class="abend-ablauf">' + abendZeilenHtml(a.ablauf, true) + '</ul></section>' : '')
+        + '</div>'
+        + '<button type="button" class="abend-knopf" data-abend-reservieren="' + escapeHtml(datum) + '" data-abend-id="' + escapeHtml(a.id) + '" onclick="openReservation(\'' + escapeHtml(rid) + '\', \'' + escapeHtml(datum) + '\')">'
+        +   'Für ' + escapeHtml(a.titel || 'diesen Abend') + ' reservieren</button>'
+        + '</article>';
+}
+// Ausgebuchte Abende merkt sich die App pro Haus -- ausgebuchtZeitraeume
+// nimmt sie mit, und das Reservierungsfenster zeigt dann die Warteliste
+// statt Uhrzeiten, genau wie bei "ausgebucht" aus dem Dashboard.
+window._abendVoll = window._abendVoll || {};
+function abendPlaetzeLaden(rid, a) {
+    if (a.plaetze == null) return Promise.resolve(null);
+    var datum = String(a.datum).slice(0, 10);
+    return fetch('/.netlify/functions/aktion-plaetze?restaurant=' + encodeURIComponent(rid) + '&datum=' + datum)
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+            var el = document.querySelector('[data-abend-platz="' + a.id + '"]');
+            if (!d || !d.ok || d.plaetze == null || d.frei == null) { if (el) el.hidden = true; return null; }
+            var liste = (window._abendVoll[rid] || []).filter(function (z) { return z.von !== datum; });
+            if (d.frei <= 0) liste.push({ von: datum, bis: datum, titel: a.titel || '' });
+            window._abendVoll[rid] = liste;
+            if (el) {
+                el.textContent = abendPlaetzeText(d.frei);
+                el.hidden = false;
+                el.classList.toggle('abend-voll', d.frei <= 0);
+            }
+            var k = document.querySelector('[data-abend-id="' + a.id + '"]');
+            if (k && d.frei <= 0) k.textContent = 'Auf die Warteliste für ' + (a.titel || 'diesen Abend');
+            return d.frei;
+        })
+        .catch(function () { return null; });
+}
+// Der QR-Code endet auf #silvester. Die Google-Seite reicht das # an die App
+// weiter (/?r=<lokal>#silvester) -- gemerkt beim Laden, falls die Adresse
+// unterwegs umgeschrieben wird.
+var _kmiStartHash = (typeof location !== 'undefined' && location.hash) ? location.hash : '';
+function abendZumAnker() {
+    var h = decodeURIComponent(String(_kmiStartHash || (typeof location !== 'undefined' ? location.hash : '') || '').replace(/^#/, '')).toLowerCase();
+    if (!h) return false;
+    var ziel = Array.prototype.find.call(document.querySelectorAll('.abend-karte[data-anker]'), function (el) {
+        return el.getAttribute('data-anker').split(' ').indexOf(h) >= 0;
+    });
+    if (!ziel) return false;
+    _kmiStartHash = '';
+    try { ziel.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { ziel.scrollIntoView(); }
+    return true;
+}
+function renderRestaurantAbend(restaurantId) {
+    var ziel = document.getElementById('lpAbend');
+    if (!ziel) return Promise.resolve(0);
+    return aktionenLaden(restaurantId, false).then(function (liste) {
+        var z = document.getElementById('lpAbend');
+        if (!z) return 0;
+        var abende = abendAktionen(liste);
+        if (!abende.length) { z.innerHTML = ''; return 0; }
+        z.innerHTML = '<section class="abend-bereich">' + abende.map(function (a) { return abendKarteHtml(a, restaurantId); }).join('') + '</section>';
+        abende.forEach(function (a) { abendPlaetzeLaden(restaurantId, a); });
+        setTimeout(abendZumAnker, 350);
+        return abende.length;
+    });
+}
+window.renderRestaurantAbend = renderRestaurantAbend;
 
 // ---- LAEUFT GERADE -------------------------------------------------------
 //
@@ -82256,8 +82449,17 @@ var AKTION_VORLAGEN = {
                  beschreibung: '', vorteil: '2 für 1 auf Cocktails' },
     online:    { titel: 'Online reserviert', art: 'vorteil', gilt_fuer: 'reservierung', wochentage: [0, 1, 2, 3, 4, 5, 6], von: '', bis: '',
                  beschreibung: 'Wer online reserviert, spart.', vorteil: '10 % auf die Rechnung' },
-    eigene:    { titel: '', art: 'event', gilt_fuer: 'alle', wochentage: [], von: '', bis: '', beschreibung: '', vorteil: '' }
+    eigene:    { titel: '', art: 'event', gilt_fuer: 'alle', wochentage: [], von: '', bis: '', beschreibung: '', vorteil: '' },
+    // Besonderer Abend (12.10.2026, Luett Italia). Menue, Ablauf, Preis und
+    // Plaetze traegt der Wirt ein -- wir erfinden kein Menue.
+    silvester: { titel: 'Silvester', art: 'event', gilt_fuer: 'alle', wochentage: null, datum: 'silvester', von: '19:00', bis: '',
+                 beschreibung: '', vorteil: '', menue: '', ablauf: '', preis_pp: null, plaetze: null }
 };
+// Das naechste Silvester: vor dem 1.1. dieses Jahres, sonst naechstes Jahr.
+function aktionSilvesterDatum(heute) {
+    var d = heute instanceof Date ? heute : new Date();
+    return d.getFullYear() + '-12-31';
+}
 var _aktionenWirt = [];
 
 function _aktionKopf(extra) {
@@ -82313,6 +82515,7 @@ function aktionFormular(vorlageOderId) {
         : Object.assign({}, _aktionenWirt.find(function (x) { return x.id === vorlageOderId; }) || AKTION_VORLAGEN.eigene);
     var alt = document.getElementById('aktionModal');
     if (alt) alt.remove();
+    if (a.datum === 'silvester') a.datum = aktionSilvesterDatum();
     var einmalig = !!a.datum;
     var feld = 'width:100%;padding:10px 14px;border:1px solid var(--border-color);border-radius:12px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;box-sizing:border-box;';
     var lab = 'display:block;font-size:12px;font-weight:700;color:var(--text-secondary);margin:12px 0 6px;';
@@ -82341,7 +82544,21 @@ function aktionFormular(vorlageOderId) {
         +   '<label style="font-size:13px;cursor:pointer;"><input type="radio" name="akWann" value="einmal"' + (einmalig ? ' checked' : '') + ' onchange="aktionWannUmschalten()"> Einmalig</label>'
         + '</div>'
         + '<div id="akWoche" style="display:' + (einmalig ? 'none' : 'flex') + ';flex-wrap:wrap;gap:6px;">' + tage + '</div>'
-        + '<div id="akEinmal" style="display:' + (einmalig ? 'block' : 'none') + ';"><label style="' + lab + '" for="akDatum">Datum</label><input type="date" id="akDatum" style="' + feld + '" value="' + escapeHtml(a.datum ? String(a.datum).slice(0, 10) : '') + '"></div>'
+        + '<div id="akEinmal" style="display:' + (einmalig ? 'block' : 'none') + ';"><label style="' + lab + '" for="akDatum">Datum</label><input type="date" id="akDatum" style="' + feld + '" value="' + escapeHtml(a.datum ? String(a.datum).slice(0, 10) : '') + '">'
+        // BESONDERER ABEND: nur bei einem Datum. Steht etwas davon drin,
+        // kommt die Aktion als grosser Block GANZ OBEN auf eure Seite.
+        +   '<details id="akAbend" style="margin-top:12px;border:1px solid var(--border-color);border-radius:16px;padding:10px 14px;"' + ((a.menue || a.ablauf || a.preis_pp || a.plaetze || vorlageOderId === 'silvester') ? ' open' : '') + '>'
+        +     '<summary style="cursor:pointer;font-weight:800;font-size:14px;">Besonderer Abend: Menü, Ablauf, Preis, Plätze</summary>'
+        +     '<div style="font-size:12px;color:var(--text-secondary);margin-top:6px;line-height:1.5;">Steht hier etwas, zeigt eure Seite den Abend ganz oben – mit Restplätzen und Reservieren-Knopf für genau diesen Tag. Am Tag danach verschwindet er von selbst.</div>'
+        +     '<label style="' + lab + '" for="akMenue">Menü – ein Gang pro Zeile</label><textarea id="akMenue" maxlength="2000" rows="5" placeholder="Vitello tonnato&#10;Risotto mit Steinpilzen&#10;Tiramisu" style="' + feld + 'resize:vertical;">' + escapeHtml(a.menue || '') + '</textarea>'
+        +     '<label style="' + lab + '" for="akAblauf">Ablauf – Uhrzeit und was passiert, eine Zeile je Punkt</label><textarea id="akAblauf" maxlength="1000" rows="4" placeholder="19:00 Empfang mit Prosecco&#10;20:00 Menü&#10;00:00 Feuerwerk" style="' + feld + 'resize:vertical;">' + escapeHtml(a.ablauf || '') + '</textarea>'
+        +     '<div style="display:flex;gap:10px;">'
+        +       '<div style="flex:1;"><label style="' + lab + '" for="akPreis">Preis pro Person (€)</label><input id="akPreis" inputmode="decimal" placeholder="z. B. 89" style="' + feld + '" value="' + escapeHtml(a.preis_pp != null ? String(a.preis_pp).replace('.', ',') : '') + '"></div>'
+        +       '<div style="flex:1;"><label style="' + lab + '" for="akPlaetze">Plätze insgesamt</label><input id="akPlaetze" type="number" min="1" max="5000" inputmode="numeric" placeholder="z. B. 60" style="' + feld + '" value="' + escapeHtml(a.plaetze != null ? String(a.plaetze) : '') + '"></div>'
+        +     '</div>'
+        +     '<input type="hidden" id="akAbendVorher" value="' + ((a.menue || a.ablauf || a.preis_pp != null || a.plaetze != null) ? '1' : '') + '">'
+        +   '</details>'
+        + '</div>'
         + '<div style="display:flex;gap:10px;">'
         +   '<div style="flex:1;"><label style="' + lab + '" for="akVon">Von (optional)</label><input type="time" id="akVon" style="' + feld + '" value="' + escapeHtml(a.von ? String(a.von).slice(0, 5) : '') + '"></div>'
         +   '<div style="flex:1;"><label style="' + lab + '" for="akBis">Bis (optional)</label><input type="time" id="akBis" style="' + feld + '" value="' + escapeHtml(a.bis ? String(a.bis).slice(0, 5) : '') + '"></div>'
@@ -82363,6 +82580,7 @@ function aktionWannUmschalten() {
 }
 window.aktionWannUmschalten = aktionWannUmschalten;
 
+function aktionZahlZwischen(n, min, max) { return typeof n === 'number' && isFinite(n) && n >= min && n <= max; }
 // Aus dem Formular eine Zeile machen -- und pruefen, bevor etwas rausgeht.
 // Gibt { zeile } oder { fehler } zurueck.
 function aktionAusFormular() {
@@ -82375,7 +82593,22 @@ function aktionAusFormular() {
     if (einmal && !datum) return { fehler: 'Bitte ein Datum wählen.' };
     if (!einmal && !tage.length) return { fehler: 'Bitte mindestens einen Wochentag wählen.' };
     var vorteil = wert('akVorteil');
-    return { zeile: {
+    // Besonderer Abend (SQL 45). Nur mitschicken, wenn etwas drinsteht oder
+    // vorher etwas drinstand (zum Leeren) -- sonst scheitert ohne SQL 45
+    // jede gewoehnliche Aktion an Spalten, die sie gar nicht braucht.
+    var abend = null;
+    if (einmal) {
+        var menue = wert('akMenue'), ablauf = wert('akAblauf'), preisRoh = wert('akPreis').replace(/\s|€/g, ''), plaetzeRoh = wert('akPlaetze');
+        var preis = preisRoh ? Number(preisRoh.replace(/\./g, '').replace(',', '.')) : null;
+        var plaetze = plaetzeRoh ? parseInt(plaetzeRoh, 10) : null;
+        if (preisRoh && !(preis >= 0 && preis <= 10000)) return { fehler: 'Preis pro Person bitte als Zahl, z. B. 89 oder 89,50.' };
+        if (plaetzeRoh && !aktionZahlZwischen(plaetze, 1, 5000)) return { fehler: 'Plätze bitte als ganze Zahl von 1 bis 5000.' };
+        if (menue || ablauf || preis != null || plaetze != null || wert('akAbendVorher')) {
+            if (window._aktionenAbendFehlt) return { fehler: 'Menü, Ablauf, Preis und Plätze sind noch nicht eingerichtet: datenbank/45-besonderer-abend.sql einmal in Supabase einspielen.' };
+            abend = { menue: menue.slice(0, 2000) || null, ablauf: ablauf.slice(0, 1000) || null, preis_pp: preis, plaetze: plaetze };
+        }
+    }
+    var zeileOhne = {
         titel: titel.slice(0, 80),
         beschreibung: wert('akBeschreibung').slice(0, 500) || null,
         vorteil: vorteil.slice(0, 120) || null,
@@ -82385,7 +82618,8 @@ function aktionAusFormular() {
         datum: einmal ? datum : null,
         von: wert('akVon') || null,
         bis: wert('akBis') || null
-    } };
+    };
+    return { zeile: abend ? Object.assign(zeileOhne, abend) : zeileOhne };
 }
 
 async function aktionSpeichern() {

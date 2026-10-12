@@ -213,6 +213,21 @@ exports.handler = async function (event) {
                 error: 'An diesem Tag ist das Restaurant ausgebucht. Bitte ein anderes Datum waehlen oder auf die Warteliste setzen.' });
         }
 
+        // ---- 1c. Besonderer Abend mit Plaetzen (Silvester, SQL 45)?
+        // Dann nicht mehr Personen annehmen, als frei sind. Sonst stuende auf
+        // der Seite "ausgebucht" und trotzdem kaemen Buchungen herein.
+        // Faellt offen aus (lib/aktionen.js kontingent): nicht lesbar = durch.
+        if (!istWarteliste(r)) {
+            var _abend = await AKTIONEN.kontingent(r.restaurant_id, r.reservation_date, SERVICE_KEY, SUPABASE_URL);
+            if (_abend && r.party_size > _abend.frei) {
+                return json(409, { ok: false, ausgebucht: true, kontingent: true, frei: _abend.frei,
+                    titel: _abend.titel, von: r.reservation_date, bis: r.reservation_date,
+                    error: _abend.frei > 0
+                        ? 'Fuer ' + (_abend.titel || 'diesen Abend') + ' sind nur noch ' + _abend.frei + ' Plaetze frei.'
+                        : (_abend.titel || 'Dieser Abend') + ' ist ausgebucht. Gern auf die Warteliste.' });
+            }
+        }
+
         // ---- 2. Der Server entscheidet ueber den Status, nicht der Browser
         // Bisher schickte die App status mit. Wer die Adresse kannte,
         // konnte sich selbst bestaetigen. Jetzt zaehlt nur die

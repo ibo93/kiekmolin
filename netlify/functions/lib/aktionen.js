@@ -126,7 +126,50 @@ async function lesen(restaurantId, schluessel, basisUrl) {
     }
 }
 
+// ---- BESONDERER ABEND: PLAETZE (SQL 45) ----------------------------------
+//
+// Ein Abend mit Datum und "plaetze" (Silvester: 60 Plaetze) ist ein
+// Kontingent. Belegt sind die Personen aller Reservierungen an diesem
+// Datum -- ohne Absagen und ohne Warteliste (die hat keinen Platz, sie
+// wartet auf einen).
+var ABGESAGT = ['cancelled', 'canceled', 'rejected', 'declined', 'no_show'];
+function istWartelisteNotiz(notes) { return /^\[Warteliste\]/.test(String(notes || '')); }
+function belegtePlaetze(reservierungen) {
+    return (Array.isArray(reservierungen) ? reservierungen : []).reduce(function (summe, r) {
+        if (!r || ABGESAGT.indexOf(String(r.status || '')) >= 0 || istWartelisteNotiz(r.notes)) return summe;
+        var n = parseInt(r.party_size, 10);
+        return summe + (n > 0 ? n : 0);
+    }, 0);
+}
+
+// Liest das Kontingent fuer einen Tag: { aktion_id, titel, plaetze, belegt,
+// frei } -- oder null, wenn es an dem Tag keins gibt.
+//
+// FAELLT OFFEN AUS, wie lesen(): fehlt SQL 45, klemmt die Datenbank,
+// kommt null zurueck. Lieber einmal ein Gast zu viel an Silvester (der Wirt
+// sieht ihn und ruft an) als ein abgewiesener Gast, weil eine Spalte fehlt.
+async function kontingent(restaurantId, datum, schluessel, basisUrl) {
+    if (!restaurantId || !/^\d{4}-\d{2}-\d{2}$/.test(String(datum || ''))) return null;
+    var basis = basisUrl || process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co';
+    var kopf = { 'apikey': schluessel, 'Authorization': 'Bearer ' + schluessel };
+    try {
+        var a = await fetch(basis + '/rest/v1/aktionen?restaurant_id=eq.' + encodeURIComponent(restaurantId)
+            + '&datum=eq.' + datum + '&aktiv=eq.true&plaetze=not.is.null&select=id,titel,plaetze&order=plaetze.asc&limit=1', { headers: kopf });
+        if (!a.ok) return null;
+        var abend = (await a.json())[0];
+        if (!abend || !(abend.plaetze > 0)) return null;
+        var r = await fetch(basis + '/rest/v1/reservations?restaurant_id=eq.' + encodeURIComponent(restaurantId)
+            + '&reservation_date=eq.' + datum + '&select=party_size,status,notes&limit=2000', { headers: kopf });
+        if (!r.ok) return null;
+        var belegt = belegtePlaetze(await r.json());
+        return { aktion_id: abend.id, titel: abend.titel || '', plaetze: abend.plaetze, belegt: belegt, frei: Math.max(0, abend.plaetze - belegt) };
+    } catch (e) {
+        return null;
+    }
+}
+
 module.exports = {
     passt: passt, fuerReservierung: fuerReservierung, textFuerReservierung: textFuerReservierung,
-    zeitplanText: zeitplanText, wochentag: wochentag, lesen: lesen
+    zeitplanText: zeitplanText, wochentag: wochentag, lesen: lesen,
+    belegtePlaetze: belegtePlaetze, kontingent: kontingent
 };
