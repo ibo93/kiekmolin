@@ -14598,6 +14598,41 @@
 .dark-mode .kmi-andrang.voll { background: #3b1414; color: #fecaca; }
 .lp-fakt.kmi-andrang { font-size: 14px; min-height: 36px; padding: 6px 14px; }
 .card-andrang { margin-top: 10px; }
+/* FAHRER-LEISTE ueber den Bestellungen (12.10.2026). Deckend, kein Glas:
+   das ist Inhalt, keine schwebende Leiste. Gold nur als Flaeche, Schrift
+   darauf in ink-deep. */
+.fahrer-leiste { margin: 0 0 20px; display: flex; flex-direction: column; gap: 10px; }
+.fahrer-hinweis { background: #fed65b; color: #00251e; border-radius: 9999px; padding: 12px 20px; font-family: Epilogue, Inter, sans-serif; font-weight: 800; font-size: 16px; }
+.fahrer-zeile { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.fahrer-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.fahrer-chip { background: var(--bg-card, #fff); color: var(--text-primary, #191c1d); border: 1px solid var(--border-color, rgba(0,0,0,0.08)); border-radius: 9999px; padding: 6px 14px; font-size: 13px; }
+.fahrer-chip.fahrer-rueckweg, .fahrer-chip.fahrer-gleich { background: #fed65b; color: #00251e; border-color: #fed65b; }
+.fahrer-chip.fahrer-unterwegs { border-color: var(--text-primary, #191c1d); }
+.fahrer-leer { font-size: 13px; color: var(--text-secondary, #404946); }
+.fahrer-knopf { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; border: none; border-radius: 9999px; background: #003d33; color: #fff !important; font-family: Inter, sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; text-decoration: none; }
+.fahrer-klein { min-height: 44px; padding: 0 14px; border-radius: 9999px; border: 1.5px solid var(--text-primary, #191c1d); background: transparent; color: var(--text-primary, #191c1d); font-size: 13px; font-weight: 700; cursor: pointer; }
+.fahrer-klein.fahrer-weg { border-color: #991b1b; color: #991b1b; }
+.fahrer-fehler { background: #fef2f2; color: #991b1b; border-radius: 16px; padding: 10px 14px; font-size: 13px; font-weight: 600; }
+.fahrer-fenster { position: fixed; inset: 0; z-index: 10050; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.fahrer-fenster-karte { background: var(--bg-card, #fff); color: var(--text-primary, #191c1d); border-radius: 34px; padding: 24px; width: 100%; max-width: 460px; max-height: 90vh; overflow: auto; display: flex; flex-direction: column; gap: 14px; }
+.fahrer-fenster-kopf { display: flex; align-items: center; justify-content: space-between; }
+.fahrer-fenster-kopf h2 { font-family: Epilogue, Inter, sans-serif; font-size: 22px; font-weight: 800; margin: 0; }
+.fahrer-zu { width: 44px; height: 44px; border-radius: 9999px; border: none; background: var(--sand, #edeeef); color: inherit; font-size: 24px; cursor: pointer; }
+.fahrer-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.fahrer-eintrag { display: flex; align-items: center; gap: 8px; }
+.fahrer-eintrag-name { flex: 1; font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.fahrer-neu label { font-size: 12px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: var(--text-secondary, #404946); }
+.fahrer-neu-zeile { display: flex; gap: 8px; margin-top: 6px; }
+.fahrer-neu-zeile input, .fahrer-link-feld { flex: 1; min-width: 0; min-height: 44px; padding: 0 14px; border-radius: 12px; border: 1.5px solid var(--border-color, rgba(0,0,0,0.15)); background: var(--bg-primary, #fafafa); color: inherit; font-size: 15px; }
+.fahrer-link-kasten { border: 2px solid #003d33; border-radius: 20px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.fahrer-link-titel { font-weight: 800; }
+.fahrer-link-knoepfe { display: flex; gap: 8px; flex-wrap: wrap; }
+.fahrer-link-info, .fahrer-stand { font-size: 13px; color: var(--text-secondary, #404946); }
+.dark-mode .fahrer-link-kasten { border-color: #9cd1c3; }
+/* Gold bleibt im Dunkeln Gold (Leuchtgold accent-light), Schrift ink-deep: 11,6 : 1. */
+.dark-mode .fahrer-hinweis, .dark-mode .fahrer-chip.fahrer-rueckweg, .dark-mode .fahrer-chip.fahrer-gleich { background: #ffd54f; color: #00251e; border-color: #ffd54f; }
+.dark-mode .fahrer-fehler { background: #3a1414; color: #fecaca; }
+.dark-mode .fahrer-klein.fahrer-weg { border-color: #fca5a5; color: #fca5a5; }
 .andrang-wahl { display: flex; gap: 4px; padding: 4px; border-radius: 9999px; background: rgba(255,255,255,0.12); }
 .andrang-wahl button { flex: 1; min-height: 40px; padding: 0 8px; border: 0; border-radius: 9999px; background: transparent; color: #ffffff; font: 600 13px Inter, sans-serif; cursor: pointer; white-space: nowrap; }
 .andrang-wahl button[aria-pressed="true"] { background: #ffffff; color: #00251e; font-weight: 800; }
@@ -22982,6 +23017,9 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     <div style="font-size: 28px; font-weight: 700; color: #8b5cf6;" id="statAvgOrder">0 €</div>
                 </div>
             </div>
+
+            <!-- Fahrer: wer ist wann zurueck (Ibo, 12.10.2026). Fuellt fahrerLeisteZeichnen. -->
+            <div id="fahrerLeiste" class="fahrer-leiste" hidden></div>
 
             <div data-ladestand="bestellungen"></div>
             <!-- Bestellungen Grid -->
@@ -61047,6 +61085,9 @@ async function loadDashboardOrders() {
     // Bestelloptionen-Settings laden
     try { loadOrderSettings(); } catch(e) {}
 
+    // Fahrer-Leiste: wer kommt wann zurueck (12.10.2026)
+    try { fahrerStarten(); } catch(e) {}
+
     // Drucker-Status-Indikator starten (oder Restaurant-Wechsel auffrischen)
     try { if (typeof startPrinterStatusPolling === 'function') startPrinterStatusPolling(); } catch(e) {}
 
@@ -61384,7 +61425,290 @@ function refreshOrders() {
 }
 
 // Orders rendern
+// ==================== FAHRER: "BIN AUF DEM RUECKWEG" ====================
+// Ibo, 12.10.2026: "wenn Lieferant er drueckt ein Knopf, dass er zurueck
+// kommt zum Laden, so machen die das Essen fuer die Bestellung schon
+// fertig" -- "die haben Handys alle, so koennt jeder Fahrer sein eigenes
+// Profil haben".
+//
+// Jeder Fahrer bekommt einen persoenlichen Link (kiekmolin.de/fahrer.html#t=…),
+// ohne Passwort. Tippt er "Bin auf dem Rueckweg, ca. 10 Min", steht hier
+// ueber den Bestellungen gross, wann er wieder da ist -- und wie viele
+// Lieferungen bis dahin fertig sein muessen.
+//
+// Der Link entsteht HIER im Browser; in die Datenbank geht nur sein
+// SHA-256-Wert (datenbank/44-fahrer.sql). Deshalb wird er nur einmal
+// angezeigt. Verloren -> "Neuer Link", der alte gilt dann nicht mehr.
+var _fahrerListe = [], _fahrerStandVorher = {}, _fahrerTimer = null, _fahrerFehler = '', _fahrerGeladen = false;
+
+function fahrerHaus() {
+    if (window._gastroOnlyRestaurantId) return window._gastroOnlyRestaurantId;
+    if (typeof currentAdmin === 'object' && currentAdmin && !currentAdmin.isAdmin && currentAdmin.restaurant_id) return currentAdmin.restaurant_id;
+    var sel = document.getElementById('ordersRestaurantSelect');
+    return (sel && sel.value && sel.value !== 'default') ? sel.value : null;
+}
+
+// 32 Zeichen aus 24 Zufallsbytes (base64url). Rund 190 Bit -- nicht zu erraten.
+function fahrerGeheimnis() {
+    var b = new Uint8Array(24); crypto.getRandomValues(b);
+    return btoa(String.fromCharCode.apply(null, b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+async function fahrerFingerabdruck(t) {
+    var h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t));
+    return Array.prototype.map.call(new Uint8Array(h), function (x) { return ('0' + x.toString(16)).slice(-2); }).join('');
+}
+// MIT .html, mit Absicht: sw.js behandelt jede Navigation OHNE Endung als
+// App-Huelle -- und legt die Antwort als index.html in den Zwischenspeicher.
+// Hatte der Fahrer die App schon einmal offen, haette "/fahrer" die Huelle
+// mit der Fahrer-Seite ueberschrieben. Auf .html endende Seiten fasst
+// sw.js nicht an (istHuelle).
+function fahrerLink(t) { return location.origin + '/fahrer.html#t=' + t; }
+
+// Wie der Stand eines Fahrers im Dashboard heisst. Rein, damit der Test
+// ihn ausfuehren kann.
+function fahrerStandText(f, jetzt) {
+    var now = jetzt instanceof Date ? jetzt : new Date();
+    if (f.status === 'rueckweg' && f.zurueck_um) {
+        var rest = Math.round((new Date(f.zurueck_um).getTime() - now.getTime()) / 60000);
+        // Eine halbe Stunde nach der angesagten Zeit ist der Rueckweg kein
+        // Signal mehr -- er hat vermutlich nur vergessen zu tippen.
+        if (rest < -30) return { art: 'alt', text: 'zuletzt auf dem Rückweg' };
+        if (rest <= 0) return { art: 'gleich', text: 'müsste jetzt da sein' };
+        return { art: 'rueckweg', text: 'zurück in ca. ' + rest + ' Min', minuten: rest };
+    }
+    if (f.status === 'unterwegs') return { art: 'unterwegs', text: 'unterwegs' };
+    return { art: 'laden', text: 'im Laden' };
+}
+
+async function fahrerLaden() {
+    var rid = fahrerHaus(), leiste = document.getElementById('fahrerLeiste');
+    if (!leiste) return;
+    if (!rid) { leiste.hidden = true; _fahrerGeladen = false; return; }
+    try {
+        var r = await fetch(SUPABASE_URL + '/rest/v1/fahrer?restaurant_id=eq.' + encodeURIComponent(rid)
+            + '&aktiv=eq.true&select=id,name,status,zurueck_um&order=erstellt_am.asc', {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }, cache: 'no-store'
+        });
+        if (!r.ok) {
+            var txt = await r.text();
+            // Tabelle fehlt = SQL noch nicht eingespielt. Das muss man SEHEN,
+            // sonst sieht es aus wie "noch keine Fahrer".
+            _fahrerFehler = /PGRST205|42P01|fahrer/.test(txt) && (r.status === 404 || r.status === 400)
+                ? 'Fahrer-Funktion noch nicht eingerichtet: datenbank/44-fahrer.sql in Supabase einspielen.'
+                : 'Fahrer konnten nicht geladen werden (Fehler ' + r.status + ').';
+            _fahrerListe = [];
+        } else {
+            _fahrerFehler = '';
+            var neu = await r.json();
+            _fahrerListe = Array.isArray(neu) ? neu : [];
+            // Neu auf dem Rueckweg? Dann einmal laut sagen.
+            _fahrerListe.forEach(function (f) {
+                var vorher = _fahrerStandVorher[f.id];
+                if (vorher !== undefined && f.status === 'rueckweg' && vorher !== 'rueckweg:' + f.zurueck_um) {
+                    var st = fahrerStandText(f);
+                    if (st.art === 'rueckweg') showToast(f.name + ' ist ' + st.text + ' – nächste Lieferung fertig machen', 'success');
+                }
+                _fahrerStandVorher[f.id] = f.status + ':' + (f.zurueck_um || '');
+            });
+        }
+    } catch (e) {
+        _fahrerFehler = 'Fahrer konnten nicht geladen werden – kein Netz?';
+    }
+    _fahrerGeladen = true;
+    fahrerLeisteZeichnen();
+}
+
+function fahrerWartendeLieferungen() {
+    return (typeof dashboardOrders !== 'undefined' ? dashboardOrders : []).filter(function (o) {
+        return o.order_type === 'delivery' && ['accepted', 'confirmed', 'preparing', 'ready'].indexOf(o.status) >= 0;
+    }).length;
+}
+
+function fahrerLeisteZeichnen() {
+    var leiste = document.getElementById('fahrerLeiste');
+    if (!leiste || !_fahrerGeladen) return;
+    leiste.hidden = false;
+    var html = '';
+    if (_fahrerFehler) {
+        html = '<div class="fahrer-fehler" role="alert">' + escapeHtml(_fahrerFehler) + '</div>';
+    } else if (!_fahrerListe.length) {
+        html = '<div class="fahrer-zeile"><span class="fahrer-leer">Liefert ihr selbst? Gebt jedem Fahrer einen Link – dann seht ihr hier, wann er zurückkommt.</span>'
+             + '<button type="button" class="fahrer-knopf" data-fahrer="verwalten">Fahrer einrichten</button></div>';
+    } else {
+        var jetzt = new Date(), bald = null;
+        var chips = _fahrerListe.map(function (f) {
+            var st = fahrerStandText(f, jetzt);
+            if (st.art === 'rueckweg' && (!bald || st.minuten < bald.minuten)) bald = { name: f.name, minuten: st.minuten };
+            if (st.art === 'gleich' && !bald) bald = { name: f.name, minuten: 0 };
+            return '<span class="fahrer-chip fahrer-' + st.art + '"><strong>' + escapeHtml(f.name) + '</strong> · ' + escapeHtml(st.text) + '</span>';
+        }).join('');
+        var warten = fahrerWartendeLieferungen();
+        var hinweis = '';
+        if (bald) {
+            hinweis = '<div class="fahrer-hinweis" role="status">'
+                + escapeHtml(bald.name) + (bald.minuten > 0 ? ' kommt in ca. ' + bald.minuten + ' Min zurück' : ' müsste jetzt da sein')
+                + (warten ? ' – ' + (warten === 1 ? '1 Lieferung' : warten + ' Lieferungen') + ' jetzt fertig machen' : ' – gerade wartet keine Lieferung')
+                + '</div>';
+        }
+        html = hinweis + '<div class="fahrer-zeile"><span class="fahrer-chips">' + chips + '</span>'
+             + '<button type="button" class="fahrer-knopf" data-fahrer="verwalten">Fahrer verwalten</button></div>';
+    }
+    leiste.innerHTML = html;
+}
+
+function fahrerStarten() {
+    fahrerLaden();
+    if (_fahrerTimer) return;
+    _fahrerTimer = setInterval(function () {
+        var sek = document.getElementById('sectionOrders');
+        if (document.hidden || !sek || sek.offsetParent === null) return;
+        fahrerLaden();
+    }, 20000);
+}
+window.fahrerStarten = fahrerStarten;
+
+// ---- Verwalten: anlegen, neuer Link, entfernen ----
+function fahrerFensterZu() { var o = document.getElementById('fahrerFenster'); if (o) o.remove(); }
+function fahrerVerwalten(neuerLink) {
+    fahrerFensterZu();
+    var o = document.createElement('div');
+    o.id = 'fahrerFenster';
+    o.className = 'fahrer-fenster';
+    o.setAttribute('role', 'dialog');
+    o.setAttribute('aria-modal', 'true');
+    o.setAttribute('aria-labelledby', 'fahrerFensterTitel');
+    var liste = _fahrerListe.map(function (f) {
+        return '<li class="fahrer-eintrag"><span class="fahrer-eintrag-name">' + escapeHtml(f.name) + '</span>'
+            + '<button type="button" class="fahrer-klein" data-fahrer="link" data-id="' + escapeHtml(f.id) + '">Neuer Link</button>'
+            + '<button type="button" class="fahrer-klein fahrer-weg" data-fahrer="weg" data-id="' + escapeHtml(f.id) + '" aria-label="' + escapeHtml(f.name) + ' entfernen">Entfernen</button></li>';
+    }).join('');
+    var linkHtml = '';
+    if (neuerLink) {
+        var wa = 'https://wa.me/?text=' + encodeURIComponent('Dein Fahrer-Link für ' + (neuerLink.haus || 'den Laden') + ': ' + neuerLink.link + '\nEinmal öffnen und auf den Startbildschirm legen.');
+        linkHtml = '<div class="fahrer-link-kasten">'
+            + '<div class="fahrer-link-titel">Link für ' + escapeHtml(neuerLink.name) + ' – nur jetzt sichtbar</div>'
+            + '<input type="text" readonly class="fahrer-link-feld" id="fahrerLinkFeld" aria-label="Fahrer-Link" value="' + escapeHtml(neuerLink.link) + '">'
+            + '<div class="fahrer-link-knoepfe"><a class="fahrer-knopf" href="' + escapeHtml(wa) + '" target="_blank" rel="noopener">Per WhatsApp schicken</a>'
+            + '<button type="button" class="fahrer-klein" data-fahrer="kopieren">Kopieren</button></div>'
+            + '<div class="fahrer-link-info">Der Fahrer öffnet ihn auf seinem Handy – ohne Passwort. Wer den Link hat, kann für diesen Fahrer tippen; also nur ihm schicken.</div></div>';
+    }
+    o.innerHTML = '<div class="fahrer-fenster-karte">'
+        + '<div class="fahrer-fenster-kopf"><h2 id="fahrerFensterTitel">Fahrer</h2><button type="button" class="fahrer-zu" data-fahrer="zu" aria-label="Schließen">×</button></div>'
+        + linkHtml
+        + (liste ? '<ul class="fahrer-liste">' + liste + '</ul>' : '<p class="fahrer-leer">Noch keine Fahrer angelegt.</p>')
+        + '<form class="fahrer-neu" id="fahrerNeuForm"><label for="fahrerNeuName">Neuer Fahrer</label>'
+        + '<div class="fahrer-neu-zeile"><input id="fahrerNeuName" type="text" maxlength="40" autocomplete="off" placeholder="Vorname, z. B. Ali" required>'
+        + '<button type="submit" class="fahrer-knopf">Anlegen</button></div></form>'
+        + '<div id="fahrerFensterStand" class="fahrer-stand" role="status" aria-live="polite"></div>'
+        + '</div>';
+    document.body.appendChild(o);
+    var f = document.getElementById(neuerLink ? 'fahrerLinkFeld' : 'fahrerNeuName');
+    if (f) { f.focus(); if (neuerLink) f.select(); }
+}
+
+function fahrerHausName() {
+    var rid = fahrerHaus();
+    var r = rid && APP_DATA.restaurants ? APP_DATA.restaurants.find(function (x) { return x.id === rid; }) : null;
+    return r ? r.name : '';
+}
+function fahrerStand(text) { var s = document.getElementById('fahrerFensterStand'); if (s) s.textContent = text || ''; }
+
+async function fahrerAnlegen(name) {
+    var rid = fahrerHaus();
+    name = String(name || '').trim().slice(0, 40);
+    if (!rid || !name) return;
+    fahrerStand('Wird angelegt …');
+    try {
+        var t = fahrerGeheimnis();
+        var r = await fetch(SUPABASE_URL + '/rest/v1/fahrer?select=id,name,status,zurueck_um', {
+            method: 'POST',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+            body: JSON.stringify({ restaurant_id: rid, name: name, token_hash: await fahrerFingerabdruck(t) })
+        });
+        if (!r.ok) throw new Error((r.status === 404 ? 'Tabelle fehlt – datenbank/44-fahrer.sql einspielen' : 'Fehler ' + r.status));
+        var z = await r.json();
+        if (!Array.isArray(z) || !z.length) throw new Error('keine Berechtigung – nichts gespeichert');
+        _fahrerListe.push(z[0]);
+        fahrerLeisteZeichnen();
+        fahrerVerwalten({ name: name, link: fahrerLink(t), haus: fahrerHausName() });
+    } catch (e) {
+        fahrerStand('Nicht angelegt: ' + (e && e.message || e));
+    }
+}
+
+async function fahrerNeuerLink(id) {
+    var f = _fahrerListe.find(function (x) { return x.id === id; });
+    if (!f || !confirm('Neuen Link für ' + f.name + '? Der alte Link geht dann nicht mehr.')) return;
+    fahrerStand('Neuer Link wird erstellt …');
+    try {
+        var t = fahrerGeheimnis();
+        var r = await fetch(SUPABASE_URL + '/rest/v1/fahrer?id=eq.' + encodeURIComponent(id) + '&select=id', {
+            method: 'PATCH',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+            body: JSON.stringify({ token_hash: await fahrerFingerabdruck(t) })
+        });
+        if (!r.ok) throw new Error('Fehler ' + r.status);
+        var z = await r.json();
+        if (!Array.isArray(z) || !z.length) throw new Error('keine Berechtigung – nichts gespeichert');
+        fahrerVerwalten({ name: f.name, link: fahrerLink(t), haus: fahrerHausName() });
+    } catch (e) {
+        fahrerStand('Kein neuer Link: ' + (e && e.message || e) + '. Der alte gilt weiter.');
+    }
+}
+
+async function fahrerEntfernen(id) {
+    var f = _fahrerListe.find(function (x) { return x.id === id; });
+    if (!f || !confirm(f.name + ' entfernen? Sein Link geht dann nicht mehr.')) return;
+    try {
+        var r = await fetch(SUPABASE_URL + '/rest/v1/fahrer?id=eq.' + encodeURIComponent(id) + '&select=id', {
+            method: 'DELETE',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Prefer': 'return=representation' }
+        });
+        if (!r.ok) throw new Error('Fehler ' + r.status);
+        var z = await r.json();
+        if (!Array.isArray(z) || !z.length) throw new Error('keine Berechtigung – nichts entfernt');
+        _fahrerListe = _fahrerListe.filter(function (x) { return x.id !== id; });
+        fahrerLeisteZeichnen();
+        fahrerVerwalten();
+    } catch (e) {
+        fahrerStand('Nicht entfernt: ' + (e && e.message || e));
+    }
+}
+
+document.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest ? e.target.closest('[data-fahrer]') : null;
+    if (!b) {
+        if (e.target && e.target.id === 'fahrerFenster') fahrerFensterZu();
+        return;
+    }
+    var was = b.getAttribute('data-fahrer');
+    if (was === 'verwalten') fahrerVerwalten();
+    else if (was === 'zu') fahrerFensterZu();
+    else if (was === 'link') fahrerNeuerLink(b.getAttribute('data-id'));
+    else if (was === 'weg') fahrerEntfernen(b.getAttribute('data-id'));
+    else if (was === 'kopieren') {
+        var feld = document.getElementById('fahrerLinkFeld');
+        if (feld) {
+            feld.select();
+            (navigator.clipboard ? navigator.clipboard.writeText(feld.value) : Promise.reject())
+                .then(function () { fahrerStand('Kopiert.'); })
+                .catch(function () { try { document.execCommand('copy'); fahrerStand('Kopiert.'); } catch (x) { fahrerStand('Bitte den Link markieren und kopieren.'); } });
+        }
+    }
+});
+document.addEventListener('submit', function (e) {
+    if (!e.target || e.target.id !== 'fahrerNeuForm') return;
+    e.preventDefault();
+    fahrerAnlegen(document.getElementById('fahrerNeuName').value);
+});
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && document.getElementById('fahrerFenster')) fahrerFensterZu();
+});
+
 function renderDashboardOrders() {
+    // Die Fahrer-Leiste zaehlt die wartenden Lieferungen -- mit jeder neuen
+    // Liste neu zeichnen, nicht erst beim naechsten Fahrer-Abruf.
+    try { fahrerLeisteZeichnen(); } catch (e) {}
     const grid = document.getElementById('ordersGrid');
     const emptyState = document.getElementById('ordersEmptyState');
 
