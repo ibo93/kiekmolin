@@ -80,9 +80,13 @@ t('die Marke wird farbig hinterlegt', /st\.hintergrund/.test(karte), 'nur Text')
 
 console.log('\n-- Der Bon sagt es auch --');
 // Der Bon haengt in der Kueche, der Tresen greift danach.
-var bonHtml = hol("var zahlStr = '';", 'var printContent');
-t('HTML-Bon: BEZAHLT', /PAYPAL - BEZAHLT/.test(bonHtml), 'nur PAYPAL');
-t('HTML-Bon: NOCH ZU ZAHLEN', /PAYPAL - NOCH ZU ZAHLEN/.test(bonHtml), 'nur PAYPAL');
+// Seit 12.10.2026 gibt es nur noch EINEN Bon (printOrderBrowser). Die
+// Zahlungszeile wird hier AUSGEFUEHRT, mit der echten zahlartStand.
+var zz = hol('var _zst = zahlartStand(order);', ": 'Zu zahlen: ' + zahlartText;");
+function zeile(o) { welt.order = o; welt.zahlartText = welt.zahlartKurz(o.payment_method); vm.runInContext(zz + '; this._z = zahlZeile;', welt); return welt._z; }
+t('Bon: PayPal bezahlt -> "PAYPAL - BEZAHLT"', zeile({ payment_method: 'paypal', payment_status: 'paid' }) === 'PAYPAL - BEZAHLT', zeile({ payment_method: 'paypal', payment_status: 'paid' }));
+t('Bon: PayPal offen -> "PAYPAL - NOCH ZU ZAHLEN"', zeile({ payment_method: 'paypal', payment_status: 'pending' }) === 'PAYPAL - NOCH ZU ZAHLEN', zeile({ payment_method: 'paypal' }));
+t('Bon: Bar steht NICHT als "bezahlt" da', zeile({ payment_method: 'cash' }) === 'Zu zahlen: Bar', zeile({ payment_method: 'cash' }));
 var bonCmd = hol("var zahlStr = 'BAR';", "cmd += CENTER + '[' + zahlStr + ']' + LF;");
 t('Drucker-Bon: BEZAHLT', /PAYPAL - BEZAHLT/.test(bonCmd), 'nur PAYPAL');
 t('Drucker-Bon: NOCH ZU ZAHLEN', /PAYPAL - NOCH ZU ZAHLEN/.test(bonCmd), 'nur PAYPAL');

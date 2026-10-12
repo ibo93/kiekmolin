@@ -56,8 +56,10 @@ function schneide(name) {
     var bonKnoepfe = (karte.match(/>\s*Bon\s*<\/button>/g) || []).length;
     t('nur noch EIN Knopf traegt die Beschriftung "Bon"', bonKnoepfe === 1, bonKnoepfe);
 
+    // Seit 12.10.2026 kein eigener "Beleg" mehr: EIN Bon fuer Kueche und
+    // Gast (Ibo: "Küchenbon brauchen wir nicht ... ein Bon").
     var belegKnoepfe = (karte.match(/>\s*Beleg\s*<\/button>/g) || []).length;
-    t('und genau einer die Beschriftung "Beleg"', belegKnoepfe === 1, belegKnoepfe);
+    t('kein zweiter Knopf "Beleg" mehr', belegKnoepfe === 0, belegKnoepfe);
 
     t('der zweite Bon-Knopf (reprintBon direkt auf der Karte) ist weg',
       karte.indexOf('reprintBon(') < 0, 'reprintBon steht noch in der Karte');

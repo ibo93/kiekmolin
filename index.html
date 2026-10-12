@@ -14603,6 +14603,41 @@
 .dark-mode .kmi-andrang.voll { background: #3b1414; color: #fecaca; }
 .lp-fakt.kmi-andrang { font-size: 14px; min-height: 36px; padding: 6px 14px; }
 .card-andrang { margin-top: 10px; }
+/* FAHRER-LEISTE ueber den Bestellungen (12.10.2026). Deckend, kein Glas:
+   das ist Inhalt, keine schwebende Leiste. Gold nur als Flaeche, Schrift
+   darauf in ink-deep. */
+.fahrer-leiste { margin: 0 0 20px; display: flex; flex-direction: column; gap: 10px; }
+.fahrer-hinweis { background: #fed65b; color: #00251e; border-radius: 9999px; padding: 12px 20px; font-family: Epilogue, Inter, sans-serif; font-weight: 800; font-size: 16px; }
+.fahrer-zeile { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.fahrer-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.fahrer-chip { background: var(--bg-card, #fff); color: var(--text-primary, #191c1d); border: 1px solid var(--border-color, rgba(0,0,0,0.08)); border-radius: 9999px; padding: 6px 14px; font-size: 13px; }
+.fahrer-chip.fahrer-rueckweg, .fahrer-chip.fahrer-gleich { background: #fed65b; color: #00251e; border-color: #fed65b; }
+.fahrer-chip.fahrer-unterwegs { border-color: var(--text-primary, #191c1d); }
+.fahrer-leer { font-size: 13px; color: var(--text-secondary, #404946); }
+.fahrer-knopf { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; border: none; border-radius: 9999px; background: #003d33; color: #fff !important; font-family: Inter, sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; text-decoration: none; }
+.fahrer-klein { min-height: 44px; padding: 0 14px; border-radius: 9999px; border: 1.5px solid var(--text-primary, #191c1d); background: transparent; color: var(--text-primary, #191c1d); font-size: 13px; font-weight: 700; cursor: pointer; }
+.fahrer-klein.fahrer-weg { border-color: #991b1b; color: #991b1b; }
+.fahrer-fehler { background: #fef2f2; color: #991b1b; border-radius: 16px; padding: 10px 14px; font-size: 13px; font-weight: 600; }
+.fahrer-fenster { position: fixed; inset: 0; z-index: 10050; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.fahrer-fenster-karte { background: var(--bg-card, #fff); color: var(--text-primary, #191c1d); border-radius: 34px; padding: 24px; width: 100%; max-width: 460px; max-height: 90vh; overflow: auto; display: flex; flex-direction: column; gap: 14px; }
+.fahrer-fenster-kopf { display: flex; align-items: center; justify-content: space-between; }
+.fahrer-fenster-kopf h2 { font-family: Epilogue, Inter, sans-serif; font-size: 22px; font-weight: 800; margin: 0; }
+.fahrer-zu { width: 44px; height: 44px; border-radius: 9999px; border: none; background: var(--sand, #edeeef); color: inherit; font-size: 24px; cursor: pointer; }
+.fahrer-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.fahrer-eintrag { display: flex; align-items: center; gap: 8px; }
+.fahrer-eintrag-name { flex: 1; font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.fahrer-neu label { font-size: 12px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: var(--text-secondary, #404946); }
+.fahrer-neu-zeile { display: flex; gap: 8px; margin-top: 6px; }
+.fahrer-neu-zeile input, .fahrer-link-feld { flex: 1; min-width: 0; min-height: 44px; padding: 0 14px; border-radius: 12px; border: 1.5px solid var(--border-color, rgba(0,0,0,0.15)); background: var(--bg-primary, #fafafa); color: inherit; font-size: 15px; }
+.fahrer-link-kasten { border: 2px solid #003d33; border-radius: 20px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.fahrer-link-titel { font-weight: 800; }
+.fahrer-link-knoepfe { display: flex; gap: 8px; flex-wrap: wrap; }
+.fahrer-link-info, .fahrer-stand { font-size: 13px; color: var(--text-secondary, #404946); }
+.dark-mode .fahrer-link-kasten { border-color: #9cd1c3; }
+/* Gold bleibt im Dunkeln Gold (Leuchtgold accent-light), Schrift ink-deep: 11,6 : 1. */
+.dark-mode .fahrer-hinweis, .dark-mode .fahrer-chip.fahrer-rueckweg, .dark-mode .fahrer-chip.fahrer-gleich { background: #ffd54f; color: #00251e; border-color: #ffd54f; }
+.dark-mode .fahrer-fehler { background: #3a1414; color: #fecaca; }
+.dark-mode .fahrer-klein.fahrer-weg { border-color: #fca5a5; color: #fca5a5; }
 .andrang-wahl { display: flex; gap: 4px; padding: 4px; border-radius: 9999px; background: rgba(255,255,255,0.12); }
 .andrang-wahl button { flex: 1; min-height: 40px; padding: 0 8px; border: 0; border-radius: 9999px; background: transparent; color: #ffffff; font: 600 13px Inter, sans-serif; cursor: pointer; white-space: nowrap; }
 .andrang-wahl button[aria-pressed="true"] { background: #ffffff; color: #00251e; font-weight: 800; }
@@ -17137,6 +17172,25 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                                 <button onclick="saveVacation()" style="padding:8px 14px;border:none;border-radius:9999px;background:#FFD54F;color:#00251e;font-family:Inter,sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Speichern</button>
                                 <button onclick="clearVacation()" title="Ferien löschen" aria-label="Ferien löschen" style="padding:8px 12px;border:1px solid rgba(255,255,255,0.25);border-radius:9999px;background:transparent;color:rgba(255,255,255,0.8);font-family:Inter,sans-serif;font-size:12px;font-weight:600;cursor:pointer;">Löschen</button>
                             </div>
+                        </div>
+                        <!-- Reservierungen ausgebucht: nur Reservierungen voll, Bestellen
+                             geht weiter. Gäste sehen "ausgebucht" + Warteliste. -->
+                        <div id="ausgebuchtBlock" style="padding-top:12px;margin-top:12px;border-top:1px solid rgba(255,255,255,0.15);">
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                                <span class="material-symbols-outlined" style="font-size:18px;">event_busy</span>
+                                <span style="font-family:Inter,sans-serif;font-size:13px;font-weight:600;">Reservierungen ausgebucht</span>
+                            </div>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+                                <button type="button" data-ausgebucht="monat" style="padding:8px 14px;border:none;border-radius:9999px;background:#FFD54F;color:#00251e;font-family:Inter,sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Rest dieses Monats</button>
+                                <button type="button" data-ausgebucht="naechster" style="padding:8px 14px;border:1px solid rgba(255,255,255,0.35);border-radius:9999px;background:transparent;color:#ffffff;font-family:Inter,sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Nächsten Monat</button>
+                            </div>
+                            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                                <input type="date" id="ausgebuchtVon" style="flex:1;min-width:120px;padding:8px 10px;border-radius:12px;border:none;background:rgba(255,255,255,0.12);color:white;font-family:Inter,sans-serif;font-size:12px;color-scheme:dark;" aria-label="Ausgebucht von">
+                                <input type="date" id="ausgebuchtBis" style="flex:1;min-width:120px;padding:8px 10px;border-radius:12px;border:none;background:rgba(255,255,255,0.12);color:white;font-family:Inter,sans-serif;font-size:12px;color-scheme:dark;" aria-label="Ausgebucht bis">
+                                <button type="button" data-ausgebucht="eigen" style="padding:8px 14px;border:1px solid rgba(255,255,255,0.35);border-radius:9999px;background:transparent;color:#ffffff;font-family:Inter,sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Eintragen</button>
+                            </div>
+                            <div id="ausgebuchtListe" style="margin-top:8px;display:flex;flex-direction:column;gap:6px;"></div>
+                            <div id="ausgebuchtStand" role="status" aria-live="polite" style="font-family:Inter,sans-serif;font-size:12px;line-height:1.4;margin-top:6px;color:#ffffff;">Nichts eingetragen – Gäste können normal reservieren.</div>
                         </div>
                     </div>
                 </div>
@@ -22911,11 +22965,6 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     Neu
                     <span class="kin-filter-count new" id="ordersCountNew">0</span>
                 </button>
-                <button class="kin-filter-tab" onclick="filterOrders('accepted', this)" data-status="accepted">
-                    <span class="material-symbols-outlined" style="font-size:14px;color:#3b82f6;">check</span>
-                    Angenommen
-                    <span class="kin-filter-count" id="ordersCountAccepted">0</span>
-                </button>
                 <button class="kin-filter-tab" onclick="filterOrders('preparing', this)" data-status="preparing">
                     <span class="material-symbols-outlined" style="font-size:14px;color:#8b5cf6;">skillet</span>
                     Zubereitung
@@ -22973,6 +23022,9 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     <div style="font-size: 28px; font-weight: 700; color: #8b5cf6;" id="statAvgOrder">0 €</div>
                 </div>
             </div>
+
+            <!-- Fahrer: wer ist wann zurueck (Ibo, 12.10.2026). Fuellt fahrerLeisteZeichnen. -->
+            <div id="fahrerLeiste" class="fahrer-leiste" hidden></div>
 
             <div data-ladestand="bestellungen"></div>
             <!-- Bestellungen Grid -->
@@ -26241,6 +26293,41 @@ function getVacationInfo(restaurant) {
     } catch (e) {}
     return null;
 }
+
+// ==================== RESERVIERUNGEN AUSGEBUCHT ====================
+//
+// Ibo, 12.10.2026: "für Reservierungen, z. B. diesen Monat voll sind --
+// schon vorher, dass man diesen Monat ausgebucht schreiben kann".
+//
+// Anders als die Betriebsferien: das Lokal hat offen, Bestellungen laufen
+// weiter -- nur Online-Reservierungen sind in dem Zeitraum voll. Der Gast
+// sieht "ausgebucht" und kann sich auf die Warteliste setzen (wird ein Tisch
+// frei, bestaetigt der Wirt). Gespeichert wie die Ferien im features-Array:
+// "ausgebucht:VON:BIS", beide Tage einschliesslich, mehrere moeglich.
+// Der Server (reservation-guest) prueft dasselbe -- auch eine alte App auf
+// dem Handy kommt nicht vorbei.
+function ausgebuchtZeitraeume(restaurant, heute) {
+    var feats = (restaurant && restaurant.features) || [];
+    if (!Array.isArray(feats)) return [];
+    heute = heute || new Date().toLocaleDateString('sv-SE');
+    var liste = [];
+    feats.forEach(function (f) {
+        var m = String(f).match(/^ausgebucht:(\d{4}-\d{2}-\d{2}):(\d{4}-\d{2}-\d{2})$/);
+        if (m && m[1] <= m[2] && m[2] >= heute) liste.push({ von: m[1], bis: m[2] });
+    });
+    return liste.sort(function (a, b) { return a.von < b.von ? -1 : 1; });
+}
+function ausgebuchtAm(restaurant, tag) {
+    var z = ausgebuchtZeitraeume(restaurant);
+    for (var i = 0; i < z.length; i++) if (tag >= z[i].von && tag <= z[i].bis) return z[i];
+    return null;
+}
+function ausgebuchtDatum(tag) { return new Date(tag + 'T12:00:00').toLocaleDateString('de-DE', { day: 'numeric', month: 'long' }); }
+function ausgebuchtText(z) {
+    if (!z) return '';
+    return z.von === z.bis ? 'am ' + ausgebuchtDatum(z.von) + ' ausgebucht' : 'vom ' + ausgebuchtDatum(z.von) + ' bis ' + ausgebuchtDatum(z.bis) + ' ausgebucht';
+}
+window.ausgebuchtAm = ausgebuchtAm; window.ausgebuchtZeitraeume = ausgebuchtZeitraeume;
 
 /* ZAHLSPERRE -- wenn eine Rechnung offen bleibt.
 
@@ -29732,7 +29819,14 @@ async function saveReservationToSupabase(reservation) {
                 ? antwort.error
                 : ('HTTP ' + response.status);
             console.error('Reservierung nicht gespeichert:', fehlerText);
-            throw new Error(fehlerText);
+            var _resFehler = new Error(fehlerText);
+            // Ausgebucht (der Wirt hat den Zeitraum gerade eingetragen, die
+            // App kannte ihn noch nicht): klar sagen, nicht "HTTP 409".
+            if (antwort && antwort.ausgebucht) {
+                _resFehler.gastText = 'Ausgebucht – an diesem Tag ist leider alles voll. Wähle gern ein anderes Datum oder setz dich auf die Warteliste.';
+                _resFehler.ausgebucht = true;
+            }
+            throw _resFehler;
         }
     } catch (e) {
         console.error('Speichern fehlgeschlagen:', e);
@@ -31825,6 +31919,11 @@ function resCalRender() {
             }
         }
 
+        var _voll = !isPast && !isClosed && _resRest && typeof ausgebuchtAm === 'function' && ausgebuchtAm(_resRest, ds);
+        if (_voll && !isSel) {
+            html += '<button type="button" class="kmi-cal-voll" onclick="resCalSelectDate(\'' + ds + '\')" title="ausgebucht – Warteliste möglich" aria-label="' + d + '. ausgebucht" style="width:100%;aspect-ratio:1;border-radius:16px;border:none;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;background:transparent;color:#b45309;text-decoration:line-through;cursor:pointer;">' + d + '</button>';
+            continue;
+        }
         if (isPast || isClosed) {
             html += '<button type="button" disabled style="width:100%;aspect-ratio:1;border-radius:16px;border:none;display:flex;align-items:center;justify-content:center;font-size:13px;cursor:not-allowed;background:transparent;' + (isClosed ? 'color:rgba(239,68,68,0.3);' : 'color:rgba(64,73,70,0.25);') + '">' + d + '</button>';
         } else if (isSel) {
@@ -32370,6 +32469,25 @@ async function loadAvailableSlots() {
                 '<span class="material-symbols-outlined" style="font-size:32px;color:#f59e0b;opacity:0.7;">beach_access</span>' +
                 '<p style="color:var(--text-secondary);font-size:13px;margin-top:8px;"><strong>Betriebsferien</strong> – ' +
                 (_vacRest.name || 'das Restaurant') + ' ist bis zum ' + _vacRes.toNice + ' geschlossen.<br>Wähle gern ein Datum danach.</p></div>';
+            return;
+        }
+    } catch (e) {}
+
+    // Ausgebucht (vom Wirt eingetragen): keine Uhrzeiten, aber Warteliste.
+    try {
+        var _abRest = APP_DATA.restaurants ? APP_DATA.restaurants.find(function (r) { return r.id === restaurantId; }) : null;
+        var _ab = _abRest ? ausgebuchtAm(_abRest, date) : null;
+        if (_ab) {
+            container.innerHTML = '<div class="kmi-res-ausgebucht" style="text-align:center;padding:20px;">' +
+                '<span class="material-symbols-outlined" style="font-size:32px;color:#b45309;">event_busy</span>' +
+                '<p style="color:var(--text-primary);font-size:14px;margin:8px 0 0;"><strong>Ausgebucht</strong> – ' + escapeHtml(_abRest.name || 'das Restaurant') + ' ist ' + ausgebuchtText(_ab) + '.</p>' +
+                '<p style="color:var(--text-secondary);font-size:13px;margin:4px 0 0;">Wähle gern ein anderes Datum – oder setz dich auf die Warteliste.</p></div>';
+            var _abWl = document.getElementById('waitlistOption');
+            if (_abWl) {
+                _abWl.innerHTML = '<p style="color: var(--ink-strong); margin-bottom: 12px; font-family: Epilogue, sans-serif; font-weight: 700;">Wird ein Tisch frei, meldet sich das Restaurant.</p>' +
+                    '<button type="button" onclick="showWaitlistForm()" class="btn" style="background: #003d33; color: white; border-radius: 9999px; font-family: Epilogue, sans-serif; font-weight: 700;">Auf Warteliste setzen</button>';
+                _abWl.style.display = 'block';
+            }
             return;
         }
     } catch (e) {}
@@ -37515,6 +37633,81 @@ document.addEventListener('click', function (e) {
     if (b) andrangSetzen(b.getAttribute('data-andrang'));
 });
 
+// Reservierungen ausgebucht (Dashboard). Speichern mit Probe wie bei
+// "Gerade bei uns": ohne zurueckgegebene Zeile gilt es als NICHT gespeichert.
+function ausgebuchtUI(features) {
+    var liste = document.getElementById('ausgebuchtListe'), stand = document.getElementById('ausgebuchtStand');
+    if (!liste) return;
+    var z = ausgebuchtZeitraeume({ features: features || [] });
+    liste.innerHTML = z.map(function (x) {
+        return '<div class="ausgebucht-zeile" style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:12px;background:rgba(255,255,255,0.1);font-family:Inter,sans-serif;font-size:12px;color:#ffffff;">'
+            + '<span style="flex:1;">' + (x.von === x.bis ? ausgebuchtDatum(x.von) : ausgebuchtDatum(x.von) + ' – ' + ausgebuchtDatum(x.bis)) + '</span>'
+            + '<button type="button" data-ausgebucht-weg="' + x.von + ':' + x.bis + '" aria-label="Zeitraum löschen" style="padding:4px 10px;min-height:32px;border:1px solid rgba(255,255,255,0.3);border-radius:9999px;background:transparent;color:#ffffff;font-size:12px;cursor:pointer;">Löschen</button></div>';
+    }).join('');
+    if (stand) stand.textContent = z.length ? 'Gäste sehen an diesen Tagen „ausgebucht“ und können sich auf die Warteliste setzen. Bestellen geht weiter.' : 'Nichts eingetragen – Gäste können normal reservieren.';
+}
+window.ausgebuchtUI = ausgebuchtUI;
+// Letzter Tag des Monats von "tag" (YYYY-MM-DD), ohne Zeitzonen-Rechnerei.
+function monatsEnde(tag) { var j = +tag.slice(0, 4), m = +tag.slice(5, 7); return tag.slice(0, 8) + String(new Date(j, m, 0).getDate()).padStart(2, '0'); }
+function ausgebuchtVorschlag(art, heute) {
+    heute = heute || new Date().toLocaleDateString('sv-SE');
+    if (art === 'monat') return { von: heute, bis: monatsEnde(heute) };
+    var j = +heute.slice(0, 4), m = +heute.slice(5, 7) + 1; if (m === 13) { j++; m = 1; }
+    var erster = j + '-' + String(m).padStart(2, '0') + '-01';
+    return { von: erster, bis: monatsEnde(erster) };
+}
+async function ausgebuchtSpeichern(neu, weg) {
+    var restId = getControlRestaurantId(), stand = document.getElementById('ausgebuchtStand');
+    if (!restId) { showToast('Kein Restaurant gefunden', 'error'); return false; }
+    try {
+        var res = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
+        });
+        var data = await res.json();
+        if (!data || !data[0]) throw new Error('Restaurant nicht lesbar');
+        var heute = new Date().toLocaleDateString('sv-SE');
+        // Abgelaufene Eintraege raeumen wir dabei gleich mit weg.
+        var features = (data[0].features || []).filter(function (f) {
+            var m = String(f).match(/^ausgebucht:(\d{4}-\d{2}-\d{2}):(\d{4}-\d{2}-\d{2})$/);
+            if (!m) return true;
+            if (m[2] < heute) return false;
+            return !(weg && weg === m[1] + ':' + m[2]);
+        });
+        if (neu) { var e = 'ausgebucht:' + neu.von + ':' + neu.bis; if (features.indexOf(e) < 0) features.push(e); }
+        var upd = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=id,features', {
+            method: 'PATCH',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+            body: JSON.stringify({ features: features })
+        });
+        if (!upd.ok) throw new Error('HTTP ' + upd.status);
+        var zeilen = await upd.json();
+        if (!Array.isArray(zeilen) || !zeilen.length) throw new Error('keine Berechtigung – nichts gespeichert');
+        var appR = APP_DATA.restaurants ? APP_DATA.restaurants.find(function (r) { return r.id === restId; }) : null;
+        if (appR) appR.features = zeilen[0].features || features;
+        ausgebuchtUI(zeilen[0].features || features);
+        showToast(neu ? 'Eingetragen: ' + ausgebuchtText(neu).replace(/ ausgebucht$/, '') + ' ausgebucht' : 'Zeitraum gelöscht – Gäste können wieder reservieren', 'success');
+        return true;
+    } catch (err) {
+        if (stand) stand.textContent = 'Nicht gespeichert: ' + (err && err.message || err) + '. Gäste sehen den alten Stand.';
+        showToast('Ausgebucht nicht gespeichert', 'error');
+        return false;
+    }
+}
+window.ausgebuchtSpeichern = ausgebuchtSpeichern;
+document.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest ? e.target.closest('[data-ausgebucht],[data-ausgebucht-weg]') : null;
+    if (!b) return;
+    if (b.hasAttribute('data-ausgebucht-weg')) { ausgebuchtSpeichern(null, b.getAttribute('data-ausgebucht-weg')); return; }
+    var art = b.getAttribute('data-ausgebucht'), z;
+    if (art === 'eigen') {
+        var von = (document.getElementById('ausgebuchtVon') || {}).value || '', bis = (document.getElementById('ausgebuchtBis') || {}).value || '';
+        if (!von || !bis) { showToast('Bitte Von- und Bis-Datum wählen', 'error'); return; }
+        if (bis < von) { showToast('Das Bis-Datum liegt vor dem Von-Datum', 'error'); return; }
+        z = { von: von, bis: bis };
+    } else z = ausgebuchtVorschlag(art);
+    ausgebuchtSpeichern(z, null);
+});
+
 async function _patchVacation(newEntry) {
     var restId = getControlRestaurantId();
     if (!restId) { showToast('Kein Restaurant gefunden', 'error'); return; }
@@ -37735,6 +37928,7 @@ function updateFeatureToggles(features) {
     // Betriebsferien-Felder mitpflegen
     if (typeof updateVacationUI === 'function') updateVacationUI(features);
     if (typeof andrangUI === 'function') andrangUI(features);
+    if (typeof ausgebuchtUI === 'function') ausgebuchtUI(features);
 }
 
 /* DER ROTE BALKEN IM DASHBOARD DES WIRTS.
@@ -53851,6 +54045,21 @@ function selectMenuCategory(categoryId, el) {
     if (currentOrderRestaurant) loadMenuItems(currentOrderRestaurant.id, categoryId);
 }
 
+// Gerichtnummer fuer den Bon: aus der Bestellung (seit 12.10.2026 dabei);
+// bei aelteren Bestellungen aus der geladenen Speisekarte, ueber menu_item_id.
+// Findet sich keine, steht keine da -- nichts Geratenes.
+function bonGerichtNr(item) {
+    if (!item) return '';
+    if (item.dish_number) return String(item.dish_number);
+    try {
+        if (item.menu_item_id && typeof menuItems !== 'undefined' && Array.isArray(menuItems)) {
+            var mi = menuItems.find(function (m) { return m && m.id === item.menu_item_id; });
+            if (mi) return String(getDishNumber(mi) || '');
+        }
+    } catch (e) {}
+    return '';
+}
+
 // ==================== GERICHTENUMMER HELPER ====================
 function getDishNumber(item) {
     if (!item) return '';
@@ -59299,6 +59508,10 @@ async function submitOrder() {
                 // Nachbestellen und bei Gruppenbestellungen mit Zusaetzen
                 // versehen.
                 menu_item_id: item.menu_item_id || null,
+                // Gerichtnummer der Karte (z. B. "12"), fuer den Bon --
+                // Ibo, 12.10.2026: "mit Nummer der Gerichte muss sein".
+                // Stand bisher nur im Warenkorb und ging beim Abschicken verloren.
+                dish_number: String(item.dish_number || getDishNumber(item) || '').slice(0, 10),
                 name: item.name,
                 quantity: item.quantity,
                 price: item.total_price,
@@ -60880,6 +61093,9 @@ async function loadDashboardOrders() {
     // Bestelloptionen-Settings laden
     try { loadOrderSettings(); } catch(e) {}
 
+    // Fahrer-Leiste: wer kommt wann zurueck (12.10.2026)
+    try { fahrerStarten(); } catch(e) {}
+
     // Drucker-Status-Indikator starten (oder Restaurant-Wechsel auffrischen)
     try { if (typeof startPrinterStatusPolling === 'function') startPrinterStatusPolling(); } catch(e) {}
 
@@ -61217,7 +61433,290 @@ function refreshOrders() {
 }
 
 // Orders rendern
+// ==================== FAHRER: "BIN AUF DEM RUECKWEG" ====================
+// Ibo, 12.10.2026: "wenn Lieferant er drueckt ein Knopf, dass er zurueck
+// kommt zum Laden, so machen die das Essen fuer die Bestellung schon
+// fertig" -- "die haben Handys alle, so koennt jeder Fahrer sein eigenes
+// Profil haben".
+//
+// Jeder Fahrer bekommt einen persoenlichen Link (kiekmolin.de/fahrer.html#t=…),
+// ohne Passwort. Tippt er "Bin auf dem Rueckweg, ca. 10 Min", steht hier
+// ueber den Bestellungen gross, wann er wieder da ist -- und wie viele
+// Lieferungen bis dahin fertig sein muessen.
+//
+// Der Link entsteht HIER im Browser; in die Datenbank geht nur sein
+// SHA-256-Wert (datenbank/44-fahrer.sql). Deshalb wird er nur einmal
+// angezeigt. Verloren -> "Neuer Link", der alte gilt dann nicht mehr.
+var _fahrerListe = [], _fahrerStandVorher = {}, _fahrerTimer = null, _fahrerFehler = '', _fahrerGeladen = false;
+
+function fahrerHaus() {
+    if (window._gastroOnlyRestaurantId) return window._gastroOnlyRestaurantId;
+    if (typeof currentAdmin === 'object' && currentAdmin && !currentAdmin.isAdmin && currentAdmin.restaurant_id) return currentAdmin.restaurant_id;
+    var sel = document.getElementById('ordersRestaurantSelect');
+    return (sel && sel.value && sel.value !== 'default') ? sel.value : null;
+}
+
+// 32 Zeichen aus 24 Zufallsbytes (base64url). Rund 190 Bit -- nicht zu erraten.
+function fahrerGeheimnis() {
+    var b = new Uint8Array(24); crypto.getRandomValues(b);
+    return btoa(String.fromCharCode.apply(null, b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+async function fahrerFingerabdruck(t) {
+    var h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t));
+    return Array.prototype.map.call(new Uint8Array(h), function (x) { return ('0' + x.toString(16)).slice(-2); }).join('');
+}
+// MIT .html, mit Absicht: sw.js behandelt jede Navigation OHNE Endung als
+// App-Huelle -- und legt die Antwort als index.html in den Zwischenspeicher.
+// Hatte der Fahrer die App schon einmal offen, haette "/fahrer" die Huelle
+// mit der Fahrer-Seite ueberschrieben. Auf .html endende Seiten fasst
+// sw.js nicht an (istHuelle).
+function fahrerLink(t) { return location.origin + '/fahrer.html#t=' + t; }
+
+// Wie der Stand eines Fahrers im Dashboard heisst. Rein, damit der Test
+// ihn ausfuehren kann.
+function fahrerStandText(f, jetzt) {
+    var now = jetzt instanceof Date ? jetzt : new Date();
+    if (f.status === 'rueckweg' && f.zurueck_um) {
+        var rest = Math.round((new Date(f.zurueck_um).getTime() - now.getTime()) / 60000);
+        // Eine halbe Stunde nach der angesagten Zeit ist der Rueckweg kein
+        // Signal mehr -- er hat vermutlich nur vergessen zu tippen.
+        if (rest < -30) return { art: 'alt', text: 'zuletzt auf dem Rückweg' };
+        if (rest <= 0) return { art: 'gleich', text: 'müsste jetzt da sein' };
+        return { art: 'rueckweg', text: 'zurück in ca. ' + rest + ' Min', minuten: rest };
+    }
+    if (f.status === 'unterwegs') return { art: 'unterwegs', text: 'unterwegs' };
+    return { art: 'laden', text: 'im Laden' };
+}
+
+async function fahrerLaden() {
+    var rid = fahrerHaus(), leiste = document.getElementById('fahrerLeiste');
+    if (!leiste) return;
+    if (!rid) { leiste.hidden = true; _fahrerGeladen = false; return; }
+    try {
+        var r = await fetch(SUPABASE_URL + '/rest/v1/fahrer?restaurant_id=eq.' + encodeURIComponent(rid)
+            + '&aktiv=eq.true&select=id,name,status,zurueck_um&order=erstellt_am.asc', {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }, cache: 'no-store'
+        });
+        if (!r.ok) {
+            var txt = await r.text();
+            // Tabelle fehlt = SQL noch nicht eingespielt. Das muss man SEHEN,
+            // sonst sieht es aus wie "noch keine Fahrer".
+            _fahrerFehler = /PGRST205|42P01|fahrer/.test(txt) && (r.status === 404 || r.status === 400)
+                ? 'Fahrer-Funktion noch nicht eingerichtet: datenbank/44-fahrer.sql in Supabase einspielen.'
+                : 'Fahrer konnten nicht geladen werden (Fehler ' + r.status + ').';
+            _fahrerListe = [];
+        } else {
+            _fahrerFehler = '';
+            var neu = await r.json();
+            _fahrerListe = Array.isArray(neu) ? neu : [];
+            // Neu auf dem Rueckweg? Dann einmal laut sagen.
+            _fahrerListe.forEach(function (f) {
+                var vorher = _fahrerStandVorher[f.id];
+                if (vorher !== undefined && f.status === 'rueckweg' && vorher !== 'rueckweg:' + f.zurueck_um) {
+                    var st = fahrerStandText(f);
+                    if (st.art === 'rueckweg') showToast(f.name + ' ist ' + st.text + ' – nächste Lieferung fertig machen', 'success');
+                }
+                _fahrerStandVorher[f.id] = f.status + ':' + (f.zurueck_um || '');
+            });
+        }
+    } catch (e) {
+        _fahrerFehler = 'Fahrer konnten nicht geladen werden – kein Netz?';
+    }
+    _fahrerGeladen = true;
+    fahrerLeisteZeichnen();
+}
+
+function fahrerWartendeLieferungen() {
+    return (typeof dashboardOrders !== 'undefined' ? dashboardOrders : []).filter(function (o) {
+        return o.order_type === 'delivery' && ['accepted', 'confirmed', 'preparing', 'ready'].indexOf(o.status) >= 0;
+    }).length;
+}
+
+function fahrerLeisteZeichnen() {
+    var leiste = document.getElementById('fahrerLeiste');
+    if (!leiste || !_fahrerGeladen) return;
+    leiste.hidden = false;
+    var html = '';
+    if (_fahrerFehler) {
+        html = '<div class="fahrer-fehler" role="alert">' + escapeHtml(_fahrerFehler) + '</div>';
+    } else if (!_fahrerListe.length) {
+        html = '<div class="fahrer-zeile"><span class="fahrer-leer">Liefert ihr selbst? Gebt jedem Fahrer einen Link – dann seht ihr hier, wann er zurückkommt.</span>'
+             + '<button type="button" class="fahrer-knopf" data-fahrer="verwalten">Fahrer einrichten</button></div>';
+    } else {
+        var jetzt = new Date(), bald = null;
+        var chips = _fahrerListe.map(function (f) {
+            var st = fahrerStandText(f, jetzt);
+            if (st.art === 'rueckweg' && (!bald || st.minuten < bald.minuten)) bald = { name: f.name, minuten: st.minuten };
+            if (st.art === 'gleich' && !bald) bald = { name: f.name, minuten: 0 };
+            return '<span class="fahrer-chip fahrer-' + st.art + '"><strong>' + escapeHtml(f.name) + '</strong> · ' + escapeHtml(st.text) + '</span>';
+        }).join('');
+        var warten = fahrerWartendeLieferungen();
+        var hinweis = '';
+        if (bald) {
+            hinweis = '<div class="fahrer-hinweis" role="status">'
+                + escapeHtml(bald.name) + (bald.minuten > 0 ? ' kommt in ca. ' + bald.minuten + ' Min zurück' : ' müsste jetzt da sein')
+                + (warten ? ' – ' + (warten === 1 ? '1 Lieferung' : warten + ' Lieferungen') + ' jetzt fertig machen' : ' – gerade wartet keine Lieferung')
+                + '</div>';
+        }
+        html = hinweis + '<div class="fahrer-zeile"><span class="fahrer-chips">' + chips + '</span>'
+             + '<button type="button" class="fahrer-knopf" data-fahrer="verwalten">Fahrer verwalten</button></div>';
+    }
+    leiste.innerHTML = html;
+}
+
+function fahrerStarten() {
+    fahrerLaden();
+    if (_fahrerTimer) return;
+    _fahrerTimer = setInterval(function () {
+        var sek = document.getElementById('sectionOrders');
+        if (document.hidden || !sek || sek.offsetParent === null) return;
+        fahrerLaden();
+    }, 20000);
+}
+window.fahrerStarten = fahrerStarten;
+
+// ---- Verwalten: anlegen, neuer Link, entfernen ----
+function fahrerFensterZu() { var o = document.getElementById('fahrerFenster'); if (o) o.remove(); }
+function fahrerVerwalten(neuerLink) {
+    fahrerFensterZu();
+    var o = document.createElement('div');
+    o.id = 'fahrerFenster';
+    o.className = 'fahrer-fenster';
+    o.setAttribute('role', 'dialog');
+    o.setAttribute('aria-modal', 'true');
+    o.setAttribute('aria-labelledby', 'fahrerFensterTitel');
+    var liste = _fahrerListe.map(function (f) {
+        return '<li class="fahrer-eintrag"><span class="fahrer-eintrag-name">' + escapeHtml(f.name) + '</span>'
+            + '<button type="button" class="fahrer-klein" data-fahrer="link" data-id="' + escapeHtml(f.id) + '">Neuer Link</button>'
+            + '<button type="button" class="fahrer-klein fahrer-weg" data-fahrer="weg" data-id="' + escapeHtml(f.id) + '" aria-label="' + escapeHtml(f.name) + ' entfernen">Entfernen</button></li>';
+    }).join('');
+    var linkHtml = '';
+    if (neuerLink) {
+        var wa = 'https://wa.me/?text=' + encodeURIComponent('Dein Fahrer-Link für ' + (neuerLink.haus || 'den Laden') + ': ' + neuerLink.link + '\nEinmal öffnen und auf den Startbildschirm legen.');
+        linkHtml = '<div class="fahrer-link-kasten">'
+            + '<div class="fahrer-link-titel">Link für ' + escapeHtml(neuerLink.name) + ' – nur jetzt sichtbar</div>'
+            + '<input type="text" readonly class="fahrer-link-feld" id="fahrerLinkFeld" aria-label="Fahrer-Link" value="' + escapeHtml(neuerLink.link) + '">'
+            + '<div class="fahrer-link-knoepfe"><a class="fahrer-knopf" href="' + escapeHtml(wa) + '" target="_blank" rel="noopener">Per WhatsApp schicken</a>'
+            + '<button type="button" class="fahrer-klein" data-fahrer="kopieren">Kopieren</button></div>'
+            + '<div class="fahrer-link-info">Der Fahrer öffnet ihn auf seinem Handy – ohne Passwort. Wer den Link hat, kann für diesen Fahrer tippen; also nur ihm schicken.</div></div>';
+    }
+    o.innerHTML = '<div class="fahrer-fenster-karte">'
+        + '<div class="fahrer-fenster-kopf"><h2 id="fahrerFensterTitel">Fahrer</h2><button type="button" class="fahrer-zu" data-fahrer="zu" aria-label="Schließen">×</button></div>'
+        + linkHtml
+        + (liste ? '<ul class="fahrer-liste">' + liste + '</ul>' : '<p class="fahrer-leer">Noch keine Fahrer angelegt.</p>')
+        + '<form class="fahrer-neu" id="fahrerNeuForm"><label for="fahrerNeuName">Neuer Fahrer</label>'
+        + '<div class="fahrer-neu-zeile"><input id="fahrerNeuName" type="text" maxlength="40" autocomplete="off" placeholder="Vorname, z. B. Ali" required>'
+        + '<button type="submit" class="fahrer-knopf">Anlegen</button></div></form>'
+        + '<div id="fahrerFensterStand" class="fahrer-stand" role="status" aria-live="polite"></div>'
+        + '</div>';
+    document.body.appendChild(o);
+    var f = document.getElementById(neuerLink ? 'fahrerLinkFeld' : 'fahrerNeuName');
+    if (f) { f.focus(); if (neuerLink) f.select(); }
+}
+
+function fahrerHausName() {
+    var rid = fahrerHaus();
+    var r = rid && APP_DATA.restaurants ? APP_DATA.restaurants.find(function (x) { return x.id === rid; }) : null;
+    return r ? r.name : '';
+}
+function fahrerStand(text) { var s = document.getElementById('fahrerFensterStand'); if (s) s.textContent = text || ''; }
+
+async function fahrerAnlegen(name) {
+    var rid = fahrerHaus();
+    name = String(name || '').trim().slice(0, 40);
+    if (!rid || !name) return;
+    fahrerStand('Wird angelegt …');
+    try {
+        var t = fahrerGeheimnis();
+        var r = await fetch(SUPABASE_URL + '/rest/v1/fahrer?select=id,name,status,zurueck_um', {
+            method: 'POST',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+            body: JSON.stringify({ restaurant_id: rid, name: name, token_hash: await fahrerFingerabdruck(t) })
+        });
+        if (!r.ok) throw new Error((r.status === 404 ? 'Tabelle fehlt – datenbank/44-fahrer.sql einspielen' : 'Fehler ' + r.status));
+        var z = await r.json();
+        if (!Array.isArray(z) || !z.length) throw new Error('keine Berechtigung – nichts gespeichert');
+        _fahrerListe.push(z[0]);
+        fahrerLeisteZeichnen();
+        fahrerVerwalten({ name: name, link: fahrerLink(t), haus: fahrerHausName() });
+    } catch (e) {
+        fahrerStand('Nicht angelegt: ' + (e && e.message || e));
+    }
+}
+
+async function fahrerNeuerLink(id) {
+    var f = _fahrerListe.find(function (x) { return x.id === id; });
+    if (!f || !confirm('Neuen Link für ' + f.name + '? Der alte Link geht dann nicht mehr.')) return;
+    fahrerStand('Neuer Link wird erstellt …');
+    try {
+        var t = fahrerGeheimnis();
+        var r = await fetch(SUPABASE_URL + '/rest/v1/fahrer?id=eq.' + encodeURIComponent(id) + '&select=id', {
+            method: 'PATCH',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+            body: JSON.stringify({ token_hash: await fahrerFingerabdruck(t) })
+        });
+        if (!r.ok) throw new Error('Fehler ' + r.status);
+        var z = await r.json();
+        if (!Array.isArray(z) || !z.length) throw new Error('keine Berechtigung – nichts gespeichert');
+        fahrerVerwalten({ name: f.name, link: fahrerLink(t), haus: fahrerHausName() });
+    } catch (e) {
+        fahrerStand('Kein neuer Link: ' + (e && e.message || e) + '. Der alte gilt weiter.');
+    }
+}
+
+async function fahrerEntfernen(id) {
+    var f = _fahrerListe.find(function (x) { return x.id === id; });
+    if (!f || !confirm(f.name + ' entfernen? Sein Link geht dann nicht mehr.')) return;
+    try {
+        var r = await fetch(SUPABASE_URL + '/rest/v1/fahrer?id=eq.' + encodeURIComponent(id) + '&select=id', {
+            method: 'DELETE',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Prefer': 'return=representation' }
+        });
+        if (!r.ok) throw new Error('Fehler ' + r.status);
+        var z = await r.json();
+        if (!Array.isArray(z) || !z.length) throw new Error('keine Berechtigung – nichts entfernt');
+        _fahrerListe = _fahrerListe.filter(function (x) { return x.id !== id; });
+        fahrerLeisteZeichnen();
+        fahrerVerwalten();
+    } catch (e) {
+        fahrerStand('Nicht entfernt: ' + (e && e.message || e));
+    }
+}
+
+document.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest ? e.target.closest('[data-fahrer]') : null;
+    if (!b) {
+        if (e.target && e.target.id === 'fahrerFenster') fahrerFensterZu();
+        return;
+    }
+    var was = b.getAttribute('data-fahrer');
+    if (was === 'verwalten') fahrerVerwalten();
+    else if (was === 'zu') fahrerFensterZu();
+    else if (was === 'link') fahrerNeuerLink(b.getAttribute('data-id'));
+    else if (was === 'weg') fahrerEntfernen(b.getAttribute('data-id'));
+    else if (was === 'kopieren') {
+        var feld = document.getElementById('fahrerLinkFeld');
+        if (feld) {
+            feld.select();
+            (navigator.clipboard ? navigator.clipboard.writeText(feld.value) : Promise.reject())
+                .then(function () { fahrerStand('Kopiert.'); })
+                .catch(function () { try { document.execCommand('copy'); fahrerStand('Kopiert.'); } catch (x) { fahrerStand('Bitte den Link markieren und kopieren.'); } });
+        }
+    }
+});
+document.addEventListener('submit', function (e) {
+    if (!e.target || e.target.id !== 'fahrerNeuForm') return;
+    e.preventDefault();
+    fahrerAnlegen(document.getElementById('fahrerNeuName').value);
+});
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && document.getElementById('fahrerFenster')) fahrerFensterZu();
+});
+
 function renderDashboardOrders() {
+    // Die Fahrer-Leiste zaehlt die wartenden Lieferungen -- mit jeder neuen
+    // Liste neu zeichnen, nicht erst beim naechsten Fahrer-Abruf.
+    try { fahrerLeisteZeichnen(); } catch (e) {}
     const grid = document.getElementById('ordersGrid');
     const emptyState = document.getElementById('ordersEmptyState');
 
@@ -61232,7 +61731,10 @@ function renderDashboardOrders() {
     }
     
     if (orderFilterStatus !== 'all') {
-        filtered = filtered.filter(o => o.status === orderFilterStatus);
+        // "Zubereitung" umfasst auch "angenommen" -- seit den drei Schritten
+        // ist das derselbe Schritt (12.10.2026).
+        var _inArbeit = ['accepted', 'confirmed', 'preparing'];
+        filtered = filtered.filter(o => orderFilterStatus === 'preparing' ? _inArbeit.indexOf(o.status) >= 0 : o.status === orderFilterStatus);
     }
 
     // Sortieren: Neueste zuerst, aber "received" ganz oben
@@ -61324,7 +61826,9 @@ function renderDashboardOrders() {
         // gedruckt". Wer den falschen drueckte, bekam ein Druckfenster statt
         // eines Bons -- oder gar nichts, wenn der Browser es blockierte.
         //
-        // Jetzt: "Bon" fuer die Kueche, "Beleg" fuer den Gast. printKitchenBon
+        // Seit 12.10.2026 gibt es nur noch EINEN Knopf "Bon" (Ibo: "Küchenbon
+        // brauchen wir nicht ... ein Bon"). Derselbe saubere Bon fuer Kueche
+        // und Gast. printKitchenBon
         // entscheidet selbst, ob es an den Bondrucker geht oder ins
         // Druckfenster -- der Wirt muss den Unterschied nicht kennen.
         //
@@ -61336,7 +61840,7 @@ function renderDashboardOrders() {
         // gerutscht und fuer alles danach verschwunden. Ein Wirt, der eine
         // gelieferte Bestellung nachdrucken will, stand dann ohne Knopf da.
         var bonFarbe = '';
-        var bonTitel = 'Küchen-Bon drucken';
+        var bonTitel = 'Bon drucken';
         if (order.status !== 'cancelled') {
             var printed = !!order.printed_at;
             bonTitel = printed
@@ -61350,14 +61854,8 @@ function renderDashboardOrders() {
         // Storniert: nichts zu drucken. Sonst immer beide.
         var druckBtns = order.status === 'cancelled' ? '' : (
             '<button class="kin-order-btn secondary" onclick="printKitchenBon(\'' + order.id + '\')"'
-          + ' title="' + escapeHtml(bonTitel) + '" aria-label="Küchen-Bon drucken" style="' + bonFarbe + '">'
-          + '<span class="material-symbols-outlined" style="font-size:18px;">description</span> Bon</button>'
-          + '<button class="kin-order-btn secondary" onclick="printOrder(\'' + order.id + '\')"'
-          + ' title="Kunden-Beleg drucken" aria-label="Kunden-Beleg drucken">'
-          + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">'
-          + '<polyline points="6 9 6 2 18 2 18 9"/>'
-          + '<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>'
-          + '<rect x="6" y="14" width="12" height="8"/></svg> Beleg</button>'
+          + ' title="' + escapeHtml(bonTitel) + '" aria-label="Bon drucken" style="' + bonFarbe + '">'
+          + '<span class="material-symbols-outlined" style="font-size:18px;">receipt_long</span> Bon</button>'
         );
 
         // Action Buttons je nach Status
@@ -61376,79 +61874,25 @@ function renderDashboardOrders() {
                 `;
                 break;
             case 'accepted':
-                actionsHtml = `
-                    <button class="kin-order-btn reject" onclick="openCancelOrderDialog('${order.id}')" title="Bestellung stornieren" aria-label="Stornieren" style="background:rgba(239,68,68,0.08);color:#dc2626;border-color:rgba(239,68,68,0.25);">
-                        <span class="material-symbols-outlined" style="font-size:18px;">cancel</span>
-                        Storno
-                    </button>
-                    <button class="kin-order-btn" onclick="zeitAendern('${order.id}')" title="Dem Gast eine neue Zeit sagen" style="background:rgba(217,119,6,0.08);color:#b45309;border-color:rgba(217,119,6,0.25);">
-                        <span class="material-symbols-outlined" style="font-size:18px;">schedule</span>
-                        Zeit ändern
-                    </button>
-                    <button class="kin-order-btn next" onclick="updateOrderStatus('${order.id}', 'preparing')">
-                        <span class="material-symbols-outlined" style="font-size:18px;">light_mode</span>
-                        Zubereiten
-                    </button>
-                `;
-                break;
+            case 'confirmed':
             case 'preparing':
+            case 'ready':
+            case 'out_for_delivery':
+                // Drei Schritte (12.10.2026): nach "Annehmen" EIN Knopf fuer
+                // den naechsten Schritt -- siehe naechsterSchritt().
+                var _ns = naechsterSchritt(order), _laeuft = order.status !== 'ready' && order.status !== 'out_for_delivery';
                 actionsHtml = `
                     <button class="kin-order-btn reject" onclick="openCancelOrderDialog('${order.id}')" title="Bestellung stornieren" aria-label="Stornieren" style="background:rgba(239,68,68,0.08);color:#dc2626;border-color:rgba(239,68,68,0.25);">
                         <span class="material-symbols-outlined" style="font-size:18px;">cancel</span>
-                    </button>
+                    </button>` + (_laeuft ? `
                     <button class="kin-order-btn" onclick="zeitAendern('${order.id}')" title="Dem Gast eine neue Zeit sagen" style="background:rgba(217,119,6,0.08);color:#b45309;border-color:rgba(217,119,6,0.25);">
                         <span class="material-symbols-outlined" style="font-size:18px;">schedule</span>
                         Zeit ändern
-                    </button>
-                    <button class="kin-order-btn next" onclick="updateOrderStatus('${order.id}', 'ready')">
-                        <span class="material-symbols-outlined" style="font-size:18px;">check_circle</span>
-                        Fertig
-                    </button>
-                `;
-                break;
-            case 'ready':
-                if (order.order_type === 'delivery') {
-                    actionsHtml = `
-                        <button class="kin-order-btn reject" onclick="openCancelOrderDialog('${order.id}')" title="Stornieren" style="background:rgba(239,68,68,0.08);color:#dc2626;border-color:rgba(239,68,68,0.25);">
-                            <span class="material-symbols-outlined" style="font-size:18px;">cancel</span>
-                        </button>
-                        <button class="kin-order-btn next" onclick="updateOrderStatus('${order.id}', 'out_for_delivery')">
-                            <span class="material-symbols-outlined" style="font-size:18px;">inventory_2</span>
-                            Fahrer los
-                        </button>
-                    `;
-                } else if (order.order_type === 'dine_in') {
-                    actionsHtml = `
-                        <button class="kin-order-btn reject" onclick="openCancelOrderDialog('${order.id}')" title="Stornieren" style="background:rgba(239,68,68,0.08);color:#dc2626;border-color:rgba(239,68,68,0.25);">
-                            <span class="material-symbols-outlined" style="font-size:18px;">cancel</span>
-                        </button>
-                        <button class="kin-order-btn next" onclick="updateOrderStatus('${order.id}', 'picked_up')">
-                            <span class="material-symbols-outlined" style="font-size:14px;">restaurant</span>
-                            Serviert
-                        </button>
-                    `;
-                } else {
-                    actionsHtml = `
-                        <button class="kin-order-btn reject" onclick="openCancelOrderDialog('${order.id}')" title="Stornieren" style="background:rgba(239,68,68,0.08);color:#dc2626;border-color:rgba(239,68,68,0.25);">
-                            <span class="material-symbols-outlined" style="font-size:18px;">cancel</span>
-                        </button>
-                        <button class="kin-order-btn next" onclick="updateOrderStatus('${order.id}', 'picked_up')">
-                            <span class="material-symbols-outlined" style="font-size:18px;">check_circle</span>
-                            Abgeholt
-                        </button>
-                    `;
-                }
-                break;
-            case 'out_for_delivery':
-                actionsHtml = `
-                    <button class="kin-order-btn reject" onclick="openCancelOrderDialog('${order.id}')" title="Stornieren" style="background:rgba(239,68,68,0.08);color:#dc2626;border-color:rgba(239,68,68,0.25);">
-                        <span class="material-symbols-outlined" style="font-size:18px;">cancel</span>
-                    </button>
-                    <button class="kin-order-btn next" onclick="updateOrderStatus('${order.id}', 'delivered')">
-                        <span class="material-symbols-outlined" style="font-size:18px;">check_circle</span>
-                        Geliefert
-                    </button>
-                `;
+                    </button>` : '') + (_ns ? `
+                    <button class="kin-order-btn next" data-schritt="${_ns.status}" onclick="updateOrderStatus('${order.id}', '${_ns.status}')">
+                        <span class="material-symbols-outlined" style="font-size:18px;">${_ns.icon}</span>
+                        ${_ns.text}
+                    </button>` : '');
                 break;
         }
 
@@ -61588,8 +62032,7 @@ function updateOrderStats() {
     // Tab Counts (mit null-checks)
     el = document.getElementById('ordersCountAll'); if (el) el.textContent = dashboardOrders.length;
     el = document.getElementById('ordersCountNew'); if (el) el.textContent = dashboardOrders.filter(o => o.status === 'received').length;
-    el = document.getElementById('ordersCountAccepted'); if (el) el.textContent = dashboardOrders.filter(o => o.status === 'accepted').length;
-    el = document.getElementById('ordersCountPreparing'); if (el) el.textContent = dashboardOrders.filter(o => o.status === 'preparing').length;
+    el = document.getElementById('ordersCountPreparing'); if (el) el.textContent = dashboardOrders.filter(o => ['accepted', 'confirmed', 'preparing'].indexOf(o.status) >= 0).length;
     el = document.getElementById('ordersCountReady'); if (el) el.textContent = dashboardOrders.filter(o => o.status === 'ready').length;
     el = document.getElementById('ordersCountDelivery'); if (el) el.textContent = dashboardOrders.filter(o => o.status === 'out_for_delivery').length;
 
@@ -61915,6 +62358,26 @@ function selectTimeOption(btn, minutes) {
 }
 
 // Bestellung mit Zeit bestätigen
+// Status nach "Annehmen": sofort "preparing", nur eine Vorbestellung, die
+// mehr als eine Stunde in der Zukunft liegt, bleibt "accepted".
+function annahmeStatus(order, jetzt) {
+    jetzt = jetzt || Date.now();
+    if (order && order.scheduled_at) {
+        var t = new Date(order.scheduled_at).getTime();
+        if (!isNaN(t) && t - jetzt > 60 * 60 * 1000) return 'accepted';
+    }
+    return 'preparing';
+}
+// Der EINE naechste Schritt nach dem Annehmen -- Lieferung: Unterwegs,
+// sonst: Fertig. Danach: Zugestellt / Abgeholt / Serviert.
+function naechsterSchritt(order) {
+    var s = order && order.status, typ = order && order.order_type;
+    if (s === 'accepted' || s === 'confirmed' || s === 'preparing') return typ === 'delivery' ? { status: 'out_for_delivery', text: 'Unterwegs', icon: 'local_shipping' } : { status: 'ready', text: 'Fertig', icon: 'check_circle' };
+    if (s === 'ready') return typ === 'delivery' ? { status: 'out_for_delivery', text: 'Unterwegs', icon: 'local_shipping' } : typ === 'dine_in' ? { status: 'picked_up', text: 'Serviert', icon: 'restaurant' } : { status: 'picked_up', text: 'Abgeholt', icon: 'check_circle' };
+    if (s === 'out_for_delivery') return { status: 'delivered', text: 'Zugestellt', icon: 'check_circle' };
+    return null;
+}
+
 async function confirmAcceptOrder() {
     try {
     if (!currentAcceptOrderId) return;
@@ -61944,10 +62407,18 @@ async function confirmAcceptOrder() {
     // Kueche faenge von vorne an.
     var _nurZeit = currentAcceptModus === 'zeit';
     var _neueZeit = new Date(Date.now() + minutes * 60000).toISOString();
+    // DREI SCHRITTE WIE BEI LIEFERANDO (Ibo, 12.10.2026: "annehmen ist auch
+    // direkt zubereitet"). Annehmen setzt die Bestellung gleich auf
+    // "preparing" -- der eigene Knopf "Zubereiten" entfaellt. Ausnahme:
+    // eine Vorbestellung fuer spaeter bleibt "accepted" (bestaetigt), sonst
+    // laese der Gast "wird zubereitet" fuer morgen Mittag.
+    var _acOrder = (typeof dashboardOrders !== 'undefined' ? dashboardOrders : []).find(function (o) { return o.id === currentAcceptOrderId; });
+    var _neuerStatus = annahmeStatus(_acOrder);
+    var _jetztIso = new Date().toISOString();
     var _feld = _nurZeit
         ? { estimated_minutes: minutes, estimated_time: _neueZeit }
-        : { status: 'accepted', estimated_minutes: minutes, estimated_time: _neueZeit,
-            accepted_at: new Date().toISOString() };
+        : { status: _neuerStatus, estimated_minutes: minutes, estimated_time: _neueZeit, accepted_at: _jetztIso };
+    if (!_nurZeit && _neuerStatus === 'preparing') _feld.preparing_at = _jetztIso;
 
     try {
         const response = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${currentAcceptOrderId}&select=id`, {
@@ -61977,7 +62448,7 @@ async function confirmAcceptOrder() {
             // Lokal aktualisieren
             const order = dashboardOrders.find(o => o.id === currentAcceptOrderId);
             if (order) {
-                if (!_nurZeit) order.status = 'accepted';
+                if (!_nurZeit) order.status = _neuerStatus;
                 order.estimated_minutes = minutes;
                 order.estimated_time = _neueZeit;
             }
@@ -62002,7 +62473,7 @@ async function confirmAcceptOrder() {
                 ? `Neue Zeit gesendet • ${minutes} Min`
                 : `Bestellung angenommen • ${minutes} Min`, 'success');
 
-            // Auto-Druck: Küchen-Bon automatisch drucken.
+            // Auto-Druck: den Bon automatisch drucken.
             // NICHT beim blossen Aendern der Zeit -- sonst laeuft bei jeder
             // Korrektur ein zweiter Bon durch und die Kueche kocht doppelt.
             if (autoPrintKitchenBon && !_nurZeit) {
@@ -62101,13 +62572,20 @@ async function updateOrderStatus(orderId, newStatus) {
                 'apikey': SUPABASE_KEY,
                 'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
-                'Prefer': 'return=minimal'
+                // representation statt minimal: verwirft RLS die Aenderung
+                // still, kaeme sonst 204 -- und der Knopf saehe erfolgreich aus.
+                'Prefer': 'return=representation'
             },
             body: JSON.stringify(updateData)
         });
         if (!_stRes.ok) {
             console.error('Status-Update fehlgeschlagen:', _stRes.status);
             showToast('Status konnte nicht gespeichert werden (Fehler ' + _stRes.status + ')', 'error');
+            return;
+        }
+        var _stZeilen = null; try { _stZeilen = await _stRes.json(); } catch (e) { _stZeilen = null; }
+        if (!Array.isArray(_stZeilen) || !_stZeilen.length) {
+            showToast('Nicht gespeichert: die Datenbank hat die Änderung ohne Fehlermeldung verworfen.', 'error');
             return;
         }
     } catch (e) {
@@ -62124,10 +62602,10 @@ async function updateOrderStatus(orderId, newStatus) {
 
         const labels = {
             'preparing': 'In Zubereitung',
-            'ready': 'Fertig zur Abholung',
-            'out_for_delivery': 'Fahrer unterwegs',
-            'delivered': 'Geliefert',
-            'picked_up': 'Abgeholt'
+            'ready': (order.order_type === 'pickup' ? 'Fertig zur Abholung' : 'Fertig'),
+            'out_for_delivery': 'Unterwegs',
+            'delivered': 'Zugestellt',
+            'picked_up': (order.order_type === 'dine_in' ? 'Serviert' : 'Abgeholt')
         };
         showToast('Status: ' + labels[newStatus]);
     }
@@ -62293,6 +62771,7 @@ function printOrderBrowser(orderId) {
     var restEmail = rest ? rest.email : '';
     var restLogo = rest ? rest.logo : null;
     var restWebsite = rest ? rest.website : '';
+    var restSlug = rest && rest.slug ? String(rest.slug) : '';
 
     // Adresse formatieren
     var restAdresse = '';
@@ -62324,18 +62803,40 @@ function printOrderBrowser(orderId) {
 
     // Zahlart als Wort, nicht als Datenbankschluessel.
     var zahlartText = zahlartKurz(order.payment_method);
+    // BEZAHLT ODER NICHT? Vorher stand hier immer "Bezahlt: …" -- auch bei
+    // Barzahlung bei Abholung und bei PayPal, das noch offen war. Seit es nur
+    // noch EINEN Bon gibt (12.10.2026), greift auch der Tresen danach: der
+    // muss sehen, ob er kassieren muss.
+    var _zst = zahlartStand(order);
+    var zahlZeile = _zst.marke
+        ? (_zst.bezahlt ? zahlartText.toUpperCase() + ' - BEZAHLT' : zahlartText.toUpperCase() + ' - NOCH ZU ZAHLEN')
+        : 'Zu zahlen: ' + zahlartText;
 
     // Items HTML
     // Der Gerichtname kam ungeschuetzt aus der Datenbank in den Beleg --
     // als einziges Feld hier. Sonderwunsch und Zusaetze waren schon escapt.
+    // Die Nummer steht vor dem Gericht in einer eigenen Spalte (Design
+    // 12.10.2026). Fuehrt das Lokal keine Nummern, faellt die Spalte weg
+    // statt leer mitzulaufen.
+    var mitNummern = (order.items || []).some(function (item) { return !!bonGerichtNr(item); });
     var itemsHtml = (order.items || []).map(function(item) {
         return '<tr>' +
+            (mitNummern ? '<td class="nr">' + (bonGerichtNr(item) ? '<span class="gnr">' + escapeHtml(bonGerichtNr(item)) + '</span>' : '') + '</td>' : '') +
             '<td class="anz">' + (parseInt(item.quantity, 10) || 1) + '×</td>' +
-            '<td>' + escapeHtml(item.name || '') +
-                (item.options ? '<div class="zusatz">' + escapeHtml(item.options) + '</div>' : '') +
-                // Sonderwunsch hervorgehoben. Wer in der Küche steht,
-                // überliest eine graue Kleinschrift.
-                (item.notes ? '<div class="wunsch">' + escapeHtml(item.notes) + '</div>' : '') +
+            '<td><div class="gname">' + escapeHtml(item.name || '') + '</div>' +
+                // Groesse und Extras je Gericht. Eine Groesse ersetzt den
+                // Preis (optionAufpreis 0), ein Extra kommt obendrauf und
+                // steht mit Preis da.
+                ((item.selected_options && item.selected_options.length)
+                    ? item.selected_options.map(function (o) {
+                          var n = optionText(o); if (!n) return '';
+                          var auf = optionAufpreis(o);
+                          return '<div class="zusatz">→ ' + escapeHtml(n) + (auf > 0 ? ' (+' + formatPrice(auf) + ')' : '') + '</div>';
+                      }).join('')
+                    : (item.options ? '<div class="zusatz">' + escapeHtml(item.options) + '</div>' : '')) +
+                // Sonderwunsch in Anfuehrung und kursiv -- als Wort des Gastes
+                // erkennbar, nicht als Teil des Gerichts.
+                (item.notes ? '<div class="wunsch">„' + escapeHtml(item.notes) + '“</div>' : '') +
             '</td>' +
             '<td class="preis">' + formatPrice(item.price) + '</td>' +
         '</tr>';
@@ -62350,7 +62851,18 @@ function printOrderBrowser(orderId) {
     var istRolle = (bonPapier === 'thermo');
 
     var lieferung = order.order_type === 'delivery';
-    var artText = lieferung ? 'Lieferung' : 'Abholung';
+    // Vor Ort mit Tischnummer -- die Kueche muss wissen, wohin es geht
+    // (stand bisher nur auf dem alten Kuechenbon).
+    var artText = lieferung ? 'Lieferung' : (order.order_type === 'dine_in' ? 'Tisch ' + (order.table_number || '?') : 'Abholung');
+    // Hinweis zur ganzen Bestellung und Vorbestellzeit: gross und umrahmt,
+    // damit sie in der Kueche niemand ueberliest.
+    var _hinweis = order.notes || order.delivery_notes || '';
+    var _vorbest = '';
+    if (order.scheduled_at) {
+        try { var _vb = new Date(order.scheduled_at); _vorbest = _vb.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' }) + ', ' + _vb.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr'; } catch (e) {}
+    }
+    var hinweisHtml = (_vorbest ? '<div class="hinweis"><div class="feldname">Vorbestellung</div><div class="hinweis-text">' + escapeHtml(_vorbest) + '</div></div>' : '')
+        + (_hinweis ? '<div class="hinweis"><div class="feldname">Hinweis zur Bestellung</div><div class="hinweis-text">' + escapeHtml(_hinweis) + '</div></div>' : '');
 
     // Fertig-Zeitpunkt, wenn das Restaurant einen genannt hat.
     var fertigStr = '';
@@ -62384,7 +62896,12 @@ function printOrderBrowser(orderId) {
           };
 
     var wegHtml = '';
-    if (wegZiel.roh && wegZiel.roh.replace(/[,\s]/g, '')) {
+    // NUR BEI LIEFERUNG (12.10.2026, "noch besser der Bon"). Am Tisch sitzt
+    // der Gast schon da, und bei Abholung steht er im Lokal, wenn er den Bon
+    // bekommt -- Adresse und Telefon des Hauses stehen ohnehin im Kopf, die
+    // Uhrzeit jetzt gross oben neben der Nummer. Der Kasten mit dem QR-Code
+    // zum Restaurant war dort ein zweiter QR-Code ohne Nutzen.
+    if (lieferung && wegZiel.roh && wegZiel.roh.replace(/[,\s]/g, '')) {
         // Zwei Fassungen derselben Adresse, mit Absicht: die eine geht in den
         // Beleg und muss escapt sein, die andere in die Karten-Adresse und
         // darf es NICHT -- encodeURIComponent('&amp;') verstuemmelt sie.
@@ -62395,7 +62912,6 @@ function printOrderBrowser(orderId) {
                 '<div class="weg-titel">' + wegZiel.titel + '</div>' +
                 '<div class="weg-adresse">' + wegZiel.zeile + '</div>' +
                 (wegZiel.tel ? '<div class="weg-tel">Tel: ' + escapeHtml(wegZiel.tel) + '</div>' : '') +
-                (fertigStr ? '<div class="weg-zeit">' + (lieferung ? 'Lieferung gegen ' : 'Abholbereit gegen ') + fertigStr + ' Uhr</div>' : '') +
               '</div>' +
               '<div class="weg-qr">' +
                 '<img alt="QR-Code zum Öffnen der Bestellseite" src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&ecc=M&margin=0&data='
@@ -62407,243 +62923,271 @@ function printOrderBrowser(orderId) {
 
     // Zwei Papierformate, ein Markup. Was sich unterscheidet, ist die
     // Gestaltung -- nicht der Inhalt.
-    // DER BELEG ALS BRIEFBOGEN, NICHT ALS KASSENZETTEL.
     //
-    // Gewuenscht war "stilvoller". Vier Dinge machen den Unterschied:
+    // DAS DESIGN (12.10.2026, mit Claude Design entworfen, von Ibo
+    // freigegeben: "ja mach das"). Streng schwarz-weiss, eine kraeftige
+    // serifenlose Schrift, und eine klare Rangfolge -- was der Tresen aus
+    // einem Meter lesen muss, ist am groessten:
     //
-    //   1. Eine Schriftmischung. Der Hausname und die Danksagung in einer
-    //      Serifenschrift, alles Uebrige serifenlos. Das ist der Griff, den
-    //      jede gute Speisekarte macht, und er kostet nichts.
+    //   1. die Bestellnummer, riesig, darunter die Bestellart als schwarze
+    //      Pille und die Uhrzeit;
+    //   2. der Hinweis zur Bestellung, umrahmt, VOR den Gerichten -- wer
+    //      kocht, liest ihn, bevor er anfaengt;
+    //   3. jedes Gericht mit seiner Nummer im Rahmen;
+    //   4. die Summe und darunter, schwarz hinterlegt, ob noch kassiert
+    //      werden muss.
     //
-    //      WELCHE Serifenschrift, ist keine Geschmacksfrage allein: das
-    //      Druckfenster laedt bewusst KEINE Schrift aus dem Netz. Ein Beleg
-    //      darf nicht am WLAN haengen, und eine Schrift, die nicht rechtzeitig
-    //      kommt, wuerde die Zeilen nachtraeglich umbrechen. Also nur, was auf
-    //      dem Rechner ohnehin liegt.
-    //
-    //      Gewaehlt wurde "Baskerville oder Georgia". Beides geht: eine
-    //      Schriftangabe IST eine Rangfolge. Der Browser nimmt die erste, die
-    //      auf dem Geraet liegt.
-    //
-    //        Baskerville / Hoefler Text -- auf jedem Mac und iPad. Fein und
-    //          ruhig, die eleganteste der Auswahl.
-    //        Georgia -- ueberall, auch auf Windows. Kraeftiger, aber sicher.
-    //
-    //      Damit bekommt ein Mac Baskerville, ein Windows-Rechner Georgia.
-    //      Kein Geraet faellt auf Times zurueck.
-    //
-    //      NICHT dabei: "Baskerville Old Face". Die liegt zwar auf Windows,
-    //      ist aber eine Auszeichnungsschrift mit ganz anderen Formen -- als
-    //      Rueckfall waere sie eine Ueberraschung, keine Absicherung.
-    //   2. Ein Briefkopf-Streifen in Hausfarbe an der oberen Blattkante.
-    //   3. Warmes Papierweiss statt Grau fuer die abgesetzten Flaechen --
-    //      #faf7ee gehoert zur Marke, das kuehle #f7faf9 tat es nicht.
-    //   4. Luft. Groessere Abstaende, duennere Linien, weniger Rahmen. Ein
-    //      Dokument wirkt teuer, wenn wenig darauf steht und das wenige
-    //      Platz hat.
+    // Keine Schrift aus dem Netz: ein Beleg darf nicht am WLAN haengen, und
+    // eine Schrift, die zu spaet kommt, bricht die Zeilen mitten im Druck
+    // um. Epilogue (unsere Ueberschriftenschrift) steht vorn und greift, wo
+    // sie installiert ist; sonst die kraeftige Systemschrift.
     var stilA4 = `
-    @page { size: A4; margin: 18mm 20mm 16mm; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-           font-size: 10pt; color: #16211d; line-height: 1.5; max-width: 170mm; margin: 0 auto;
+    @page { size: A4; margin: 16mm 17mm 14mm; }
+    body { font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+           font-size: 10.5pt; color: #000; line-height: 1.45; max-width: 176mm; margin: 0 auto;
            font-variant-numeric: tabular-nums; }
-    .kopf { display: flex; align-items: flex-start; justify-content: space-between;
-            gap: 20px; padding-bottom: 16px; }
-    .haus-name { font-family: Baskerville, 'Hoefler Text', Georgia, 'Times New Roman', serif; font-size: 23pt; font-weight: 400;
-                 letter-spacing: -0.005em; color: #00251e; line-height: 1.12; }
-    .haus-zeile { font-size: 8pt; color: #6d7975; margin-top: 7px; letter-spacing: 0.01em; }
-    /* Umrissen statt gefuellt -- ruhiger, und der Blick bleibt beim Namen. */
-    .art-chip { flex-shrink: 0; border: 1.5px solid #003d33; color: #003d33; border-radius: 999px;
-                padding: 6px 16px; font-size: 8pt; font-weight: 700; letter-spacing: 0.18em;
+    .anzeige, .haus-name, .auftrag-nr, .auftrag-zeit, .gesamt td, .dank { font-family: Epilogue, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; }
+    .oben { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 24px; align-items: start; }
+    .kopf { grid-column: 1; grid-row: 1; }
+    .haus-name { font-size: 25pt; font-weight: 900; letter-spacing: -0.02em; line-height: 1; text-transform: uppercase; }
+    .haus-zeile { font-size: 10pt; margin-top: 4px; }
+    .auftrag { grid-column: 2; grid-row: 1; text-align: right; }
+    .trennlinie { grid-column: 1 / -1; grid-row: 2; height: 3px; margin: 16px 0 18px;
+                  background: #000; }
+    .auftrag-nr { font-size: 48pt; font-weight: 900; letter-spacing: -0.04em; line-height: 0.9; margin-top: 4px; }
+    .auftrag-rechts { margin-top: 8px; }
+    .art-chip { display: inline-block; background: #000; color: #fff; border-radius: 999px;
+                padding: 3px 12px; font-size: 9pt; font-weight: 800; letter-spacing: 0.12em;
                 text-transform: uppercase; white-space: nowrap; }
-    /* DIE Linie des Belegs. Erst war hier zusaetzlich ein Briefkopf-Streifen
-       an der Blattkante geplant -- im Druck sitzt position:fixed aber INNEN
-       am Seitenrand und lag damit quer ueber dem Hausnamen. Zwei Linien
-       waeren ohnehin eine zu viel gewesen: jetzt traegt diese eine das
-       Markenzeichen, vom Hausgruen ins Gelb. */
-    .trennlinie { height: 2.5px; margin-bottom: 22px; border-radius: 2px;
-                  background: linear-gradient(90deg, #00251e 0%, #003d33 55%, #fed65b 100%); }
-    .zwei { display: flex; gap: 32px; margin-bottom: 6px; }
-    .zwei > div { flex: 1; }
-    .feldname { font-size: 7pt; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase;
-                color: #96a09c; margin-bottom: 6px; }
-    .feldwert { font-size: 10pt; }
-    .beleg-nr { font-size: 12.5pt; font-weight: 700; letter-spacing: 0.02em; color: #00251e; }
-    table.pos { width: 100%; border-collapse: collapse; margin-top: 22px; }
-    table.pos th { font-size: 7pt; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase;
-                   color: #96a09c; text-align: left; padding: 0 0 9px; border-bottom: 1px solid #00251e; }
-    table.pos td { padding: 11px 0; border-bottom: 1px solid #eef1ef; vertical-align: top; }
-    table.pos tr:last-child td { border-bottom: none; }
-    .anz { width: 30px; font-weight: 700; color: #7e8a86; font-size: 9pt; }
-    .preis { text-align: right; white-space: nowrap; font-weight: 600; }
-    .zusatz { font-size: 8.5pt; color: #6d7975; margin-top: 3px; }
-    .wunsch { font-size: 8.5pt; font-weight: 700; color: #9a3412; margin-top: 3px; }
-    /* Die Summe in warmem Papierweiss abgesetzt. */
-    .summen { margin-left: auto; width: 68mm; margin-top: 4px; border-collapse: collapse;
-              background: #faf7ee; border-radius: 8px; }
-    .summen tr td { padding: 4px 14px; font-size: 9.5pt; color: #4a5652; }
-    .summen tr:first-child td { padding-top: 12px; }
+    .auftrag-zeit { font-size: 15pt; font-weight: 800; margin-top: 8px; }
+    .auftrag-datum { font-size: 9pt; margin-top: 2px; }
+    .gast { margin-bottom: 4px; }
+    .feldname { font-size: 8pt; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 3px; }
+    .feldwert { font-size: 11pt; }
+    .gast-name { font-weight: 700; font-size: 12pt; }
+    .hinweis { margin-top: 14px; padding: 10px 14px; border: 2px solid #000; border-radius: 9px; }
+    .hinweis .feldname { font-weight: 800; }
+    .hinweis-text { font-size: 11.5pt; font-weight: 600; }
+    table.pos { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    table.pos th { font-size: 8pt; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;
+                   text-align: left; padding: 0 0 6px; border-bottom: 2px solid #000; }
+    table.pos td { padding: 9px 0; border-bottom: 1px solid #000; vertical-align: baseline; }
+    table.pos th.preis { text-align: right; }
+    .nr { width: 13mm; }
+    .anz { width: 12mm; font-weight: 800; font-size: 12.5pt; }
+    .gname { font-weight: 700; font-size: 12.5pt; }
+    .preis { text-align: right; white-space: nowrap; font-weight: 700; font-size: 12pt; }
+    .gnr { display: inline-block; min-width: 9mm; padding: 0 4px; border: 1.5px solid #000;
+           border-radius: 5px; text-align: center; font-weight: 800; font-size: 11pt; }
+    .zusatz { font-size: 10pt; margin-top: 2px; }
+    .wunsch { font-size: 10pt; font-style: italic; font-weight: 700; margin-top: 2px; }
+    .summen-block { display: flex; flex-direction: row-reverse; justify-content: space-between; align-items: flex-start; gap: 24px; margin-top: 14px; }
+    .summen-rechts { width: 78mm; }
+    .summen { width: 100%; border-collapse: collapse; }
+    .summen tr td { padding: 3px 0; font-size: 10.5pt; }
     .summen tr td:last-child { text-align: right; }
-    .gesamt td { padding-top: 9px !important; padding-bottom: 4px !important;
-                 font-size: 14pt; font-weight: 700; color: #00251e;
-                 border-top: 1px solid #e4dcc5; }
-    .gesamt td:first-child { font-family: Baskerville, 'Hoefler Text', Georgia, 'Times New Roman', serif; font-weight: 400; letter-spacing: 0.02em; }
-    .zahlart { text-align: right; font-size: 8pt; color: #8a938f; padding-top: 0 !important;
-               padding-bottom: 12px !important; letter-spacing: 0.04em; }
-    /* Der Weg-Block: kein Kasten, sondern eine warme Flaeche mit Haarlinie. */
-    .weg { display: flex; gap: 22px; align-items: center; margin-top: 26px; padding: 18px 20px;
-           background: #faf7ee; border-radius: 10px; border-left: 3px solid #003d33; }
+    .summen .gesamt td { border-top: 3px solid #000; padding-top: 8px !important; font-size: 17pt; font-weight: 900; }
+    .summen .gesamt td:last-child { font-size: 23pt; }
+    .zahlart { margin-top: 10px; background: #000; color: #fff; text-align: center; font-weight: 800;
+               font-size: 11pt; letter-spacing: 0.1em; padding: 7px 10px; border-radius: 999px; text-transform: uppercase; }
+    .weg { display: flex; gap: 18px; align-items: center; margin-top: 14px; padding: 12px 14px;
+           border: 2px solid #000; border-radius: 9px; }
     .weg-text { flex: 1; }
-    .weg-titel { font-size: 7pt; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: #96a09c; }
-    .weg-adresse { font-family: Baskerville, 'Hoefler Text', Georgia, 'Times New Roman', serif; font-size: 13pt; font-weight: 400;
-                   color: #00251e; margin-top: 6px; line-height: 1.35; }
-    .weg-tel { font-size: 9pt; color: #6d7975; margin-top: 5px; }
-    .weg-zeit { font-size: 9pt; font-weight: 700; color: #003d33; margin-top: 3px; }
+    .weg-titel { font-size: 8pt; font-weight: 800; letter-spacing: 0.15em; text-transform: uppercase; }
+    .weg-adresse { font-size: 13pt; font-weight: 800; margin-top: 3px; line-height: 1.3; }
+    .weg-tel { font-size: 10pt; margin-top: 3px; }
     .weg-qr { text-align: center; flex-shrink: 0; }
-    .weg-qr img { width: 29mm; height: 29mm; display: block; background: #fff; padding: 2mm; border-radius: 6px; }
-    .weg-qr-text { font-size: 6.5pt; color: #96a09c; margin-top: 5px; max-width: 33mm; line-height: 1.35; }
-    .steuer { margin-top: 26px; }
-    .steuer table { border-collapse: collapse; }
-    .steuer th, .steuer td { font-size: 8pt; padding: 4px 18px 4px 0; text-align: left; color: #4a5652; }
-    .steuer th { font-weight: 700; color: #96a09c; border-bottom: 1px solid #eef1ef;
-                 font-size: 7pt; letter-spacing: 0.12em; text-transform: uppercase; }
-    .dank { font-family: Baskerville, 'Hoefler Text', Georgia, 'Times New Roman', serif; font-size: 13pt; color: #003d33;
-            margin-top: 26px; letter-spacing: 0.01em; }
-    .fuss { margin-top: 14px; padding-top: 12px; border-top: 1px solid #eef1ef;
-            display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; }
-    .rechtstext { font-size: 6.5pt; color: #9aa39f; line-height: 1.6; max-width: 106mm; }
-    .marke { text-align: right; flex-shrink: 0; }
-    .marke-name { font-family: Baskerville, 'Hoefler Text', Georgia, 'Times New Roman', serif; font-size: 11pt; color: #00251e; }
-    .marke-url { font-size: 7pt; color: #9aa39f; letter-spacing: 0.08em; margin-top: 2px; }
+    .weg-qr img { width: 26mm; height: 26mm; display: block; }
+    .weg-qr-text { font-size: 7.5pt; margin-top: 4px; max-width: 30mm; line-height: 1.3; }
+    .steuer { width: 72mm; }
+    .steuer table { border-collapse: collapse; width: 100%; }
+    .steuer th, .steuer td { font-size: 9pt; padding: 2px 0; text-align: left; }
+    .steuer th { font-weight: 700; border-bottom: 1px solid #000; }
+    .steuer td + td, .steuer th + th { text-align: right; }
+    .dank { font-size: 17pt; font-weight: 800; text-align: center; margin-top: 30px; }
+    .rechtstext { font-size: 8.5pt; text-align: center; margin-top: 4px; }
+    .fuss { margin-top: 16px; padding-top: 14px; border-top: 1px dashed #000; }
+    .marke { display: flex; flex-direction: row-reverse; align-items: center; justify-content: space-between; gap: 16px; }
+    .marke-text { display: flex; align-items: center; gap: 12px; }
+    .marke-logo { width: 20mm; height: 8mm; }
+    .marke-url { font-size: 10pt; font-weight: 700; }
+    .marke-qr-bild { width: 22mm; height: 22mm; display: block; }
+    .marke-qr-text { font-size: 10pt; line-height: 1.35; }
     `;
 
     var stilRolle = `
     @page { size: 80mm auto; margin: 4mm; }
-    body { font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
-           font-size: 11px; width: 72mm; margin: 0 auto; color: #000; line-height: 1.4; }
-    .kopf { text-align: center; padding-bottom: 8px; }
-    .trennlinie { height: 2px; background: #000; margin-bottom: 10px; }
-    .haus-name { font-size: 16px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; }
-    .haus-zeile { font-size: 9px; margin-top: 3px; }
-    .art-chip { display: inline-block; margin-top: 7px; background: #000; color: #fff;
-                border-radius: 999px; padding: 3px 12px; font-size: 9px; font-weight: 800;
+    body { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+           font-size: 12px; width: 72mm; margin: 0 auto; color: #000; line-height: 1.4;
+           font-variant-numeric: tabular-nums; }
+    .anzeige, .haus-name, .auftrag-nr, .auftrag-zeit, .gesamt td, .dank { font-family: Epilogue, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; }
+    .oben { display: flex; flex-direction: column; align-items: center; text-align: center; }
+    .haus-name { font-size: 22px; font-weight: 900; letter-spacing: -0.02em; line-height: 1.05; text-transform: uppercase; }
+    .haus-zeile { font-size: 11px; margin-top: 2px; }
+    .kopf img { margin: 0 auto 6px !important; }
+    .trennlinie { align-self: stretch; height: 3px; margin: 12px 0;
+                  background: #000; }
+    .auftrag { display: flex; flex-direction: column; align-items: center; }
+    .auftrag .feldname { letter-spacing: 0.2em; }
+    .auftrag-nr { font-size: 60px; font-weight: 900; letter-spacing: -0.04em; line-height: 0.95; margin-top: 4px; }
+    .auftrag-rechts { display: flex; flex-direction: column; align-items: center; margin-top: 6px; }
+    .art-chip { display: inline-block; background: #000; color: #fff;
+                border-radius: 999px; padding: 3px 12px; font-size: 12px; font-weight: 800;
                 letter-spacing: 0.12em; text-transform: uppercase; }
-    .zwei { margin: 10px 0 0; }
-    .zwei > div + div { margin-top: 8px; }
-    .feldname { font-size: 8px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #555; }
-    .feldwert { font-size: 11px; }
-    .beleg-nr { font-size: 13px; font-weight: 800; }
-    table.pos { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    table.pos th { font-size: 8px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
-                   color: #555; text-align: left; padding: 0 0 4px; border-bottom: 1px solid #000; }
-    table.pos td { padding: 5px 0; border-bottom: 1px dotted #bbb; vertical-align: top; }
-    .anz { width: 26px; font-weight: 700; }
-    .preis { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-    .zusatz { font-size: 9px; color: #444; }
-    .wunsch { font-size: 10px; font-weight: 700; }
-    .summen { width: 100%; margin-top: 8px; }
-    .summen tr td { padding: 2px 0; font-size: 11px; }
-    .summen tr td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
-    .gesamt td { border-top: 2px solid #000; padding-top: 6px !important; font-size: 15px; font-weight: 800; }
-    .zahlart { text-align: right; font-size: 10px !important; color: #444; padding-top: 4px !important; }
-    .weg { margin-top: 10px; padding: 9px; border: 2px dashed #000; border-radius: 4px; text-align: center; }
-    .weg-titel { font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
-    .weg-adresse { font-size: 12px; font-weight: 700; margin-top: 4px; }
-    .weg-tel, .weg-zeit { font-size: 10px; margin-top: 2px; }
-    .weg-zeit { font-weight: 700; }
-    .weg-qr img { width: 34mm; height: 34mm; display: block; margin: 7px auto 0; }
-    .weg-qr-text { font-size: 8px; color: #555; margin-top: 3px; }
+    .auftrag-zeit { font-size: 17px; font-weight: 800; margin-top: 6px; }
+    .auftrag-datum { font-size: 11px; margin-top: 2px; }
+    .gast { margin-top: 12px; padding-top: 10px; border-top: 1px dashed #000; }
+    .feldname { font-size: 11px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; }
+    .feldwert { font-size: 12px; }
+    .gast-name { font-weight: 700; font-size: 14px; }
+    .hinweis { margin-top: 10px; padding: 8px 10px; border: 2px solid #000; border-radius: 9px; }
+    .hinweis .feldname { font-weight: 800; letter-spacing: 0.1em; }
+    .hinweis-text { font-size: 13px; font-weight: 700; }
+    table.pos { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    table.pos th { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+                   text-align: left; padding: 0 0 5px; border-bottom: 2px solid #000; }
+    table.pos td { padding: 7px 0; border-bottom: 1px dotted #000; vertical-align: baseline; }
+    table.pos th { padding-right: 6px; }
+    table.pos th.preis { text-align: right; padding-right: 0; }
+    .nr { width: 32px; }
+    .anz { width: 32px; font-weight: 800; font-size: 14px; }
+    .gname { font-weight: 700; font-size: 14px; line-height: 1.25; }
+    .preis { text-align: right; white-space: nowrap; font-weight: 700; font-size: 13px; padding-left: 4px !important; }
+    .gnr { display: inline-block; min-width: 24px; padding: 0 2px; border: 1.5px solid #000;
+           border-radius: 5px; text-align: center; font-weight: 800; font-size: 12px; }
+    .zusatz { font-size: 11px; }
+    .wunsch { font-size: 12px; font-style: italic; font-weight: 700; }
+    .summen-block { margin-top: 8px; }
+    .summen { width: 100%; border-collapse: collapse; }
+    .summen tr td { padding: 2px 0; font-size: 12px; }
+    .summen tr td:last-child { text-align: right; }
+    .summen .gesamt td { border-top: 3px solid #000; padding-top: 6px !important; font-size: 18px; font-weight: 900; }
+    .summen .gesamt td:last-child { font-size: 22px; }
+    .zahlart { margin-top: 10px; background: #000; color: #fff; text-align: center; font-weight: 800;
+               font-size: 13px; letter-spacing: 0.08em; padding: 7px 8px; border-radius: 999px; text-transform: uppercase; }
+    .weg { display: flex; gap: 10px; align-items: center; margin-top: 10px; padding: 9px 10px;
+           border: 2px solid #000; border-radius: 9px; }
+    .weg-text { flex: 1; min-width: 0; }
+    .weg-titel { font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+    .weg-adresse { font-size: 14px; font-weight: 800; margin-top: 2px; line-height: 1.25; }
+    .weg-tel { font-size: 11px; margin-top: 2px; }
+    .weg-qr { flex-shrink: 0; text-align: center; }
+    .weg-qr img { width: 20mm; height: 20mm; display: block; }
+    .weg-qr-text { font-size: 9px; margin-top: 2px; max-width: 22mm; line-height: 1.25; }
     .steuer { margin-top: 10px; }
     .steuer table { width: 100%; border-collapse: collapse; }
-    .steuer th, .steuer td { font-size: 9px; padding: 2px 0; text-align: left; }
-    .steuer th { font-weight: 700; border-bottom: 1px dotted #999; }
+    .steuer th, .steuer td { font-size: 11px; padding: 1px 0; text-align: left; }
+    .steuer th { font-weight: 700; border-bottom: 1px solid #000; }
     .steuer td + td, .steuer th + th { text-align: right; }
-    .fuss { margin-top: 12px; padding-top: 8px; border-top: 1px dashed #000; text-align: center; }
-    .rechtstext { font-size: 8px; color: #444; line-height: 1.5; margin-top: 8px; }
-    .marke { margin-top: 8px; }
-    .marke-name { font-size: 11px; }
-    .marke-url { font-size: 8px; color: #555; }
-    .dank { font-size: 13px; font-weight: 700; margin-top: 8px; }
+    .dank { font-size: 18px; font-weight: 800; text-align: center; margin-top: 12px; }
+    .rechtstext { font-size: 11px; text-align: center; line-height: 1.35; margin-top: 4px; }
+    .fuss { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #000; }
+    .marke { display: flex; align-items: center; gap: 10px; }
+    .marke-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .marke-logo { width: 17mm; height: 7mm; }
+    .marke-url { font-size: 11px; font-weight: 700; }
+    .marke-qr-bild { width: 24mm; height: 24mm; display: block; flex-shrink: 0; }
+    .marke-qr-text { font-size: 11px; line-height: 1.3; }
+    .marke-qr-text strong { font-weight: 400; }
     `;
+
+    // UNSER LOGO UNTEN, DAS DES LOKALS OBEN (Ibo, 12.10.2026: "beim Bon
+    // muss unser Logo"). Oben steht der Verkaeufer -- das Lokal. Unten der
+    // Absender der Bestellung, mit QR-Code zur Seite GENAU dieses Lokals:
+    // wer ihn scannt, bestellt beim naechsten Mal wieder direkt dort.
+    // Bilder, die nicht laden, blendet bonDruckenWennFertig aus.
+    var _bestellUrl = restSlug ? 'https://kiekmolin.de/' + encodeURIComponent(restSlug) : '';
+    var markeHtml = '<div class="marke">'
+        + (_bestellUrl ? '<img class="marke-qr-bild" src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&ecc=M&margin=0&data=' + encodeURIComponent(_bestellUrl) + '" alt="QR-Code: nächstes Mal direkt bestellen">' : '')
+        + '<div class="marke-text">'
+        + '<svg class="marke-logo" viewBox="0 0 64 26" role="img" aria-label="Kiek mol in"><rect width="64" height="26" rx="6" fill="#000"/><text x="32" y="18.5" text-anchor="middle" font-family="Epilogue, Helvetica, Arial, sans-serif" font-weight="800" font-size="16" fill="#fff">Kiek</text></svg>'
+        + (_bestellUrl
+            ? '<div class="marke-qr-text"><b>Nächstes Mal direkt hier bestellen</b><br><strong>' + escapeHtml(_bestellUrl.replace('https://', '')) + '</strong></div>'
+            : '<div class="marke-url">kiekmolin.de</div>')
+        + '</div></div>';
 
     let printContent = `
 <!DOCTYPE html>
-<html lang="de"><head><meta charset="UTF-8"><title>Beleg ${belegNr}</title>
+<html lang="de"><head><meta charset="UTF-8"><title>Bon ${belegNr}</title>
 <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     img { max-width: 100%; }
+    /* Schwarz-weiss (Ibo, 12.10.2026): auch ein buntes Logo des Lokals
+       kommt grau aufs Papier, nicht als Farbklecks. */
+    img { filter: grayscale(1); }
     /* Nichts darf mitten in einem Block umbrechen -- daran ist der alte
        Beleg auf A4 gescheitert und lief auf zwei Blaetter. */
-    .weg, .steuer, .fuss, table.pos tr { break-inside: avoid; page-break-inside: avoid; }
+    .weg, .hinweis, .steuer, .fuss, .summen-block, table.pos tr { break-inside: avoid; page-break-inside: avoid; }
     ${istRolle ? stilRolle : stilA4}
 </style></head><body>
 
+<div class="oben">
 <div class="kopf">
     <div>
         ${logoHtml}
         <div class="haus-name">${escapeHtml(restName.trim())}</div>
-        <div class="haus-zeile">${[restAdresse, restPhone ? 'Tel: ' + restPhone : '', restEmail, restWebsite].filter(Boolean).map(escapeHtml).join(' · ')}</div>
+        ${restAdresse ? '<div class="haus-zeile">' + escapeHtml(restAdresse) + '</div>' : ''}
+        ${[restPhone ? 'Tel. ' + restPhone : '', restEmail, restWebsite].filter(Boolean).length ? '<div class="haus-zeile">' + [restPhone ? 'Tel. ' + restPhone : '', restEmail, restWebsite].filter(Boolean).map(escapeHtml).join(' · ') + '</div>' : ''}
     </div>
-    <div class="art-chip">${artText}</div>
 </div>
 <div class="trennlinie"></div>
 
-<div class="zwei">
-    <div>
-        <div class="feldname">Beleg</div>
-        <div class="beleg-nr">${escapeHtml(belegNr)}</div>
-        <div class="feldwert" style="color:#5b6663;">${datumStr} · ${zeitStr} Uhr</div>
-    </div>
-    <div>
-        <div class="feldname">${lieferung ? 'Lieferung an' : 'Abholung durch'}</div>
-        <div class="feldwert" style="font-weight:700;">${escapeHtml(order.customer_name || 'Gast')}</div>
-        ${order.customer_phone ? '<div class="feldwert" style="color:#5b6663;">' + escapeHtml(order.customer_phone) + '</div>' : ''}
+<!-- Nummer und Uhrzeit GROSS: am Tresen aus einem Meter lesbar. -->
+<div class="auftrag">
+    <div class="feldname">Bestellung</div>
+    <div class="auftrag-nr">#${escapeHtml(belegNr)}</div>
+    <div class="auftrag-rechts">
+        <div class="art-chip">${artText}</div>
+        ${fertigStr ? '<div class="auftrag-zeit">' + (lieferung ? 'Ankunft' : (order.order_type === 'dine_in' ? 'Fertig' : 'Abholbereit')) + ' ca. ' + fertigStr + ' Uhr</div>' : ''}
+        <div class="auftrag-datum">Bestellt ${datumStr}, ${zeitStr} Uhr</div>
     </div>
 </div>
+</div>
 
-<table class="pos">
-    <thead><tr><th>Anz</th><th>Artikel</th><th class="preis">Preis</th></tr></thead>
-    <tbody>${itemsHtml}</tbody>
-</table>
-
-<table class="summen">
-    <tr><td>Zwischensumme</td><td>${formatPrice(zwischensumme)}</td></tr>
-    ${liefergebuehr > 0 ? '<tr><td>Liefergebühr</td><td>' + formatPrice(liefergebuehr) + '</td></tr>' : ''}
-    ${rabatt > 0 ? '<tr><td>Rabatt</td><td style="color:#c2410c;">– ' + formatPrice(rabatt) + '</td></tr>' : ''}
-    ${trinkgeld > 0 ? '<tr><td>Trinkgeld</td><td>' + formatPrice(trinkgeld) + '</td></tr>' : ''}
-    <tr class="gesamt"><td>Gesamt</td><td>${formatPrice(bruttoGesamt)}</td></tr>
-    <tr><td colspan="2" class="zahlart">Bezahlt: ${zahlartText}</td></tr>
-</table>
+<div class="gast">
+    <div class="feldname">${lieferung ? 'Lieferung an' : (order.order_type === 'dine_in' ? 'Gast' : 'Abholung durch')}</div>
+    <div class="gast-name">${escapeHtml(order.customer_name || 'Gast')}</div>
+    ${order.customer_phone ? '<div class="feldwert">' + escapeHtml(order.customer_phone) + '</div>' : ''}
+</div>
 
 ${wegHtml}
 
+${hinweisHtml}
+
+<table class="pos">
+    <thead><tr>${mitNummern ? '<th class="nr">Nr.</th>' : ''}<th class="anz">Anz</th><th>Gericht</th><th class="preis">EUR</th></tr></thead>
+    <tbody>${itemsHtml}</tbody>
+</table>
+
+<div class="summen-block"><div class="summen-rechts">
+<table class="summen">
+    <tr><td>Zwischensumme</td><td>${formatPrice(zwischensumme)}</td></tr>
+    ${liefergebuehr > 0 ? '<tr><td>Liefergebühr</td><td>' + formatPrice(liefergebuehr) + '</td></tr>' : ''}
+    ${rabatt > 0 ? '<tr><td>Rabatt</td><td>– ' + formatPrice(rabatt) + '</td></tr>' : ''}
+    ${trinkgeld > 0 ? '<tr><td>Trinkgeld</td><td>' + formatPrice(trinkgeld) + '</td></tr>' : ''}
+    <tr class="gesamt"><td>Summe</td><td>${formatPrice(bruttoGesamt)}</td></tr>
+</table>
+<div class="zahlart">${escapeHtml(zahlZeile)}</div>
+</div>
 <div class="steuer">
-    <div>
-        <div class="feldname">MwSt.-Ausweis gem. §14 UStG</div>
-        <table style="margin-top:5px;">
-            <tr><th>Satz</th><th>Netto</th><th>MwSt</th><th>Brutto</th></tr>
-            <tr>
-                <td>${mwstSatz},00 %</td>
-                <td>${formatPrice(nettoGesamt)}</td>
-                <td>${formatPrice(mwstBetrag)}</td>
-                <td>${formatPrice(bruttoGesamt)}</td>
-            </tr>
-        </table>
-    </div>
+    <table>
+        <tr><th>MwSt</th><th>Netto</th><th>Steuer</th><th>Brutto</th></tr>
+        <tr>
+            <td>${mwstSatz} %</td>
+            <td>${formatPrice(nettoGesamt)}</td>
+            <td>${formatPrice(mwstBetrag)}</td>
+            <td>${formatPrice(bruttoGesamt)}</td>
+        </tr>
+    </table>
+</div>
 </div>
 
-<div class="dank">Vielen Dank für Ihre Bestellung!</div>
+<div class="dank">Vielen Dank!</div>
+<div class="rechtstext">Bestellbestätigung, kein Kassenbon (§ 146a AO, ohne TSE) – den Kassenbon gibt das Restaurant aus.</div>
 
 <div class="fuss">
-    <div class="rechtstext">
-        Dieses Dokument ist eine Bestellbestätigung und kein steuerlicher Beleg im Sinne
-        des § 146a AO i.V.m. KassenSichV. Erstellt ohne TSE, kein Kassenbon — den
-        offiziellen Kassenbon stellt das Restaurant aus. Alle Preise inkl. ${mwstSatz} % MwSt.
-    </div>
-    <div class="marke">
-        <div class="marke-name"><strong>Kiek mol</strong> <em>in</em></div>
-        <div class="marke-url">kiekmolin.de</div>
-    </div>
+    ${markeHtml}
 </div>
 
 </body></html>`;
@@ -62714,158 +63258,14 @@ async function printKitchenBon(orderId) {
         if (ok) return;
     }
 
-    // Beleg-Nr + Zeit
-    var belegNr = order.order_number || ('B-' + orderId.substring(0,8).toUpperCase());
-    var datum = new Date(order.created_at);
-    var zeitStr = datum.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
-    var datumStr = datum.toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit', year:'numeric'});
-
-    // Liefergebühr, Trinkgeld, Rabatt
-    var liefergebuehr = parseFloat(order.delivery_fee) || 0;
-    var trinkgeld = parseFloat(order.tip) || 0;
-    var rabatt = parseFloat(order.discount) || 0;
-    var zwischensumme = parseFloat(order.subtotal) || parseFloat(order.total) || 0;
-    var gesamt = parseFloat(order.total) || 0;
-
-    // Items HTML - mit Optionen und deren Einzelpreisen
-    var itemsHtml = (order.items || []).map(function(item) {
-        var optionsHtml = '';
-        var selOpts = item.selected_options || [];
-
-        if (selOpts.length > 0) {
-            selOpts.forEach(function(opt) {
-                var optName = optionText(opt);
-                // Eine Größe ersetzt den Preis, sie kommt nicht obendrauf.
-                var optPrice = optionAufpreis(opt);
-                if (optName) {
-                    optionsHtml += '<div style="padding:1px 0 1px 32px;font-size:13px;color:#333;">';
-                    optionsHtml += '<span style="color:#888;">&#8594;</span> ' + optName;
-                    if (optPrice > 0) {
-                        optionsHtml += '<span style="float:right;">' + optPrice.toFixed(2).replace('.', ',') + ' &euro;</span>';
-                    }
-                    optionsHtml += '</div>';
-                }
-            });
-        } else if (item.options) {
-            // Fallback: Optionen als String
-            item.options.split(',').forEach(function(optStr) {
-                optStr = optStr.trim();
-                if (optStr) {
-                    optionsHtml += '<div style="padding:1px 0 1px 32px;font-size:13px;color:#333;">';
-                    optionsHtml += '<span style="color:#888;">&#8594;</span> ' + optStr;
-                    optionsHtml += '</div>';
-                }
-            });
-        }
-
-        return '<div style="border-bottom:1px dashed #ccc;padding:6px 0;">' +
-            '<div style="display:flex;justify-content:space-between;align-items:baseline;">' +
-                '<div style="font-size:16px;font-weight:700;">' +
-                    '<span style="display:inline-block;min-width:30px;">' + item.quantity + 'x</span> ' + item.name +
-                '</div>' +
-                '<div style="font-size:15px;font-weight:700;white-space:nowrap;margin-left:8px;">' + formatPrice(item.price) + '</div>' +
-            '</div>' +
-            optionsHtml +
-        '</div>';
-    }).join('');
-
-    // Sonderwünsche
-    var notes = order.notes || order.delivery_notes || '';
-    var notesHtml = '';
-    if (notes) {
-        notesHtml = '<div style="margin:10px 0;padding:10px;border:3px solid #000;border-radius:4px;background:#f5f5f5;">' +
-            '<div style="font-size:14px;font-weight:700;margin-bottom:4px;text-transform:uppercase;">Sonderwünsche:</div>' +
-            '<div style="font-size:14px;font-weight:600;">' + escapeHtml(notes) + '</div>' +
-        '</div>';
-    }
-
-    // Kundeninfo
-    var kundeHtml = '<div style="font-size:13px;margin-top:6px;">';
-    kundeHtml += '<strong>Kunde:</strong> ' + escapeHtml(order.customer_name || 'Gast');
-    if (order.customer_phone) kundeHtml += ' &middot; ' + escapeHtml(order.customer_phone);
-    kundeHtml += '</div>';
-    if (order.order_type === 'delivery' && order.delivery_address) {
-        var addr = order.delivery_address;
-        kundeHtml += '<div style="font-size:12px;color:#444;margin-top:2px;">';
-        kundeHtml += (addr.street || '') + ' ' + (addr.house_number || '') + ', ' + (addr.zip || '') + ' ' + (addr.city || '');
-        kundeHtml += '</div>';
-    }
-
-    // Zahlungsart
-    // Der Bon haengt in der Kueche und der Tresen greift danach. Steht da
-    // nur "PAYPAL", weiss niemand, ob noch zu kassieren ist.
-    var zahlStr = '';
-    if (order.payment_method === 'cash') zahlStr = 'BAR';
-    else if (order.payment_method === 'card' || order.payment_method === 'card_on_delivery') zahlStr = 'KARTE';
-    else if (order.payment_method === 'paypal') {
-        zahlStr = String(order.payment_status || '').toLowerCase() === 'paid'
-            ? 'PAYPAL - BEZAHLT' : 'PAYPAL - NOCH ZU ZAHLEN';
-    }
-    else zahlStr = (order.payment_method || 'BAR').toUpperCase();
-
-    var printContent = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>' +
-        '@page { margin: 3mm; size: 80mm auto; }' +
-        '* { margin:0; padding:0; box-sizing:border-box; }' +
-        'body { font-family: "Courier New", Courier, monospace; font-size:12px; width:74mm; margin:0 auto; color:#000; line-height:1.4; }' +
-    '</style></head><body>' +
-
-    // Header
-    '<div style="text-align:center;padding:8px 0;border-bottom:3px double #000;">' +
-        '<div style="font-size:22px;font-weight:900;letter-spacing:2px;">KUECHEN-BON</div>' +
-    '</div>' +
-
-    // Bestellnummer + Zeit
-    '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:2px solid #000;">' +
-        '<div style="font-size:24px;font-weight:900;">#' + belegNr + '</div>' +
-        '<div style="text-align:right;font-size:13px;">' + datumStr + '<br><strong>' + zeitStr + ' Uhr</strong></div>' +
-    '</div>' +
-
-    // Bestellart
-    '<div style="text-align:center;padding:8px 0;font-size:20px;font-weight:900;letter-spacing:2px;border-bottom:2px solid #000;' +
-        (order.order_type === 'delivery' ? 'background:#000;color:#fff;' : (order.order_type === 'dine_in' ? 'background:#1a5f4a;color:#fff;' : '')) + '">' +
-        '&gt;&gt;&gt; ' + (order.order_type === 'delivery' ? 'LIEFERUNG' : (order.order_type === 'dine_in' ? 'TISCH ' + (order.table_number || '?') : 'ABHOLUNG')) + ' &lt;&lt;&lt;' +
-    '</div>' +
-
-    // Artikel
-    '<div style="padding:6px 0;">' + itemsHtml + '</div>' +
-
-    // Summen
-    '<div style="border-top:2px solid #000;padding:6px 0;">' +
-        '<div style="display:flex;justify-content:space-between;font-size:13px;padding:2px 0;">' +
-            '<span>Zwischensumme:</span><span>' + formatPrice(zwischensumme) + '</span></div>' +
-        (liefergebuehr > 0 ? '<div style="display:flex;justify-content:space-between;font-size:13px;padding:2px 0;"><span>Liefergebühr:</span><span>' + formatPrice(liefergebuehr) + '</span></div>' : '') +
-        (rabatt > 0 ? '<div style="display:flex;justify-content:space-between;font-size:13px;padding:2px 0;color:#d00;"><span>Rabatt:</span><span>-' + formatPrice(rabatt) + '</span></div>' : '') +
-        (trinkgeld > 0 ? '<div style="display:flex;justify-content:space-between;font-size:13px;padding:2px 0;"><span>Trinkgeld:</span><span>' + formatPrice(trinkgeld) + '</span></div>' : '') +
-        '<div style="display:flex;justify-content:space-between;font-size:18px;font-weight:900;padding:6px 0;border-top:1px solid #000;margin-top:4px;">' +
-            '<span>GESAMT:</span><span>' + formatPrice(gesamt) + '</span></div>' +
-        '<div style="text-align:center;font-size:14px;font-weight:700;padding:4px 0;background:#eee;border-radius:4px;margin-top:4px;">' + zahlStr + '</div>' +
-    '</div>' +
-
-    // Sonderwünsche
-    notesHtml +
-
-    // Kunde
-    '<div style="border-top:2px solid #000;padding:8px 0;">' + kundeHtml + '</div>' +
-
-    // Footer
-    '<div style="text-align:center;border-top:3px double #000;padding:8px 0;font-size:10px;color:#666;">' +
-        zeitStr + ' &middot; ' + belegNr + ' &middot; Kiek mol in' +
-    '</div>' +
-
-    '</body></html>';
-
-    // Browser-Druck SYNCHRON (direkt im Click-Handler = kein Pop-up Block)
-    var printWindow = window.open('', '_blank');
-    if (printWindow) {
-        printWindow.document.write(printContent);
-        printWindow.document.close();
-        // Derselbe Weg wie beim Kundenbeleg -- ein Bon wartet auf seine
-        // Bilder, statt nach geratenen 300 Millisekunden loszudrucken.
-        // Der Kuechenbon hat meist gar keine, dann geht es sofort los.
-        bonDruckenWennFertig(printWindow);
-    } else {
-        showToast('Pop-up blockiert — bitte Pop-ups erlauben', 'warning');
-    }
+    // EIN BON (Ibo, 12.10.2026: "Küchenbon brauchen wir nicht, es soll
+    // nicht Küchenbon stehen -- ein Bon, schön, sauber, schwarz-weiß").
+    // Im Druckfenster kommt derselbe Bon wie beim Gast: grosse Nummer, die
+    // Gerichte, Sonderwuensche hervorgehoben, Summe. Vorher gab es hier ein
+    // eigenes Layout in Schreibmaschinenschrift mit "KUECHEN-BON" und einem
+    // gruenen Balken. Kein await davor -- das Fenster oeffnet sich noch im
+    // Klick, sonst blockt der Browser es.
+    printOrderBrowser(orderId);
 }
 
 // ==================== QZ TRAY BONDRUCKER ====================
@@ -62922,7 +63322,7 @@ var PRINTER_ROLES = [
     { id: 'kitchen', label: 'Küche (nur Essens-Items)' },
     { id: 'bar', label: 'Bar (nur Getränke)' },
     { id: 'counter', label: 'Theke / Beleg' },
-    { id: 'kitchen_bon_only', label: 'Nur Küchen-Bon' },
+    { id: 'kitchen_bon_only', label: 'Nur Bon (Küche)' },
     { id: 'customer_only', label: 'Nur Kunden-Beleg' }
 ];
 // Filtert Items basierend auf Rolle. Sehr einfaches Heuristik-Mapping basiert auf Kategorie-Namen.
@@ -63155,7 +63555,7 @@ function generateESCPOS(order) {
     cmd += ESC + '@';
     // Header
     cmd += CENTER + DOUBLE_BOTH + BOLD_ON;
-    cmd += 'KUECHEN-BON' + LF;
+    cmd += 'BON' + LF;
     cmd += NORMAL + BOLD_OFF;
     cmd += LINE;
 
@@ -63175,9 +63575,11 @@ function generateESCPOS(order) {
     // Items
     (order.items || []).forEach(function(item) {
         cmd += BOLD_ON;
-        cmd += item.quantity + 'x ' + item.name;
+        // Gerichtnummer vorne: "2x [12] Grillteller"
+        var _nrText = bonGerichtNr(item) ? '[' + bonGerichtNr(item) + '] ' : '';
+        cmd += item.quantity + 'x ' + _nrText + item.name;
         var priceStr = formatPrice(item.price);
-        var spaces = 32 - (item.quantity.toString().length + 2 + item.name.length + priceStr.length);
+        var spaces = 32 - (item.quantity.toString().length + 2 + _nrText.length + item.name.length + priceStr.length);
         if (spaces > 0) cmd += ' '.repeat(spaces);
         cmd += priceStr + LF;
         cmd += BOLD_OFF;
@@ -80785,6 +81187,7 @@ function reorderLastOrder(orderIndex, forRestaurantId) {
         orderCart.push({
             id: item.id || Date.now() + Math.random(),
             name: item.name,
+            dish_number: item.dish_number || '',
             quantity: item.quantity || 1,
             base_price: item.unit_price || item.price || 0,
             unit_price: item.unit_price || item.price || 0,
