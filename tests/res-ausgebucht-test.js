@@ -36,6 +36,14 @@ t('Speichern mit Probe: return=representation, leere Antwort = Fehler (Regel 6)'
 t('Dashboard zeigt Stand nach dem Laden (ausgebuchtUI beim Einlesen der Einstellungen)', /if \(typeof ausgebuchtUI === 'function'\) ausgebuchtUI\(features\);/.test(H), '');
 
 // Server
+// In CI laeuft kein npm install: web-push (ueber lib/alarm) gibt es dort
+// nicht. Netlify installiert es -- fuer den Test reicht ein Ersatz, wie in
+// aktionen-test.js. Ohne ihn brach dieser Test in CI nach 12 Pruefungen ab.
+var Module = require('module'), echtLaden = Module._load;
+Module._load = function (anfrage) {
+    if (anfrage === 'web-push') return { setVapidDetails: function () {}, sendNotification: async function () {} };
+    return echtLaden.apply(this, arguments);
+};
 var SV = require(path.join(R, 'netlify/functions/reservation-guest.js'));
 t('Server: ausgebuchtAm erkennt den Zeitraum', !!SV._ausgebuchtAm(['ausgebucht:2026-10-12:2026-10-31'], '2026-10-31') && !SV._ausgebuchtAm(['ausgebucht:2026-10-12:2026-10-31'], '2026-11-01'), '');
 t('Server: Warteliste erkannt', SV._istWarteliste({ notes: '[Warteliste] Tag war ausgebucht' }) && !SV._istWarteliste({ notes: 'Fensterplatz [Warteliste]' }), '');
