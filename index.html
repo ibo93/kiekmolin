@@ -54000,6 +54000,21 @@ function selectMenuCategory(categoryId, el) {
     if (currentOrderRestaurant) loadMenuItems(currentOrderRestaurant.id, categoryId);
 }
 
+// Gerichtnummer fuer den Bon: aus der Bestellung (seit 12.10.2026 dabei);
+// bei aelteren Bestellungen aus der geladenen Speisekarte, ueber menu_item_id.
+// Findet sich keine, steht keine da -- nichts Geratenes.
+function bonGerichtNr(item) {
+    if (!item) return '';
+    if (item.dish_number) return String(item.dish_number);
+    try {
+        if (item.menu_item_id && typeof menuItems !== 'undefined' && Array.isArray(menuItems)) {
+            var mi = menuItems.find(function (m) { return m && m.id === item.menu_item_id; });
+            if (mi) return String(getDishNumber(mi) || '');
+        }
+    } catch (e) {}
+    return '';
+}
+
 // ==================== GERICHTENUMMER HELPER ====================
 function getDishNumber(item) {
     if (!item) return '';
@@ -59447,6 +59462,10 @@ async function submitOrder() {
                 // Nachbestellen und bei Gruppenbestellungen mit Zusaetzen
                 // versehen.
                 menu_item_id: item.menu_item_id || null,
+                // Gerichtnummer der Karte (z. B. "12"), fuer den Bon --
+                // Ibo, 12.10.2026: "mit Nummer der Gerichte muss sein".
+                // Stand bisher nur im Warenkorb und ging beim Abschicken verloren.
+                dish_number: String(item.dish_number || getDishNumber(item) || '').slice(0, 10),
                 name: item.name,
                 quantity: item.quantity,
                 price: item.total_price,
@@ -62467,7 +62486,7 @@ function printOrderBrowser(orderId) {
     var itemsHtml = (order.items || []).map(function(item) {
         return '<tr>' +
             '<td class="anz">' + (parseInt(item.quantity, 10) || 1) + '×</td>' +
-            '<td>' + escapeHtml(item.name || '') +
+            '<td>' + (bonGerichtNr(item) ? '<span class="gnr">' + escapeHtml(bonGerichtNr(item)) + '</span>' : '') + escapeHtml(item.name || '') +
                 // Groesse und Extras je Gericht -- stand bisher nur auf dem
                 // Kuechenbon. Eine Groesse ersetzt den Preis (optionAufpreis 0),
                 // ein Extra kommt obendrauf und steht mit Preis da.
@@ -62641,6 +62660,8 @@ function printOrderBrowser(orderId) {
     table.pos tr:last-child td { border-bottom: none; }
     .anz { width: 30px; font-weight: 700; color: #555; font-size: 9pt; }
     .preis { text-align: right; white-space: nowrap; font-weight: 600; }
+    .gnr { display: inline-block; min-width: 7mm; margin-right: 8px; padding: 0 4px; border: 1.2px solid #000;
+           border-radius: 3px; text-align: center; font-weight: 800; font-size: 9pt; }
     .zusatz { font-size: 8.5pt; color: #555; margin-top: 3px; }
     .wunsch { font-size: 8.5pt; font-weight: 700; color: #000; margin-top: 3px; }
     /* Die Summe in warmem Papierweiss abgesetzt. */
@@ -62717,6 +62738,8 @@ function printOrderBrowser(orderId) {
     table.pos td { padding: 5px 0; border-bottom: 1px dotted #999; vertical-align: top; font-size: 12px; font-weight: 700; }
     .anz { width: 26px; font-weight: 800; }
     .preis { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .gnr { display: inline-block; min-width: 22px; margin-right: 5px; padding: 0 3px; border: 1.5px solid #000;
+           border-radius: 3px; text-align: center; font-weight: 900; font-size: 11px; }
     .zusatz { font-size: 10px; color: #333; font-weight: 400; }
     .wunsch { font-size: 11px; font-weight: 800; }
     .summen { width: 100%; margin-top: 8px; border-collapse: collapse; }
@@ -63237,9 +63260,11 @@ function generateESCPOS(order) {
     // Items
     (order.items || []).forEach(function(item) {
         cmd += BOLD_ON;
-        cmd += item.quantity + 'x ' + item.name;
+        // Gerichtnummer vorne: "2x [12] Grillteller"
+        var _nrText = bonGerichtNr(item) ? '[' + bonGerichtNr(item) + '] ' : '';
+        cmd += item.quantity + 'x ' + _nrText + item.name;
         var priceStr = formatPrice(item.price);
-        var spaces = 32 - (item.quantity.toString().length + 2 + item.name.length + priceStr.length);
+        var spaces = 32 - (item.quantity.toString().length + 2 + _nrText.length + item.name.length + priceStr.length);
         if (spaces > 0) cmd += ' '.repeat(spaces);
         cmd += priceStr + LF;
         cmd += BOLD_OFF;
@@ -80847,6 +80872,7 @@ function reorderLastOrder(orderIndex, forRestaurantId) {
         orderCart.push({
             id: item.id || Date.now() + Math.random(),
             name: item.name,
+            dish_number: item.dish_number || '',
             quantity: item.quantity || 1,
             base_price: item.unit_price || item.price || 0,
             unit_price: item.unit_price || item.price || 0,

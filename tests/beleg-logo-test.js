@@ -35,9 +35,22 @@ t('Tisch statt "Abholung", wenn der Gast vor Ort sitzt', /order\.order_type === 
 t('Hinweis zur Bestellung und Vorbestellzeit stehen umrahmt drauf', /var _hinweis = order\.notes \|\| order\.delivery_notes \|\| '';/.test(pb) && /Hinweis zur Bestellung/.test(pb) && /\$\{hinweisHtml\}/.test(pb) && /\.hinweis \{[^}]*border: 2px solid #000/.test(pb), '');
 // Ausgefuehrt: die Positionszeilen mit Groesse (ersetzt den Preis) und Extra.
 var iv = pb.indexOf('var itemsHtml = (order.items || []).map('), ib = pb.indexOf("}).join('');", iv) + "}).join('');".length;
-var zeilen = new Function('order', 'escapeHtml', 'formatPrice', fn('optionText') + fn('optionAufpreis') + pb.slice(iv, ib) + '; return itemsHtml;')(
+var zeilen = new Function('order', 'escapeHtml', 'formatPrice', 'var menuItems = [];' + fn('optionText') + fn('optionAufpreis') + fn('getDishNumber') + fn('bonGerichtNr') + pb.slice(iv, ib) + '; return itemsHtml;')(
     { items: [{ name: 'Pizza', quantity: 1, price: 12, selected_options: [{ group: 'item_sizes', option: 'groß', price: 12, price_type: 'replace' }, { group: 'extra', option: 'Extra Käse', price: 1.5, price_type: 'add' }] }] },
     function (x) { return String(x); }, function (x) { return x.toFixed(2).replace('.', ',') + ' €'; });
+// ---- Gerichtnummer (Ibo, 12.10.2026: "mit Nummer der Gerichte muss sein")
+function bonZeilen(items, karte) {
+    return new Function('order', 'escapeHtml', 'formatPrice', 'menuItems', fn('optionText') + fn('optionAufpreis') + fn('getDishNumber') + fn('bonGerichtNr') + pb.slice(iv, ib) + '; return itemsHtml;')(
+        { items: items }, function (x) { return String(x); }, function (x) { return x.toFixed(2).replace('.', ',') + ' €'; }, karte || []);
+}
+var mitNr = bonZeilen([{ name: 'Grillteller', quantity: 1, price: 12, dish_number: '12' }, { name: 'Ayran', quantity: 2, price: 5 }]);
+t('Bon: Nummer vor dem Gericht, ohne Nummer keine leere Box', /<span class="gnr">12<\/span>Grillteller/.test(mitNr) && (mitNr.match(/class="gnr"/g) || []).length === 1, mitNr);
+var alt = bonZeilen([{ name: 'Pizza', quantity: 1, price: 9, menu_item_id: 'm7' }], [{ id: 'm7', dish_number: '27' }]);
+t('ältere Bestellung ohne Nummer: aus der geladenen Karte nachgeschlagen', /<span class="gnr">27<\/span>Pizza/.test(alt), alt);
+t('die Bestellung schickt die Nummer jetzt mit (vorher nur im Warenkorb)', /dish_number: String\(item\.dish_number \|\| getDishNumber\(item\) \|\| ''\)\.slice\(0, 10\),\s*name: item\.name,/.test(H), '');
+t('Nachbestellen behält die Nummer', /name: item\.name,\s*dish_number: item\.dish_number \|\| '',\s*quantity: item\.quantity \|\| 1,/.test(H), '');
+var esc = fn('generateESCPOS');
+t('Text-Bondrucker: "2x [12] Grillteller", Platz für den Preis mitgerechnet', /var _nrText = bonGerichtNr\(item\) \? '\[' \+ bonGerichtNr\(item\) \+ '\] ' : '';/.test(esc) && /_nrText\.length \+ item\.name\.length/.test(esc), '');
 t('Größe und Extras je Gericht (Größe ohne Aufpreis, Extra mit)', /→ groß<\/div>/.test(zeilen) && /→ Extra Käse \(\+1,50 €\)/.test(zeilen), zeilen);
 t('Rechtstext in einem Satz statt vier Zeilen', /Bestellbestätigung, kein Kassenbon \(§ 146a AO, ohne TSE\)/.test(pb) && pb.indexOf('i.V.m. KassenSichV') < 0, '');
 t('Kopf ohne Etikett -- die Bestellart steht jetzt groß bei der Nummer', /<div class="auftrag-rechts">\s*<div class="art-chip">\$\{artText\}<\/div>/.test(pb), '');
