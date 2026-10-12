@@ -17133,6 +17133,25 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                                 <button onclick="clearVacation()" title="Ferien löschen" aria-label="Ferien löschen" style="padding:8px 12px;border:1px solid rgba(255,255,255,0.25);border-radius:9999px;background:transparent;color:rgba(255,255,255,0.8);font-family:Inter,sans-serif;font-size:12px;font-weight:600;cursor:pointer;">Löschen</button>
                             </div>
                         </div>
+                        <!-- Reservierungen ausgebucht: nur Reservierungen voll, Bestellen
+                             geht weiter. Gäste sehen "ausgebucht" + Warteliste. -->
+                        <div id="ausgebuchtBlock" style="padding-top:12px;margin-top:12px;border-top:1px solid rgba(255,255,255,0.15);">
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                                <span class="material-symbols-outlined" style="font-size:18px;">event_busy</span>
+                                <span style="font-family:Inter,sans-serif;font-size:13px;font-weight:600;">Reservierungen ausgebucht</span>
+                            </div>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+                                <button type="button" data-ausgebucht="monat" style="padding:8px 14px;border:none;border-radius:9999px;background:#FFD54F;color:#00251e;font-family:Inter,sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Rest dieses Monats</button>
+                                <button type="button" data-ausgebucht="naechster" style="padding:8px 14px;border:1px solid rgba(255,255,255,0.35);border-radius:9999px;background:transparent;color:#ffffff;font-family:Inter,sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Nächsten Monat</button>
+                            </div>
+                            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                                <input type="date" id="ausgebuchtVon" style="flex:1;min-width:120px;padding:8px 10px;border-radius:12px;border:none;background:rgba(255,255,255,0.12);color:white;font-family:Inter,sans-serif;font-size:12px;color-scheme:dark;" aria-label="Ausgebucht von">
+                                <input type="date" id="ausgebuchtBis" style="flex:1;min-width:120px;padding:8px 10px;border-radius:12px;border:none;background:rgba(255,255,255,0.12);color:white;font-family:Inter,sans-serif;font-size:12px;color-scheme:dark;" aria-label="Ausgebucht bis">
+                                <button type="button" data-ausgebucht="eigen" style="padding:8px 14px;border:1px solid rgba(255,255,255,0.35);border-radius:9999px;background:transparent;color:#ffffff;font-family:Inter,sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Eintragen</button>
+                            </div>
+                            <div id="ausgebuchtListe" style="margin-top:8px;display:flex;flex-direction:column;gap:6px;"></div>
+                            <div id="ausgebuchtStand" role="status" aria-live="polite" style="font-family:Inter,sans-serif;font-size:12px;line-height:1.4;margin-top:6px;color:#ffffff;">Nichts eingetragen – Gäste können normal reservieren.</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -26237,6 +26256,41 @@ function getVacationInfo(restaurant) {
     return null;
 }
 
+// ==================== RESERVIERUNGEN AUSGEBUCHT ====================
+//
+// Ibo, 12.10.2026: "für Reservierungen, z. B. diesen Monat voll sind --
+// schon vorher, dass man diesen Monat ausgebucht schreiben kann".
+//
+// Anders als die Betriebsferien: das Lokal hat offen, Bestellungen laufen
+// weiter -- nur Online-Reservierungen sind in dem Zeitraum voll. Der Gast
+// sieht "ausgebucht" und kann sich auf die Warteliste setzen (wird ein Tisch
+// frei, bestaetigt der Wirt). Gespeichert wie die Ferien im features-Array:
+// "ausgebucht:VON:BIS", beide Tage einschliesslich, mehrere moeglich.
+// Der Server (reservation-guest) prueft dasselbe -- auch eine alte App auf
+// dem Handy kommt nicht vorbei.
+function ausgebuchtZeitraeume(restaurant, heute) {
+    var feats = (restaurant && restaurant.features) || [];
+    if (!Array.isArray(feats)) return [];
+    heute = heute || new Date().toLocaleDateString('sv-SE');
+    var liste = [];
+    feats.forEach(function (f) {
+        var m = String(f).match(/^ausgebucht:(\d{4}-\d{2}-\d{2}):(\d{4}-\d{2}-\d{2})$/);
+        if (m && m[1] <= m[2] && m[2] >= heute) liste.push({ von: m[1], bis: m[2] });
+    });
+    return liste.sort(function (a, b) { return a.von < b.von ? -1 : 1; });
+}
+function ausgebuchtAm(restaurant, tag) {
+    var z = ausgebuchtZeitraeume(restaurant);
+    for (var i = 0; i < z.length; i++) if (tag >= z[i].von && tag <= z[i].bis) return z[i];
+    return null;
+}
+function ausgebuchtDatum(tag) { return new Date(tag + 'T12:00:00').toLocaleDateString('de-DE', { day: 'numeric', month: 'long' }); }
+function ausgebuchtText(z) {
+    if (!z) return '';
+    return z.von === z.bis ? 'am ' + ausgebuchtDatum(z.von) + ' ausgebucht' : 'vom ' + ausgebuchtDatum(z.von) + ' bis ' + ausgebuchtDatum(z.bis) + ' ausgebucht';
+}
+window.ausgebuchtAm = ausgebuchtAm; window.ausgebuchtZeitraeume = ausgebuchtZeitraeume;
+
 /* ZAHLSPERRE -- wenn eine Rechnung offen bleibt.
 
    Vier Stufen, von Hand vom Verwalter gesetzt (Function zahlsperre):
@@ -29726,7 +29780,14 @@ async function saveReservationToSupabase(reservation) {
                 ? antwort.error
                 : ('HTTP ' + response.status);
             console.error('Reservierung nicht gespeichert:', fehlerText);
-            throw new Error(fehlerText);
+            var _resFehler = new Error(fehlerText);
+            // Ausgebucht (der Wirt hat den Zeitraum gerade eingetragen, die
+            // App kannte ihn noch nicht): klar sagen, nicht "HTTP 409".
+            if (antwort && antwort.ausgebucht) {
+                _resFehler.gastText = 'Ausgebucht – an diesem Tag ist leider alles voll. Wähle gern ein anderes Datum oder setz dich auf die Warteliste.';
+                _resFehler.ausgebucht = true;
+            }
+            throw _resFehler;
         }
     } catch (e) {
         console.error('Speichern fehlgeschlagen:', e);
@@ -31819,6 +31880,11 @@ function resCalRender() {
             }
         }
 
+        var _voll = !isPast && !isClosed && _resRest && typeof ausgebuchtAm === 'function' && ausgebuchtAm(_resRest, ds);
+        if (_voll && !isSel) {
+            html += '<button type="button" class="kmi-cal-voll" onclick="resCalSelectDate(\'' + ds + '\')" title="ausgebucht – Warteliste möglich" aria-label="' + d + '. ausgebucht" style="width:100%;aspect-ratio:1;border-radius:16px;border:none;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;background:transparent;color:#b45309;text-decoration:line-through;cursor:pointer;">' + d + '</button>';
+            continue;
+        }
         if (isPast || isClosed) {
             html += '<button type="button" disabled style="width:100%;aspect-ratio:1;border-radius:16px;border:none;display:flex;align-items:center;justify-content:center;font-size:13px;cursor:not-allowed;background:transparent;' + (isClosed ? 'color:rgba(239,68,68,0.3);' : 'color:rgba(64,73,70,0.25);') + '">' + d + '</button>';
         } else if (isSel) {
@@ -32364,6 +32430,25 @@ async function loadAvailableSlots() {
                 '<span class="material-symbols-outlined" style="font-size:32px;color:#f59e0b;opacity:0.7;">beach_access</span>' +
                 '<p style="color:var(--text-secondary);font-size:13px;margin-top:8px;"><strong>Betriebsferien</strong> – ' +
                 (_vacRest.name || 'das Restaurant') + ' ist bis zum ' + _vacRes.toNice + ' geschlossen.<br>Wähle gern ein Datum danach.</p></div>';
+            return;
+        }
+    } catch (e) {}
+
+    // Ausgebucht (vom Wirt eingetragen): keine Uhrzeiten, aber Warteliste.
+    try {
+        var _abRest = APP_DATA.restaurants ? APP_DATA.restaurants.find(function (r) { return r.id === restaurantId; }) : null;
+        var _ab = _abRest ? ausgebuchtAm(_abRest, date) : null;
+        if (_ab) {
+            container.innerHTML = '<div class="kmi-res-ausgebucht" style="text-align:center;padding:20px;">' +
+                '<span class="material-symbols-outlined" style="font-size:32px;color:#b45309;">event_busy</span>' +
+                '<p style="color:var(--text-primary);font-size:14px;margin:8px 0 0;"><strong>Ausgebucht</strong> – ' + escapeHtml(_abRest.name || 'das Restaurant') + ' ist ' + ausgebuchtText(_ab) + '.</p>' +
+                '<p style="color:var(--text-secondary);font-size:13px;margin:4px 0 0;">Wähle gern ein anderes Datum – oder setz dich auf die Warteliste.</p></div>';
+            var _abWl = document.getElementById('waitlistOption');
+            if (_abWl) {
+                _abWl.innerHTML = '<p style="color: var(--ink-strong); margin-bottom: 12px; font-family: Epilogue, sans-serif; font-weight: 700;">Wird ein Tisch frei, meldet sich das Restaurant.</p>' +
+                    '<button type="button" onclick="showWaitlistForm()" class="btn" style="background: #003d33; color: white; border-radius: 9999px; font-family: Epilogue, sans-serif; font-weight: 700;">Auf Warteliste setzen</button>';
+                _abWl.style.display = 'block';
+            }
             return;
         }
     } catch (e) {}
@@ -37508,6 +37593,81 @@ document.addEventListener('click', function (e) {
     if (b) andrangSetzen(b.getAttribute('data-andrang'));
 });
 
+// Reservierungen ausgebucht (Dashboard). Speichern mit Probe wie bei
+// "Gerade bei uns": ohne zurueckgegebene Zeile gilt es als NICHT gespeichert.
+function ausgebuchtUI(features) {
+    var liste = document.getElementById('ausgebuchtListe'), stand = document.getElementById('ausgebuchtStand');
+    if (!liste) return;
+    var z = ausgebuchtZeitraeume({ features: features || [] });
+    liste.innerHTML = z.map(function (x) {
+        return '<div class="ausgebucht-zeile" style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:12px;background:rgba(255,255,255,0.1);font-family:Inter,sans-serif;font-size:12px;color:#ffffff;">'
+            + '<span style="flex:1;">' + (x.von === x.bis ? ausgebuchtDatum(x.von) : ausgebuchtDatum(x.von) + ' – ' + ausgebuchtDatum(x.bis)) + '</span>'
+            + '<button type="button" data-ausgebucht-weg="' + x.von + ':' + x.bis + '" aria-label="Zeitraum löschen" style="padding:4px 10px;min-height:32px;border:1px solid rgba(255,255,255,0.3);border-radius:9999px;background:transparent;color:#ffffff;font-size:12px;cursor:pointer;">Löschen</button></div>';
+    }).join('');
+    if (stand) stand.textContent = z.length ? 'Gäste sehen an diesen Tagen „ausgebucht“ und können sich auf die Warteliste setzen. Bestellen geht weiter.' : 'Nichts eingetragen – Gäste können normal reservieren.';
+}
+window.ausgebuchtUI = ausgebuchtUI;
+// Letzter Tag des Monats von "tag" (YYYY-MM-DD), ohne Zeitzonen-Rechnerei.
+function monatsEnde(tag) { var j = +tag.slice(0, 4), m = +tag.slice(5, 7); return tag.slice(0, 8) + String(new Date(j, m, 0).getDate()).padStart(2, '0'); }
+function ausgebuchtVorschlag(art, heute) {
+    heute = heute || new Date().toLocaleDateString('sv-SE');
+    if (art === 'monat') return { von: heute, bis: monatsEnde(heute) };
+    var j = +heute.slice(0, 4), m = +heute.slice(5, 7) + 1; if (m === 13) { j++; m = 1; }
+    var erster = j + '-' + String(m).padStart(2, '0') + '-01';
+    return { von: erster, bis: monatsEnde(erster) };
+}
+async function ausgebuchtSpeichern(neu, weg) {
+    var restId = getControlRestaurantId(), stand = document.getElementById('ausgebuchtStand');
+    if (!restId) { showToast('Kein Restaurant gefunden', 'error'); return false; }
+    try {
+        var res = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
+        });
+        var data = await res.json();
+        if (!data || !data[0]) throw new Error('Restaurant nicht lesbar');
+        var heute = new Date().toLocaleDateString('sv-SE');
+        // Abgelaufene Eintraege raeumen wir dabei gleich mit weg.
+        var features = (data[0].features || []).filter(function (f) {
+            var m = String(f).match(/^ausgebucht:(\d{4}-\d{2}-\d{2}):(\d{4}-\d{2}-\d{2})$/);
+            if (!m) return true;
+            if (m[2] < heute) return false;
+            return !(weg && weg === m[1] + ':' + m[2]);
+        });
+        if (neu) { var e = 'ausgebucht:' + neu.von + ':' + neu.bis; if (features.indexOf(e) < 0) features.push(e); }
+        var upd = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=id,features', {
+            method: 'PATCH',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+            body: JSON.stringify({ features: features })
+        });
+        if (!upd.ok) throw new Error('HTTP ' + upd.status);
+        var zeilen = await upd.json();
+        if (!Array.isArray(zeilen) || !zeilen.length) throw new Error('keine Berechtigung – nichts gespeichert');
+        var appR = APP_DATA.restaurants ? APP_DATA.restaurants.find(function (r) { return r.id === restId; }) : null;
+        if (appR) appR.features = zeilen[0].features || features;
+        ausgebuchtUI(zeilen[0].features || features);
+        showToast(neu ? 'Eingetragen: ' + ausgebuchtText(neu).replace(/ ausgebucht$/, '') + ' ausgebucht' : 'Zeitraum gelöscht – Gäste können wieder reservieren', 'success');
+        return true;
+    } catch (err) {
+        if (stand) stand.textContent = 'Nicht gespeichert: ' + (err && err.message || err) + '. Gäste sehen den alten Stand.';
+        showToast('Ausgebucht nicht gespeichert', 'error');
+        return false;
+    }
+}
+window.ausgebuchtSpeichern = ausgebuchtSpeichern;
+document.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest ? e.target.closest('[data-ausgebucht],[data-ausgebucht-weg]') : null;
+    if (!b) return;
+    if (b.hasAttribute('data-ausgebucht-weg')) { ausgebuchtSpeichern(null, b.getAttribute('data-ausgebucht-weg')); return; }
+    var art = b.getAttribute('data-ausgebucht'), z;
+    if (art === 'eigen') {
+        var von = (document.getElementById('ausgebuchtVon') || {}).value || '', bis = (document.getElementById('ausgebuchtBis') || {}).value || '';
+        if (!von || !bis) { showToast('Bitte Von- und Bis-Datum wählen', 'error'); return; }
+        if (bis < von) { showToast('Das Bis-Datum liegt vor dem Von-Datum', 'error'); return; }
+        z = { von: von, bis: bis };
+    } else z = ausgebuchtVorschlag(art);
+    ausgebuchtSpeichern(z, null);
+});
+
 async function _patchVacation(newEntry) {
     var restId = getControlRestaurantId();
     if (!restId) { showToast('Kein Restaurant gefunden', 'error'); return; }
@@ -37728,6 +37888,7 @@ function updateFeatureToggles(features) {
     // Betriebsferien-Felder mitpflegen
     if (typeof updateVacationUI === 'function') updateVacationUI(features);
     if (typeof andrangUI === 'function') andrangUI(features);
+    if (typeof ausgebuchtUI === 'function') ausgebuchtUI(features);
 }
 
 /* DER ROTE BALKEN IM DASHBOARD DES WIRTS.

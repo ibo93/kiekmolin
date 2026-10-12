@@ -116,6 +116,20 @@ function sauber(r) {
     };
 }
 
+// Reservierungen ausgebucht (vom Wirt im Dashboard eingetragen):
+// "ausgebucht:VON:BIS" im features-Array, beide Tage einschliesslich.
+// Liefert den Zeitraum, in den der Tag faellt, oder null.
+function ausgebuchtAm(merkmale, tag) {
+    for (var i = 0; i < merkmale.length; i++) {
+        var m = String(merkmale[i]).match(/^ausgebucht:(\d{4}-\d{2}-\d{2}):(\d{4}-\d{2}-\d{2})$/);
+        if (m && tag >= m[1] && tag <= m[2]) return { von: m[1], bis: m[2] };
+    }
+    return null;
+}
+// Ein Eintrag auf die Warteliste (die App schreibt "[Warteliste] ..." in
+// die Notiz). Er ist eine Bitte, kein Tisch -- darum immer "pending".
+function istWarteliste(r) { return /^\[Warteliste\]/.test(r.notes || ''); }
+
 function pruefe(r) {
     var fehler = [];
     if (!r.restaurant_id) fehler.push('restaurant_id fehlt');
@@ -138,6 +152,8 @@ function zeitFehler(r, jetzt) {
     return '';
 }
 
+exports._ausgebuchtAm = ausgebuchtAm;
+exports._istWarteliste = istWarteliste;
 exports.handler = async function (event) {
     if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS, body: '' };
     if (event.httpMethod !== 'POST')    return json(405, { ok: false, error: 'Nur POST' });
@@ -187,11 +203,25 @@ exports.handler = async function (event) {
             return ZAHLSPERRE.abweisung(_sperre, CORS);
         }
 
+        // ---- 1b. Ausgebucht? Dann nur die Warteliste.
+        // Die App zeigt an solchen Tagen keine Uhrzeiten -- aber eine alte
+        // Fassung auf dem Handy oder ein direkter Aufruf wuerde sonst einen
+        // Tisch in einen vollen Abend buchen.
+        var _voll = ausgebuchtAm(merkmale, r.reservation_date);
+        if (_voll && !istWarteliste(r)) {
+            return json(409, { ok: false, ausgebucht: true, von: _voll.von, bis: _voll.bis,
+                error: 'An diesem Tag ist das Restaurant ausgebucht. Bitte ein anderes Datum waehlen oder auf die Warteliste setzen.' });
+        }
+
         // ---- 2. Der Server entscheidet ueber den Status, nicht der Browser
         // Bisher schickte die App status mit. Wer die Adresse kannte,
         // konnte sich selbst bestaetigen. Jetzt zaehlt nur die
         // Einstellung des Hauses.
         r.status = (merkmale.indexOf('auto_confirm_reservations') >= 0) ? 'confirmed' : 'pending';
+        // Warteliste: nie automatisch bestaetigt. Vorher bekam ein Gast bei
+        // Haeusern mit Auto-Bestaetigung fuer einen VOLLEN Tag sofort
+        // "bestaetigt" -- und stand dann vor besetzten Tischen.
+        if (istWarteliste(r)) r.status = 'pending';
 
         // ---- 3. Bremse gegen Dauerfeuer
         // Im Browser stand schon eine Bremse -- die schuetzt aber nur vor

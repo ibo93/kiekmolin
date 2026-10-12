@@ -169,7 +169,8 @@ console.log('\n-- 8. Bei Stoerung kein falsches "alles frei" --');
 // App liest das als leere Liste, bietet sie belegte Zeiten an und der
 // Gast steht vor vollem Haus.
 var bv = h.indexOf('async function loadAvailableSlots');
-var bloc = h.slice(bv, bv + 3000);
+// 5000 statt 3000: seit 12.10.2026 steht davor der Block "ausgebucht".
+var bloc = h.slice(bv, bv + 5000);
 t('loadAvailableSlots prueft _bel.ok', /if \(!_bel\.ok \|\| window\._tischZahlUnbekannt\)/.test(bloc), 'ungeprueft');
 // Seit 07.10.2026: statt Sackgasse "Nur Anfrage" -- deutlich gesagt, und
 // gespeichert wird dann immer "pending" (siehe verfuegbarkeit-ehrlich-test).
