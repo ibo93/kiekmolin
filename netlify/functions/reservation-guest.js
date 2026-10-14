@@ -161,20 +161,49 @@ async function gesperrtUm(restaurantId, datum, uhrzeit) {
     try {
         var res = await fetch(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.'
             + encodeURIComponent(restaurantId) + '&reservation_date=eq.' + encodeURIComponent(datum)
-            + '&status=eq.blocked&table_id=is.null&select=reservation_time', { headers: kopf() });
+            + '&status=eq.blocked&table_id=is.null&select=reservation_time,source', { headers: kopf() });
         if (!res.ok) { console.warn('[reservation-guest] Sperrungen nicht lesbar: ' + res.status); return null; }
         var zeilen = await res.json();
         if (!Array.isArray(zeilen)) return null;
         var hhmm = String(uhrzeit || '').slice(0, 5);
-        var tag = false, zeit = false;
+        var tag = null, zeit = null;
         zeilen.forEach(function (z) {
             var t = String(z.reservation_time || '').slice(0, 5);
-            if (t === '00:00') tag = true;
-            else if (t === hhmm) zeit = true;
+            var m = String(z.source || '').match(/^admin_block:(geschlossen|ruhetag|ferien)$/);
+            var h = m ? m[1] : 'ausgebucht';
+            if (t === '00:00') tag = tag || h;
+            else if (t === hhmm) zeit = zeit || h;
         });
-        return tag ? 'tag' : (zeit ? 'zeit' : null);
+        return tag ? { art: 'tag', hinweis: tag } : (zeit ? { art: 'zeit', hinweis: zeit } : null);
     } catch (e) {
         console.warn('[reservation-guest] Sperrungen nicht lesbar: ' + e.message);
+        return null;
+    }
+}
+
+function onlineTische(merkmale) {
+    for (var i = 0; i < (merkmale || []).length; i++) {
+        var m = String(merkmale[i]).match(/^online_tische:(\d{1,3})$/);
+        if (m && +m[1] > 0) return +m[1];
+    }
+    return null;
+}
+
+// Wie viele Reservierungen zu genau dieser Uhrzeit schon stehen (ohne
+// Absagen, ohne Sperren, ohne Warteliste). null = nicht zaehlbar.
+async function belegtUm(restaurantId, datum, uhrzeit) {
+    try {
+        var hhmm = String(uhrzeit || '').slice(0, 5);
+        var res = await fetch(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.'
+            + encodeURIComponent(restaurantId) + '&reservation_date=eq.' + encodeURIComponent(datum)
+            + '&reservation_time=eq.' + encodeURIComponent(hhmm + ':00')
+            + '&status=in.(pending,confirmed,seated)&select=id,notes', { headers: kopf() });
+        if (!res.ok) { console.warn('[reservation-guest] Belegung nicht zaehlbar: ' + res.status); return null; }
+        var zeilen = await res.json();
+        if (!Array.isArray(zeilen)) return null;
+        return zeilen.filter(function (z) { return !istWarteliste(z); }).length;
+    } catch (e) {
+        console.warn('[reservation-guest] Belegung nicht zaehlbar: ' + e.message);
         return null;
     }
 }
@@ -267,12 +296,27 @@ exports.handler = async function (event) {
         if (!istWarteliste(r)) {
             var _sp = await gesperrtUm(r.restaurant_id, r.reservation_date, r.reservation_time);
             if (_sp) {
-                return json(409, { ok: false, ausgebucht: true, gesperrt: _sp,
+                return json(409, { ok: false, ausgebucht: true, gesperrt: _sp.art, hinweis: _sp.hinweis,
                     von: r.reservation_date, bis: r.reservation_date,
-                    // Fuer den Gast heisst es "ausgebucht" (Ibo, 14.10.2026).
-                    error: _sp === 'tag'
-                        ? 'An diesem Tag ist das Restaurant ausgebucht.'
-                        : 'Diese Uhrzeit ist ausgebucht.' });
+                    // Fuer den Gast heisst es "ausgebucht" (Ibo, 14.10.2026),
+                    // ausser der Wirt hat einen anderen Gast-Text gewaehlt.
+                    error: _sp.hinweis === 'ausgebucht'
+                        ? (_sp.art === 'tag' ? 'An diesem Tag ist das Restaurant ausgebucht.' : 'Diese Uhrzeit ist ausgebucht.')
+                        : ({ geschlossen: 'Geschlossene Gesellschaft', ruhetag: 'Ruhetag', ferien: 'Betriebsferien' })[_sp.hinweis] + '.' });
+            }
+
+            // ---- 1e. Online buchbare Tische pro Uhrzeit ('online_tische:N').
+            // Der Wirt gibt nur einen Teil der Tische online frei; die App
+            // zeigt "noch 2 Tische". Ohne diese Pruefung kaeme die dritte
+            // Buchung trotzdem durch. Faellt offen aus wie 1d.
+            var _ot = onlineTische(merkmale);
+            if (_ot) {
+                var _belegt = await belegtUm(r.restaurant_id, r.reservation_date, r.reservation_time);
+                if (_belegt !== null && _belegt >= _ot) {
+                    return json(409, { ok: false, ausgebucht: true, gesperrt: 'zeit', hinweis: 'ausgebucht',
+                        von: r.reservation_date, bis: r.reservation_date,
+                        error: 'Diese Uhrzeit ist ausgebucht.' });
+                }
             }
         }
 

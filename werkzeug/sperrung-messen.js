@@ -38,7 +38,7 @@ var SILVESTER = JAHR + '-12-31';
   function pruef(t, ok, x) { n++; if (!ok) rot++; console.log((ok ? 'OK  ' : 'FAIL') + ' | ' + t + (ok ? '' : '  -> ' + x)); }
 
   async function seite(breite, dunkel) {
-    var db = { zeilen: [], anfragenLokale: [] }, naechste = 1;
+    var db = { zeilen: [], anfragenLokale: [], features: ['delivery'] }, naechste = 1;
     var ctx = await b.newContext({ viewport: { width: breite, height: 900 }, serviceWorkers: 'block' });
     await ctx.addInitScript(function (d) { try { localStorage.setItem('kmi_onboarded', 'true'); localStorage.setItem('kmi_consent', 'essential'); localStorage.setItem('kmi_theme', d ? 'dark' : 'light'); sessionStorage.setItem('kmi_splash_seen', '1'); } catch (e) {} }, !!dunkel);
     await ctx.route(/^https?:\/\/(?!localhost)/, function (rt) {
@@ -63,8 +63,18 @@ var SILVESTER = JAHR + '-12-31';
         }).sort(function (a, c) { return (a.reservation_date + a.reservation_time) < (c.reservation_date + c.reservation_time) ? -1 : 1; }));
       }
       if (/restaurant_tables/.test(u)) return json([{ id: 't1', table_number: 1, max_capacity: 4 }, { id: 't2', table_number: 2, max_capacity: 6 }]);
+      if (/rest\/v1\/restaurants\?id=eq\./.test(u)) {
+        if (rq.method() === 'PATCH') { db.features = JSON.parse(rq.postData()).features; db.patchLokal = (u.match(/id=eq\.([0-9a-f-]+)/) || [])[1]; return json([{ id: db.patchLokal, features: db.features }]); }
+        return json([{ id: KUNDE, features: db.features }]);
+      }
       if (/supabase\.co/.test(u)) return json([]);
       return rt.abort();
+    });
+    await ctx.route(/\/\.netlify\/functions\/res-availability/, function (rt) {
+      // Gaesteseite: am Messtag zwei Reservierungen um 19:00
+      return rt.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, belegung: [
+        { reservation_time: '19:00:00', party_size: 2, status: 'confirmed', table_id: null },
+        { reservation_time: '19:00:00', party_size: 4, status: 'pending', table_id: null }] }) });
     });
     var s = await ctx.newPage(); var fehler = []; s.on('pageerror', function (e) { fehler.push(e.message); });
     await s.goto('http://localhost:' + PORT + '/', { waitUntil: 'load' }); await s.waitForTimeout(1500);
@@ -172,6 +182,47 @@ var SILVESTER = JAHR + '-12-31';
   await p.s.click('#blockList button'); await p.s.waitForTimeout(900);
   liste = await p.s.textContent('#blockList');
   pruef('Aufheben nimmt alle 5 Uhrzeiten auf einmal weg', /Keine Sperrungen an diesem Tag/.test(liste) && p.db.zeilen.filter(function (z) { return z.reservation_date === SILVESTER && z.status === 'blocked'; }).length === 0, liste.replace(/\s+/g, ' ').slice(0, 100));
+
+  // Vorlage "Ruhetag jede Woche" ab einem Montag
+  var montag = await p.s.evaluate(function () { var d = new Date(); d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7)); return d.toLocaleDateString('sv-SE'); });
+  await p.s.evaluate(function (d) { blockCalSelectDate(d); blockVorlage('ruhetag'); }, montag); await p.s.waitForTimeout(300);
+  vorschau = await p.s.textContent('#blockVorschau');
+  var wtSicht = await p.s.evaluate(function () { var z = document.getElementById('blockWochentageZeile'); return getComputedStyle(z).display + '|' + Array.prototype.filter.call(document.querySelectorAll('.block-wt'), function (c) { return c.checked; }).map(function (c) { return c.value; }).join(); });
+  pruef('Vorlage „Ruhetag jede Woche“: 12 Montage, Gäste lesen „Ruhetag“, Wochentage sichtbar (nur Mo)',
+    /12 Tage/.test(vorschau) && /Ruhetag/.test(vorschau) && wtSicht === 'block|1', vorschau + ' · ' + wtSicht);
+  await p.s.click('#blockSperrKnopf'); await p.s.waitForTimeout(900);
+  var ruhe = p.db.zeilen.filter(function (z) { return z.status === 'blocked' && z.source === 'admin_block:ruhetag'; });
+  pruef('12 Ruhetage gespeichert, alle montags', ruhe.length === 12 && ruhe.every(function (z) { return new Date(z.reservation_date + 'T12:00:00').getDay() === 1; }), ruhe.length);
+  liste = await p.s.textContent('#blockList');
+  pruef('Liste sagt, was Gäste lesen („Ruhetag“)', /Gäste lesen „Ruhetag“/.test(liste), liste.replace(/\s+/g, ' ').slice(0, 140));
+
+  // Online-Tische
+  await p.s.fill('#blockOnlineTische', '3');
+  await p.s.click('#blockOnlineSpeichern'); await p.s.waitForTimeout(500);
+  var ot = await p.s.textContent('#blockOnlineStand');
+  pruef('Online-Tische 3 gespeichert, beim Kunden, Stand sichtbar', p.db.features.indexOf('online_tische:3') !== -1 && p.db.patchLokal === KUNDE && /höchstens 3 Tische/.test(ot), JSON.stringify(p.db.features) + ' ' + ot);
+
+  var dienstag = await p.s.evaluate(function (m) { var d = new Date(m + 'T12:00:00'); d.setDate(d.getDate() + 1); return d.toLocaleDateString('sv-SE'); }, montag);
+  // Gaesteseite: 2 von 3 um 19:00 belegt -> "noch 1 Tisch"; andere "noch 3 Tische"
+  var gast = await p.s.evaluate(async function (a) {
+    var r = APP_DATA.restaurants.find(function (x) { return x.id === a.k; }); r.features = ['online_tische:3'];
+    window._realTableCount = 10;
+    var box = document.getElementById('availableSlotsContainer');
+    document.getElementById('reservationRestaurantId').value = a.k;
+    document.getElementById('reservationDate').value = a.d;
+    var ps = document.getElementById('partySize'); if (ps.tagName === 'SELECT' && !Array.prototype.some.call(ps.options, function (o) { return o.value === '2'; })) { var o = document.createElement('option'); o.value = '2'; ps.appendChild(o); }
+    ps.value = '2';
+    await loadAvailableSlots();
+    await new Promise(function (ok) { setTimeout(ok, 400); });
+    var t19 = box.querySelector('.slot-btn[data-time="19:00"]'), t18 = box.querySelector('.slot-btn[data-time="18:00"]');
+    return (t19 ? t19.textContent : '-') + ' | ' + (t18 ? t18.textContent : '-');
+  }, { k: KUNDE, d: dienstag });
+  var kn = await p.s.evaluate(KONTRAST, '#availableSlotsContainer .slot-noch');
+  pruef('„noch N Tische“ lesbar (Kontrast >= 4.5)', kn >= 4.5, kn);
+  var sb = await p.s.$('#availableSlotsContainer');
+  if (sb) { await p.s.evaluate(function () { var b = document.getElementById('availableSlotsContainer'); for (var q = b; q && q !== document.body; q = q.parentElement) if (getComputedStyle(q).display === 'none') q.style.setProperty('display', 'block', 'important'); b.scrollIntoView({ block: 'center' }); }); await sb.screenshot({ path: path.join(AUS, 'sperrung-gast-uhrzeiten.png') }).catch(function () {}); }
+  pruef('Gast sieht „19:00 noch 1 Tisch“ (3 online, 2 belegt) und „18:00 noch 3 Tische“', /19:00.*noch 1 Tisch\b/.test(gast) && /18:00.*noch 3 Tische/.test(gast), gast);
+
   pruef('keine JS-Fehler', p.fehler.length === 0, p.fehler.join(' | '));
   await p.ctx.close();
 

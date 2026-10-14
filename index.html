@@ -406,6 +406,16 @@
     @font-face{font-family:'Inter';font-style:normal;font-display:swap;font-weight:100 900;src:url(/public/fonts/inter-latin.woff2) format('woff2-variations');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
     @font-face{font-family:'Inter';font-style:normal;font-display:swap;font-weight:100 900;src:url(/public/fonts/inter-latin-ext.woff2) format('woff2-variations');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;}
     
+/* Online-Tische: "noch 2 Tische" an der Uhrzeit */
+.slot-noch{display:block;font-size:10px;font-weight:700;color:#92400e;margin-top:2px;letter-spacing:.02em;}
+.dark-mode .slot-noch{color:#fbbf24;}
+/* Sperrungen: Wochentage */
+.sperr-wt{position:relative;cursor:pointer;}
+.sperr-wt input{position:absolute;opacity:0;width:1px;height:1px;}
+.sperr-wt span{display:inline-block;min-width:34px;text-align:center;padding:6px 8px;border-radius:9999px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-secondary);font-size:12px;font-weight:600;}
+.sperr-wt input:checked+span{border-color:var(--primary);background:rgba(0,61,51,0.08);color:var(--primary);}
+.dark-mode .sperr-wt input:checked+span{color:#9ee6cf;background:rgba(158,230,207,0.12);border-color:#9ee6cf;}
+.sperr-wt input:focus-visible+span{outline:2px solid var(--primary);outline-offset:2px;}
 /* Sperrungen: Punkte im Kalender (14.10.2026) */
 .sperr-punkt{display:inline-block;width:7px;height:7px;border-radius:50%;background:#d97706;vertical-align:middle;}
 .sperr-punkt-tag{background:#b91c1c;}
@@ -21682,6 +21692,17 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         </div>
                         <div class="panel" style="padding:16px;margin-top:16px;">
                             <h4 style="font-family:Epilogue,sans-serif;font-size:14px;font-weight:700;margin:0 0 12px;">Neue Sperrung</h4>
+                            <div style="margin-bottom:12px;">
+                                <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-secondary);display:block;margin-bottom:4px;">Schnell wählen</label>
+                                <div id="blockVorlagen" style="display:flex;flex-wrap:wrap;gap:6px;">
+                                    <button type="button" onclick="blockVorlage('heuteAbend')" style="padding:7px 12px;border-radius:9999px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:12px;font-weight:600;cursor:pointer;">Heute Abend</button>
+                                    <button type="button" onclick="blockVorlage('wochenende')" style="padding:7px 12px;border-radius:9999px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:12px;font-weight:600;cursor:pointer;">Dieses Wochenende</button>
+                                    <button type="button" onclick="blockVorlage('ruhetag')" style="padding:7px 12px;border-radius:9999px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:12px;font-weight:600;cursor:pointer;">Ruhetag jede Woche</button>
+                                    <button type="button" onclick="blockVorlage('feier')" style="padding:7px 12px;border-radius:9999px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:12px;font-weight:600;cursor:pointer;">Geschlossene Gesellschaft</button>
+                                    <button type="button" onclick="blockVorlage('weihnachten')" style="padding:7px 12px;border-radius:9999px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:12px;font-weight:600;cursor:pointer;">Weihnachten</button>
+                                    <button type="button" onclick="blockVorlage('ferien')" style="padding:7px 12px;border-radius:9999px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:12px;font-weight:600;cursor:pointer;">Betriebsferien</button>
+                                </div>
+                            </div>
                             <div style="margin-bottom:10px;">
                                 <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-secondary);display:block;margin-bottom:4px;">Was sperren?</label>
                                 <div style="display:flex;gap:6px;" id="blockTypeToggle">
@@ -21700,6 +21721,18 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                                     <input type="date" id="blockBisDatum" onchange="blockZeitenFuellen()" style="width:100%;padding:10px 16px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;box-sizing:border-box;">
                                 </div>
                             </div>
+                            <div id="blockWochentageZeile" style="margin-bottom:10px;display:none;">
+                                <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-secondary);display:block;margin-bottom:4px;">Nur an diesen Tagen</label>
+                                <div id="blockWochentage" style="display:flex;flex-wrap:wrap;gap:4px;">
+                                    <label class="sperr-wt"><input type="checkbox" class="block-wt" value="1" checked onchange="blockVorschau()"><span>Mo</span></label>
+                                    <label class="sperr-wt"><input type="checkbox" class="block-wt" value="2" checked onchange="blockVorschau()"><span>Di</span></label>
+                                    <label class="sperr-wt"><input type="checkbox" class="block-wt" value="3" checked onchange="blockVorschau()"><span>Mi</span></label>
+                                    <label class="sperr-wt"><input type="checkbox" class="block-wt" value="4" checked onchange="blockVorschau()"><span>Do</span></label>
+                                    <label class="sperr-wt"><input type="checkbox" class="block-wt" value="5" checked onchange="blockVorschau()"><span>Fr</span></label>
+                                    <label class="sperr-wt"><input type="checkbox" class="block-wt" value="6" checked onchange="blockVorschau()"><span>Sa</span></label>
+                                    <label class="sperr-wt"><input type="checkbox" class="block-wt" value="0" checked onchange="blockVorschau()"><span>So</span></label>
+                                </div>
+                            </div>
                             <div id="blockTableSelect" style="margin-bottom:10px;display:none;">
                                 <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-secondary);display:block;margin-bottom:4px;" for="blockTableId">Tisch</label>
                                 <select id="blockTableId" style="width:100%;padding:10px 16px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;box-sizing:border-box;"></select>
@@ -21715,7 +21748,14 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                                 </div>
                             </div>
                             <div style="margin-bottom:12px;">
-                                <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-secondary);display:block;margin-bottom:4px;" for="blockReason">Grund (optional)</label>
+                                <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-secondary);display:block;margin-bottom:4px;" for="blockGastText">Gäste lesen</label>
+                                <select id="blockGastText" onchange="blockVorschau()" style="width:100%;padding:10px 16px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;box-sizing:border-box;margin-bottom:10px;">
+                                    <option value="ausgebucht">Ausgebucht</option>
+                                    <option value="geschlossen">Geschlossene Gesellschaft</option>
+                                    <option value="ruhetag">Ruhetag</option>
+                                    <option value="ferien">Betriebsferien</option>
+                                </select>
+                                <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-secondary);display:block;margin-bottom:4px;" for="blockReason">Interne Notiz (nur für euch)</label>
                                 <input type="text" id="blockReason" placeholder="z.B. Ruhetag, Privatfeier, Betriebsferien" style="width:100%;padding:10px 16px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;box-sizing:border-box;">
                             </div>
                             <p id="blockVorschau" style="font-size:12px;color:var(--text-secondary);margin:0 0 10px;min-height:16px;"></p>
@@ -21725,8 +21765,18 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             </button>
                         </div>
                     </div>
-                    <!-- Rechte Seite: Sperren des Tages + kommende -->
+                    <!-- Rechte Seite: Online-Tische, Sperren des Tages, kommende -->
                     <div>
+                        <div class="panel" style="padding:16px;margin-bottom:16px;">
+                            <h4 style="font-family:Epilogue,sans-serif;font-size:14px;font-weight:700;margin:0 0 4px;">Online buchbare Tische</h4>
+                            <p style="font-size:12px;color:var(--text-secondary);margin:0 0 10px;">Wie viele Tische Gäste pro Uhrzeit online buchen können. Gäste sehen dann „noch 2 Tische“. Leer = alle Tische.</p>
+                            <div style="display:flex;gap:8px;align-items:center;">
+                                <input type="number" id="blockOnlineTische" min="1" max="200" inputmode="numeric" placeholder="alle" aria-label="Online buchbare Tische pro Uhrzeit" style="width:100%;padding:10px 16px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;box-sizing:border-box;max-width:120px;">
+                                <span style="font-size:13px;color:var(--text-secondary);">pro Uhrzeit</span>
+                                <button type="button" id="blockOnlineSpeichern" onclick="onlineTischeSpeichern()" style="margin-left:auto;padding:9px 16px;border:none;border-radius:9999px;background:var(--primary);color:#fff;font-weight:700;font-size:13px;cursor:pointer;">Speichern</button>
+                            </div>
+                            <p id="blockOnlineStand" style="font-size:12px;color:var(--text-secondary);margin:8px 0 0;"></p>
+                        </div>
                         <div class="panel" style="padding:16px;">
                             <h4 style="font-family:Epilogue,sans-serif;font-size:14px;font-weight:700;margin:0 0 4px;">Sperrungen an diesem Tag</h4>
                             <p id="blockDateLabel" style="font-size:12px;color:var(--text-secondary);margin:0 0 16px;"></p>
@@ -29729,6 +29779,10 @@ function reservierungVollText(antwort) {
     // "ausgebucht muss meistens stehen" -- der Gast liest "ausgebucht",
     // nicht "das Restaurant nimmt keine Reservierungen an". Ein volles Haus
     // laedt zum Wiederkommen ein, ein verschlossenes nicht.
+    if (antwort && antwort.gesperrt && antwort.hinweis && antwort.hinweis !== 'ausgebucht') {
+        var _gt = sperrGastText(antwort.hinweis);
+        return _gt.titel + ' – ' + (antwort.gesperrt === 'tag' ? _gt.tag : _gt.zeit) + ' Wähle gern ' + (antwort.gesperrt === 'tag' ? 'ein anderes Datum.' : 'eine andere Uhrzeit.');
+    }
     if (antwort && antwort.gesperrt === 'zeit') {
         return 'Ausgebucht – diese Uhrzeit ist leider schon voll. Wähle gern eine andere Uhrzeit oder setz dich auf die Warteliste.';
     }
@@ -32600,13 +32654,24 @@ async function loadAvailableSlots() {
         if (fullDayBlock) {
             // Ganzer Tag gesperrt -- fuer den Gast "Ausgebucht" (Ibo,
             // 14.10.2026), mit Warteliste, genau wie ein ausgebuchter Tag.
+            // Hat der Wirt "Ruhetag", "Betriebsferien" oder "Geschlossene
+            // Gesellschaft" gewaehlt, steht das -- dann ohne Warteliste.
+            var _ganz = (existing || []).find(function (r) {
+                return r.status === 'blocked' && !r.table_id && r.reservation_time && r.reservation_time.substring(0,5) === '00:00';
+            });
+            var _gt = sperrGastText(_ganz && _ganz.hinweis);
             var container2 = document.getElementById('availableSlotsContainer');
-            container2.innerHTML = '<div class="kmi-res-ausgebucht" style="text-align:center;padding:20px;"><span class="material-symbols-outlined" style="font-size:32px;color:#b45309;">event_busy</span><p style="color:var(--text-primary);font-size:14px;margin:8px 0 0;"><strong>Ausgebucht</strong> – an diesem Tag ist leider alles voll.</p><p style="color:var(--text-secondary);font-size:13px;margin:4px 0 0;">Wähle gern ein anderes Datum – oder setz dich auf die Warteliste.</p></div>';
+            container2.innerHTML = '<div class="kmi-res-ausgebucht" style="text-align:center;padding:20px;"><span class="material-symbols-outlined" style="font-size:32px;color:#b45309;">event_busy</span><p style="color:var(--text-primary);font-size:14px;margin:8px 0 0;"><strong>' + _gt.titel + '</strong> – ' + _gt.tag + '</p><p style="color:var(--text-secondary);font-size:13px;margin:4px 0 0;">Wähle gern ein anderes Datum' + (_gt.warteliste ? ' – oder setz dich auf die Warteliste.' : '.') + '</p></div>';
             var _spWl = document.getElementById('waitlistOption');
             if (_spWl) {
-                _spWl.innerHTML = '<p style="color: var(--ink-strong); margin-bottom: 12px; font-family: Epilogue, sans-serif; font-weight: 700;">Wird ein Tisch frei, meldet sich das Restaurant.</p>' +
-                    '<button type="button" onclick="showWaitlistForm()" class="btn" style="background: #003d33; color: white; border-radius: 9999px; font-family: Epilogue, sans-serif; font-weight: 700;">Auf Warteliste setzen</button>';
-                _spWl.style.display = 'block';
+                if (_gt.warteliste) {
+                    _spWl.innerHTML = '<p style="color: var(--ink-strong); margin-bottom: 12px; font-family: Epilogue, sans-serif; font-weight: 700;">Wird ein Tisch frei, meldet sich das Restaurant.</p>' +
+                        '<button type="button" onclick="showWaitlistForm()" class="btn" style="background: #003d33; color: white; border-radius: 9999px; font-family: Epilogue, sans-serif; font-weight: 700;">Auf Warteliste setzen</button>';
+                    _spWl.style.display = 'block';
+                } else {
+                    _spWl.innerHTML = '';
+                    _spWl.style.display = 'none';
+                }
             }
             return;
         }
@@ -32640,6 +32705,8 @@ async function loadAvailableSlots() {
         var currentHour = now.getHours();
         var currentMin = now.getMinutes();
 
+        var _onlineT = onlineTischeVon(APP_DATA.restaurants ? APP_DATA.restaurants.find(function (r) { return r.id === restaurantId; }) : null);
+
         // Auslastung pro Zeitslot berechnen
         var slotData = allTimes.map(function(t) {
             // Komplett gesperrter Zeitslot
@@ -32649,6 +32716,9 @@ async function loadAvailableSlots() {
             // Echte Tischanzahl minus gesperrte Tische
             var maxTables = (window._realTableCount || 30) - (blockedTablesPerSlot[t] || 0);
             if (maxTables < 1) maxTables = 1;
+            // Online buchbare Tische (vom Wirt festgelegt): hoechstens so
+            // viele pro Uhrzeit -- und der Gast sieht "noch N Tische".
+            if (_onlineT) maxTables = Math.min(maxTables, _onlineT);
             var available = bookingsAtTime < maxTables;
 
             // Vergangene Zeiten filtern
@@ -32661,7 +32731,8 @@ async function loadAvailableSlots() {
 
             // Auslastung: 0-1 = ruhig, 2-3 = beliebt, 4 = fast voll
             var demand = bookingsAtTime === 0 ? 'quiet' : bookingsAtTime <= 2 ? 'normal' : bookingsAtTime <= 3 ? 'popular' : 'busy';
-            return { time: t, bookings: bookingsAtTime, available: available, demand: demand };
+            return { time: t, bookings: bookingsAtTime, available: available, demand: demand,
+                     nochTische: _onlineT ? Math.max(0, maxTables - bookingsAtTime) : null };
         }).filter(function(s) { return s !== null && s.available; });
 
         // Ist heute einfach schon vorbei, ist das nicht "ausgebucht".
@@ -32747,7 +32818,7 @@ function renderSlotsWithSuggestions(slotData, date) {
         html += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;">';
         mittagSlots.forEach(function(s) {
             var demandStyle = getDemandStyle(s.demand);
-            html += '<button type="button" data-time="' + s.time + '" data-bg="' + demandStyle.bg + '" data-rand="' + demandStyle.border + '" onclick="selectSlot(this, \'' + s.time + ':00\', null, \'\')" class="slot-btn" style="padding:10px 16px;border:1px solid ' + demandStyle.border + ';border-radius:16px;background:' + demandStyle.bg + ';color:var(--text-primary);font-size:14px;font-weight:600;cursor:pointer;min-width:60px;text-align:center;position:relative;">' + s.time + demandStyle.badge + '</button>';
+            html += '<button type="button" data-time="' + s.time + '" data-bg="' + demandStyle.bg + '" data-rand="' + demandStyle.border + '" onclick="selectSlot(this, \'' + s.time + ':00\', null, \'\')" class="slot-btn" style="padding:10px 16px;border:1px solid ' + demandStyle.border + ';border-radius:16px;background:' + demandStyle.bg + ';color:var(--text-primary);font-size:14px;font-weight:600;cursor:pointer;min-width:60px;text-align:center;position:relative;">' + s.time + demandStyle.badge + nochTischeHtml(s) + '</button>';
         });
         html += '</div>';
     }
@@ -32758,12 +32829,20 @@ function renderSlotsWithSuggestions(slotData, date) {
         html += '<div style="display:flex;flex-wrap:wrap;gap:8px;">';
         abendSlots.forEach(function(s) {
             var demandStyle = getDemandStyle(s.demand);
-            html += '<button type="button" data-time="' + s.time + '" data-bg="' + demandStyle.bg + '" data-rand="' + demandStyle.border + '" onclick="selectSlot(this, \'' + s.time + ':00\', null, \'\')" class="slot-btn" style="padding:10px 16px;border:1px solid ' + demandStyle.border + ';border-radius:16px;background:' + demandStyle.bg + ';color:var(--text-primary);font-size:14px;font-weight:600;cursor:pointer;min-width:60px;text-align:center;position:relative;">' + s.time + demandStyle.badge + '</button>';
+            html += '<button type="button" data-time="' + s.time + '" data-bg="' + demandStyle.bg + '" data-rand="' + demandStyle.border + '" onclick="selectSlot(this, \'' + s.time + ':00\', null, \'\')" class="slot-btn" style="padding:10px 16px;border:1px solid ' + demandStyle.border + ';border-radius:16px;background:' + demandStyle.bg + ';color:var(--text-primary);font-size:14px;font-weight:600;cursor:pointer;min-width:60px;text-align:center;position:relative;">' + s.time + demandStyle.badge + nochTischeHtml(s) + '</button>';
         });
         html += '</div>';
     }
 
     container.innerHTML = html;
+}
+
+// "noch 2 Tische" unter der Uhrzeit -- nur wenn der Wirt die Online-Tische
+// begrenzt hat (Ibo, 14.10.2026: Verknappung). Die Zahl ist echt: Grenze
+// minus Reservierungen zu dieser Uhrzeit.
+function nochTischeHtml(s) {
+    if (!s || s.nochTische === null || s.nochTische === undefined) return '';
+    return '<span class="slot-noch">noch ' + s.nochTische + (s.nochTische === 1 ? ' Tisch' : ' Tische') + '</span>';
 }
 
 function getDemandStyle(demand) {
@@ -46907,6 +46986,7 @@ function loadBlockingUI() {
     if (bis && (!bis.value || bis.value < von.value)) bis.value = von.value;
 
     loadBlockTables(restId);
+    onlineTischeAnzeigen(restId);
     selectBlockType(_blockSelectedType);
     blockCalRender();
     blockMonatLaden(restId);
@@ -47028,11 +47108,21 @@ function blockZeilenBauen(restId) {
     if (typ === 'slot' && !vonZeit) return { fehler: 'Bitte eine Uhrzeit wählen.' };
     if (vonZeit && bisZeit && bisZeit < vonZeit) return { fehler: '„Bis Uhrzeit“ liegt vor „Von Uhrzeit“.' };
     var grund = ((document.getElementById('blockReason') || {}).value || '').trim().slice(0, 200);
+    var gastText = sperrGastCode((document.getElementById('blockGastText') || {}).value);
+    // Wochentage gelten nur, wenn mehr als ein Tag gewaehlt ist.
+    var wt = null;
+    if (bisDatum > vonDatum) {
+        wt = {};
+        Array.prototype.forEach.call(document.querySelectorAll ? document.querySelectorAll('.block-wt:checked') : [], function (c) { wt[c.value] = true; });
+        if (!Object.keys(wt).length) return { fehler: 'Bitte mindestens einen Wochentag wählen.' };
+    }
 
-    var zeilen = [], tage = 0, d = vonDatum;
+    var zeilen = [], tage = 0, kalenderTage = 0, d = vonDatum;
     while (d <= bisDatum) {
+        kalenderTage++;
+        if (kalenderTage > BLOCK_MAX_TAGE) return { fehler: 'Höchstens ' + BLOCK_MAX_TAGE + ' Tage auf einmal.' };
+        if (wt && !wt[String(new Date(d + 'T12:00:00').getDay())]) { d = sperrTagePlus(d, 1); continue; }
         tage++;
-        if (tage > BLOCK_MAX_TAGE) return { fehler: 'Höchstens ' + BLOCK_MAX_TAGE + ' Tage auf einmal.' };
         var zeiten;
         if (typ === 'day' || (typ === 'table' && !vonZeit)) {
             zeiten = ['00:00'];
@@ -47050,27 +47140,146 @@ function blockZeilenBauen(restId) {
                 reservation_date: d,
                 reservation_time: t + ':00',
                 status: 'blocked',
-                source: 'admin_block',
+                // Was der Gast liest, steckt in der Herkunft (keine
+                // Gaestedaten, res-availability darf sie herausgeben).
+                source: gastText === 'ausgebucht' ? 'admin_block' : 'admin_block:' + gastText,
                 notes: grund,
                 table_id: tisch || null
             });
         });
         d = sperrTagePlus(d, 1);
     }
-    return { zeilen: zeilen, tage: tage, von: vonDatum, bis: bisDatum };
+    return { zeilen: zeilen, tage: tage, von: vonDatum, bis: bisDatum, gastText: gastText };
+}
+
+// WAS DER GAST LIEST (Ibo, 14.10.2026: "ausgebucht muss meistens stehen"
+// -- und "das man wählen kann"). Ausgebucht ist der Standard. Gilt auf der
+// Gaesteseite, im Server (reservation-guest) und hier.
+function sperrGastCode(c) {
+    return ['geschlossen', 'ruhetag', 'ferien'].indexOf(c) !== -1 ? c : 'ausgebucht';
+}
+function sperrGastText(c) {
+    c = sperrGastCode(c);
+    return {
+        ausgebucht:  { titel: 'Ausgebucht', tag: 'an diesem Tag ist leider alles voll.', zeit: 'diese Uhrzeit ist leider schon voll.', warteliste: true },
+        geschlossen: { titel: 'Geschlossene Gesellschaft', tag: 'an diesem Tag ist das Restaurant für eine Feier reserviert.', zeit: 'zu dieser Uhrzeit ist das Restaurant für eine Feier reserviert.', warteliste: false },
+        ruhetag:     { titel: 'Ruhetag', tag: 'an diesem Tag ist das Restaurant geschlossen.', zeit: 'zu dieser Uhrzeit ist das Restaurant geschlossen.', warteliste: false },
+        ferien:      { titel: 'Betriebsferien', tag: 'das Restaurant macht gerade Pause.', zeit: 'das Restaurant macht gerade Pause.', warteliste: false }
+    }[c];
+}
+function sperrGastAusQuelle(source) {
+    var m = String(source || '').match(/^admin_block:(geschlossen|ruhetag|ferien)$/);
+    return m ? m[1] : 'ausgebucht';
+}
+
+// SCHNELL WAEHLEN -- fuellt das Formular, gespeichert wird erst mit "Sperren".
+function blockVorlage(name) {
+    var heute = todayStrLocal();
+    var d0 = new Date(heute + 'T12:00:00');
+    function setze(id, v) { var el = document.getElementById(id); if (el) el.value = v; }
+    function wochentage(liste) {
+        Array.prototype.forEach.call(document.querySelectorAll('.block-wt'), function (c) { c.checked = !liste || liste.indexOf(+c.value) !== -1; });
+    }
+    var von = heute, bis = heute, typ = 'day', gast = 'ausgebucht', zVon = '', zBis = '', wt = null, notiz = '';
+    if (name === 'heuteAbend') { typ = 'slot'; zVon = '17:00'; }
+    else if (name === 'wochenende') {
+        var bisSa = (6 - d0.getDay() + 7) % 7;
+        von = sperrTagePlus(heute, bisSa); bis = sperrTagePlus(von, 1);
+        if (d0.getDay() === 0) { von = heute; bis = heute; }
+    }
+    else if (name === 'ruhetag') {
+        var tag = new Date((_blockSelectedDate || heute) + 'T12:00:00').getDay();
+        von = _blockSelectedDate >= heute ? _blockSelectedDate : heute; bis = sperrTagePlus(von, 83);
+        wt = [tag]; gast = 'ruhetag'; notiz = 'Ruhetag';
+    }
+    else if (name === 'feier') { von = _blockSelectedDate >= heute ? _blockSelectedDate : heute; bis = von; gast = 'geschlossen'; notiz = 'Geschlossene Gesellschaft'; }
+    else if (name === 'weihnachten') {
+        var j = d0.getMonth() === 11 && d0.getDate() > 26 ? d0.getFullYear() + 1 : d0.getFullYear();
+        von = j + '-12-24'; bis = j + '-12-26';
+    }
+    else if (name === 'ferien') { von = _blockSelectedDate >= heute ? _blockSelectedDate : heute; bis = sperrTagePlus(von, 13); gast = 'ferien'; notiz = 'Betriebsferien'; }
+    setze('blockVonDatum', von); setze('blockBisDatum', bis);
+    setze('blockGastText', gast);
+    if (notiz) setze('blockReason', notiz);
+    wochentage(wt);
+    _blockSelectedType = typ;
+    blockCalSelectDate(von, true);
+    selectBlockType(typ);
+    if (zVon) {
+        // erste Uhrzeit ab zVon (nicht jedes Lokal hat genau 17:00)
+        var vSel = document.getElementById('blockTime');
+        if (vSel) { var ab = Array.prototype.find.call(vSel.options, function (o) { return o.value && o.value >= zVon; }); if (ab) vSel.value = ab.value; }
+        var b = document.getElementById('blockTimeBis'); if (b && b.options.length) b.value = b.options[b.options.length - 1].value;
+    }
+    if (zBis) setze('blockTimeBis', zBis);
+    blockVorschau();
+}
+
+// ONLINE BUCHBARE TISCHE pro Uhrzeit (Ibo, 14.10.2026: "tische anzahl ...
+// die zeit noch 2 tisch ... verknappung"). Steht als 'online_tische:N' in
+// restaurants.features -- wie "ausgebucht", ohne neue Spalte. Gaesteseite
+// zeigt "noch N Tische", reservation-guest nimmt nicht mehr an.
+function onlineTischeVon(rest) {
+    var f = (rest && Array.isArray(rest.features)) ? rest.features : [];
+    for (var i = 0; i < f.length; i++) {
+        var m = String(f[i]).match(/^online_tische:(\d{1,3})$/);
+        if (m && +m[1] > 0) return +m[1];
+    }
+    return null;
+}
+function onlineTischeAnzeigen(restId) {
+    var feld = document.getElementById('blockOnlineTische'), stand = document.getElementById('blockOnlineStand');
+    var r = (APP_DATA.restaurants || []).find(function (x) { return x && x.id === restId; });
+    var n = onlineTischeVon(r);
+    if (feld) feld.value = n ? String(n) : '';
+    if (stand) stand.textContent = n ? 'Gäste können pro Uhrzeit höchstens ' + n + (n === 1 ? ' Tisch' : ' Tische') + ' online buchen.' : 'Alle Tische sind online buchbar.';
+}
+async function onlineTischeSpeichern() {
+    var restId = sperrLokal(), feld = document.getElementById('blockOnlineTische'), stand = document.getElementById('blockOnlineStand');
+    if (!restId || !feld) return;
+    var roh = String(feld.value || '').trim();
+    var n = roh === '' ? 0 : parseInt(roh, 10);
+    if (roh !== '' && (!(n >= 1) || n > 200)) { showToast('Bitte eine Zahl von 1 bis 200 – oder leer für alle', 'error'); return; }
+    try {
+        var res = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', { headers: sperrKopf() });
+        var data = await res.json();
+        if (!data || !data[0]) throw new Error('Restaurant nicht lesbar');
+        var features = (data[0].features || []).filter(function (f) { return !/^online_tische:/.test(String(f)); });
+        if (n) features.push('online_tische:' + n);
+        var upd = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=id,features', {
+            method: 'PATCH',
+            headers: sperrKopf({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }),
+            body: JSON.stringify({ features: features })
+        });
+        if (!upd.ok) throw new Error('HTTP ' + upd.status);
+        var zeilen = await upd.json();
+        if (!Array.isArray(zeilen) || !zeilen.length) throw new Error('keine Berechtigung – nichts gespeichert');
+        var appR = (APP_DATA.restaurants || []).find(function (r) { return r.id === restId; });
+        if (appR) appR.features = zeilen[0].features || features;
+        onlineTischeAnzeigen(restId);
+        showToast(n ? 'Online: höchstens ' + n + (n === 1 ? ' Tisch' : ' Tische') + ' pro Uhrzeit' : 'Alle Tische online buchbar', 'success');
+    } catch (e) {
+        if (stand) stand.textContent = 'Nicht gespeichert: ' + (e && e.message || e) + '. Gäste sehen den alten Stand.';
+        showToast('Online-Tische nicht gespeichert', 'error');
+    }
 }
 
 function blockVorschau() {
     var el = document.getElementById('blockVorschau');
     var restId = sperrLokal();
+    var wtZeile = document.getElementById('blockWochentageZeile');
+    if (wtZeile) {
+        var v = (document.getElementById('blockVonDatum') || {}).value || '', bi = (document.getElementById('blockBisDatum') || {}).value || '';
+        wtZeile.style.display = bi > v ? 'block' : 'none';
+    }
     if (!el || !restId) return;
     var b = blockZeilenBauen(restId);
     if (b.fehler) { el.textContent = b.fehler; return; }
-    var tageText = b.tage === 1 ? sperrDatumKurz(b.von) : b.tage + ' Tage (' + sperrDatumKurz(b.von) + ' bis ' + sperrDatumKurz(b.bis) + ')';
+    var tageText = b.tage === 1 && b.von === b.bis ? sperrDatumKurz(b.von) : b.tage + (b.tage === 1 ? ' Tag' : ' Tage') + ' (' + sperrDatumKurz(b.von) + ' bis ' + sperrDatumKurz(b.bis) + ')';
     if (!b.zeilen.length) { el.textContent = 'An ' + tageText + ' gibt es in diesem Zeitraum keine Uhrzeiten.'; return; }
     var was = _blockSelectedType === 'day' ? 'ganzer Tag'
             : (b.zeilen[0].reservation_time === '00:00:00' ? 'ganzer Tag' : b.zeilen.length + (b.zeilen.length === 1 ? ' Uhrzeit' : ' Uhrzeiten'));
-    el.textContent = 'Wird gesperrt: ' + tageText + ' · ' + was + (_blockSelectedType === 'table' ? ' · nur dieser Tisch' : '');
+    el.textContent = 'Wird gesperrt: ' + tageText + ' · ' + was + (_blockSelectedType === 'table' ? ' · nur dieser Tisch' : ' · Gäste lesen „' + sperrGastText(b.gastText).titel + '“');
 }
 
 function blockCalRender() {
@@ -47222,6 +47431,15 @@ async function createBlock() {
             if (!resp.ok) {
                 var t = '';
                 try { t = (await resp.text()).slice(0, 160); } catch (e) {}
+                // Lehnt die Datenbank die Herkunft mit Gast-Text ab (Regel
+                // auf source), lieber ohne Text sperren als gar nicht --
+                // und sagen, dass Gaeste dann "Ausgebucht" lesen.
+                if (resp.status === 400 && /source|check/i.test(t) && paket.some(function (z) { return z.source !== 'admin_block'; })) {
+                    paket.forEach(function (z) { z.source = 'admin_block'; });
+                    showToast('Gast-Text nicht speicherbar – Gäste lesen „Ausgebucht“', 'error');
+                    i -= 200; neu = neu.map(function (z) { z.source = 'admin_block'; return z; });
+                    continue;
+                }
                 throw new Error('HTTP ' + resp.status + (t ? ' – ' + t : ''));
             }
             var zurueck = await resp.json().catch(function () { return []; });
@@ -47250,8 +47468,8 @@ async function createBlock() {
 // EINER Zeile zusammen ("18:00 – 21:00 Uhr"), statt zwanzig Einzelzeilen.
 function blockGruppen(zeilen, slots) {
     var sortiert = (zeilen || []).slice().sort(function (a, b) {
-        var ka = (a.table_id || '') + '|' + (a.notes || '') + '|' + a.reservation_time;
-        var kb = (b.table_id || '') + '|' + (b.notes || '') + '|' + b.reservation_time;
+        var ka = (a.table_id || '') + '|' + (a.source || '') + '|' + (a.notes || '') + '|' + a.reservation_time;
+        var kb = (b.table_id || '') + '|' + (b.source || '') + '|' + (b.notes || '') + '|' + b.reservation_time;
         return ka < kb ? -1 : ka > kb ? 1 : 0;
     });
     var gruppen = [];
@@ -47261,11 +47479,12 @@ function blockGruppen(zeilen, slots) {
         var idx = slots.indexOf(t);
         if (letzte && t !== '00:00' && letzte.bis !== '00:00'
             && (letzte.table_id || '') === (z.table_id || '') && (letzte.notes || '') === (z.notes || '')
+            && letzte.gast === sperrGastAusQuelle(z.source)
             && idx !== -1 && slots.indexOf(letzte.bis) === idx - 1) {
             letzte.bis = t;
             letzte.ids.push(z.id);
         } else {
-            gruppen.push({ von: t, bis: t, table_id: z.table_id || null, notes: z.notes || '', ids: [z.id] });
+            gruppen.push({ von: t, bis: t, table_id: z.table_id || null, notes: z.notes || '', gast: sperrGastAusQuelle(z.source), ids: [z.id] });
         }
     });
     return gruppen;
@@ -47298,6 +47517,7 @@ async function loadBlockList(restId, date) {
             var label = g.table_id ? (tischNamen[g.table_id] || 'Ein Tisch') + ' gesperrt'
                       : ganz ? 'Ganzer Tag gesperrt' : 'Gesperrt';
             var detail = ganz ? (g.table_id ? 'ganzer Tag' : '') : (g.von === g.bis ? g.von + ' Uhr' : g.von + ' – ' + g.bis + ' Uhr');
+            if (!g.table_id && g.gast !== 'ausgebucht') detail += (detail ? ' · ' : '') + 'Gäste lesen „' + sperrGastText(g.gast).titel + '“';
             if (g.notes) detail += (detail ? ' · ' : '') + escapeHtml(g.notes);
 
             html += '<div style="display:flex;align-items:center;gap:12px;padding:12px;background:rgba(185,28,28,0.04);border:1px solid rgba(185,28,28,0.15);border-radius:12px;margin-bottom:8px;">';
