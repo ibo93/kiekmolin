@@ -41,7 +41,13 @@
 
 const webpush = require('web-push');
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_URL = (process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co')
+    .replace(/\/+$/, '').replace(/\/rest\/v1$/, '');
+// OHNE die Ersatz-Adresse lief diese Function nie: SUPABASE_URL steht bei
+// Netlify nicht in den Umgebungsvariablen (gemessen 14.10.2026), und die
+// Pruefung "ENV fehlt" brach jeden Lauf mit 500 ab -- 29.968 Mal in
+// sieben Tagen, kein einziger Push an einen Wirt. Dieselbe Zeile wie in
+// mahnung.js, lib/alarm.js, lib/zahlsperre.js. tests/supabase-adresse-test.js.
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const VAPID_PUBLIC = process.env.VAPID_PUBLIC;
 const VAPID_PRIVATE = process.env.VAPID_PRIVATE;
