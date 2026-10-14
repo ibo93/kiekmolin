@@ -21874,7 +21874,8 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         </span>
                         Vorschau der Zeitslots
                     </h4>
-                    <div id="resSettingsPreview" class="res-slots-preview">
+                    <div id="resSettingsTageHinweis" style="display:none;margin:10px 0;padding:10px 12px;border-radius:12px;background:rgba(217,119,6,0.08);border:1px solid rgba(217,119,6,0.25);font-size:12px;line-height:1.5;color:var(--text-primary);"></div>
+                        <div id="resSettingsPreview" class="res-slots-preview">
                         <!-- Wird dynamisch generiert -->
                     </div>
                     <div style="display: flex; align-items: center; gap: 16px; margin-top: 16px;">
@@ -32232,6 +32233,22 @@ function generateReservationSlots(restaurantId, datum) {
             var ende = sch.e <= sch.s ? sch.e + 1440 : sch.e;
             return { von: sch.s, bis: Math.min(ende - 30, 1439) };
         });
+        // RESERVIERUNGSZEITEN WIRKEN AUCH AN TAGEN MIT EIGENEN ZEITEN
+        // (Ibo, 14.10.2026: "beim reservierungen der zeit ... speichert er
+        // nimmt nichts an"). Gemessen: das Speichern kam an (Supabase,
+        // 1 Zeile geaendert) -- aber hatte das Lokal Oeffnungszeiten pro
+        // Wochentag, wurden Beginn/Ende von hier still ignoriert.
+        // Jetzt: wer hier speichert (res_fenster), begrenzt damit die
+        // Uhrzeiten auch dort -- Schnittmenge aus Oeffnungszeit und
+        // Reservierungszeit. Lokale, die hier nie gespeichert haben,
+        // bleiben, wie sie waren.
+        var _ohF = restaurant.opening_hours;
+        if (typeof _ohF === 'string') { try { _ohF = JSON.parse(_ohF); } catch (e) { _ohF = null; } }
+        if (_ohF && _ohF.res_fenster === true && endMin >= startMin) {
+            bereiche = bereiche.map(function (b) {
+                return { von: Math.max(b.von, startMin), bis: Math.min(b.bis, endMin) };
+            }).filter(function (b) { return b.bis >= b.von; });
+        }
     }
 
     bereiche.forEach(function (b) {
@@ -32436,6 +32453,33 @@ function loadResSettingsUI() {
 
     updatePauseToggleVisual();
     updateResPreview();
+    resTageHinweis(restaurant);
+}
+
+// WAS FUER GAESTE WIRKLICH GILT. Hat das Lokal Oeffnungszeiten pro
+// Wochentag, bestimmen die die Uhrzeiten -- das stand nirgends, und
+// Beginn/Ende hier sahen aus, als haetten sie keine Wirkung (14.10.2026).
+function resTageHinweis(restaurant) {
+    var el = document.getElementById('resSettingsTageHinweis');
+    if (!el) return;
+    var oh = restaurant && restaurant.opening_hours;
+    if (typeof oh === 'string') { try { oh = JSON.parse(oh); } catch (e) { oh = null; } }
+    var namen = { mo: 'Mo', di: 'Di', mi: 'Mi', do: 'Do', fr: 'Fr', sa: 'Sa', so: 'So' };
+    var zeilen = [];
+    if (oh && typeof oh === 'object') {
+        ['mo', 'di', 'mi', 'do', 'fr', 'sa', 'so'].forEach(function (k) {
+            if (!oh[k + '_start'] || !oh[k + '_end']) return;
+            var z = oh[k + '_start'] + '–' + oh[k + '_end'];
+            if (oh[k + '_start2'] && oh[k + '_end2']) z += ', ' + oh[k + '_start2'] + '–' + oh[k + '_end2'];
+            zeilen.push(namen[k] + ' ' + z);
+        });
+    }
+    if (!zeilen.length) { el.style.display = 'none'; el.textContent = ''; return; }
+    el.style.display = 'block';
+    el.innerHTML = '<b>Dieses Lokal hat Öffnungszeiten pro Wochentag:</b> ' + escapeHtml(zeilen.join(' · ')) + '. '
+        + (oh.res_fenster === true
+            ? 'Gäste können nur reservieren, wo beides passt: Öffnungszeit <b>und</b> Beginn–Ende hier.'
+            : 'Beginn–Ende hier gilt dort erst, wenn du einmal auf <b>Speichern</b> drückst.');
 }
 
 function setResInterval(val) {
@@ -32549,6 +32593,9 @@ async function saveResSettings() {
     oh.pause_start = pauseStart;
     oh.pause_end = pauseEnd;
     oh.disabled_slots = resDisabledSlots.length > 0 ? resDisabledSlots : [];
+    // Ab jetzt gelten Beginn/Ende auch an Tagen mit eigenen Oeffnungszeiten
+    // (generateReservationSlots, res_fenster).
+    oh.res_fenster = true;
 
     var updateData = {
         opening_time: start,
@@ -32564,11 +32611,19 @@ async function saveResSettings() {
                 'apikey': SUPABASE_KEY,
                 'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
-                'Prefer': 'return=minimal'
+                // Mit Antwort: "gespeichert" nur, wenn die Zeile wirklich
+                // geaendert wurde. return=minimal sagte 204 auch bei 0 Zeilen.
+                'Prefer': 'return=representation'
             },
             body: JSON.stringify(updateData)
         });
 
+        var _gespeichert = [];
+        if (resp.ok) { try { _gespeichert = await resp.json(); } catch (e) { _gespeichert = []; } }
+        if (resp.ok && (!Array.isArray(_gespeichert) || !_gespeichert.length)) {
+            showToast('Nicht gespeichert – keine Berechtigung für dieses Lokal. Bitte neu anmelden.', 'error');
+            return;
+        }
         if (resp.ok) {
             // Lokale Daten aktualisieren
             if (restaurant) {
@@ -32578,6 +32633,7 @@ async function saveResSettings() {
                 restaurant.opening_hours = oh;
             }
             showToast('Reservierungszeiten gespeichert!', 'success');
+            resTageHinweis(restaurant);
             // Andere Tabs aktualisieren
             if (typeof populateResTimeSelect === 'function') populateResTimeSelect();
             if (typeof window.resRenderDaySlots === 'function') window.resRenderDaySlots();
@@ -45549,6 +45605,12 @@ function checkRestaurantSlugURL() {
                 return;
             }
         }
+        // NUR DER ERSTE TEIL IST DAS LOKAL. Gemessen am 14.10.2026: ein Gast
+        // kam ueber kiekmolin.de/rhodos-carolinensiel/bestellen -- gesucht
+        // wurde ein Lokal namens "rhodos-carolinensiel/bestellen", das es
+        // nicht gibt (Supabase 500). /<lokal>/bestellen, /<lokal>/speisekarte,
+        // /<lokal>/reservieren oeffnen jetzt das Lokal.
+        if (path.indexOf('/') > -1) path = path.split('/')[0];
         if (path && systemPaths.indexOf(path) === -1) {
             slug = path;
         }
@@ -45642,7 +45704,12 @@ async function openRestaurantBySlug(slug) {
     // Fallback: Suche in DB nach slug Feld
     if (!rest) {
         try {
-            var res = await cachedFetch(SUPA_URL + '/rest/v1/restaurants?or=(slug.eq.' + slug + ',name.ilike.*' + slug.replace(/-/g, '%') + '*)&limit=1', {
+            // Nur Buchstaben, Ziffern, Bindestrich -- und "*" statt "%" als
+            // Platzhalter: aus "rhodos-carolinensiel" wurde vorher
+            // "rhodos%carolinensiel", und "%ca" las der Server als
+            // kaputtes Sonderzeichen (500, gemessen 14.10.2026).
+            var _sl = slug.replace(/[^a-z0-9-]/g, '');
+            var res = await cachedFetch(SUPA_URL + '/rest/v1/restaurants?or=(slug.eq.' + encodeURIComponent(_sl) + ',name.ilike.*' + encodeURIComponent(_sl.replace(/-/g, '*')) + '*)&limit=1', {
                 headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             }, 300000);
             var data = await res.json();
@@ -46908,6 +46975,85 @@ async function guestCancelReservation(resId, btn) {
         if (btn) { btn.disabled = false; btn.textContent = 'Absagen'; }
     }
 }
+
+// ==================== ANMELDUNG IM DASHBOARD WACH HALTEN ====================
+// Gemessen am 14.10.2026 (Supabase edge_logs): Lokal ebc6ed13 hat seit dem
+// Vorabend aus einem Dashboard 94 Mal Reservierungen OHNE Anmeldung
+// abgefragt -- Antwort jedes Mal 0 Zeilen. Mit Anmeldung waren es 5. Auf
+// dem Geraet stand "keine Reservierungen".
+//
+// Die Anmeldung erneuert Supabase im Hintergrund. Ein Tablet, das schlaeft,
+// oder ein Tab im Hintergrund verpasst das; nach einer Stunde laeuft das
+// Token ab, und kmiToken() faellt auf den oeffentlichen Schluessel zurueck.
+// kmiAngemeldet() wurde am 26.08. genau dafuer gebaut -- und nie gefragt.
+//
+// Jetzt: jede Minute, beim Zurueckkommen in den Tab und beim Fokus wird
+// geprueft. Abgelaufen -> selbst erneuern. Geht das nicht -> rotes Banner,
+// das sagt, dass gerade NICHTS geladen wird. Kommt die Anmeldung zurueck,
+// verschwindet es und die Listen laden neu. tests/anmelde-wache-test.js.
+function dashboardSichtbar() {
+    var d = document.getElementById('dashboardView');
+    if (!d) return false;
+    try { return getComputedStyle(d).display !== 'none'; } catch (e) { return d.style.display !== 'none'; }
+}
+function dashboardNachAnmeldungNeuLaden() {
+    try {
+        var rid = window._gastroOnlyRestaurantId || window.resCurrentRestaurant || null;
+        if (typeof window.resLoadReservations === 'function') window.resLoadReservations();
+        if (rid && typeof loadReservationsForRestaurant === 'function') loadReservationsForRestaurant(rid);
+        if (rid && typeof loadOrdersForRestaurant === 'function') loadOrdersForRestaurant(rid);
+    } catch (e) {}
+}
+var _anmeldeWacheLaeuft = false;
+async function dashboardAnmeldungPruefen() {
+    if (_anmeldeWacheLaeuft) return;
+    _anmeldeWacheLaeuft = true;
+    try {
+        var banner = document.getElementById('kmiAbgemeldetBanner');
+        if (!dashboardSichtbar()) { if (banner) banner.remove(); return; }
+        if (!kmiAngemeldet()) {
+            try {
+                var c = window.supabaseClient || window.sb;
+                if (c && c.auth && c.auth.refreshSession) {
+                    var r = await c.auth.refreshSession();
+                    if (r && r.data && r.data.session) kmiTokenSetzen(r.data.session);
+                }
+            } catch (e) {}
+        }
+        if (kmiAngemeldet()) {
+            if (banner) { banner.remove(); dashboardNachAnmeldungNeuLaden(); }
+            return;
+        }
+        if (!banner) {
+            banner = document.createElement('div');
+            banner.id = 'kmiAbgemeldetBanner';
+            banner.setAttribute('role', 'alert');
+            banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:100000;background:#b91c1c;color:#fff;padding:12px 16px;font:600 14px/1.4 Inter,system-ui,sans-serif;display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;box-shadow:0 2px 12px rgba(0,0,0,.25);';
+            banner.innerHTML = '<span>⚠ Anmeldung abgelaufen – Reservierungen und Bestellungen werden gerade <b>nicht</b> geladen. Leere Listen sind nicht echt.</span>'
+                + '<button type="button" onclick="kmiNeuAnmelden()" style="background:rgba(255,255,255,.96);color:#b91c1c;border:none;border-radius:9999px;padding:7px 16px;font-weight:700;cursor:pointer;">Neu anmelden</button>';
+            document.body.appendChild(banner);
+            try { if (typeof meldeFehler === 'function') meldeFehler({ message: 'Dashboard: Anmeldung abgelaufen, Erneuern fehlgeschlagen' }); } catch (e) {}
+        }
+    } finally {
+        _anmeldeWacheLaeuft = false;
+    }
+}
+window.dashboardAnmeldungPruefen = dashboardAnmeldungPruefen;
+// "Neu anmelden": NICHT nur neu laden. showDashboard() oeffnet das
+// Dashboard schon mit dem Merker im Browser (kmi_admin_logged_in) --
+// ohne Supabase-Sitzung stuende man danach wieder vor leeren Listen.
+// Also abmelden und direkt zum Login. Nach dem Login meldet das
+// Dashboard das Geraet wieder fuer die Benachrichtigungen an.
+function kmiNeuAnmelden() {
+    var b = document.getElementById('kmiAbgemeldetBanner');
+    if (b) b.remove();
+    try { if (typeof adminLogout === 'function') adminLogout(); } catch (e) {}
+    try { if (typeof openModal === 'function') openModal('adminLoginModal'); else location.reload(); } catch (e) { location.reload(); }
+}
+window.kmiNeuAnmelden = kmiNeuAnmelden;
+setInterval(dashboardAnmeldungPruefen, 60000);
+document.addEventListener('visibilitychange', function () { if (!document.hidden) dashboardAnmeldungPruefen(); });
+window.addEventListener('focus', function () { dashboardAnmeldungPruefen(); });
 
 // ==================== BENACHRICHTIGUNGEN: STATUS + TEST ====================
 // 14.10.2026: Der Melder lief sieben Tage lang 29.968 Mal mit Fehler, und
