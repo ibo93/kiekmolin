@@ -46965,6 +46965,85 @@ async function guestCancelReservation(resId, btn) {
     }
 }
 
+// ==================== ANMELDUNG IM DASHBOARD WACH HALTEN ====================
+// Gemessen am 14.10.2026 (Supabase edge_logs): Lokal ebc6ed13 hat seit dem
+// Vorabend aus einem Dashboard 94 Mal Reservierungen OHNE Anmeldung
+// abgefragt -- Antwort jedes Mal 0 Zeilen. Mit Anmeldung waren es 5. Auf
+// dem Geraet stand "keine Reservierungen".
+//
+// Die Anmeldung erneuert Supabase im Hintergrund. Ein Tablet, das schlaeft,
+// oder ein Tab im Hintergrund verpasst das; nach einer Stunde laeuft das
+// Token ab, und kmiToken() faellt auf den oeffentlichen Schluessel zurueck.
+// kmiAngemeldet() wurde am 26.08. genau dafuer gebaut -- und nie gefragt.
+//
+// Jetzt: jede Minute, beim Zurueckkommen in den Tab und beim Fokus wird
+// geprueft. Abgelaufen -> selbst erneuern. Geht das nicht -> rotes Banner,
+// das sagt, dass gerade NICHTS geladen wird. Kommt die Anmeldung zurueck,
+// verschwindet es und die Listen laden neu. tests/anmelde-wache-test.js.
+function dashboardSichtbar() {
+    var d = document.getElementById('dashboardView');
+    if (!d) return false;
+    try { return getComputedStyle(d).display !== 'none'; } catch (e) { return d.style.display !== 'none'; }
+}
+function dashboardNachAnmeldungNeuLaden() {
+    try {
+        var rid = window._gastroOnlyRestaurantId || window.resCurrentRestaurant || null;
+        if (typeof window.resLoadReservations === 'function') window.resLoadReservations();
+        if (rid && typeof loadReservationsForRestaurant === 'function') loadReservationsForRestaurant(rid);
+        if (rid && typeof loadOrdersForRestaurant === 'function') loadOrdersForRestaurant(rid);
+    } catch (e) {}
+}
+var _anmeldeWacheLaeuft = false;
+async function dashboardAnmeldungPruefen() {
+    if (_anmeldeWacheLaeuft) return;
+    _anmeldeWacheLaeuft = true;
+    try {
+        var banner = document.getElementById('kmiAbgemeldetBanner');
+        if (!dashboardSichtbar()) { if (banner) banner.remove(); return; }
+        if (!kmiAngemeldet()) {
+            try {
+                var c = window.supabaseClient || window.sb;
+                if (c && c.auth && c.auth.refreshSession) {
+                    var r = await c.auth.refreshSession();
+                    if (r && r.data && r.data.session) kmiTokenSetzen(r.data.session);
+                }
+            } catch (e) {}
+        }
+        if (kmiAngemeldet()) {
+            if (banner) { banner.remove(); dashboardNachAnmeldungNeuLaden(); }
+            return;
+        }
+        if (!banner) {
+            banner = document.createElement('div');
+            banner.id = 'kmiAbgemeldetBanner';
+            banner.setAttribute('role', 'alert');
+            banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:100000;background:#b91c1c;color:#fff;padding:12px 16px;font:600 14px/1.4 Inter,system-ui,sans-serif;display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;box-shadow:0 2px 12px rgba(0,0,0,.25);';
+            banner.innerHTML = '<span>⚠ Anmeldung abgelaufen – Reservierungen und Bestellungen werden gerade <b>nicht</b> geladen. Leere Listen sind nicht echt.</span>'
+                + '<button type="button" onclick="kmiNeuAnmelden()" style="background:rgba(255,255,255,.96);color:#b91c1c;border:none;border-radius:9999px;padding:7px 16px;font-weight:700;cursor:pointer;">Neu anmelden</button>';
+            document.body.appendChild(banner);
+            try { if (typeof meldeFehler === 'function') meldeFehler({ message: 'Dashboard: Anmeldung abgelaufen, Erneuern fehlgeschlagen' }); } catch (e) {}
+        }
+    } finally {
+        _anmeldeWacheLaeuft = false;
+    }
+}
+window.dashboardAnmeldungPruefen = dashboardAnmeldungPruefen;
+// "Neu anmelden": NICHT nur neu laden. showDashboard() oeffnet das
+// Dashboard schon mit dem Merker im Browser (kmi_admin_logged_in) --
+// ohne Supabase-Sitzung stuende man danach wieder vor leeren Listen.
+// Also abmelden und direkt zum Login. Nach dem Login meldet das
+// Dashboard das Geraet wieder fuer die Benachrichtigungen an.
+function kmiNeuAnmelden() {
+    var b = document.getElementById('kmiAbgemeldetBanner');
+    if (b) b.remove();
+    try { if (typeof adminLogout === 'function') adminLogout(); } catch (e) {}
+    try { if (typeof openModal === 'function') openModal('adminLoginModal'); else location.reload(); } catch (e) { location.reload(); }
+}
+window.kmiNeuAnmelden = kmiNeuAnmelden;
+setInterval(dashboardAnmeldungPruefen, 60000);
+document.addEventListener('visibilitychange', function () { if (!document.hidden) dashboardAnmeldungPruefen(); });
+window.addEventListener('focus', function () { dashboardAnmeldungPruefen(); });
+
 // ==================== BENACHRICHTIGUNGEN: STATUS + TEST ====================
 // 14.10.2026: Der Melder lief sieben Tage lang 29.968 Mal mit Fehler, und
 // niemand sah es -- "keine Push" sieht aus wie "keine Reservierung". Jetzt
