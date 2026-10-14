@@ -51,6 +51,7 @@
 
 const webpush = require('web-push');
 const WIRT = require('./lib/wirt-geraete');
+const PA = require('./lib/push-antwort');
 
 const SUPABASE_URL = (process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co')
     .replace(/\/+$/, '').replace(/\/rest\/v1$/, '');
@@ -245,6 +246,20 @@ async function handleItem(kind, item, restaurantNameById, stufe) {
       url: targetUrl
     }
   };
+  // ANNEHMEN / ABLEHNEN direkt aus der Push (Ibo, 14.10.2026: vom Ruhetag
+  // aus annehmen). Nur bei Reservierungen; der Schluessel gilt fuer genau
+  // diese eine und verfaellt nach 7 Tagen (lib/push-antwort.js). iPhones
+  // zeigen keine Knoepfe -- dort oeffnet das Antippen wie bisher die App.
+  if (kind === 'reservation') {
+    const schluessel = PA.ausstellen(item.id, restId, SUPABASE_SERVICE_KEY);
+    if (schluessel) {
+      payload.actions = [
+        { action: 'annehmen', title: 'Annehmen' },
+        { action: 'ablehnen', title: 'Ablehnen' }
+      ];
+      payload.data.antwort = schluessel;
+    }
+  }
 
   const results = await Promise.all(subs.map(s => pushToSubscription(s, payload)));
   const successful = results.filter(r => r.ok).length;

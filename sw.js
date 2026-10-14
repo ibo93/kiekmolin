@@ -40,7 +40,7 @@
 // wirft jedes Geraet beim naechsten Aufruf den alten Stand weg. Nach
 // einer Aenderung an einem Gaesteweg MUSS er hochgezaehlt werden --
 // sonst ist die Reparatur auf dem Server heil und beim Gast nicht.
-var CACHE = 'kmi-shell-v90';
+var CACHE = 'kmi-shell-v91';
 var SHELL = '/';
 // Nur Dateien, die es sicher gibt. Eine fehlende Datei laesst sonst die
 // gesamte Installation scheitern und der Worker uebernimmt nie.
@@ -224,15 +224,61 @@ self.addEventListener('push', function(event) {
         renotify: true,
         requireInteraction: data.requireInteraction === true,
         vibrate: data.vibrate || [200, 100, 200, 100, 200],
-        data: { url: data.url || '/', type: data.type || 'general', orderId: data.orderId || null },
+        // Der Melder (pending-reminder) legt url und den Antwort-Schluessel
+        // in data.data ab, andere Absender oben. Bis 14.10.2026 stand hier
+        // nur data.url -- jede Melder-Push oeffnete die Startseite statt der
+        // Reservierungen.
+        data: {
+            url: data.url || (data.data && data.data.url) || '/',
+            type: data.type || (data.data && data.data.type) || 'general',
+            orderId: data.orderId || (data.data && data.data.orderId) || null,
+            antwort: (data.data && data.data.antwort) || null
+        },
         actions: data.actions || []
     };
 
     event.waitUntil(self.registration.showNotification(title, options));
 });
 
+// ANNEHMEN / ABLEHNEN aus der Benachrichtigung (Ibo, 14.10.2026).
+// Kein Fenster oeffnen -- der Wirt sitzt zu Hause und will nur antworten.
+// Danach eine kurze Bestaetigung, oder bei Fehler der Hinweis, es im
+// Dashboard zu tun (mit Link). Nie still: eine Antwort, die nicht ankam,
+// darf nicht wie eine aussehen, die ankam.
+function pushAntworten(n, aktion) {
+    var a = n.data && n.data.antwort;
+    var url = (n.data && n.data.url) || '/?adminTab=reservations';
+    var body = { id: a.id, r: a.r, exp: a.exp, t: a.t, aktion: aktion };
+    return fetch('/.netlify/functions/res-push-antwort', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    }).then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (j) { return { ok: res.ok && j && j.ok, j: j || {} }; });
+    }).catch(function () { return { ok: false, j: {} }; }).then(function (e) {
+        var j = e.j, titel, text;
+        if (e.ok && j.schon) {
+            titel = 'War schon bearbeitet';
+            text = (j.gast ? j.gast + ', ' : '') + (j.wann || '') + ' – steht auf „' + ({ confirmed: 'bestätigt', cancelled: 'abgesagt', seated: 'sitzt', finished: 'fertig', no_show: 'nicht erschienen' }[j.schon] || j.schon) + '“.';
+        } else if (e.ok) {
+            titel = j.status === 'confirmed' ? '✓ Reservierung angenommen' : 'Reservierung abgelehnt';
+            text = (j.gast ? j.gast + ', ' : '') + (j.wann || '') + (j.status === 'confirmed' ? ' – der Gast bekommt die Bestätigung.' : ' – der Gast bekommt die Absage.');
+        } else {
+            titel = '⚠ Nicht gespeichert';
+            text = (j.error || 'Keine Verbindung') + '. Bitte im Dashboard bestätigen.';
+        }
+        return self.registration.showNotification(titel, {
+            body: text, icon: '/icon-192.png', badge: '/icon-192.png',
+            tag: 'antwort-' + a.id, requireInteraction: !e.ok,
+            data: { url: url }
+        });
+    });
+}
+
 self.addEventListener('notificationclick', function(event) {
     event.notification.close();
+    if ((event.action === 'annehmen' || event.action === 'ablehnen') && event.notification.data && event.notification.data.antwort) {
+        event.waitUntil(pushAntworten(event.notification, event.action));
+        return;
+    }
     var targetUrl = (event.notification.data && event.notification.data.url) || '/';
 
     event.waitUntil(

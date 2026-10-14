@@ -21793,6 +21793,22 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
             <!-- EINSTELLUNGEN TAB -->
             <div id="resTabSettings" class="res-tab-content" style="display: none;">
                 <div class="res-settings-grid">
+                    <!-- Benachrichtigungen: kommen sie an? (14.10.2026) -->
+                    <div class="res-settings-card" id="pushStatusKarte">
+                        <h4>
+                            <span class="settings-icon green">
+                                <span class="material-symbols-outlined" style="font-size:20px;">notifications_active</span>
+                            </span>
+                            Benachrichtigungen
+                        </h4>
+                        <p id="pushStatusText" style="font-size:14px;font-weight:600;color:var(--text-primary);margin:0 0 6px;">Wird geprüft …</p>
+                        <p id="pushStatusTest" style="font-size:12px;color:var(--text-secondary);margin:0 0 10px;min-height:16px;"></p>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                            <button type="button" id="pushTestKnopf" onclick="pushTestSenden()" style="padding:9px 16px;border:none;border-radius:9999px;background:var(--primary);color:#fff;font-weight:700;font-size:13px;cursor:pointer;">Test senden</button>
+                            <button type="button" onclick="pushHierAktivieren()" style="padding:9px 16px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-weight:600;font-size:13px;cursor:pointer;">Auf diesem Gerät aktivieren</button>
+                        </div>
+                        <p style="font-size:12px;color:var(--text-secondary);margin:10px 0 0;line-height:1.45;">Neue Reservierungen haben in der Benachrichtigung die Knöpfe <b>Annehmen</b> und <b>Ablehnen</b> (Android, Computer). Auf dem iPhone öffnet das Antippen die Reservierung – dort kommen Benachrichtigungen nur, wenn Kiek mol in über „Teilen → Zum Home-Bildschirm“ geöffnet wird.</p>
+                    </div>
                     <!-- Reservierungszeiten -->
                     <div class="res-settings-card">
                         <h4>
@@ -32383,6 +32399,7 @@ var resDisabledSlots = []; // Manuell deaktivierte Slots
 var _resSettingsLoadedFor = null; // welches Restaurant ist gerade in der Settings-UI
 
 function loadResSettingsUI() {
+    if (typeof pushStatusLaden === 'function') pushStatusLaden();
     var rid = window.resCurrentRestaurant;
     var restaurant = null;
     if (APP_DATA && APP_DATA.restaurants) {
@@ -46890,6 +46907,79 @@ async function guestCancelReservation(resId, btn) {
         showToast('Absage hat nicht geklappt – bitte kurz im Restaurant anrufen', 'error');
         if (btn) { btn.disabled = false; btn.textContent = 'Absagen'; }
     }
+}
+
+// ==================== BENACHRICHTIGUNGEN: STATUS + TEST ====================
+// 14.10.2026: Der Melder lief sieben Tage lang 29.968 Mal mit Fehler, und
+// niemand sah es -- "keine Push" sieht aus wie "keine Reservierung". Jetzt
+// steht hier, auf wie vielen Geraeten Benachrichtigungen aktiv sind und
+// wann die letzte kam. netlify/functions/push-status.js.
+function pushZeit(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    var heute = todayStrLocal(), tag = localDayStr(d);
+    var uhr = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    if (tag === heute) return 'heute ' + uhr;
+    if (tag === sperrTagePlus(heute, -1)) return 'gestern ' + uhr;
+    return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) + ' ' + uhr;
+}
+function pushStatusText(st) {
+    if (!st || !st.ok) return { text: 'Status nicht abrufbar' + (st && st.error ? ' (' + st.error + ')' : '') + '.', warn: true };
+    if (!st.vapid) return { text: '⚠ Auf dem Server fehlen die Push-Schlüssel – es geht keine Benachrichtigung raus.', warn: true };
+    if (!st.geraete) return { text: '⚠ Kein Gerät angemeldet – neue Reservierungen kommen nicht aufs Handy.', warn: true };
+    return {
+        text: '✓ Aktiv auf ' + st.geraete + (st.geraete === 1 ? ' Gerät' : ' Geräten') + ' · ' + (st.letzte ? 'letzte Meldung ' + pushZeit(st.letzte) : 'noch keine Meldung verschickt'),
+        warn: false
+    };
+}
+async function pushStatusLaden() {
+    var el = document.getElementById('pushStatusText');
+    var rid = sperrLokal();
+    if (!el || !rid) return;
+    var st;
+    try {
+        var r = await fetch('/.netlify/functions/push-status?r=' + encodeURIComponent(rid), { headers: { Authorization: 'Bearer ' + kmiToken() } });
+        st = await r.json().catch(function () { return { ok: false, error: 'HTTP ' + r.status }; });
+        if (!r.ok && st && !st.error) st.error = 'HTTP ' + r.status;
+    } catch (e) { st = { ok: false, error: 'keine Verbindung' }; }
+    var t = pushStatusText(st);
+    el.textContent = t.text;
+    el.style.color = t.warn ? '#b91c1c' : 'var(--text-primary)';
+}
+async function pushTestSenden() {
+    var rid = sperrLokal(), aus = document.getElementById('pushStatusTest'), knopf = document.getElementById('pushTestKnopf');
+    if (!rid) return;
+    // Der Superadmin pingt damit die Handys des WIRTS an -- einmal nachfragen.
+    var admin = !window._gastroOnlyRestaurantId && typeof currentAdmin !== 'undefined' && currentAdmin && currentAdmin.isAdmin === true;
+    if (admin && !confirm('Test an die Geräte von „' + (sperrLokalName(rid) || 'diesem Lokal') + '“ senden?')) return;
+    if (knopf) knopf.disabled = true;
+    if (aus) aus.textContent = 'Wird gesendet …';
+    try {
+        var r = await fetch('/.netlify/functions/push-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + kmiToken() },
+            body: JSON.stringify({ r: rid, test: true })
+        });
+        var j = await r.json().catch(function () { return {}; });
+        if (aus) aus.textContent = j.ok
+            ? 'Test an ' + j.gesendet + ' von ' + j.von + (j.von === 1 ? ' Gerät' : ' Geräten') + ' gesendet – kommt er auf dem Handy an?'
+            : 'Test nicht angekommen: ' + (j.error || (j.von === 0 ? 'kein Gerät angemeldet' : 'HTTP ' + r.status)) + '.';
+    } catch (e) {
+        if (aus) aus.textContent = 'Test nicht gesendet: keine Verbindung.';
+    } finally {
+        if (knopf) knopf.disabled = false;
+        pushStatusLaden();
+    }
+}
+function pushHierAktivieren() {
+    try {
+        if (typeof istIPhone === 'function' && istIPhone() && typeof laeuftAlsApp === 'function' && !laeuftAlsApp()) { pushHinweisIPhone(); return; }
+        if (!('Notification' in window)) { showToast('Dieser Browser kann keine Benachrichtigungen', 'error'); return; }
+        if (Notification.permission === 'denied') { showToast('Benachrichtigungen sind im Browser blockiert – bitte in den Einstellungen erlauben', 'error'); return; }
+        if (Notification.permission === 'granted') subscribeWebPush(); else requestNotificationPermission();
+        setTimeout(pushStatusLaden, 3000);
+    } catch (e) { showToast('Aktivieren fehlgeschlagen: ' + e.message, 'error'); }
 }
 
 // ==================== SPERRUNGEN (BLOCKING) ====================
