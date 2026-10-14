@@ -50,6 +50,7 @@
 'use strict';
 
 const webpush = require('web-push');
+const WIRT = require('./lib/wirt-geraete');
 
 const SUPABASE_URL = (process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co')
     .replace(/\/+$/, '').replace(/\/rest\/v1$/, '');
@@ -64,6 +65,7 @@ const VAPID_PRIVATE = process.env.VAPID_PRIVATE;
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:info@kiekmolin.de';
 
 const STALE_MINUTES = 20;   // ab wann eine Pending-Sache als ueberfaellig gilt
+const FRISCH_STUNDEN = 3;   // aelter als das wird nicht mehr gepusht (siehe Handler)
 
 if (VAPID_PUBLIC && VAPID_PRIVATE) {
   try { webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE); }
@@ -99,9 +101,12 @@ async function sbPatch(path, body) {
 // GERAETE DES SUPERADMINS.
 //
 // Er hat keinen eigenen Betrieb -- restaurant_id ist bei ihm NULL --
-// und wuerde von der Suche nach restaurant_id nie gefunden. Er will
-// aber alles mitbekommen: "für mich wäre es auch gut ... damit ich es
-// alles verfolgen kann".
+// und wuerde von der Suche nach restaurant_id nie gefunden.
+//
+// SEIT 14.10.2026 NUR NOCH FUER NEUE GASTRONOM-ANMELDUNGEN. Vorher bekam
+// er hier auch jede Reservierung und Bestellung aller Lokale ("damit ich
+// es alles verfolgen kann"). Jetzt: "ich will kein wächter nachrichten
+// oder so bekommen als admin" -- die Kopien sind weg, siehe handleItem.
 //
 // Wer Superadmin ist, entscheidet die Datenbank, nicht der Browser. Die
 // App speichert beim Anmelden nur die E-Mail mit; hier wird sie gegen
@@ -110,6 +115,12 @@ async function sbPatch(path, body) {
 // Seitenquelltext.
 //
 // Einmal pro Durchlauf geholt, nicht einmal pro Meldung.
+let _adminMails = null;
+async function adminMailsEinmal() {
+  if (!_adminMails) _adminMails = await WIRT.adminMails(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+  return _adminMails;
+}
+
 let _adminGeraete = null;
 async function adminGeraete() {
   if (_adminGeraete) return _adminGeraete;
@@ -168,17 +179,15 @@ async function handleItem(kind, item, restaurantNameById, stufe) {
   const jetzt = new Date().toISOString();
 
   // Push-Subscriptions des Restaurants laden (alle Geräte der Gastronomen)
-  const eigene = await sbGet('push_subscriptions?restaurant_id=eq.' + encodeURIComponent(restId) + '&select=endpoint,p256dh_key,auth_key,id') || [];
-  const admins = await adminGeraete();
-  // Zusammenlegen, aber kein Geraet doppelt: ist der Superadmin
-  // zugleich Wirt dieses Hauses, stuende es sonst in beiden Listen und
-  // sein Handy klingelte zweimal fuer dieselbe Sache.
-  const gesehen = {};
-  const subs = eigene.concat(admins).filter(function (x) {
-    if (!x || !x.endpoint || gesehen[x.endpoint]) return false;
-    gesehen[x.endpoint] = true;
-    return true;
-  });
+  //
+  // NUR DIE WIRTE. Bis 14.10.2026 haengte hier adminGeraete() dran -- jede
+  // Reservierung und Bestellung jedes Lokals auch auf Ibos Handy. Er
+  // will das nicht ("ich will kein wächter nachrichten oder so bekommen
+  // als admin"). Und weil sein Handy eine restaurant_id tragen kann,
+  // wird es auch aus dieser Liste herausgenommen: lib/wirt-geraete.js.
+  // tests/admin-ruhe-test.js.
+  const eigene = await sbGet('push_subscriptions?restaurant_id=eq.' + encodeURIComponent(restId) + '&select=endpoint,p256dh_key,auth_key,id,customer_email') || [];
+  const subs = WIRT.nurWirte(eigene, await adminMailsEinmal());
   if (!subs.length) {
     console.log('[melder] keine Geraete fuer Betrieb', restId, '- uebersprungen:', kind, item.id);
     // Trotzdem abhaken -- sonst versucht es die Funktion jede Minute neu.
@@ -295,6 +304,15 @@ exports.handler = async function() {
 
   const cutoff = new Date(Date.now() - STALE_MINUTES * 60 * 1000).toISOString();
 
+  // NICHTS AUS DER VERGANGENHEIT AUSGRABEN.
+  // Dieser Melder lief bis zum 14.10.2026 nie (SUPABASE_URL fehlte bei
+  // Netlify, jeder Lauf 500). Alles, was seitdem offen liegt, hat kein
+  // push_sent_at -- ohne diese Grenze bekaemen die Wirte beim ersten Lauf
+  // Wochen alte Bestellungen als "Neue Bestellung" aufs Handy, 50 pro
+  // Minute. Wer nach drei Stunden noch nicht reagiert hat, sieht es im
+  // Dashboard; ein Push hilft dann niemandem mehr.
+  const frisch = '&created_at=gte.' + encodeURIComponent(new Date(Date.now() - FRISCH_STUNDEN * 3600 * 1000).toISOString());
+
   // Was in beiden Stufen gebraucht wird.
   const FELDER_BESTELLUNG   = 'id,restaurant_id,customer_name,created_at';
   const FELDER_RESERVIERUNG = 'id,restaurant_id,guest_name,reservation_date,reservation_time,party_size,created_at';
@@ -305,13 +323,13 @@ exports.handler = async function() {
     // genau das ist der Unterschied zu vorher.
     const neueBestellungen = await sbGet(
       'orders?status=in.(received,pending)' +
-      '&push_sent_at=is.null' +
+      '&push_sent_at=is.null' + frisch +
       '&select=' + FELDER_BESTELLUNG +
       '&limit=50'
     );
     const neueReservierungen = await sbGet(
       'reservations?status=eq.pending' +
-      '&push_sent_at=is.null' +
+      '&push_sent_at=is.null' + frisch +
       '&select=' + FELDER_RESERVIERUNG +
       '&limit=50'
     );
@@ -320,14 +338,14 @@ exports.handler = async function() {
     const alteBestellungen = await sbGet(
       'orders?status=in.(received,pending)' +
       '&created_at=lt.' + encodeURIComponent(cutoff) +
-      '&reminder_sent_at=is.null' +
+      '&reminder_sent_at=is.null' + frisch +
       '&select=' + FELDER_BESTELLUNG +
       '&limit=50'
     );
     const alteReservierungen = await sbGet(
       'reservations?status=eq.pending' +
       '&created_at=lt.' + encodeURIComponent(cutoff) +
-      '&reminder_sent_at=is.null' +
+      '&reminder_sent_at=is.null' + frisch +
       '&select=' + FELDER_RESERVIERUNG +
       '&limit=50'
     );

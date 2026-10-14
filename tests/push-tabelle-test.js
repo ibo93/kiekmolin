@@ -155,19 +155,23 @@ t('kein Admin-Haekchen aus dem Browser',
   'Browser behauptet es selbst');
 t('der Melder fragt customers, wer Superadmin ist',
   /customers\?role=eq\.superadmin&select=email/.test(melder), 'glaubt dem Geraet');
-t('und die Absage-Function auch',
-  /customers\?role=eq\.superadmin&select=email/.test(absage), 'nur halb eingebaut');
-t('gesucht wird dann ueber die E-Mail',
-  /push_subscriptions\?customer_email=in\.\(/.test(melder)
-  && /push_subscriptions\?customer_email=in\.\(/.test(absage), 'findet nichts');
+// SEIT 14.10.2026: keine Kopien der Wirte-Meldungen mehr an ihn ("ich will
+// kein wächter nachrichten oder so bekommen als admin"). Die Superadmin-
+// Pruefung bleibt -- jetzt, um sein Handy HERAUSZUNEHMEN. Das Ausfuehren
+// mit echten Geraete-Listen steht in tests/admin-ruhe-test.js.
+var wirtLib = fs.readFileSync(KMI + '/netlify/functions/lib/wirt-geraete.js', 'utf8');
+t('die Absage-Function prueft ebenfalls ueber customers, wer Admin ist',
+  /customers\?role=eq\.superadmin&select=email/.test(wirtLib) && /WIRT\.adminMails\(/.test(absage), 'nur halb eingebaut');
+t('fuer Anmeldungen wird sein Geraet ueber die E-Mail gesucht',
+  /push_subscriptions\?customer_email=in\.\(/.test(melder), 'findet nichts');
 t('die Admin-Liste wird einmal je Durchlauf geholt, nicht je Meldung',
-  /let _adminGeraete = null;/.test(melder) && /if \(_adminGeraete\) return _adminGeraete;/.test(melder),
-  'fragt bei jeder Meldung neu');
-t('kein Geraet klingelt doppelt',
-  /gesehen\[x\.endpoint\]/.test(melder) && /gesehen\[x\.endpoint\]/.test(absage), 'doppelte Meldung');
+  /let _adminGeraete = null;/.test(melder) && /if \(_adminGeraete\) return _adminGeraete;/.test(melder)
+  && /let _adminMails = null;/.test(melder), 'fragt bei jeder Meldung neu');
+t('Wirte-Meldungen gehen nicht mehr an die Admin-Geraete',
+  /eigene\.concat\(admins\)/.test(melder) === false && /push_subscriptions\?customer_email=in\./.test(absage) === false,
+  'Kopie an den Admin');
 t('faellt die Admin-Suche aus, bekommt der Wirt trotzdem seine Meldung',
-  /catch \(e\) \{ \/\* ohne Admin-Geraete weiter -- der Wirt zaehlt zuerst \*\//.test(absage)
-  && /Admin-Geraete nicht ladbar/.test(melder), 'ein Fehler kippt alles');
+  /catch \(e\) \{\s*return \[\];/.test(wirtLib) && /Admin-Geraete nicht ladbar/.test(melder), 'ein Fehler kippt alles');
 
 console.log('\n-- 7. Wer schon erlaubt hat, meldet sich trotzdem an --');
 // DIE LUECKE, DIE DIE REPARATUR FAST WERTLOS GEMACHT HAETTE.

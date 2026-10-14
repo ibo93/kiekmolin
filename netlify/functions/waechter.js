@@ -40,6 +40,7 @@
 'use strict';
 
 const webpush = require('web-push');
+const WIRT = require('./lib/wirt-geraete');
 
 const SUPABASE_URL = (process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co')
     .replace(/\/+$/, '').replace(/\/rest\/v1$/, '');
@@ -119,7 +120,11 @@ async function holeNeueEreignisse() {
         + '&select=id,restaurant_id,type,message,payload,created_at'
         + '&order=created_at.asc&limit=100';
     try {
-        return { weg: 'merker', ereignisse: await sbGet(basis + '&notified_at=is.null') };
+        // Nur die letzten 3 Stunden: dieser Dienst lief bis 14.10.2026 nie,
+        // alles Alte hat kein notified_at. Ohne Grenze kaemen beim ersten
+        // Lauf Wochen alte Ereignisse als Alarm auf die Wirte-Handys.
+        const frisch = new Date(Date.now() - 3 * 3600000).toISOString();
+        return { weg: 'merker', ereignisse: await sbGet(basis + '&notified_at=is.null&created_at=gte.' + encodeURIComponent(frisch)) };
     } catch (e) {
         // 42703 = undefined_column. Alles andere ist ein echter Fehler.
         const fehltSpalte = e.status === 400 && /notified_at|42703/.test(String(e.text || ''));
@@ -129,6 +134,12 @@ async function holeNeueEreignisse() {
         const seit = new Date(Date.now() - FENSTER_MINUTEN * 60000).toISOString();
         return { weg: 'fenster', ereignisse: await sbGet(basis + '&created_at=gte.' + encodeURIComponent(seit)) };
     }
+}
+
+let _adminMails = null;
+async function adminMailsEinmal() {
+    if (!_adminMails) _adminMails = await WIRT.adminMails(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+    return _adminMails;
 }
 
 async function pushAn(sub, nutzlast) {
@@ -201,7 +212,12 @@ exports.handler = async function () {
             const evs = proHaus[rid];
             try {
                 const subs = await sbGet('push_subscriptions?restaurant_id=eq.' + encodeURIComponent(rid)
-                                       + '&select=id,endpoint,p256dh_key,auth_key');
+                                       + '&select=id,endpoint,p256dh_key,auth_key,customer_email')
+                    .then(async function (g) {
+                        // Nur die Wirte, nicht das Handy des Betreibers
+                        // (lib/wirt-geraete.js, Ibo 14.10.2026).
+                        return WIRT.nurWirte(g, await adminMailsEinmal());
+                    });
                 if (!subs || !subs.length) {
                     // Kein Gerät angemeldet. Der Befund bleibt im Protokoll und
                     // im Selbstcheck sichtbar -- nur eben ohne Push.
