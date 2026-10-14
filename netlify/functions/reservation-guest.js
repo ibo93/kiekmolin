@@ -269,9 +269,10 @@ exports.handler = async function (event) {
             if (_sp) {
                 return json(409, { ok: false, ausgebucht: true, gesperrt: _sp,
                     von: r.reservation_date, bis: r.reservation_date,
+                    // Fuer den Gast heisst es "ausgebucht" (Ibo, 14.10.2026).
                     error: _sp === 'tag'
-                        ? 'An diesem Tag nimmt das Restaurant keine Reservierungen an.'
-                        : 'Zu dieser Uhrzeit nimmt das Restaurant keine Reservierungen an.' });
+                        ? 'An diesem Tag ist das Restaurant ausgebucht.'
+                        : 'Diese Uhrzeit ist ausgebucht.' });
             }
         }
 

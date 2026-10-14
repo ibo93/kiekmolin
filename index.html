@@ -29725,12 +29725,12 @@ function reservierungVollText(antwort) {
         return 'Für ' + (antwort.titel || 'diesen Abend') + ' sind nur noch ' + antwort.frei + (antwort.frei === 1 ? ' Platz' : ' Plätze')
             + ' frei. Reserviere gern für weniger Personen oder setz dich auf die Warteliste.';
     }
-    // Sperrung durch das Restaurant (reservation-guest 1d) -- nicht "voll".
+    // Sperrung durch das Restaurant (reservation-guest 1d). Ibo, 14.10.2026:
+    // "ausgebucht muss meistens stehen" -- der Gast liest "ausgebucht",
+    // nicht "das Restaurant nimmt keine Reservierungen an". Ein volles Haus
+    // laedt zum Wiederkommen ein, ein verschlossenes nicht.
     if (antwort && antwort.gesperrt === 'zeit') {
-        return 'Zu dieser Uhrzeit nimmt das Restaurant keine Reservierungen an. Wähle gern eine andere Uhrzeit.';
-    }
-    if (antwort && antwort.gesperrt === 'tag') {
-        return 'An diesem Tag nimmt das Restaurant keine Reservierungen an. Wähle gern ein anderes Datum.';
+        return 'Ausgebucht – diese Uhrzeit ist leider schon voll. Wähle gern eine andere Uhrzeit oder setz dich auf die Warteliste.';
     }
     return 'Ausgebucht – an diesem Tag ist leider alles voll. Wähle gern ein anderes Datum oder setz dich auf die Warteliste.';
 }
@@ -32598,9 +32598,16 @@ async function loadAvailableSlots() {
         var allTimes = generateReservationSlots(restaurantId, date);
 
         if (fullDayBlock) {
-            // Ganzer Tag gesperrt — keine Slots anzeigen
+            // Ganzer Tag gesperrt -- fuer den Gast "Ausgebucht" (Ibo,
+            // 14.10.2026), mit Warteliste, genau wie ein ausgebuchter Tag.
             var container2 = document.getElementById('availableSlotsContainer');
-            container2.innerHTML = '<div style="text-align:center;padding:20px;"><span class="material-symbols-outlined" style="font-size:32px;color:#ef4444;opacity:0.5;">block</span><p style="color:var(--text-secondary);font-size:13px;margin-top:8px;">An diesem Tag sind keine Reservierungen möglich.</p></div>';
+            container2.innerHTML = '<div class="kmi-res-ausgebucht" style="text-align:center;padding:20px;"><span class="material-symbols-outlined" style="font-size:32px;color:#b45309;">event_busy</span><p style="color:var(--text-primary);font-size:14px;margin:8px 0 0;"><strong>Ausgebucht</strong> – an diesem Tag ist leider alles voll.</p><p style="color:var(--text-secondary);font-size:13px;margin:4px 0 0;">Wähle gern ein anderes Datum – oder setz dich auf die Warteliste.</p></div>';
+            var _spWl = document.getElementById('waitlistOption');
+            if (_spWl) {
+                _spWl.innerHTML = '<p style="color: var(--ink-strong); margin-bottom: 12px; font-family: Epilogue, sans-serif; font-weight: 700;">Wird ein Tisch frei, meldet sich das Restaurant.</p>' +
+                    '<button type="button" onclick="showWaitlistForm()" class="btn" style="background: #003d33; color: white; border-radius: 9999px; font-family: Epilogue, sans-serif; font-weight: 700;">Auf Warteliste setzen</button>';
+                _spWl.style.display = 'block';
+            }
             return;
         }
 
@@ -32657,6 +32664,11 @@ async function loadAvailableSlots() {
             return { time: t, bookings: bookingsAtTime, available: available, demand: demand };
         }).filter(function(s) { return s !== null && s.available; });
 
+        // Ist heute einfach schon vorbei, ist das nicht "ausgebucht".
+        window._slotsTagVorbei = date === todayStr && allTimes.every(function (t) {
+            var p = t.split(':'), h = parseInt(p[0]), m = parseInt(p[1]);
+            return h < currentHour || (h === currentHour && m <= currentMin);
+        });
         renderSlotsWithSuggestions(slotData, date);
     } catch(e) {
         renderFallbackSlots();
@@ -32672,7 +32684,13 @@ function renderSlotsWithSuggestions(slotData, date) {
     var container = document.getElementById('availableSlotsContainer');
 
     if (!slotData || slotData.length === 0) {
-        container.innerHTML = '<div style="color:var(--text-secondary);font-size:13px;">Keine verfügbaren Zeiten</div>';
+        // "Ausgebucht" statt des alten "keine Zeiten"-Satzes (Ibo, 14.10.2026) --
+        // ausser der Tag ist schlicht vorbei, dann waere es gelogen.
+        var _vorbei = window._slotsTagVorbei === true;
+        window._slotsTagVorbei = false;
+        container.innerHTML = _vorbei
+            ? '<div style="color:var(--text-secondary);font-size:13px;">Für heute sind keine Uhrzeiten mehr frei – wähle gern einen anderen Tag.</div>'
+            : '<div class="kmi-res-ausgebucht" style="color:var(--text-primary);font-size:14px;"><strong>Ausgebucht</strong> – an diesem Tag ist leider alles voll.</div>';
         var _wlBox = document.getElementById('waitlistOption');
         if (_wlBox) {
             // Immer mit dem Ausgangs-Knopf starten (nicht mit altem Formular/Erfolg

@@ -117,9 +117,18 @@ t('Kalender markiert gesperrte Tage, Übersicht "Kommende Sperrungen"',
 
 // ---- 3. Gäste-Text ----
 var vollText = new Function(fn('reservierungVollText') + '; return reservierungVollText;')();
-t('Gast liest bei gesperrter Uhrzeit "keine Reservierungen", nicht "ausgebucht"',
-  /^Zu dieser Uhrzeit nimmt das Restaurant keine Reservierungen an/.test(vollText({ ausgebucht: true, gesperrt: 'zeit' }))
-  && /^An diesem Tag nimmt das Restaurant keine Reservierungen an/.test(vollText({ ausgebucht: true, gesperrt: 'tag' })), vollText({ gesperrt: 'zeit' }));
+t('Gast liest bei Sperrung "Ausgebucht" (Ibo: "ausgebucht muss meistens stehen")',
+  /^Ausgebucht – diese Uhrzeit ist leider schon voll/.test(vollText({ ausgebucht: true, gesperrt: 'zeit' }))
+  && /^Ausgebucht – an diesem Tag ist leider alles voll/.test(vollText({ ausgebucht: true, gesperrt: 'tag' })), vollText({ gesperrt: 'zeit' }));
+var las = fn('loadAvailableSlots');
+t('ganzer Tag gesperrt -> Gästeseite zeigt "Ausgebucht" mit Warteliste',
+  /if \(fullDayBlock\) \{[\s\S]{0,600}<strong>Ausgebucht<\/strong> – an diesem Tag ist leider alles voll[\s\S]{0,800}showWaitlistForm\(\)/.test(las)
+  && !/keine Reservierungen möglich/.test(las), 'anderer Text');
+var rsw = fn('renderSlotsWithSuggestions');
+t('keine Uhrzeit mehr frei -> "Ausgebucht", nicht "Keine verfügbaren Zeiten"',
+  /<strong>Ausgebucht<\/strong> – an diesem Tag ist leider alles voll/.test(rsw) && !/Keine verfügbaren Zeiten/.test(rsw), 'alter Text');
+t('… außer der Tag ist schon vorbei (sonst gelogen)',
+  /window\._slotsTagVorbei = date === todayStr && allTimes\.every/.test(las) && /Für heute sind keine Uhrzeiten mehr frei/.test(rsw), 'sagt nachts "ausgebucht"');
 
 // ---- 4. Server ----
 console.log('\n-- 4. Server: gesperrte Zeiten werden abgelehnt --');
@@ -153,7 +162,7 @@ function lauf(sperren, uhrzeit, notes, kaputt) {
 
 (async function () {
     var r = await lauf([{ reservation_time: '00:00:00', table_id: null }], '19:00');
-    t('ganzer Tag gesperrt -> 409 "tag", nichts gespeichert', r.code === 409 && r.body.gesperrt === 'tag' && r.body.ausgebucht === true && r.gespeichert === null, JSON.stringify(r));
+    t('ganzer Tag gesperrt -> 409 "tag", nichts gespeichert, Text sagt "ausgebucht"', r.code === 409 && r.body.gesperrt === 'tag' && r.body.ausgebucht === true && r.gespeichert === null && /ausgebucht/.test(r.body.error), JSON.stringify(r));
     r = await lauf([{ reservation_time: '19:00:00', table_id: null }], '19:00');
     t('Uhrzeit gesperrt -> 409 "zeit", nichts gespeichert', r.code === 409 && r.body.gesperrt === 'zeit' && r.gespeichert === null, JSON.stringify(r));
     r = await lauf([{ reservation_time: '19:00:00', table_id: null }], '19:30');
