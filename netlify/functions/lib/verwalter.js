@@ -64,4 +64,36 @@ async function darfVerwalten(event, dienstschluessel) {
     return istSuperadmin(token(event), dienstschluessel);
 }
 
-module.exports = { token: token, istSuperadmin: istSuperadmin, darfVerwalten: darfVerwalten };
+// DARF DER ANRUFER DIESES LOKAL SEHEN? (14.10.2026, fuer push-status.js)
+// Inhaber des Hauses oder Superadmin -- beides aus der Datenbank, ueber
+// die echte Sitzung. Im Zweifel nein.
+async function darfLokal(event, restaurantId, dienstschluessel) {
+    var key = dienstschluessel || process.env.SUPABASE_SERVICE_KEY || '';
+    var tok = token(event);
+    if (!tok || !key || !/^[0-9a-f-]{20,}$/i.test(String(restaurantId || ''))) return false;
+    try {
+        var u = await fetch(SUPABASE_URL + '/auth/v1/user', { headers: { apikey: key, Authorization: 'Bearer ' + tok } });
+        if (!u.ok) return false;
+        var nutzer = await u.json();
+        if (!nutzer || !nutzer.email) return false;
+        if (await istSuperadmin(tok, key)) return true;
+        var h = await fetch(SUPABASE_URL + '/rest/v1/rpc/kmi_meine_haeuser_fuer', {
+            method: 'POST',
+            headers: { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ p_email: nutzer.email })
+        });
+        if (!h.ok) return false;
+        var liste = await h.json();
+        // PostgREST liefert eine setof-Funktion je nach Fassung als
+        // ["uuid", ...] oder [{kmi_meine_haeuser_fuer: "uuid"}, ...].
+        return (Array.isArray(liste) ? liste : []).some(function (x) {
+            var id = (x && typeof x === 'object') ? (x.kmi_meine_haeuser_fuer || x.id || x.restaurant_id) : x;
+            return String(id) === String(restaurantId);
+        });
+    } catch (e) {
+        console.warn('[verwalter] Lokal-Pruefung fehlgeschlagen: ' + (e && e.message) + ' -- im Zweifel nein.');
+        return false;
+    }
+}
+
+module.exports = { token: token, istSuperadmin: istSuperadmin, darfVerwalten: darfVerwalten, darfLokal: darfLokal };

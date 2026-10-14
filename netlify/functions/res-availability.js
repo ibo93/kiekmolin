@@ -44,8 +44,19 @@ var DATUM = /^\d{4}-\d{2}-\d{2}$/;
 
 // Genau die vier Felder, die die Auswahl braucht. Einzeln aufgezaehlt,
 // damit eine neue Spalte in reservations nicht eines Tages still
-// mitfaehrt.
-var FELDER = 'reservation_time,party_size,status,table_id';
+// mitfaehrt. Dazu die Herkunft (source) -- sie verlaesst diese Function
+// NUR bei Sperrungen, und dort nur als Gast-Text ("hinweis": ausgebucht,
+// geschlossen, ruhetag, ferien; 14.10.2026). Bei echten Reservierungen
+// wird sie entfernt.
+var FELDER = 'reservation_time,party_size,status,table_id,source';
+function ausgeben(z) {
+    var o = { reservation_time: z.reservation_time, party_size: z.party_size, status: z.status, table_id: z.table_id };
+    if (z.status === 'blocked') {
+        var m = String(z.source || '').match(/^admin_block:(geschlossen|ruhetag|ferien)$/);
+        o.hinweis = m ? m[1] : 'ausgebucht';
+    }
+    return o;
+}
 
 exports.handler = async function (event) {
     if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS, body: '' };
@@ -78,7 +89,7 @@ exports.handler = async function (event) {
         if (!res.ok) return json(502, { ok: false, error: 'Datenbank nicht erreichbar' });
         var reihen = await res.json();
         if (!Array.isArray(reihen)) return json(502, { ok: false, error: 'Unerwartete Antwort' });
-        return json(200, { ok: true, belegung: reihen });
+        return json(200, { ok: true, belegung: reihen.map(ausgeben) });
     } catch (e) {
         return json(502, { ok: false, error: 'Datenbank nicht erreichbar' });
     }

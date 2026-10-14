@@ -19,6 +19,7 @@
 'use strict';
 
 var webpush = require('web-push');
+var WIRT = require('./lib/wirt-geraete');
 
 var SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co';
 var SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
@@ -118,8 +119,11 @@ exports.handler = async function (event) {
     if (VAPID_PUBLIC && VAPID_PRIVATE) {
         try {
             var sr = await fetch(SUPABASE_URL + '/rest/v1/push_subscriptions?restaurant_id=eq.' +
-                encodeURIComponent(restaurantId) + '&select=id,endpoint,p256dh_key,auth_key', { headers: sbHeaders() });
+                encodeURIComponent(restaurantId) + '&select=id,endpoint,p256dh_key,auth_key,customer_email', { headers: sbHeaders() });
             if (sr.ok) subs = await sr.json();
+            // Nur das Personal, nicht das Handy des Betreibers
+            // (lib/wirt-geraete.js, Ibo 14.10.2026).
+            subs = WIRT.nurWirte(subs, await WIRT.adminMails(SUPABASE_URL, SUPABASE_KEY));
         } catch (e) {}
         try { webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE); }
         catch (e) { subs = []; }
