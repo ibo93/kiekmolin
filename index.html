@@ -45605,6 +45605,12 @@ function checkRestaurantSlugURL() {
                 return;
             }
         }
+        // NUR DER ERSTE TEIL IST DAS LOKAL. Gemessen am 14.10.2026: ein Gast
+        // kam ueber kiekmolin.de/rhodos-carolinensiel/bestellen -- gesucht
+        // wurde ein Lokal namens "rhodos-carolinensiel/bestellen", das es
+        // nicht gibt (Supabase 500). /<lokal>/bestellen, /<lokal>/speisekarte,
+        // /<lokal>/reservieren oeffnen jetzt das Lokal.
+        if (path.indexOf('/') > -1) path = path.split('/')[0];
         if (path && systemPaths.indexOf(path) === -1) {
             slug = path;
         }
@@ -45698,7 +45704,12 @@ async function openRestaurantBySlug(slug) {
     // Fallback: Suche in DB nach slug Feld
     if (!rest) {
         try {
-            var res = await cachedFetch(SUPA_URL + '/rest/v1/restaurants?or=(slug.eq.' + slug + ',name.ilike.*' + slug.replace(/-/g, '%') + '*)&limit=1', {
+            // Nur Buchstaben, Ziffern, Bindestrich -- und "*" statt "%" als
+            // Platzhalter: aus "rhodos-carolinensiel" wurde vorher
+            // "rhodos%carolinensiel", und "%ca" las der Server als
+            // kaputtes Sonderzeichen (500, gemessen 14.10.2026).
+            var _sl = slug.replace(/[^a-z0-9-]/g, '');
+            var res = await cachedFetch(SUPA_URL + '/rest/v1/restaurants?or=(slug.eq.' + encodeURIComponent(_sl) + ',name.ilike.*' + encodeURIComponent(_sl.replace(/-/g, '*')) + '*)&limit=1', {
                 headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + kmiToken() }
             }, 300000);
             var data = await res.json();
