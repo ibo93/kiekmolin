@@ -154,6 +154,31 @@ function zeitFehler(r, jetzt) {
 
 exports._ausgebuchtAm = ausgebuchtAm;
 exports._istWarteliste = istWarteliste;
+
+// Sperrungen an einem Tag: 'tag' (ganzer Tag), 'zeit' (diese Uhrzeit)
+// oder null. Nur Sperren OHNE Tisch -- siehe 1d im Handler.
+async function gesperrtUm(restaurantId, datum, uhrzeit) {
+    try {
+        var res = await fetch(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.'
+            + encodeURIComponent(restaurantId) + '&reservation_date=eq.' + encodeURIComponent(datum)
+            + '&status=eq.blocked&table_id=is.null&select=reservation_time', { headers: kopf() });
+        if (!res.ok) { console.warn('[reservation-guest] Sperrungen nicht lesbar: ' + res.status); return null; }
+        var zeilen = await res.json();
+        if (!Array.isArray(zeilen)) return null;
+        var hhmm = String(uhrzeit || '').slice(0, 5);
+        var tag = false, zeit = false;
+        zeilen.forEach(function (z) {
+            var t = String(z.reservation_time || '').slice(0, 5);
+            if (t === '00:00') tag = true;
+            else if (t === hhmm) zeit = true;
+        });
+        return tag ? 'tag' : (zeit ? 'zeit' : null);
+    } catch (e) {
+        console.warn('[reservation-guest] Sperrungen nicht lesbar: ' + e.message);
+        return null;
+    }
+}
+
 exports.handler = async function (event) {
     if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS, body: '' };
     if (event.httpMethod !== 'POST')    return json(405, { ok: false, error: 'Nur POST' });
@@ -225,6 +250,28 @@ exports.handler = async function (event) {
                     error: _abend.frei > 0
                         ? 'Fuer ' + (_abend.titel || 'diesen Abend') + ' sind nur noch ' + _abend.frei + ' Plaetze frei.'
                         : (_abend.titel || 'Dieser Abend') + ' ist ausgebucht. Gern auf die Warteliste.' });
+            }
+        }
+
+        // ---- 1d. Gesperrt? (Dashboard > Reservierungen > Sperrungen)
+        // Bis 14.10.2026 galt eine Sperrung NUR in der App: sie blendete
+        // die Uhrzeit aus, der Server nahm trotzdem alles an. Eine alte
+        // Fassung auf dem Handy, der "nur Anfrage"-Weg bei schlechtem Netz
+        // oder ein direkter Aufruf buchte in einen gesperrten Abend.
+        // Ganzer Tag = 00:00 ohne Tisch; Zeitraum = je Uhrzeit eine Zeile
+        // ohne Tisch. Tisch-Sperren nehmen nur einen Tisch weg, nicht die
+        // Uhrzeit -- die zaehlt die App.
+        // Faellt offen aus: nicht lesbar = durch. Lieber eine Buchung zu
+        // viel, die der Wirt absagen kann, als ein Gast, der vor einer
+        // Fehlermeldung steht, weil Supabase kurz hakt.
+        if (!istWarteliste(r)) {
+            var _sp = await gesperrtUm(r.restaurant_id, r.reservation_date, r.reservation_time);
+            if (_sp) {
+                return json(409, { ok: false, ausgebucht: true, gesperrt: _sp,
+                    von: r.reservation_date, bis: r.reservation_date,
+                    error: _sp === 'tag'
+                        ? 'An diesem Tag nimmt das Restaurant keine Reservierungen an.'
+                        : 'Zu dieser Uhrzeit nimmt das Restaurant keine Reservierungen an.' });
             }
         }
 

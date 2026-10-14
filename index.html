@@ -405,7 +405,12 @@
     @font-face{font-family:'Epilogue';font-style:normal;font-display:swap;font-weight:100 900;src:url(/public/fonts/epilogue-latin-ext.woff2) format('woff2-variations');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;}
     @font-face{font-family:'Inter';font-style:normal;font-display:swap;font-weight:100 900;src:url(/public/fonts/inter-latin.woff2) format('woff2-variations');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
     @font-face{font-family:'Inter';font-style:normal;font-display:swap;font-weight:100 900;src:url(/public/fonts/inter-latin-ext.woff2) format('woff2-variations');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;}
-    </style>
+    
+/* Sperrungen: Punkte im Kalender (14.10.2026) */
+.sperr-punkt{display:inline-block;width:7px;height:7px;border-radius:50%;background:#d97706;vertical-align:middle;}
+.sperr-punkt-tag{background:#b91c1c;}
+.sperr-tag-punkt{position:absolute;left:50%;bottom:2px;transform:translateX(-50%);width:5px;height:5px;}
+</style>
     <!-- Die Symbolschrift liegt IM Projekt, nicht bei Google.
          Material Symbols ist eine Ligaturschrift: im HTML steht wirklich
          das Wort "location_on", erst die Schrift macht ein Zeichen daraus.
@@ -17238,7 +17243,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         </div>
                         <div class="res-restaurant-pill">
                             <span class="material-symbols-outlined" style="font-size:18px;">restaurant</span>
-                            <select id="resRestaurantSelect" onchange="if(this.value){window.resCurrentRestaurant=this.value;if(typeof resLoadReservations==='function')resLoadReservations();if(typeof loadReservationsForRestaurant==='function')loadReservationsForRestaurant(this.value);if(typeof loadResSettingsUI==='function')loadResSettingsUI();}" aria-label="Restaurant auswählen">
+                            <select id="resRestaurantSelect" onchange="if(this.value){window.resCurrentRestaurant=this.value;if(typeof resLoadReservations==='function')resLoadReservations();if(typeof loadReservationsForRestaurant==='function')loadReservationsForRestaurant(this.value);if(typeof loadResSettingsUI==='function')loadResSettingsUI();var _bt=document.getElementById('resTabBlocking');if(_bt&&_bt.style.display!=='none'&&typeof loadBlockingUI==='function')loadBlockingUI();}" aria-label="Restaurant auswählen">
                                 <option value="">Restaurant wählen...</option>
                             </select>
                         </div>
@@ -21656,50 +21661,80 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
             </div>
 
             <!-- SPERRUNGEN TAB -->
+            <!-- 14.10.2026: Zeitraum von-bis, mehrere Tage, gesperrte Tage im
+                 Kalender markiert, Lokal-Name oben. Vorher suchte die Liste
+                 in einem anderen Lokal als das Anlegen -- "die Sperrungen sind
+                 weg", standen aber im Reservierungskalender. -->
             <div id="resTabBlocking" class="res-tab-content" style="display: none;">
+                <p id="blockLokalName" style="font-family:Epilogue,sans-serif;font-size:15px;font-weight:700;color:var(--text-primary);margin:0 0 12px;"></p>
                 <!-- Tages-Stats -->
-                <div id="blockingStats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;"></div>
-                <div style="display:grid;grid-template-columns:1fr 1.5fr;gap:20px;">
+                <div id="blockingStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px;"></div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;">
                     <!-- Linke Seite: Kalender + Formular -->
                     <div>
                         <div class="panel" style="padding:16px;">
                             <h4 style="font-family:Epilogue,sans-serif;font-size:14px;font-weight:700;margin:0 0 12px;">Datum wählen</h4>
                             <div id="blockCalendar"></div>
+                            <p style="font-size:11px;color:var(--text-secondary);margin:10px 0 0;display:flex;gap:14px;flex-wrap:wrap;">
+                                <span><span class="sperr-punkt sperr-punkt-tag"></span> ganzer Tag gesperrt</span>
+                                <span><span class="sperr-punkt"></span> teilweise gesperrt</span>
+                            </p>
                         </div>
                         <div class="panel" style="padding:16px;margin-top:16px;">
                             <h4 style="font-family:Epilogue,sans-serif;font-size:14px;font-weight:700;margin:0 0 12px;">Neue Sperrung</h4>
                             <div style="margin-bottom:10px;">
-                                <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-secondary);display:block;margin-bottom:4px;">Typ</label>
+                                <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-secondary);display:block;margin-bottom:4px;">Was sperren?</label>
                                 <div style="display:flex;gap:6px;" id="blockTypeToggle">
-                                    <button type="button" onclick="selectBlockType('table')" class="block-type-btn active" id="blockTypeTable" style="flex:1;padding:8px;border-radius:9999px;border:1px solid var(--primary);background:rgba(0,61,51,0.08);color:var(--primary);font-size:12px;font-weight:600;cursor:pointer;">Tisch sperren</button>
-                                    <button type="button" onclick="selectBlockType('slot')" class="block-type-btn" id="blockTypeSlot" style="flex:1;padding:8px;border-radius:9999px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-secondary);font-size:12px;font-weight:600;cursor:pointer;">Zeitslot sperren</button>
+                                    <button type="button" onclick="selectBlockType('slot')" class="block-type-btn" id="blockTypeSlot" style="flex:1;padding:8px;border-radius:9999px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-secondary);font-size:12px;font-weight:600;cursor:pointer;">Zeitraum</button>
                                     <button type="button" onclick="selectBlockType('day')" class="block-type-btn" id="blockTypeDay" style="flex:1;padding:8px;border-radius:9999px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-secondary);font-size:12px;font-weight:600;cursor:pointer;">Ganzer Tag</button>
+                                    <button type="button" onclick="selectBlockType('table')" class="block-type-btn" id="blockTypeTable" style="flex:1;padding:8px;border-radius:9999px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-secondary);font-size:12px;font-weight:600;cursor:pointer;">Ein Tisch</button>
                                 </div>
                             </div>
-                            <div id="blockTableSelect" style="margin-bottom:10px;">
-                                <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-secondary);display:block;margin-bottom:4px;" for="blockTableId">Tisch</label>
-                                <select id="blockTableId" style="width:100%;padding:10px 16px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;"></select>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+                                <div>
+                                    <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-secondary);display:block;margin-bottom:4px;" for="blockVonDatum">Von Tag</label>
+                                    <input type="date" id="blockVonDatum" onchange="blockVonDatumGeaendert(this.value)" style="width:100%;padding:10px 16px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;box-sizing:border-box;">
+                                </div>
+                                <div>
+                                    <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-secondary);display:block;margin-bottom:4px;" for="blockBisDatum">Bis Tag</label>
+                                    <input type="date" id="blockBisDatum" onchange="blockZeitenFuellen()" style="width:100%;padding:10px 16px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;box-sizing:border-box;">
+                                </div>
                             </div>
-                            <div id="blockTimeSelect" style="margin-bottom:10px;">
-                                <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-secondary);display:block;margin-bottom:4px;" for="blockTime">Zeit</label>
-                                <select id="blockTime" style="width:100%;padding:10px 16px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;"></select>
+                            <div id="blockTableSelect" style="margin-bottom:10px;display:none;">
+                                <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-secondary);display:block;margin-bottom:4px;" for="blockTableId">Tisch</label>
+                                <select id="blockTableId" style="width:100%;padding:10px 16px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;box-sizing:border-box;"></select>
+                            </div>
+                            <div id="blockTimeSelect" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+                                <div>
+                                    <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-secondary);display:block;margin-bottom:4px;" for="blockTime">Von Uhrzeit</label>
+                                    <select id="blockTime" style="width:100%;padding:10px 16px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;box-sizing:border-box;"></select>
+                                </div>
+                                <div>
+                                    <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-secondary);display:block;margin-bottom:4px;" for="blockTimeBis">Bis Uhrzeit</label>
+                                    <select id="blockTimeBis" style="width:100%;padding:10px 16px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;box-sizing:border-box;"></select>
+                                </div>
                             </div>
                             <div style="margin-bottom:12px;">
-                                <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-secondary);display:block;margin-bottom:4px;">Grund (optional)</label>
-                                <input type="text" id="blockReason" placeholder="z.B. Tisch defekt, Privatveranstaltung" style="width:100%;padding:10px 16px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;box-sizing:border-box;" aria-label="z.B. Tisch defekt, Privatveranstaltung">
+                                <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-secondary);display:block;margin-bottom:4px;" for="blockReason">Grund (optional)</label>
+                                <input type="text" id="blockReason" placeholder="z.B. Ruhetag, Privatfeier, Betriebsferien" style="width:100%;padding:10px 16px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;box-sizing:border-box;">
                             </div>
-                            <button type="button" onclick="createBlock()" style="width:100%;padding:12px;border:none;border-radius:9999px;background:#ef4444;color:white;font-family:Epilogue,sans-serif;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+                            <p id="blockVorschau" style="font-size:12px;color:var(--text-secondary);margin:0 0 10px;min-height:16px;"></p>
+                            <button type="button" id="blockSperrKnopf" onclick="createBlock()" style="width:100%;padding:12px;border:none;border-radius:9999px;background:#b91c1c;color:white;font-family:Epilogue,sans-serif;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
                                 <span class="material-symbols-outlined" style="font-size:16px;">block</span>
                                 Sperren
                             </button>
                         </div>
                     </div>
-                    <!-- Rechte Seite: Aktive Sperren -->
+                    <!-- Rechte Seite: Sperren des Tages + kommende -->
                     <div>
                         <div class="panel" style="padding:16px;">
-                            <h4 style="font-family:Epilogue,sans-serif;font-size:14px;font-weight:700;margin:0 0 4px;">Aktive Sperrungen</h4>
+                            <h4 style="font-family:Epilogue,sans-serif;font-size:14px;font-weight:700;margin:0 0 4px;">Sperrungen an diesem Tag</h4>
                             <p id="blockDateLabel" style="font-size:12px;color:var(--text-secondary);margin:0 0 16px;"></p>
                             <div id="blockList"></div>
+                        </div>
+                        <div class="panel" style="padding:16px;margin-top:16px;">
+                            <h4 style="font-family:Epilogue,sans-serif;font-size:14px;font-weight:700;margin:0 0 12px;">Kommende Sperrungen</h4>
+                            <div id="blockKommende"></div>
                         </div>
                     </div>
                 </div>
@@ -29689,6 +29724,13 @@ function reservierungVollText(antwort) {
     if (antwort && antwort.kontingent && antwort.frei > 0) {
         return 'Für ' + (antwort.titel || 'diesen Abend') + ' sind nur noch ' + antwort.frei + (antwort.frei === 1 ? ' Platz' : ' Plätze')
             + ' frei. Reserviere gern für weniger Personen oder setz dich auf die Warteliste.';
+    }
+    // Sperrung durch das Restaurant (reservation-guest 1d) -- nicht "voll".
+    if (antwort && antwort.gesperrt === 'zeit') {
+        return 'Zu dieser Uhrzeit nimmt das Restaurant keine Reservierungen an. Wähle gern eine andere Uhrzeit.';
+    }
+    if (antwort && antwort.gesperrt === 'tag') {
+        return 'An diesem Tag nimmt das Restaurant keine Reservierungen an. Wähle gern ein anderes Datum.';
     }
     return 'Ausgebucht – an diesem Tag ist leider alles voll. Wähle gern ein anderes Datum oder setz dich auf die Warteliste.';
 }
@@ -46754,16 +46796,67 @@ async function guestCancelReservation(resId, btn) {
 }
 
 // ==================== SPERRUNGEN (BLOCKING) ====================
+//
+// 14.10.2026, Ibo: "hab zeiten gesperrt für ein kunde, die sperrungen sind
+// weg, aber auf dem reservierungen kalender sind die".
+//
+// GEMESSEN (Supabase edge_logs, 14.10. 12:30-12:35): fuenf Sperrungen fuer
+// den 31.12. bei Lokal a599f99c angelegt -- danach fragte die Liste bei
+// Lokal a004eaca nach. Leer. Die Sperrungen waren da, die Liste suchte im
+// falschen Haus.
+//
+// Ursache: Anlegen nahm _gastroOnlyRestaurantId || resCurrentRestaurant,
+// Liste, Kalender, Tische, Uhrzeiten und Aufheben nahmen currentRestaurantId
+// || das ERSTE Lokal der Liste. Beim Wirt mit einem Lokal faellt das nie
+// auf; beim Admin, der fuer einen Kunden sperrt, immer.
+//
+// Jetzt: EINE Stelle (sperrLokal), dieselbe Reihenfolge wie der
+// Reservierungskalender -- und oben steht, fuer welches Lokal man sperrt.
+// tests/sperrung-test.js.
+//
+// Neu dazu: Zeitraum von-bis, mehrere Tage auf einmal, gesperrte Tage im
+// Kalender markiert, kommende Sperrungen, und der Server (reservation-guest
+// 1d) nimmt in gesperrte Zeiten nichts mehr an.
 var _blockSelectedDate = todayStrLocal();
-var _blockSelectedType = 'table'; // table, slot, day
+var _blockSelectedType = 'slot'; // slot (Zeitraum), day, table
 var _blockCalMonth = new Date().getMonth();
 var _blockCalYear = new Date().getFullYear();
+var _blockMonat = {};            // 'JJJJ-MM-TT' -> 'tag' | 'teil'
+var BLOCK_MAX_TAGE = 92;
+
+function sperrLokal() {
+    var id = window._gastroOnlyRestaurantId || window.resCurrentRestaurant || null;
+    if (!id) {
+        var sel = document.getElementById('resRestaurantSelect');
+        if (sel && sel.value) id = sel.value;
+    }
+    if (!id) id = window.currentRestaurantId || (APP_DATA.restaurants && APP_DATA.restaurants[0] && APP_DATA.restaurants[0].id) || null;
+    return id;
+}
+
+function sperrLokalName(id) {
+    var r = (APP_DATA.restaurants || []).find(function (x) { return x && x.id === id; });
+    return r && r.name ? r.name : '';
+}
+
+function sperrKopf(extra) {
+    return Object.assign({ 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }, extra || {});
+}
+
+function sperrTagePlus(datum, n) {
+    var d = new Date(datum + 'T12:00:00');
+    d.setDate(d.getDate() + n);
+    return localDayStr(d);
+}
+
+function sperrDatumKurz(datum) {
+    try {
+        return new Date(datum + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+    } catch (e) { return datum; }
+}
 
 function selectBlockType(type) {
     _blockSelectedType = type;
-    var tableSelect = document.getElementById('blockTableSelect');
-    var timeSelect = document.getElementById('blockTimeSelect');
-    // Toggle anpassen
     ['Table', 'Slot', 'Day'].forEach(function(t) {
         var btn = document.getElementById('blockType' + t);
         if (btn) {
@@ -46771,29 +46864,37 @@ function selectBlockType(type) {
             btn.style.borderColor = isActive ? 'var(--primary)' : 'var(--border-color)';
             btn.style.background = isActive ? 'rgba(0,61,51,0.08)' : 'var(--bg-secondary)';
             btn.style.color = isActive ? 'var(--primary)' : 'var(--text-secondary)';
+            btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
         }
     });
+    var tableSelect = document.getElementById('blockTableSelect');
+    var timeSelect = document.getElementById('blockTimeSelect');
     if (tableSelect) tableSelect.style.display = type === 'table' ? 'block' : 'none';
-    if (timeSelect) timeSelect.style.display = type === 'day' ? 'none' : 'block';
+    if (timeSelect) timeSelect.style.display = type === 'day' ? 'none' : 'grid';
+    blockZeitenFuellen();
 }
 
 function loadBlockingUI() {
-    var restId = window.currentRestaurantId || (APP_DATA.restaurants && APP_DATA.restaurants[0] && APP_DATA.restaurants[0].id);
-    if (!restId) return;
+    var restId = sperrLokal();
+    var kopf = document.getElementById('blockLokalName');
+    if (!restId) {
+        if (kopf) kopf.textContent = 'Bitte oben ein Lokal wählen.';
+        return;
+    }
+    if (kopf) kopf.textContent = 'Sperrungen für ' + (sperrLokalName(restId) || 'dieses Lokal');
 
-    // Tische laden
+    var von = document.getElementById('blockVonDatum');
+    var bis = document.getElementById('blockBisDatum');
+    if (von && !von.value) von.value = _blockSelectedDate;
+    if (bis && (!bis.value || bis.value < von.value)) bis.value = von.value;
+
     loadBlockTables(restId);
-    // Zeitslots laden
-    loadBlockTimeSlots(restId);
-    // Kalender rendern
-    blockCalRender();
-    // Sperren laden
-    loadBlockList(restId, _blockSelectedDate);
-    // Block-Type initialisieren
     selectBlockType(_blockSelectedType);
-    // Datum-Label
+    blockCalRender();
+    blockMonatLaden(restId);
+    loadBlockList(restId, _blockSelectedDate);
+    blockKommendeLaden(restId);
     updateBlockDateLabel();
-    // Tages-Stats laden
     loadBlockingStats(restId);
 }
 
@@ -46804,17 +46905,10 @@ async function loadBlockingStats(restId) {
     var today = todayStrLocal();
 
     try {
-        // Parallel laden: Reservierungen heute, Bestellungen heute, Tische gesamt
         var [resResp, orderResp, tableResp] = await Promise.all([
-            fetch(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.' + restId + '&reservation_date=eq.' + today + '&status=in.(confirmed,pending,seated)&select=id,status', {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
-            }),
-            fetch(SUPABASE_URL + '/rest/v1/orders?restaurant_id=eq.' + restId + '&created_at=gte.' + today + 'T00:00:00&status=neq.cancelled&select=id,total,status', {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
-            }),
-            fetch(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restId + '&is_active=eq.true&select=id', {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
-            })
+            fetch(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.' + restId + '&reservation_date=eq.' + today + '&status=in.(confirmed,pending,seated)&select=id,status', { headers: sperrKopf() }),
+            fetch(SUPABASE_URL + '/rest/v1/orders?restaurant_id=eq.' + restId + '&created_at=gte.' + today + 'T00:00:00&status=neq.cancelled&select=id,total,status', { headers: sperrKopf() }),
+            fetch(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restId + '&is_active=eq.true&select=id', { headers: sperrKopf() })
         ]);
 
         var reservations = await resResp.json() || [];
@@ -46824,8 +46918,6 @@ async function loadBlockingStats(restId) {
         var totalTables = tables.length;
         var reservedNow = reservations.filter(function(r) { return r.status === 'confirmed' || r.status === 'seated'; }).length;
         var freeTables = Math.max(0, totalTables - reservedNow);
-        var totalRes = reservations.length;
-        var totalOrders = orders.length;
         var orderRevenue = orders.reduce(function(sum, o) { return sum + (parseFloat(o.total) || 0); }, 0);
 
         function statCard(icon, value, label, color, bg) {
@@ -46840,9 +46932,9 @@ async function loadBlockingStats(restId) {
 
         container.innerHTML =
             statCard('table_restaurant', freeTables, 'Tische frei', '#16a34a', 'rgba(22,163,74,0.06)') +
-            statCard('calendar_month', totalRes, 'Reservierungen heute', '#003D33', 'rgba(0,61,51,0.06)') +
-            statCard('shopping_bag', totalOrders, 'Bestellungen heute', '#2563eb', 'rgba(37,99,235,0.06)') +
-            statCard('payments', orderRevenue.toFixed(0) + ' \u20ac', 'Umsatz heute', '#92400e', 'rgba(217,119,6,0.06)');
+            statCard('calendar_month', reservations.length, 'Reservierungen heute', 'var(--primary)', 'rgba(0,61,51,0.06)') +
+            statCard('shopping_bag', orders.length, 'Bestellungen heute', '#2563eb', 'rgba(37,99,235,0.06)') +
+            statCard('payments', orderRevenue.toFixed(0) + ' €', 'Umsatz heute', '#b45309', 'rgba(217,119,6,0.06)');
 
     } catch(e) {
         container.innerHTML = '';
@@ -46853,29 +46945,114 @@ async function loadBlockTables(restId) {
     var select = document.getElementById('blockTableId');
     if (!select) return;
     try {
-        var resp = await sbRead(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restId + '&is_active=eq.true&order=table_number.asc&select=id,table_number,table_name,max_capacity,area', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
-        });
+        var resp = await sbRead(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + restId + '&is_active=eq.true&order=table_number.asc&select=id,table_number,table_name,max_capacity,area', { headers: sperrKopf() });
         var tables = await resp.json();
         var html = '';
         (tables || []).forEach(function(t) {
-            html += '<option value="' + t.id + '">Tisch ' + (t.table_number || '') + (t.table_name ? ' - ' + t.table_name : '') + ' (' + (t.max_capacity || '?') + ' Pl.)</option>';
+            html += '<option value="' + t.id + '">Tisch ' + escapeHtml(String(t.table_number || '')) + (t.table_name ? ' - ' + escapeHtml(t.table_name) : '') + ' (' + (t.max_capacity || '?') + ' Pl.)</option>';
         });
-        select.innerHTML = html || '<option>Keine Tische</option>';
+        select.innerHTML = html || '<option value="">Keine Tische eingetragen</option>';
     } catch(e) {
-        select.innerHTML = '<option>Fehler beim Laden</option>';
+        select.innerHTML = '<option value="">Tische nicht ladbar</option>';
     }
 }
 
-function loadBlockTimeSlots(restId) {
-    var select = document.getElementById('blockTime');
-    if (!select) return;
-    var slots = generateReservationSlots(restId);
-    var html = '';
-    slots.forEach(function(t) {
-        html += '<option value="' + t + '">' + t + ' Uhr</option>';
-    });
-    select.innerHTML = html || '<option>Keine Zeiten</option>';
+// Uhrzeiten des ERSTEN gewaehlten Tages (Wochentage koennen andere Zeiten
+// haben -- beim Sperren zaehlt pro Tag, was an DEM Tag zwischen von und
+// bis liegt).
+function blockZeitenFuellen() {
+    var restId = sperrLokal();
+    var von = document.getElementById('blockTime');
+    var bis = document.getElementById('blockTimeBis');
+    if (!von || !bis || !restId) return;
+    var vonDatum = (document.getElementById('blockVonDatum') || {}).value || _blockSelectedDate;
+    var slots = generateReservationSlots(restId, vonDatum) || [];
+    var alterVon = von.value, alterBis = bis.value;
+    var h = '';
+    if (_blockSelectedType === 'table') h += '<option value="">ganzer Tag</option>';
+    slots.forEach(function (t) { h += '<option value="' + t + '">' + t + ' Uhr</option>'; });
+    von.innerHTML = h || '<option value="">keine Uhrzeiten an diesem Tag</option>';
+    var hb = '';
+    slots.forEach(function (t) { hb += '<option value="' + t + '">' + t + ' Uhr</option>'; });
+    bis.innerHTML = hb || '<option value="">-</option>';
+    if (alterVon !== undefined && slots.indexOf(alterVon) !== -1) von.value = alterVon;
+    if (slots.indexOf(alterBis) !== -1) bis.value = alterBis;
+    else if (slots.length) bis.value = slots[slots.length - 1];
+    if (_blockSelectedType !== 'table' && !von.value && slots.length) von.value = slots[0];
+    von.onchange = blockVorschau;
+    bis.onchange = blockVorschau;
+    blockVorschau();
+}
+
+function blockVonDatumGeaendert(wert) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(wert || '')) return;
+    var bis = document.getElementById('blockBisDatum');
+    if (bis && (!bis.value || bis.value < wert)) bis.value = wert;
+    blockCalSelectDate(wert, true);
+}
+
+// Baut die Zeilen, die eingetragen werden. Je Tag:
+//   Ganzer Tag  -> eine Zeile 00:00 ohne Tisch
+//   Zeitraum    -> je Uhrzeit zwischen von und bis eine Zeile ohne Tisch
+//   Tisch       -> 00:00 mit Tisch (ganzer Tag) oder je Uhrzeit mit Tisch
+// Je Uhrzeit eine Zeile, weil die Gaesteseite und der Server Sperren an der
+// Uhrzeit erkennen -- so gilt der Zeitraum ueberall, ohne neue Spalte.
+function blockZeilenBauen(restId) {
+    var vonDatum = (document.getElementById('blockVonDatum') || {}).value || _blockSelectedDate;
+    var bisDatum = (document.getElementById('blockBisDatum') || {}).value || vonDatum;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(vonDatum)) return { fehler: 'Bitte einen Tag wählen.' };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(bisDatum) || bisDatum < vonDatum) bisDatum = vonDatum;
+    var typ = _blockSelectedType;
+    var tisch = typ === 'table' ? ((document.getElementById('blockTableId') || {}).value || '') : '';
+    if (typ === 'table' && !tisch) return { fehler: 'Bitte einen Tisch wählen.' };
+    var vonZeit = typ === 'day' ? '' : ((document.getElementById('blockTime') || {}).value || '');
+    var bisZeit = typ === 'day' ? '' : ((document.getElementById('blockTimeBis') || {}).value || '');
+    if (typ === 'slot' && !vonZeit) return { fehler: 'Bitte eine Uhrzeit wählen.' };
+    if (vonZeit && bisZeit && bisZeit < vonZeit) return { fehler: '„Bis Uhrzeit“ liegt vor „Von Uhrzeit“.' };
+    var grund = ((document.getElementById('blockReason') || {}).value || '').trim().slice(0, 200);
+
+    var zeilen = [], tage = 0, d = vonDatum;
+    while (d <= bisDatum) {
+        tage++;
+        if (tage > BLOCK_MAX_TAGE) return { fehler: 'Höchstens ' + BLOCK_MAX_TAGE + ' Tage auf einmal.' };
+        var zeiten;
+        if (typ === 'day' || (typ === 'table' && !vonZeit)) {
+            zeiten = ['00:00'];
+        } else {
+            zeiten = (generateReservationSlots(restId, d) || []).filter(function (t) {
+                return t >= vonZeit && (!bisZeit || t <= bisZeit);
+            });
+        }
+        zeiten.forEach(function (t) {
+            zeilen.push({
+                restaurant_id: restId,
+                guest_name: 'BLOCKIERT',
+                guest_phone: '',
+                party_size: typ === 'table' ? 1 : (window._realTableCount || 30),
+                reservation_date: d,
+                reservation_time: t + ':00',
+                status: 'blocked',
+                source: 'admin_block',
+                notes: grund,
+                table_id: tisch || null
+            });
+        });
+        d = sperrTagePlus(d, 1);
+    }
+    return { zeilen: zeilen, tage: tage, von: vonDatum, bis: bisDatum };
+}
+
+function blockVorschau() {
+    var el = document.getElementById('blockVorschau');
+    var restId = sperrLokal();
+    if (!el || !restId) return;
+    var b = blockZeilenBauen(restId);
+    if (b.fehler) { el.textContent = b.fehler; return; }
+    var tageText = b.tage === 1 ? sperrDatumKurz(b.von) : b.tage + ' Tage (' + sperrDatumKurz(b.von) + ' bis ' + sperrDatumKurz(b.bis) + ')';
+    if (!b.zeilen.length) { el.textContent = 'An ' + tageText + ' gibt es in diesem Zeitraum keine Uhrzeiten.'; return; }
+    var was = _blockSelectedType === 'day' ? 'ganzer Tag'
+            : (b.zeilen[0].reservation_time === '00:00:00' ? 'ganzer Tag' : b.zeilen.length + (b.zeilen.length === 1 ? ' Uhrzeit' : ' Uhrzeiten'));
+    el.textContent = 'Wird gesperrt: ' + tageText + ' · ' + was + (_blockSelectedType === 'table' ? ' · nur dieser Tisch' : '');
 }
 
 function blockCalRender() {
@@ -46890,17 +47067,14 @@ function blockCalRender() {
     var monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 
     var html = '';
-    // Header
     html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
-    html += '<button onclick="_blockCalMonth--;if(_blockCalMonth<0){_blockCalMonth=11;_blockCalYear--;}blockCalRender();" style="border:none;background:none;cursor:pointer;padding:4px;color:var(--text-secondary);"><span class="material-symbols-outlined" style="font-size:18px;">chevron_left</span></button>';
+    html += '<button type="button" aria-label="Vorheriger Monat" onclick="blockCalBlaettern(-1)" style="border:none;background:none;cursor:pointer;padding:4px;color:var(--text-secondary);"><span class="material-symbols-outlined" style="font-size:18px;">chevron_left</span></button>';
     html += '<span style="font-family:Epilogue,sans-serif;font-weight:700;font-size:14px;">' + monthNames[month] + ' ' + year + '</span>';
-    html += '<button onclick="_blockCalMonth++;if(_blockCalMonth>11){_blockCalMonth=0;_blockCalYear++;}blockCalRender();" style="border:none;background:none;cursor:pointer;padding:4px;color:var(--text-secondary);"><span class="material-symbols-outlined" style="font-size:18px;">chevron_right</span></button>';
+    html += '<button type="button" aria-label="Nächster Monat" onclick="blockCalBlaettern(1)" style="border:none;background:none;cursor:pointer;padding:4px;color:var(--text-secondary);"><span class="material-symbols-outlined" style="font-size:18px;">chevron_right</span></button>';
     html += '</div>';
-    // Wochentage
     html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:10px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">';
     ['Mo','Di','Mi','Do','Fr','Sa','So'].forEach(function(d) { html += '<div style="padding:4px;">' + d + '</div>'; });
     html += '</div>';
-    // Tage
     html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;">';
     for (var i = 0; i < startOffset; i++) html += '<div></div>';
     var today = todayStrLocal();
@@ -46909,21 +47083,68 @@ function blockCalRender() {
         var isSelected = dateStr === _blockSelectedDate;
         var isToday = dateStr === today;
         var isPast = dateStr < today;
-        var bg = isSelected ? 'var(--primary)' : isToday ? 'rgba(0,61,51,0.08)' : 'transparent';
+        var gesperrt = _blockMonat[dateStr] || '';
+        var bg = isSelected ? 'var(--primary)' : gesperrt === 'tag' ? 'rgba(185,28,28,0.10)' : isToday ? 'rgba(0,61,51,0.08)' : 'transparent';
         var color = isSelected ? 'white' : isPast ? 'var(--text-secondary)' : 'var(--text-primary)';
         var opacity = isPast ? '0.4' : '1';
-        html += '<button onclick="blockCalSelectDate(\'' + dateStr + '\')" style="padding:8px 4px;border:none;background:' + bg + ';color:' + color + ';opacity:' + opacity + ';border-radius:8px;font-size:13px;font-weight:' + (isToday || isSelected ? '700' : '400') + ';cursor:pointer;position:relative;">' + d + '</button>';
+        var punkt = gesperrt ? '<span class="sperr-punkt sperr-tag-punkt' + (gesperrt === 'tag' ? ' sperr-punkt-tag' : '') + '"></span>' : '';
+        var hinweis = gesperrt === 'tag' ? ', ganzer Tag gesperrt' : gesperrt ? ', teilweise gesperrt' : '';
+        html += '<button type="button" aria-label="' + d + '.' + (month + 1) + '.' + hinweis + '" onclick="blockCalSelectDate(\'' + dateStr + '\')" style="padding:8px 4px 10px;border:none;background:' + bg + ';color:' + color + ';opacity:' + opacity + ';border-radius:8px;font-size:13px;font-weight:' + (isToday || isSelected ? '700' : '400') + ';cursor:pointer;position:relative;">' + d + punkt + '</button>';
     }
     html += '</div>';
     container.innerHTML = html;
 }
 
-function blockCalSelectDate(dateStr) {
+function blockCalBlaettern(schritt) {
+    _blockCalMonth += schritt;
+    if (_blockCalMonth < 0) { _blockCalMonth = 11; _blockCalYear--; }
+    if (_blockCalMonth > 11) { _blockCalMonth = 0; _blockCalYear++; }
+    blockCalRender();
+    var restId = sperrLokal();
+    if (restId) blockMonatLaden(restId);
+}
+
+// Welche Tage des angezeigten Monats Sperren haben -- fuer die Punkte.
+async function blockMonatLaden(restId) {
+    var erster = _blockCalYear + '-' + String(_blockCalMonth + 1).padStart(2, '0') + '-01';
+    var letzter = _blockCalYear + '-' + String(_blockCalMonth + 1).padStart(2, '0') + '-' + String(new Date(_blockCalYear, _blockCalMonth + 1, 0).getDate()).padStart(2, '0');
+    try {
+        var resp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.' + restId
+            + '&status=eq.blocked&reservation_date=gte.' + erster + '&reservation_date=lte.' + letzter
+            + '&select=reservation_date,reservation_time,table_id', { headers: sperrKopf() });
+        if (!resp.ok) return;
+        var zeilen = await resp.json();
+        var karte = {};
+        (zeilen || []).forEach(function (z) {
+            var ganz = !z.table_id && String(z.reservation_time || '').slice(0, 5) === '00:00';
+            if (ganz) karte[z.reservation_date] = 'tag';
+            else if (!karte[z.reservation_date]) karte[z.reservation_date] = 'teil';
+        });
+        _blockMonat = karte;
+        blockCalRender();
+    } catch (e) {}
+}
+
+function blockCalSelectDate(dateStr, vomFeld) {
     _blockSelectedDate = dateStr;
+    var d = new Date(dateStr + 'T12:00:00');
+    var monatWechsel = d.getMonth() !== _blockCalMonth || d.getFullYear() !== _blockCalYear;
+    _blockCalMonth = d.getMonth();
+    _blockCalYear = d.getFullYear();
+    if (!vomFeld) {
+        var von = document.getElementById('blockVonDatum');
+        var bis = document.getElementById('blockBisDatum');
+        if (von) von.value = dateStr;
+        if (bis) bis.value = dateStr;
+    }
     blockCalRender();
     updateBlockDateLabel();
-    var restId = window.currentRestaurantId || (APP_DATA.restaurants && APP_DATA.restaurants[0] && APP_DATA.restaurants[0].id);
-    if (restId) loadBlockList(restId, dateStr);
+    blockZeitenFuellen();
+    var restId = sperrLokal();
+    if (restId) {
+        loadBlockList(restId, dateStr);
+        if (monatWechsel) blockMonatLaden(restId);
+    }
 }
 
 function updateBlockDateLabel() {
@@ -46937,71 +47158,99 @@ function updateBlockDateLabel() {
     }
 }
 
+function blockNachAenderung(restId) {
+    loadBlockList(restId, _blockSelectedDate);
+    blockMonatLaden(restId);
+    blockKommendeLaden(restId);
+    if (typeof loadReservationsForRestaurant === 'function') loadReservationsForRestaurant(restId);
+    if (typeof window.resLoadReservations === 'function') window.resLoadReservations();
+}
+
 async function createBlock() {
-    // Restaurant-ID korrekt ermitteln: Gastronom → eigenes, Admin → ausgewähltes
-    var restId = window._gastroOnlyRestaurantId || window.resCurrentRestaurant || window.currentRestaurantId;
-    if (!restId) {
-        var sel = document.getElementById('resRestaurantSelect') || document.getElementById('ordersRestaurantSelect');
-        if (sel && sel.value) restId = sel.value;
-    }
-    if (!restId) restId = APP_DATA.restaurants && APP_DATA.restaurants[0] && APP_DATA.restaurants[0].id;
-    if (!restId || !_blockSelectedDate) { showToast('Bitte Datum wählen', 'error'); return; }
+    var restId = sperrLokal();
+    if (!restId) { showToast('Bitte oben ein Lokal wählen', 'error'); return; }
+    var b = blockZeilenBauen(restId);
+    if (b.fehler) { showToast(b.fehler, 'error'); return; }
+    if (!b.zeilen.length) { showToast('In diesem Zeitraum gibt es keine Uhrzeiten', 'error'); return; }
 
-    var type = _blockSelectedType;
-    var tableId = null;
-    var blockTime = '00:00:00';
-    var partySize = window._realTableCount || 30;
-
-    if (type === 'table') {
-        tableId = document.getElementById('blockTableId').value;
-        var timeVal = document.getElementById('blockTime').value;
-        blockTime = timeVal ? timeVal + ':00' : '00:00:00';
-        partySize = 1; // Ein Tisch
-    } else if (type === 'slot') {
-        var timeVal2 = document.getElementById('blockTime').value;
-        if (!timeVal2) { showToast('Bitte Zeitslot wählen', 'error'); return; }
-        blockTime = timeVal2 + ':00';
-    }
-    // type === 'day': blockTime bleibt 00:00:00, tableId bleibt null
-
-    var reason = document.getElementById('blockReason').value || '';
-
+    var knopf = document.getElementById('blockSperrKnopf');
+    if (knopf) knopf.disabled = true;
     try {
-        var resp = await fetch(SUPABASE_URL + '/rest/v1/reservations', {
-            method: 'POST',
-            headers: {
-                'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + kmiToken(),
-                'Content-Type': 'application/json',
-                'Prefer': 'return=representation'
-            },
-            body: JSON.stringify({
-                restaurant_id: restId,
-                guest_name: 'BLOCKIERT',
-                guest_phone: '',
-                party_size: partySize,
-                reservation_date: _blockSelectedDate,
-                reservation_time: blockTime,
-                status: 'blocked',
-                source: 'admin_block',
-                notes: reason,
-                table_id: tableId
-            })
+        // Was schon gesperrt ist, nicht doppelt eintragen.
+        var vorhanden = {};
+        try {
+            var vr = await sbRead(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.' + restId
+                + '&status=eq.blocked&reservation_date=gte.' + b.von + '&reservation_date=lte.' + b.bis
+                + '&select=reservation_date,reservation_time,table_id', { headers: sperrKopf() });
+            if (vr.ok) (await vr.json() || []).forEach(function (z) {
+                vorhanden[z.reservation_date + '|' + String(z.reservation_time || '').slice(0, 5) + '|' + (z.table_id || '')] = true;
+            });
+        } catch (e) {}
+        var neu = b.zeilen.filter(function (z) {
+            return !vorhanden[z.reservation_date + '|' + z.reservation_time.slice(0, 5) + '|' + (z.table_id || '')];
         });
+        if (!neu.length) { showToast('Ist schon gesperrt', 'success'); blockNachAenderung(restId); return; }
 
-        if (resp.ok) {
-            var typeLabel = type === 'table' ? 'Tisch' : type === 'slot' ? 'Zeitslot' : 'Tag';
-            showToast(typeLabel + ' gesperrt!', 'success');
-            document.getElementById('blockReason').value = '';
-            loadBlockList(restId, _blockSelectedDate);
-            // Reservierungsliste aktualisieren
-            if (typeof loadReservationsForRestaurant === 'function') loadReservationsForRestaurant(restId);
-        } else {
-            showToast('Fehler beim Sperren', 'error');
+        // In Paketen, und gezaehlt: "gesperrt" heisst nur, was wirklich in
+        // der Datenbank steht (eine leere Antwort ist kein Erfolg).
+        var gespeichert = 0;
+        for (var i = 0; i < neu.length; i += 200) {
+            var paket = neu.slice(i, i + 200);
+            var resp = await fetch(SUPABASE_URL + '/rest/v1/reservations', {
+                method: 'POST',
+                headers: sperrKopf({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }),
+                body: JSON.stringify(paket)
+            });
+            if (!resp.ok) {
+                var t = '';
+                try { t = (await resp.text()).slice(0, 160); } catch (e) {}
+                throw new Error('HTTP ' + resp.status + (t ? ' – ' + t : ''));
+            }
+            var zurueck = await resp.json().catch(function () { return []; });
+            gespeichert += Array.isArray(zurueck) ? zurueck.length : 0;
         }
-    } catch(e) {
-        showToast('Fehler: ' + e.message, 'error');
+        if (gespeichert < neu.length) {
+            showToast('Nur ' + gespeichert + ' von ' + neu.length + ' Sperrungen gespeichert', 'error');
+        } else {
+            var ganz = neu[0].reservation_time === '00:00:00';
+            showToast(b.tage > 1
+                ? b.tage + ' Tage gesperrt'
+                : (ganz ? (neu[0].table_id ? 'Tisch für den ganzen Tag gesperrt' : 'Ganzer Tag gesperrt')
+                        : neu.length + (neu.length === 1 ? ' Uhrzeit gesperrt' : ' Uhrzeiten gesperrt')), 'success');
+            var grund = document.getElementById('blockReason');
+            if (grund) grund.value = '';
+        }
+        blockNachAenderung(restId);
+    } catch (e) {
+        showToast('Sperren fehlgeschlagen: ' + e.message, 'error');
+    } finally {
+        if (knopf) knopf.disabled = false;
     }
+}
+
+// Fasst aufeinanderfolgende Uhrzeiten mit demselben Tisch und Grund zu
+// EINER Zeile zusammen ("18:00 – 21:00 Uhr"), statt zwanzig Einzelzeilen.
+function blockGruppen(zeilen, slots) {
+    var sortiert = (zeilen || []).slice().sort(function (a, b) {
+        var ka = (a.table_id || '') + '|' + (a.notes || '') + '|' + a.reservation_time;
+        var kb = (b.table_id || '') + '|' + (b.notes || '') + '|' + b.reservation_time;
+        return ka < kb ? -1 : ka > kb ? 1 : 0;
+    });
+    var gruppen = [];
+    sortiert.forEach(function (z) {
+        var t = String(z.reservation_time || '').slice(0, 5);
+        var letzte = gruppen[gruppen.length - 1];
+        var idx = slots.indexOf(t);
+        if (letzte && t !== '00:00' && letzte.bis !== '00:00'
+            && (letzte.table_id || '') === (z.table_id || '') && (letzte.notes || '') === (z.notes || '')
+            && idx !== -1 && slots.indexOf(letzte.bis) === idx - 1) {
+            letzte.bis = t;
+            letzte.ids.push(z.id);
+        } else {
+            gruppen.push({ von: t, bis: t, table_id: z.table_id || null, notes: z.notes || '', ids: [z.id] });
+        }
+    });
+    return gruppen;
 }
 
 async function loadBlockList(restId, date) {
@@ -47009,86 +47258,124 @@ async function loadBlockList(restId, date) {
     if (!container) return;
 
     try {
-        var resp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.' + restId + '&reservation_date=eq.' + date + '&status=eq.blocked&order=reservation_time.asc', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
-        });
+        var resp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.' + restId + '&reservation_date=eq.' + date + '&status=eq.blocked&order=reservation_time.asc', { headers: sperrKopf() });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
         var blocks = await resp.json();
+        if (!Array.isArray(blocks)) throw new Error('unerwartete Antwort');
 
-        if (!blocks || blocks.length === 0) {
+        if (blocks.length === 0) {
             container.innerHTML = '<div style="text-align:center;padding:32px;"><span class="material-symbols-outlined" style="font-size:36px;color:var(--text-secondary);opacity:0.3;">lock_open</span><p style="color:var(--text-secondary);font-size:13px;margin-top:8px;">Keine Sperrungen an diesem Tag</p></div>';
             return;
         }
 
+        var tischNamen = {};
+        var sel = document.getElementById('blockTableId');
+        if (sel) Array.prototype.forEach.call(sel.options, function (o) { if (o.value) tischNamen[o.value] = o.textContent.replace(/\s*\(.*\)$/, ''); });
+
+        var gruppen = blockGruppen(blocks, generateReservationSlots(restId, date) || []);
         var html = '';
-        blocks.forEach(function(b) {
-            var isFullDay = b.reservation_time && b.reservation_time.substring(0,5) === '00:00' && !b.table_id;
-            var isTableBlock = !!b.table_id;
-            var timeStr = b.reservation_time ? b.reservation_time.substring(0,5) : '';
-            var isAllDay = timeStr === '00:00';
+        gruppen.forEach(function(g) {
+            var ganz = g.von === '00:00';
+            var icon = g.table_id ? 'table_restaurant' : ganz ? 'event_busy' : 'schedule';
+            var label = g.table_id ? (tischNamen[g.table_id] || 'Ein Tisch') + ' gesperrt'
+                      : ganz ? 'Ganzer Tag gesperrt' : 'Gesperrt';
+            var detail = ganz ? (g.table_id ? 'ganzer Tag' : '') : (g.von === g.bis ? g.von + ' Uhr' : g.von + ' – ' + g.bis + ' Uhr');
+            if (g.notes) detail += (detail ? ' · ' : '') + escapeHtml(g.notes);
 
-            var icon = isFullDay ? 'event_busy' : isTableBlock ? 'table_restaurant' : 'schedule';
-            var label = isFullDay ? 'Ganzer Tag gesperrt' : isTableBlock ? 'Tisch gesperrt' : 'Zeitslot gesperrt';
-            var detail = '';
-            if (!isFullDay) detail += isAllDay ? 'Ganzer Tag' : timeStr + ' Uhr';
-            if (b.notes) detail += (detail ? ' — ' : '') + b.notes;
-
-            html += '<div style="display:flex;align-items:center;gap:12px;padding:12px;background:rgba(239,68,68,0.04);border:1px solid rgba(239,68,68,0.15);border-radius:12px;margin-bottom:8px;">';
-            html += '<div style="width:36px;height:36px;background:rgba(239,68,68,0.1);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span class="material-symbols-outlined" style="font-size:18px;color:#ef4444;">' + icon + '</span></div>';
+            html += '<div style="display:flex;align-items:center;gap:12px;padding:12px;background:rgba(185,28,28,0.04);border:1px solid rgba(185,28,28,0.15);border-radius:12px;margin-bottom:8px;">';
+            html += '<div style="width:36px;height:36px;background:rgba(185,28,28,0.1);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span class="material-symbols-outlined" style="font-size:18px;color:#b91c1c;">' + icon + '</span></div>';
             html += '<div style="flex:1;min-width:0;">';
             html += '<div style="font-weight:600;font-size:13px;color:var(--text-primary);">' + label + '</div>';
             if (detail) html += '<div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">' + detail + '</div>';
             html += '</div>';
-            html += '<button onclick="removeBlock(\'' + b.id + '\')" style="padding:6px 12px;border:1px solid rgba(239,68,68,0.2);background:rgba(239,68,68,0.06);color:#ef4444;border-radius:9999px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">Aufheben</button>';
+            html += '<button type="button" onclick="removeBlocks(\'' + g.ids.join(',') + '\')" style="padding:6px 12px;border:1px solid rgba(185,28,28,0.25);background:rgba(185,28,28,0.06);color:#b91c1c;border-radius:9999px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">Aufheben</button>';
             html += '</div>';
         });
+        if (gruppen.length > 1) {
+            html += '<button type="button" onclick="removeBlocks(\'' + blocks.map(function (b) { return b.id; }).join(',') + '\')" style="width:100%;margin-top:4px;padding:10px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);border-radius:9999px;font-size:12px;font-weight:600;cursor:pointer;">Alle an diesem Tag aufheben</button>';
+        }
         container.innerHTML = html;
     } catch(e) {
-        container.innerHTML = '<div style="color:var(--text-secondary);font-size:13px;">Fehler beim Laden</div>';
+        // Nicht "keine Sperrungen" -- das waere die stille Leere, die am
+        // 14.10. so aussah, als waeren die Sperrungen weg.
+        container.innerHTML = '<div style="color:#b91c1c;font-size:13px;">Sperrungen konnten nicht geladen werden (' + escapeHtml(e.message) + '). Bitte neu laden.</div>';
     }
 }
 
-async function removeBlock(blockId) {
+async function blockKommendeLaden(restId) {
+    var box = document.getElementById('blockKommende');
+    if (!box) return;
     try {
-        // RPC nutzen um RLS zu umgehen — Status auf 'cancelled' setzen statt DELETE
-        var curResp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + blockId + '&select=guest_name,reservation_date,reservation_time,party_size,table_id,guest_phone,notes', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
+        var resp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?restaurant_id=eq.' + restId
+            + '&status=eq.blocked&reservation_date=gte.' + todayStrLocal()
+            + '&order=reservation_date.asc,reservation_time.asc&limit=2000'
+            + '&select=reservation_date,reservation_time,table_id', { headers: sperrKopf() });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        var zeilen = await resp.json();
+        var proTag = {}, reihe = [];
+        (zeilen || []).forEach(function (z) {
+            var d = z.reservation_date;
+            if (!proTag[d]) { proTag[d] = { ganz: false, zeiten: [], tische: 0 }; reihe.push(d); }
+            var t = String(z.reservation_time || '').slice(0, 5);
+            if (z.table_id) proTag[d].tische++;
+            else if (t === '00:00') proTag[d].ganz = true;
+            else proTag[d].zeiten.push(t);
         });
-        var curArr = await curResp.json().catch(function() { return []; });
-        var cur = curArr[0] || {};
-
-        var resp = await fetch(SUPABASE_URL + '/rest/v1/rpc/update_reservation_details', {
-            method: 'POST',
-            headers: {
-                'apikey': SUPABASE_KEY,
-                'Authorization': 'Bearer ' + kmiToken(),
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                p_reservation_id: blockId,
-                p_guest_name: cur.guest_name || 'GESPERRT',
-                p_reservation_date: cur.reservation_date || todayStrLocal(),
-                p_reservation_time: cur.reservation_time || '00:00',
-                p_party_size: cur.party_size || 0,
-                p_table_id: cur.table_id || null,
-                p_guest_phone: cur.guest_phone || null,
-                p_notes: cur.notes || null,
-                p_status: 'cancelled'
-            })
-        });
-        if (resp.ok) {
-            showToast('Sperrung aufgehoben', 'success');
-            var restId = window.currentRestaurantId || (APP_DATA.restaurants && APP_DATA.restaurants[0] && APP_DATA.restaurants[0].id);
-            if (restId) {
-                loadBlockList(restId, _blockSelectedDate);
-                if (typeof loadReservationsForRestaurant === 'function') loadReservationsForRestaurant(restId);
-                if (typeof window.resLoadReservations === 'function') window.resLoadReservations();
-            }
-        } else {
-            showToast('Fehler beim Aufheben', 'error');
+        if (!reihe.length) {
+            box.innerHTML = '<p style="color:var(--text-secondary);font-size:13px;margin:0;">Keine kommenden Sperrungen.</p>';
+            return;
         }
-    } catch(e) {
-        showToast('Fehler: ' + e.message, 'error');
+        var html = '';
+        reihe.slice(0, 40).forEach(function (d) {
+            var p = proTag[d], teile = [];
+            if (p.ganz) teile.push('ganzer Tag');
+            else if (p.zeiten.length) teile.push(p.zeiten.length === 1 ? p.zeiten[0] + ' Uhr' : p.zeiten[0] + ' – ' + p.zeiten[p.zeiten.length - 1] + ' Uhr');
+            if (p.tische) teile.push(p.tische === 1 ? '1 Tisch' : p.tische + ' Tisch-Sperren');
+            html += '<button type="button" onclick="blockCalSelectDate(\'' + d + '\')" style="display:flex;justify-content:space-between;gap:10px;width:100%;padding:9px 12px;margin-bottom:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);border-radius:12px;font-size:13px;cursor:pointer;text-align:left;">'
+                  + '<b style="font-weight:700;">' + sperrDatumKurz(d) + '</b><span style="color:var(--text-secondary);">' + teile.join(' · ') + '</span></button>';
+        });
+        if (reihe.length > 40) html += '<p style="color:var(--text-secondary);font-size:12px;margin:6px 0 0;">und ' + (reihe.length - 40) + ' weitere Tage</p>';
+        box.innerHTML = html;
+    } catch (e) {
+        box.innerHTML = '<div style="color:#b91c1c;font-size:13px;">Kommende Sperrungen nicht ladbar (' + escapeHtml(e.message) + ').</div>';
     }
+}
+
+function removeBlock(blockId) { return removeBlocks(String(blockId)); }
+
+async function removeBlocks(idListe) {
+    var ids = String(idListe || '').split(',').filter(function (x) { return /^[0-9a-f-]{20,}$/i.test(x); });
+    if (!ids.length) return;
+    var restId = sperrLokal();
+    var fehler = 0;
+    for (var i = 0; i < ids.length; i++) {
+        try {
+            // RPC, weil die RLS das direkte Aendern verbietet -- Status auf
+            // 'cancelled' statt DELETE (bleibt nachvollziehbar).
+            var curResp = await sbRead(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + ids[i] + '&select=guest_name,reservation_date,reservation_time,party_size,table_id,guest_phone,notes', { headers: sperrKopf() });
+            var curArr = await curResp.json().catch(function() { return []; });
+            var cur = curArr[0] || {};
+            var resp = await fetch(SUPABASE_URL + '/rest/v1/rpc/update_reservation_details', {
+                method: 'POST',
+                headers: sperrKopf({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify({
+                    p_reservation_id: ids[i],
+                    p_guest_name: cur.guest_name || 'GESPERRT',
+                    p_reservation_date: cur.reservation_date || todayStrLocal(),
+                    p_reservation_time: cur.reservation_time || '00:00',
+                    p_party_size: cur.party_size || 0,
+                    p_table_id: cur.table_id || null,
+                    p_guest_phone: cur.guest_phone || null,
+                    p_notes: cur.notes || null,
+                    p_status: 'cancelled'
+                })
+            });
+            if (!resp.ok) fehler++;
+        } catch (e) { fehler++; }
+    }
+    if (fehler) showToast(fehler + ' von ' + ids.length + ' Sperrungen nicht aufgehoben', 'error');
+    else showToast(ids.length === 1 ? 'Sperrung aufgehoben' : ids.length + ' Sperrungen aufgehoben', 'success');
+    if (restId) blockNachAenderung(restId);
 }
 
 // ==================== THEME ====================
