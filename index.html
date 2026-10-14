@@ -21874,7 +21874,8 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         </span>
                         Vorschau der Zeitslots
                     </h4>
-                    <div id="resSettingsPreview" class="res-slots-preview">
+                    <div id="resSettingsTageHinweis" style="display:none;margin:10px 0;padding:10px 12px;border-radius:12px;background:rgba(217,119,6,0.08);border:1px solid rgba(217,119,6,0.25);font-size:12px;line-height:1.5;color:var(--text-primary);"></div>
+                        <div id="resSettingsPreview" class="res-slots-preview">
                         <!-- Wird dynamisch generiert -->
                     </div>
                     <div style="display: flex; align-items: center; gap: 16px; margin-top: 16px;">
@@ -32232,6 +32233,22 @@ function generateReservationSlots(restaurantId, datum) {
             var ende = sch.e <= sch.s ? sch.e + 1440 : sch.e;
             return { von: sch.s, bis: Math.min(ende - 30, 1439) };
         });
+        // RESERVIERUNGSZEITEN WIRKEN AUCH AN TAGEN MIT EIGENEN ZEITEN
+        // (Ibo, 14.10.2026: "beim reservierungen der zeit ... speichert er
+        // nimmt nichts an"). Gemessen: das Speichern kam an (Supabase,
+        // 1 Zeile geaendert) -- aber hatte das Lokal Oeffnungszeiten pro
+        // Wochentag, wurden Beginn/Ende von hier still ignoriert.
+        // Jetzt: wer hier speichert (res_fenster), begrenzt damit die
+        // Uhrzeiten auch dort -- Schnittmenge aus Oeffnungszeit und
+        // Reservierungszeit. Lokale, die hier nie gespeichert haben,
+        // bleiben, wie sie waren.
+        var _ohF = restaurant.opening_hours;
+        if (typeof _ohF === 'string') { try { _ohF = JSON.parse(_ohF); } catch (e) { _ohF = null; } }
+        if (_ohF && _ohF.res_fenster === true && endMin >= startMin) {
+            bereiche = bereiche.map(function (b) {
+                return { von: Math.max(b.von, startMin), bis: Math.min(b.bis, endMin) };
+            }).filter(function (b) { return b.bis >= b.von; });
+        }
     }
 
     bereiche.forEach(function (b) {
@@ -32436,6 +32453,33 @@ function loadResSettingsUI() {
 
     updatePauseToggleVisual();
     updateResPreview();
+    resTageHinweis(restaurant);
+}
+
+// WAS FUER GAESTE WIRKLICH GILT. Hat das Lokal Oeffnungszeiten pro
+// Wochentag, bestimmen die die Uhrzeiten -- das stand nirgends, und
+// Beginn/Ende hier sahen aus, als haetten sie keine Wirkung (14.10.2026).
+function resTageHinweis(restaurant) {
+    var el = document.getElementById('resSettingsTageHinweis');
+    if (!el) return;
+    var oh = restaurant && restaurant.opening_hours;
+    if (typeof oh === 'string') { try { oh = JSON.parse(oh); } catch (e) { oh = null; } }
+    var namen = { mo: 'Mo', di: 'Di', mi: 'Mi', do: 'Do', fr: 'Fr', sa: 'Sa', so: 'So' };
+    var zeilen = [];
+    if (oh && typeof oh === 'object') {
+        ['mo', 'di', 'mi', 'do', 'fr', 'sa', 'so'].forEach(function (k) {
+            if (!oh[k + '_start'] || !oh[k + '_end']) return;
+            var z = oh[k + '_start'] + '–' + oh[k + '_end'];
+            if (oh[k + '_start2'] && oh[k + '_end2']) z += ', ' + oh[k + '_start2'] + '–' + oh[k + '_end2'];
+            zeilen.push(namen[k] + ' ' + z);
+        });
+    }
+    if (!zeilen.length) { el.style.display = 'none'; el.textContent = ''; return; }
+    el.style.display = 'block';
+    el.innerHTML = '<b>Dieses Lokal hat Öffnungszeiten pro Wochentag:</b> ' + escapeHtml(zeilen.join(' · ')) + '. '
+        + (oh.res_fenster === true
+            ? 'Gäste können nur reservieren, wo beides passt: Öffnungszeit <b>und</b> Beginn–Ende hier.'
+            : 'Beginn–Ende hier gilt dort erst, wenn du einmal auf <b>Speichern</b> drückst.');
 }
 
 function setResInterval(val) {
@@ -32549,6 +32593,9 @@ async function saveResSettings() {
     oh.pause_start = pauseStart;
     oh.pause_end = pauseEnd;
     oh.disabled_slots = resDisabledSlots.length > 0 ? resDisabledSlots : [];
+    // Ab jetzt gelten Beginn/Ende auch an Tagen mit eigenen Oeffnungszeiten
+    // (generateReservationSlots, res_fenster).
+    oh.res_fenster = true;
 
     var updateData = {
         opening_time: start,
@@ -32564,11 +32611,19 @@ async function saveResSettings() {
                 'apikey': SUPABASE_KEY,
                 'Authorization': 'Bearer ' + kmiToken(),
                 'Content-Type': 'application/json',
-                'Prefer': 'return=minimal'
+                // Mit Antwort: "gespeichert" nur, wenn die Zeile wirklich
+                // geaendert wurde. return=minimal sagte 204 auch bei 0 Zeilen.
+                'Prefer': 'return=representation'
             },
             body: JSON.stringify(updateData)
         });
 
+        var _gespeichert = [];
+        if (resp.ok) { try { _gespeichert = await resp.json(); } catch (e) { _gespeichert = []; } }
+        if (resp.ok && (!Array.isArray(_gespeichert) || !_gespeichert.length)) {
+            showToast('Nicht gespeichert – keine Berechtigung für dieses Lokal. Bitte neu anmelden.', 'error');
+            return;
+        }
         if (resp.ok) {
             // Lokale Daten aktualisieren
             if (restaurant) {
@@ -32578,6 +32633,7 @@ async function saveResSettings() {
                 restaurant.opening_hours = oh;
             }
             showToast('Reservierungszeiten gespeichert!', 'success');
+            resTageHinweis(restaurant);
             // Andere Tabs aktualisieren
             if (typeof populateResTimeSelect === 'function') populateResTimeSelect();
             if (typeof window.resRenderDaySlots === 'function') window.resRenderDaySlots();
