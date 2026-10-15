@@ -124,7 +124,9 @@ function ruf(F, koerper, kopfzeile) {
     var F = ladeMit({ TELEFON_TOKEN: TOKEN, SUPABASE_SERVICE_KEY: 'dienst' });
     // Fester Bezugspunkt statt "jetzt" -- ein Test, der um Mitternacht anders
     // ausgeht als um Mittag, ist keiner.
-    var jetzt = Date.parse('2026-08-18T19:05:00Z');
+    // Mit Zeitzone: vorher stand hier 19:05 UTC (= 21:05 in Deutschland) --
+    // der Test war auf einem Mac in Berlin rot, auf Netlify gruen.
+    var jetzt = Date.parse('2026-08-18T19:05:00+02:00');
     function z(datum, zeit) {
         return F.zeitFehler(F.saubereReservierung(
             Object.assign({}, GUT, { reservation_date: datum, reservation_time: zeit })), jetzt);
@@ -133,6 +135,12 @@ function ruf(F, koerper, kopfzeile) {
     // Ein Anruf um 19:05 fuer "heute 19 Uhr" ist gemeint, nicht vertippt.
     t('heute 19 Uhr, angerufen um 19:05 -- gemeint, nicht vertippt',
       z('2026-08-18', '19:00') === '', z('2026-08-18', '19:00'));
+    // Auf dem Server (UTC) galt "16:00" als 18:00 deutscher Zeit -- und ging durch.
+    t('heute 16 Uhr, angerufen um 19:05 -- abgelehnt, auch auf einem UTC-Server',
+      /Vergangenheit/.test(z('2026-08-18', '16:00')), z('2026-08-18', '16:00'));
+    t('Winterzeit: 19 Uhr am 10.12., angerufen um 19:05 -- gemeint',
+      F.zeitFehler(F.saubereReservierung(Object.assign({}, GUT, { reservation_date: '2026-12-10', reservation_time: '19:00' })),
+        Date.parse('2026-12-10T19:05:00+01:00')) === '');
     t('gestern wird abgelehnt', /Vergangenheit/.test(z('2026-08-17', '19:00')), z('2026-08-17', '19:00'));
     // Der klassische Fehler der Spracherkennung: ein Jahr dazuerfunden.
     t('in drei Jahren wird abgelehnt', /voraus/.test(z('2029-08-20', '19:00')), z('2029-08-20', '19:00'));
