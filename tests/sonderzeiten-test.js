@@ -31,6 +31,14 @@ t('kaputte Einträge (bis vor von, falsches Datum) werden ignoriert', G('L', '20
 APP_DATA.restaurants = [Object.assign(lokal([{ datum: '2026-10-19', von: '12:00', bis: '12:30' }]), { opening_hours: JSON.stringify({ sonderzeiten: [{ datum: '2026-10-19', von: '12:00', bis: '12:30' }] }) })];
 t('opening_hours als Text (ältere Zeilen) geht auch', G('L', '2026-10-19').join(' ') === '12:00 12:30', G('L', '2026-10-19').join(' '));
 
+// Tische pro Sonderzeit (Ibo: "und mit tische so viel in die zeit buchbar")
+var OT = new Function(fn('sonderzeitenVon') + fn('sonderzeitenAm') + fn('onlineTischeVon') + fn('onlineTischeUm') + '; return onlineTischeUm;')();
+var mitT = { features: ['online_tische:5'], opening_hours: { sonderzeiten: [{ datum: '2026-10-19', von: '12:00', bis: '13:00', tische: 2 }] } };
+t('Sonderzeit mit 2 Tischen: 12:00 und 13:00 -> 2', OT(mitT, '2026-10-19', '12:00') === 2 && OT(mitT, '2026-10-19', '13:00') === 2, OT(mitT, '2026-10-19', '12:00'));
+t('… außerhalb (19:00, anderer Tag) -> allgemeine Zahl 5', OT(mitT, '2026-10-19', '19:00') === 5 && OT(mitT, '2026-10-20', '12:00') === 5, OT(mitT, '2026-10-19', '19:00'));
+t('… ohne Tisch-Zahl / Unsinn -> keine eigene Grenze', OT({ opening_hours: { sonderzeiten: [{ datum: '2026-10-19', von: '12:00', bis: '13:00', tische: 'x' }] } }, '2026-10-19', '12:00') === null, '');
+t('Gästeseite rechnet "noch N Tische" pro Uhrzeit damit', /var _onlineT = _otRest \? onlineTischeUm\(_otRest, date, t\) : null;/.test(H), 'fehlt');
+
 // Gaeste-Kalender: Ruhetag mit Sonderzeit ist anklickbar.
 t('Gäste-Kalender: Ruhetag mit Sonderzeit nicht mehr zu', /if \(isClosed && _resRest && sonderzeitenAm\(_resRest, ds\)\.length\) isClosed = false;/.test(fn('resCalRender')), 'fehlt');
 

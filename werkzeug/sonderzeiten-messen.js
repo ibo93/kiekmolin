@@ -78,14 +78,14 @@ var MONTAG = (function () { var d = new Date(); d.setDate(d.getDate() + 3); whil
 
   var p = await seite(1180, false);
   pruef('Karte „Sonderzeiten – extra buchbar“ sichtbar, leer: „Keine Sonderzeiten.“', /Keine Sonderzeiten/.test(await p.s.textContent('#sonderListe')) && await p.s.isVisible('#sonderKarte'), await p.s.textContent('#sonderListe'));
-  await p.s.fill('#sonderDatum', MONTAG); await p.s.fill('#sonderVon', '12:00'); await p.s.fill('#sonderBis', '13:00');
+  await p.s.fill('#sonderDatum', MONTAG); await p.s.fill('#sonderVon', '12:00'); await p.s.fill('#sonderBis', '13:00'); await p.s.fill('#sonderTische', '2');
   await p.s.evaluate(function () { sonderVorschau(); });
   var vor = await p.s.textContent('#sonderVorschauText');
-  pruef('Vorschau: „zusätzlich buchen: 12:00 · 12:30 · 13:00 Uhr“', /zusätzlich buchen: 12:00 · 12:30 · 13:00 Uhr/.test(vor), vor);
+  pruef('Vorschau: „zusätzlich buchen: 12:00 · 12:30 · 13:00 Uhr – je Uhrzeit höchstens 2 Tische“', /zusätzlich buchen: 12:00 · 12:30 · 13:00 Uhr – je Uhrzeit höchstens 2 Tische/.test(vor), vor);
   await p.s.click('#sonderHinzu'); await p.s.waitForTimeout(600);
-  pruef('gespeichert beim Lokal, andere Einstellung (res_fenster) bleibt', p.db.patches[0] === KUNDE && p.db.oh.res_fenster === true && JSON.stringify(p.db.oh.sonderzeiten) === JSON.stringify([{ datum: MONTAG, von: '12:00', bis: '13:00' }]), JSON.stringify(p.db));
+  pruef('gespeichert beim Lokal, andere Einstellung (res_fenster) bleibt', p.db.patches[0] === KUNDE && p.db.oh.res_fenster === true && JSON.stringify(p.db.oh.sonderzeiten) === JSON.stringify([{ datum: MONTAG, von: '12:00', bis: '13:00', tische: 2 }]), JSON.stringify(p.db));
   var liste = await p.s.textContent('#sonderListe');
-  pruef('Liste zeigt „12:00–13:00 Uhr“ mit Entfernen', /12:00–13:00 Uhr/.test(liste) && /Entfernen/.test(liste), liste);
+  pruef('Liste zeigt „12:00–13:00 Uhr · höchstens 2 Tische“ mit Entfernen', /12:00–13:00 Uhr · höchstens 2 Tische/.test(liste) && /Entfernen/.test(liste), liste);
   for (var sel of ['#sonderVorschauText', '#sonderListe span[style*="flex:1"]', '#sonderKarte p']) {
     var k = await p.s.evaluate(KONTRAST, sel); pruef('Kontrast hell ' + sel + ' >= 4.5', k >= 4.5, k);
   }
@@ -106,10 +106,12 @@ var MONTAG = (function () { var d = new Date(); d.setDate(d.getDate() + 3); whil
     await loadAvailableSlots();
     await new Promise(function (ok) { setTimeout(ok, 400); });
     var zeiten = Array.prototype.map.call(document.querySelectorAll('#availableSlotsContainer .slot-btn'), function (x) { return x.getAttribute('data-time'); });
-    return { kalender: !!zelle, zeiten: zeiten.join(' ') };
+    var b12 = document.querySelector('#availableSlotsContainer .slot-btn[data-time="12:00"]');
+    return { kalender: !!zelle, zeiten: zeiten.join(' '), text12: b12 ? b12.textContent.replace(/\s+/g, ' ').trim() : '-' };
   }, { k: KUNDE, d: MONTAG });
   pruef('Gast: Ruhetag mit Sonderzeit im Kalender anklickbar', gast.kalender, JSON.stringify(gast));
   pruef('Gast: Uhrzeiten 12:00 12:30 13:00 am Ruhetag', gast.zeiten === '12:00 12:30 13:00', gast.zeiten);
+  pruef('Gast: 12:00 zeigt „noch 2 Tische“', /noch 2 Tische/.test(gast.text12), gast.text12);
 
   await p.s.evaluate(function () { document.getElementById('sonderKarte').scrollIntoView({ block: 'center' }); });
   await p.s.click('#sonderListe button'); await p.s.waitForTimeout(600);
@@ -126,7 +128,7 @@ var MONTAG = (function () { var d = new Date(); d.setDate(d.getDate() + 3); whil
 
   var m = await seite(390, true);
   await m.s.fill('#sonderDatum', MONTAG); await m.s.click('#sonderHinzu'); await m.s.waitForTimeout(600);
-  for (var sel2 of ['#sonderVorschauText', '#sonderListe span[style*="flex:1"]', '#sonderKarte p', '#sonderKarte label']) {
+  for (var sel2 of ['#sonderVorschauText', '#sonderTische', '#sonderListe span[style*="flex:1"]', '#sonderKarte p', '#sonderKarte label']) {
     var kd = await m.s.evaluate(KONTRAST, sel2); pruef('Kontrast dunkel ' + sel2 + ' >= 4.5', kd >= 4.5, kd);
   }
   var breit = await m.s.evaluate(function () { var k = document.getElementById('sonderKarte'); return Math.round(k.scrollWidth) + '/' + Math.round(k.clientWidth); });
