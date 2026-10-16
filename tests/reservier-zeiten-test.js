@@ -37,7 +37,7 @@ function schneide(kopf) {
 }
 
 var APP_DATA = { restaurants: [] };
-var QUELLE = ['function generateReservationSlots(', 'function reservierSchichtenAm(', 'function subtractMinutes(', 'function parseTime(timeStr)'].map(schneide);
+var QUELLE = ['function generateReservationSlots(', 'function sonderzeitenVon(', 'function sonderzeitenAm(', 'function reservierSchichtenAm(', 'function subtractMinutes(', 'function parseTime(timeStr)'].map(schneide);
 t('alle Funktionen gefunden', QUELLE.every(function (q) { return q.length > 40; }), QUELLE.map(function (q) { return q.length; }));
 var gen = new Function('APP_DATA', QUELLE.join('\n') + '\nreturn generateReservationSlots;')(APP_DATA);
 

@@ -124,6 +124,9 @@ Module._load = echtLaden;
 var RID = '11111111-2222-3333-4444-555555555555';
 // welt.aktionen: was die Tabelle liefert (oder 'weg' = 404, 'kaputt' = wirft)
 // welt.spalteFehlt: aktion_text gibt es in reservations noch nicht
+// Ein Donnerstag in der Zukunft (Ladies Night). Fest '2026-10-15' lief am
+// 16.10.2026 ab: der Server lehnt Vergangenes ab, zehn Tests wurden rot.
+var DONNERSTAG_BALD = (function () { var d = new Date(); d.setDate(d.getDate() + 7 + ((4 - d.getDay() + 7) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })();
 async function reservieren(welt, extra) {
     var eingefuegt = [];
     global.fetch = async function (url, init) {
@@ -146,7 +149,7 @@ async function reservieren(welt, extra) {
         return { ok: true, json: async function () { return []; } };
     };
     var koerper = Object.assign({ restaurant_id: RID, guest_name: 'Ayse', guest_phone: '0491123', party_size: 4,
-        reservation_date: '2026-10-15', reservation_time: '22:00' }, extra || {});
+        reservation_date: DONNERSTAG_BALD, reservation_time: '22:00' }, extra || {});
     var r = await RG.handler({ httpMethod: 'POST', body: JSON.stringify(koerper) });
     return { code: r.statusCode, antwort: JSON.parse(r.body), eingefuegt: eingefuegt };
 }

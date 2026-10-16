@@ -22,7 +22,7 @@ function t(l, c, x) { n++; if (c === true) ok++; console.log((c === true ? 'OK  
 function fn(name, Q) { Q = Q || H; var i = Q.indexOf('function ' + name + '('); if (i < 0) throw new Error('fehlt: ' + name); var a = Q.lastIndexOf('\n', i) + 1; var d = 0, j = Q.indexOf('{', i); for (var k = j; k < Q.length; k++) { if (Q[k] === '{') d++; else if (Q[k] === '}') { d--; if (!d) return Q.slice(a, k + 1); } } }
 
 var APP_DATA = { restaurants: [] };
-var G = new Function('APP_DATA', fn('parseTime') + fn('subtractMinutes') + fn('reservierSchichtenAm') + fn('generateReservationSlots') + '; return generateReservationSlots;')(APP_DATA);
+var G = new Function('APP_DATA', fn('parseTime') + fn('subtractMinutes') + fn('sonderzeitenVon') + fn('sonderzeitenAm') + fn('reservierSchichtenAm') + fn('generateReservationSlots') + '; return generateReservationSlots;')(APP_DATA);
 function lokal(oh) { return { id: 'L', opening_time: '11:00', closing_time: '22:00', slot_interval_minutes: 30, opening_hours: oh }; }
 var MONTAG = '2026-10-19', DIENSTAG = '2026-10-20';
 var tage = { pause_enabled: false, mo_start: '17:00', mo_end: '23:30' };
