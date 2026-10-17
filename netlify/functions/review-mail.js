@@ -91,12 +91,9 @@ function esc(s) {
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-async function sendMail(to, subject, html) {
-    var res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: EMAIL_FROM, to: [to], subject: subject, html: html, text: nurText(html) })
-    });
+async function sendMail(to, subject, html, rest) {
+    var res = await MAIL.senden(RESEND_API_KEY, Object.assign(MAIL.versandKopf(rest, EMAIL_FROM),
+        { to: [to], subject: subject, html: html, text: nurText(html) }), EMAIL_FROM);
     if (!res.ok) {
         var t = ''; try { t = await res.text(); } catch (e) {}
         throw new Error('Resend ' + res.status + ': ' + t.slice(0, 150));
@@ -161,7 +158,7 @@ exports.handler = async function () {
 
     var betriebe = {};
     try {
-        (await sbGet('restaurants?select=id,name,slug,city,logo_url&limit=300')).forEach(function (r) { betriebe[r.id] = r; });
+        (await sbGet('restaurants?select=id,name,slug,city,email,logo_url&limit=300')).forEach(function (r) { betriebe[r.id] = r; });
     } catch (e) {
         return { statusCode: 200, body: 'Betriebe nicht lesbar: ' + e.message };
     }
@@ -229,7 +226,8 @@ exports.handler = async function () {
             await sendMail(
                 k.mail,
                 'Wie war es bei ' + b.name + '?',
-                baueMail(k.name, b.name, k.anlass, link, b)
+                baueMail(k.name, b.name, k.anlass, link, b),
+                b
             );
             verschickt++;
         } catch (e) {

@@ -50,16 +50,12 @@ function berlinHourMin() {
 }
 function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
-async function sendMail(to, subject, html) {
-    var res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json' },
-        // Mit Textfassung -- siehe lib/nur-text.js. Diese Erinnerung geht
-        // an GAESTE, also zaehlt hier jede Kleinigkeit, die die Mail
-        // durch den Spamfilter bringt.
-        body: JSON.stringify({ from: EMAIL_FROM, to: [to], subject: subject,
-                               html: html, text: nurText(html) })
-    });
+async function sendMail(to, subject, html, rest) {
+    // Mit Textfassung -- siehe lib/nur-text.js. Diese Erinnerung geht
+    // an GAESTE, also zaehlt hier jede Kleinigkeit, die die Mail
+    // durch den Spamfilter bringt. Absender/Antwort/Rueckfall: lib/mail-rahmen.js
+    var res = await MAIL.senden(RESEND_API_KEY, Object.assign(MAIL.versandKopf(rest, EMAIL_FROM),
+        { to: [to], subject: subject, html: html, text: nurText(html) }), EMAIL_FROM);
     if (!res.ok) { var t = ''; try { t = await res.text(); } catch (e) {} throw new Error('Resend ' + res.status + ': ' + t.slice(0, 150)); }
 }
 
@@ -120,7 +116,7 @@ exports.handler = async function () {
     // Restaurant-Infos einmal laden
     var restaurants = {};
     try {
-        (await sbGet('restaurants?select=id,slug,name,street,city,phone,logo_url&limit=200')).forEach(function (r) { restaurants[r.id] = r; });
+        (await sbGet('restaurants?select=id,slug,name,street,city,phone,email,logo_url&limit=200')).forEach(function (r) { restaurants[r.id] = r; });
     } catch (e) {}
 
     var sent = 0, skipped = 0;
@@ -147,7 +143,7 @@ exports.handler = async function () {
         var html = erinnerungsMail(res, rest, timeStr);
 
         try {
-            await sendMail(res.guest_email, 'Erinnerung: Dein Tisch heute um ' + timeStr + ' Uhr – ' + restName, html);
+            await sendMail(res.guest_email, 'Erinnerung: Dein Tisch heute um ' + timeStr + ' Uhr – ' + restName, html, rest);
             sent++;
         } catch (e) {
             console.error('[res-reminder] Mail fehlgeschlagen:', e.message);

@@ -450,7 +450,7 @@ function buildReservationEmail(r, rest, eventType) {
     return { subject: subjPrefix + ' – ' + restName + ', ' + timeStr + ' Uhr', html: html };
 }
 
-async function sendViaResend(to, mail) {
+async function sendViaResend(to, mail, rest, lokalName) {
     // MIT TEXTFASSUNG.
     //
     // Gefragt am 31.08.2026, warum manche Mails auf "Gesendet" stehen
@@ -459,12 +459,9 @@ async function sendViaResend(to, mail) {
     // GMX werten die schlechter -- sie wird eher gedrosselt.
     //
     // Kein Zaubermittel gegen Abpraller. Nur ein Grund weniger.
-    var res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: EMAIL_FROM, to: [to], subject: mail.subject,
-                               html: mail.html, text: nurText(mail.html) })
-    });
+    // Absender mit Lokalnamen, Antworten ans Lokal, Rueckfall: lib/mail-rahmen.js
+    var res = await MAIL.senden(RESEND_API_KEY, Object.assign(MAIL.versandKopf(rest, EMAIL_FROM, lokalName),
+        { to: [to], subject: mail.subject, html: mail.html, text: nurText(mail.html) }), EMAIL_FROM);
     if (!res.ok) {
         var t = ''; try { t = await res.text(); } catch (e) {}
         var err = new Error('Resend ' + res.status + ': ' + t.slice(0, 200));
@@ -503,12 +500,12 @@ async function handleReservation(resvId, eventType) {
     var rest = null;
     if (resv.restaurant_id) {
         try {
-            var rres = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(resv.restaurant_id) + '&select=id,slug,name,street,city,phone,google_maps_url,logo_url', { headers: sbHeaders() });
+            var rres = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(resv.restaurant_id) + '&select=id,slug,name,street,city,phone,email,google_maps_url,logo_url', { headers: sbHeaders() });
             if (rres.ok) { var rl = await rres.json(); rest = rl[0] || null; }
         } catch (e) {}
     }
 
-    await sendViaResend(to, buildReservationEmail(resv, rest, eventType));
+    await sendViaResend(to, buildReservationEmail(resv, rest, eventType), rest);
     return json(200, { ok: true, sent: true });
 }
 
@@ -600,12 +597,12 @@ exports.handler = async function (event) {
             if (zOrder.restaurant_id) {
                 try {
                     var zres = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.'
-                        + encodeURIComponent(zOrder.restaurant_id) + '&select=id,slug,name,city,phone,logo_url', { headers: sbHeaders() });
+                        + encodeURIComponent(zOrder.restaurant_id) + '&select=id,slug,name,city,phone,email,logo_url', { headers: sbHeaders() });
                     if (zres.ok) { var zl = await zres.json(); zRest = zl[0] || null; }
                 } catch (e) {}
             }
 
-            await sendViaResend(zTo, buildZeitEmail(zOrder, zRest));
+            await sendViaResend(zTo, buildZeitEmail(zOrder, zRest), zRest, zOrder.restaurant_name);
             return json(200, { ok: true, sent: true, event: 'zeit_geaendert' });
         } catch (e) {
             return json(e.resend ? 502 : 500, { error: e.message });
@@ -648,13 +645,13 @@ exports.handler = async function (event) {
             if (aOrder.restaurant_id) {
                 try {
                     var arres = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.'
-                        + encodeURIComponent(aOrder.restaurant_id) + '&select=id,slug,name,street,city,phone,features,logo_url',
+                        + encodeURIComponent(aOrder.restaurant_id) + '&select=id,slug,name,street,city,phone,email,features,logo_url',
                         { headers: sbHeaders() });
                     if (arres.ok) { var arl = await arres.json(); aRest = arl[0] || null; }
                 } catch (e) {}
             }
 
-            await sendViaResend(aTo, buildAcceptedEmail(aOrder, aRest));
+            await sendViaResend(aTo, buildAcceptedEmail(aOrder, aRest), aRest, aOrder.restaurant_name);
             return json(200, { ok: true, sent: true, event: 'accepted' });
         } catch (e) {
             return json(e.resend ? 502 : 500, { error: e.message });
@@ -696,7 +693,7 @@ exports.handler = async function (event) {
         if (order.restaurant_id) {
             try {
                 var orres = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.'
-                    + encodeURIComponent(order.restaurant_id) + '&select=id,slug,name,city,google_maps_url,features,logo_url',
+                    + encodeURIComponent(order.restaurant_id) + '&select=id,slug,name,city,email,google_maps_url,features,logo_url',
                     { headers: sbHeaders() });
                 if (orres.ok) { var orl = await orres.json(); restOrder = orl[0] || null; }
             } catch (e) {}
@@ -723,11 +720,11 @@ exports.handler = async function (event) {
                     body: JSON.stringify({ accepted_email_sent_at: new Date().toISOString() })
                 });
             } catch (e) {}
-            await sendViaResend(to, buildAcceptedEmail(order, restOrder));
+            await sendViaResend(to, buildAcceptedEmail(order, restOrder), restOrder, order.restaurant_name);
             return json(200, { ok: true, sent: true, event: 'accepted', sofort: true });
         }
 
-        await sendViaResend(to, buildEmail(order, restOrder));
+        await sendViaResend(to, buildEmail(order, restOrder), restOrder, order.restaurant_name);
         return json(200, { ok: true, sent: true });
     } catch (e) {
         return json(e.resend ? 502 : 500, { error: e.message });

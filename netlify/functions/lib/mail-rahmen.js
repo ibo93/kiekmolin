@@ -171,5 +171,56 @@ function rahmen(o) {
         + '</table></td></tr></table></body></html>';
 }
 
-module.exports = { rahmen: rahmen, knopf: knopf, verweise: verweise, detailKarte: detailKarte, kasten: kasten,
+// ABSENDER UND ANTWORT (Ibo, 17.10.2026).
+//
+// Im Postfach stand bei jeder Mail nur "Kiek mol in" -- der Gast sah nicht,
+// von welchem Lokal sie ist. Und wer auf die Mail antwortete ("wir kommen
+// 15 Minuten spaeter"), schrieb an bestellung@kiekmolin.de, wo das Lokal
+// es nie liest.
+//
+// Jetzt: "Die Millis über Kiek mol in <bestellung@kiekmolin.de>" -- die
+// ADRESSE bleibt unsere (nur sie ist bei Resend bestaetigt; eine fremde
+// Absenderadresse landet im Spam). Antworten gehen per reply_to an die
+// E-Mail des Lokals, wenn eine gueltige hinterlegt ist.
+function absender(lokalName, standard) {
+    standard = String(standard || 'Kiek mol in <bestellung@kiekmolin.de>');
+    var m = standard.match(/<([^>]+)>/);
+    var adresse = m ? m[1] : standard.trim();
+    var name = String(lokalName || '').replace(/["<>\\\r\n]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+    return name ? '"' + name + ' über Kiek mol in" <' + adresse + '>' : standard;
+}
+function antwortAn(rest) {
+    var e = String(rest && rest.email || '').trim();
+    return /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[A-Za-z]{2,}$/.test(e) && e.length <= 120 ? e : null;
+}
+// Der fertige Kopf fuer die Resend-Anfrage.
+function versandKopf(rest, standard, lokalName) {
+    var k = { from: absender((rest && rest.name) || lokalName, standard) };
+    var r = antwortAn(rest);
+    if (r) k.reply_to = r;
+    return k;
+}
+
+// Verschicken mit Rueckfall. Lehnt Resend den neuen Absender ab (400/422 --
+// etwa wegen eines Zeichens im Lokalnamen), geht dieselbe Mail sofort noch
+// einmal mit dem alten Absender raus. Eine Mail mit schlichtem Absender ist
+// besser als keine; der Rueckfall steht im Protokoll.
+async function senden(apiKey, body, standard) {
+    function los(b) {
+        return fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+            body: JSON.stringify(b)
+        });
+    }
+    var res = await los(body);
+    if (!res.ok && (res.status === 400 || res.status === 422) && standard && body.from !== standard) {
+        var grund = ''; try { grund = await res.text(); } catch (e) {}
+        console.warn('[mail] Absender "' + body.from + '" abgelehnt (' + res.status + ': ' + String(grund).slice(0, 120) + ') -- noch einmal mit ' + standard);
+        res = await los(Object.assign({}, body, { from: standard }));
+    }
+    return res;
+}
+
+module.exports = { rahmen: rahmen, senden: senden, absender: absender, antwortAn: antwortAn, versandKopf: versandKopf, knopf: knopf, verweise: verweise, detailKarte: detailKarte, kasten: kasten,
     lokalUrl: lokalUrl, anlassText: anlassText, adresse: adresse, routeUrl: routeUrl, kalenderUrl: kalenderUrl, esc: esc, SITE: SITE };

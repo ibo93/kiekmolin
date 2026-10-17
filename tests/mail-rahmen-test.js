@@ -44,5 +44,28 @@ t('Bewertung: Rahmen, Text unverändert, Knopf', /Zum Lokal/.test(rev) && /hat e
 t('Bewertungs-Mail schickt jetzt auch eine Textfassung (Spamfilter)', /text: nurText\(html\)/.test(fs.readFileSync(path.join(R, 'review-mail.js'), 'utf8')), '');
 t('keine Gäste-Mail baut mehr ihr eigenes <div style="font-family', ['order-email.js', 'reservation-reminder.js', 'review-mail.js'].every(function (f) { return fs.readFileSync(path.join(R, f), 'utf8').indexOf('<div style="font-family:-apple-system') === -1; }), '');
 
-console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' Tests FEHLGESCHLAGEN.'));
-process.exit(ok === n ? 0 : 1);
+// Absender mit Lokalnamen, Antworten ans Lokal (Ibo, 17.10.2026)
+var STD = 'Kiek mol in <bestellung@kiekmolin.de>';
+t('Absender: "Die Millis über Kiek mol in" <bestellung@kiekmolin.de> -- Adresse bleibt unsere', M.absender('Die Millis', STD) === '"Die Millis über Kiek mol in" <bestellung@kiekmolin.de>', M.absender('Die Millis', STD));
+t('… Anführungszeichen/Klammern/Zeilenumbruch im Namen fliegen raus', !/[<>\n]|""/.test(M.absender('A "B" <c>\nBcc: x', STD).replace(/ <bestellung@kiekmolin\.de>$/, '').slice(1, -1)), M.absender('A "B" <c>\nBcc: x', STD));
+t('… ohne Namen: alter Absender', M.absender('', STD) === STD, '');
+t('Antwort an: gültige Lokal-Mail, sonst keine', M.antwortAn({ email: 'info@rhodos.de' }) === 'info@rhodos.de' && M.antwortAn({ email: 'kaputt' }) === null && M.antwortAn({ email: 'a@b.de, c@d.de' }) === null && M.antwortAn(null) === null, '');
+t('Versandkopf: reply_to nur mit gültiger Mail', JSON.stringify(M.versandKopf({ name: 'X', email: 'x@y.de' }, STD)) === JSON.stringify({ from: '"X über Kiek mol in" <bestellung@kiekmolin.de>', reply_to: 'x@y.de' }) && !('reply_to' in M.versandKopf({ name: 'X' }, STD)), '');
+['order-email.js', 'reservation-reminder.js', 'review-mail.js'].forEach(function (f) {
+    var q = fs.readFileSync(path.join(R, f), 'utf8');
+    t(f + ': verschickt über MAIL.senden mit versandKopf und lädt die Lokal-Mail', /MAIL\.senden\(RESEND_API_KEY, Object\.assign\(MAIL\.versandKopf\(/.test(q) && !/api\.resend\.com/.test(q) && /select=[a-z_,]*email/.test(q), '');
+});
+
+(async function () {
+    var alt = global.fetch, aufrufe = [], warn = console.warn; console.warn = function () {};
+    global.fetch = async function (u, o) { var b = JSON.parse(o.body); aufrufe.push(b.from);
+        return aufrufe.length === 1 ? { ok: false, status: 422, text: async function () { return 'Invalid from'; } } : { ok: true, status: 200 }; };
+    var r = await M.senden('k', { from: '"Lütt über Kiek mol in" <bestellung@kiekmolin.de>', to: ['g@x.de'] }, STD);
+    t('Resend lehnt Absender ab (422) -> gleiche Mail sofort mit altem Absender', r.ok && aufrufe.length === 2 && aufrufe[1] === STD, JSON.stringify(aufrufe));
+    aufrufe = []; global.fetch = async function (u, o) { aufrufe.push(1); return { ok: false, status: 500, text: async function () { return ''; } }; };
+    r = await M.senden('k', { from: '"X über Kiek mol in" <bestellung@kiekmolin.de>' }, STD);
+    t('… bei 500 (Resend gestört) kein zweiter Versuch -- Fehler geht nach oben', !r.ok && aufrufe.length === 1, aufrufe.length);
+    global.fetch = alt; console.warn = warn;
+    console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' Tests FEHLGESCHLAGEN.'));
+    process.exit(ok === n ? 0 : 1);
+})();

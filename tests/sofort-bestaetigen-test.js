@@ -150,7 +150,7 @@ t('fehlt die Zahl in der Bestellung, gilt die Einstellung des Wirts',
 t('aber nur, wenn er ueberhaupt eine Zusage machen will',
   /WARTEZEIT\.an\(rest\.features\)/.test(mail), 'erfindet eine Zeit');
 t('dafuer werden die features auch geladen',
-  /select=[a-z_,]*name,street,city,phone,features/.test(mail), 'features fehlen im select');
+  /select=[a-z_,]*name,street,city,phone,(email,)?features/.test(mail), 'features fehlen im select');
 t('schon bestaetigt -> Bestaetigungsmail statt "warte auf Bestaetigung"',
   /var sofort = String\(order\.status \|\| ''\)\.toLowerCase\(\) === 'accepted';/.test(mail)
   && /buildAcceptedEmail\(order, restOrder\)/.test(mail), 'Gast liest, er solle warten');

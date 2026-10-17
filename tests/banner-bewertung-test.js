@@ -202,7 +202,7 @@ t('und JEDER Weg schickt wirklich eine Mail',
 t('Reservierung: keine Bewertungs-Bitte vor dem Besuch',
   M.slice(M.indexOf('function buildReservationEmail('), M.indexOf('async function sendViaResend(')).indexOf('bewertungsBlock(') === -1);
 t('das Restaurant liefert dafuer den Google-Link mit',
-  /select=[a-z_,]*name,street,city,phone,google_maps_url/.test(M));
+  /select=[a-z_,]*name,street,city,phone,(email,)?google_maps_url/.test(M));
 
 // ---- 6. Der obere Banner lag AUF der Kopfzeile --------------------------
 // .guest-header schwebt: position:fixed, top:16px, z-index:1000.
