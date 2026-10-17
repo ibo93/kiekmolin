@@ -197,8 +197,10 @@ t('und JEDER Weg schickt wirklich eine Mail',
 
 // Bei der Reservierung nur nach der BESTAETIGUNG -- nicht bei der Anfrage
 // (da war der Gast noch nicht da) und erst recht nicht bei einer Absage.
-t('Reservierung: nur bei der Bestaetigung',
-  /eventType === 'confirmed' \? bewertungsBlock\(rest, restName\) : ''/.test(M));
+// Seit 17.10.2026 gar nicht mehr in der Reservierungs-Mail: "Hat es
+// geschmeckt?" vor dem Besuch. Die Bitte kommt mit review-mail.js danach.
+t('Reservierung: keine Bewertungs-Bitte vor dem Besuch',
+  M.slice(M.indexOf('function buildReservationEmail('), M.indexOf('async function sendViaResend(')).indexOf('bewertungsBlock(') === -1);
 t('das Restaurant liefert dafuer den Google-Link mit',
   /select=[a-z_,]*name,street,city,phone,google_maps_url/.test(M));
 

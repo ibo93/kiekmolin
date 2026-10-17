@@ -436,11 +436,11 @@ function buildReservationEmail(r, rest, eventType) {
             '<p style="margin:0;">' + intro + '</p>' +
             details + verweise +
             (eventType === 'cancelled' ? '<div style="margin-top:16px;">' + MAIL.knopf('Andere Uhrzeit wählen', MAIL.lokalUrl(rest), 'voll') + '</div>' : '') +
-            cancelBlock +
-            // Nur bei der BESTAETIGUNG. Bei einer offenen Anfrage war der Gast noch
-            // nicht da, und bei einer Absage wäre die Bitte um eine Bewertung
-            // schlicht unverschämt.
-            (eventType === 'confirmed' ? bewertungsBlock(rest, restName) : ''),
+            // KEINE Bitte um eine Bewertung mehr (Ibo, 17.10.2026). Bei der
+            // Bestaetigung war der Gast noch gar nicht da -- "Hat es
+            // geschmeckt?" vor dem Essen. Dafuer gibt es review-mail.js am
+            // Tag nach dem Besuch.
+            cancelBlock,
         fuss: 'Diese E-Mail wurde automatisch von kiekmolin.de verschickt.' +
             (eventType === 'received' ? ' Die Reservierung ist erst nach Bestätigung durch das Restaurant verbindlich.' : '')
     });
