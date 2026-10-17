@@ -24,6 +24,7 @@ var SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
 var RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 var EMAIL_FROM = process.env.EMAIL_FROM || 'Kiek mol in <bestellung@kiekmolin.de>';
 var nurText = require('./lib/nur-text').nurText;
+var MAIL = require('./lib/mail-rahmen');
 
 function sbHeaders(extra) {
     return Object.assign({ 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' }, extra || {});
@@ -49,17 +50,42 @@ function berlinHourMin() {
 }
 function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
-async function sendMail(to, subject, html) {
-    var res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json' },
-        // Mit Textfassung -- siehe lib/nur-text.js. Diese Erinnerung geht
-        // an GAESTE, also zaehlt hier jede Kleinigkeit, die die Mail
-        // durch den Spamfilter bringt.
-        body: JSON.stringify({ from: EMAIL_FROM, to: [to], subject: subject,
-                               html: html, text: nurText(html) })
-    });
+async function sendMail(to, subject, html, rest) {
+    // Mit Textfassung -- siehe lib/nur-text.js. Diese Erinnerung geht
+    // an GAESTE, also zaehlt hier jede Kleinigkeit, die die Mail
+    // durch den Spamfilter bringt. Absender/Antwort/Rueckfall: lib/mail-rahmen.js
+    var res = await MAIL.senden(RESEND_API_KEY, Object.assign(MAIL.versandKopf(rest, EMAIL_FROM),
+        { to: [to], subject: subject, html: html, text: nurText(html) }), EMAIL_FROM);
     if (!res.ok) { var t = ''; try { t = await res.text(); } catch (e) {} throw new Error('Resend ' + res.status + ': ' + t.slice(0, 150)); }
+}
+
+// Die Erinnerung selbst -- eigene Funktion, damit werkzeug/mails-ansehen.js
+// sie ohne Datenbank bauen kann.
+function erinnerungsMail(res, rest, timeStr) {
+    var restName = rest.name || 'dem Restaurant';
+    var cancelUrl = 'https://kiekmolin.de/.netlify/functions/res-cancel?id=' + encodeURIComponent(res.id);
+    var addr = [rest.street, rest.city].filter(Boolean).join(', ');
+
+    // Rahmen: lib/mail-rahmen.js (17.10.2026).
+    var html = MAIL.rahmen({
+        titelText: 'Heute: Dein Tisch um ' + timeStr + ' Uhr',
+        vorschau: 'Heute um ' + timeStr + ' Uhr bei ' + restName + ' – wir freuen uns auf dich.',
+        lokal: rest.name ? rest : null,
+        status: { text: 'Heute', art: 'gruen' },
+        titel: 'Heute: Dein Tisch um ' + esc(timeStr) + ' Uhr',
+        inhalt: '<p style="margin:0 0 4px;">Moin' + (res.guest_name ? ' ' + esc(res.guest_name) : '') + ',</p>' +
+            '<p style="margin:0;">kleine Erinnerung: Dein Tisch bei <strong>' + esc(restName) + '</strong> ist heute um <strong>' + esc(timeStr) + ' Uhr</strong> für <strong>' + (res.party_size || 2) + ' Personen</strong> reserviert. Wir freuen uns auf dich!</p>' +
+            MAIL.detailKarte([
+                ['Personen', esc(res.party_size || 2)],
+                ['Adresse', addr ? esc(addr) : ''],
+                ['Telefon', rest.phone ? '<a href="tel:' + esc(rest.phone) + '" style="color:#0b3d33;">' + esc(rest.phone) + '</a>' : '']
+            ], { links: 'Heute', rechts: esc(timeStr) + ' Uhr' }) +
+            MAIL.verweise([['Route planen', MAIL.routeUrl(rest)], ['Speisekarte ansehen', rest.name ? MAIL.lokalUrl(rest) : '']]) +
+            MAIL.kasten('Du kannst doch nicht kommen? Kein Problem – sag einfach kurz ab, dann kann das Team den Tisch weitergeben:<br>' +
+                MAIL.knopf('Reservierung absagen', cancelUrl, 'rot')),
+        fuss: 'Diese Erinnerung wurde automatisch von kiekmolin.de verschickt.'
+    });
+    return html;
 }
 
 exports.handler = async function () {
@@ -90,7 +116,7 @@ exports.handler = async function () {
     // Restaurant-Infos einmal laden
     var restaurants = {};
     try {
-        (await sbGet('restaurants?select=id,name,street,city,phone&limit=200')).forEach(function (r) { restaurants[r.id] = r; });
+        (await sbGet('restaurants?select=id,slug,name,street,city,phone,email,logo_url&limit=200')).forEach(function (r) { restaurants[r.id] = r; });
     } catch (e) {}
 
     var sent = 0, skipped = 0;
@@ -114,22 +140,10 @@ exports.handler = async function () {
 
         var rest = restaurants[res.restaurant_id] || {};
         var restName = rest.name || 'dem Restaurant';
-        var cancelUrl = 'https://kiekmolin.de/.netlify/functions/res-cancel?id=' + encodeURIComponent(res.id);
-        var addr = [rest.street, rest.city].filter(Boolean).join(', ');
-
-        var html = '<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111827;">' +
-            '<h1 style="font-size:20px;margin:0 0 12px;color:#003d33;">Heute: Dein Tisch um ' + esc(timeStr) + ' Uhr</h1>' +
-            '<p style="margin:0 0 8px;">Moin' + (res.guest_name ? ' ' + esc(res.guest_name) : '') + ',</p>' +
-            '<p style="margin:0 0 16px;">kleine Erinnerung: Dein Tisch bei <strong>' + esc(restName) + '</strong> ist heute um <strong>' + esc(timeStr) + ' Uhr</strong> für <strong>' + (res.party_size || 2) + ' Personen</strong> reserviert. Wir freuen uns auf dich!</p>' +
-            (addr ? '<p style="margin:0 0 16px;color:#374151;">Adresse: ' + esc(addr) + (rest.phone ? ' · Tel: <a href="tel:' + esc(rest.phone) + '" style="color:#003d33;">' + esc(rest.phone) + '</a>' : '') + '</p>' : '') +
-            '<p style="margin:0 0 8px;color:#6b7280;font-size:14px;">Du kannst doch nicht kommen? Kein Problem – sag einfach kurz ab, dann kann das Team den Tisch weitergeben:</p>' +
-            '<p style="margin:0 0 20px;"><a href="' + cancelUrl + '" style="display:inline-block;background:#ffffff;color:#b91c1c;border:1.5px solid #fca5a5;text-decoration:none;padding:11px 20px;border-radius:9999px;font-weight:600;">Reservierung absagen</a></p>' +
-            '<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0 12px;">' +
-            '<p style="margin:0;color:#9ca3af;font-size:12px;">Diese Erinnerung wurde automatisch von kiekmolin.de verschickt.</p>' +
-        '</div>';
+        var html = erinnerungsMail(res, rest, timeStr);
 
         try {
-            await sendMail(res.guest_email, 'Erinnerung: Dein Tisch heute um ' + timeStr + ' Uhr – ' + restName, html);
+            await sendMail(res.guest_email, 'Erinnerung: Dein Tisch heute um ' + timeStr + ' Uhr – ' + restName, html, rest);
             sent++;
         } catch (e) {
             console.error('[res-reminder] Mail fehlgeschlagen:', e.message);
@@ -140,3 +154,5 @@ exports.handler = async function () {
     console.log('[res-reminder] sent=' + sent + ' skipped=' + skipped);
     return { statusCode: 200, body: 'sent=' + sent + ' skipped=' + skipped };
 };
+
+exports._erinnerungsMail = erinnerungsMail;

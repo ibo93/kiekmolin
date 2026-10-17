@@ -163,8 +163,8 @@ t('die E-Mail hat einen Bewertungs-Block', /function bewertungsBlock\(rest, rest
 t('er benutzt den Google-Link des Restaurants',
   /rest\.google_maps_url \|\| rest\.googleMapsUrl/.test(M));
 
-var B = new Function('esc', M.slice(M.indexOf('function bewertungsBlock('),
-    M.indexOf('function buildEmail(')) + '; return bewertungsBlock;')(function (x) { return String(x); });
+var B = new Function('MAIL', 'esc', M.slice(M.indexOf('function bewertungsBlock('),
+    M.indexOf('function buildEmail(')) + '; return bewertungsBlock;')(require(require('path').join(__dirname, '../netlify/functions/lib/mail-rahmen')), function (x) { return String(x); });
 
 t('ohne Google-Link kommt gar nichts', B(null, 'La Piazza') === '');
 t('auch nicht bei leerem Link', B({ google_maps_url: '' }, 'La Piazza') === '');
@@ -176,9 +176,9 @@ t('mit Link steht der Knopf drin',
 t('der Restaurantname steht dabei',
   B({ google_maps_url: 'https://maps.google.com/?cid=1' }, 'La Piazza').indexOf('La Piazza') > 0);
 
-t('die Bestellbestaetigung enthaelt ihn', /bewertungsBlock\(rest, o\.restaurant_name\)/.test(M));
+t('die Bestellbestaetigung enthaelt ihn', /bewertungsBlock\(rest, (o\.restaurant_name|restName)\)/.test(M.slice(M.indexOf('function buildEmail('), M.indexOf('function buildAcceptedEmail('))));
 t('das Restaurant wird dafuer nachgeladen',
-  /select=name,google_maps_url/.test(M));
+  /select=[a-z_,]*name,[a-z_,]*google_maps_url/.test(M));
 // Frueher stand hier ein Textvergleich auf die Zeile direkt nach dem
 // catch. Der ging rot, sobald zwischen Laden und Versand etwas dazukam --
 // obwohl die Garantie unveraendert galt. Geprueft wird jetzt die GARANTIE:
@@ -197,10 +197,12 @@ t('und JEDER Weg schickt wirklich eine Mail',
 
 // Bei der Reservierung nur nach der BESTAETIGUNG -- nicht bei der Anfrage
 // (da war der Gast noch nicht da) und erst recht nicht bei einer Absage.
-t('Reservierung: nur bei der Bestaetigung',
-  /eventType === 'confirmed' \? bewertungsBlock\(rest, restName\) : ''/.test(M));
+// Seit 17.10.2026 gar nicht mehr in der Reservierungs-Mail: "Hat es
+// geschmeckt?" vor dem Besuch. Die Bitte kommt mit review-mail.js danach.
+t('Reservierung: keine Bewertungs-Bitte vor dem Besuch',
+  M.slice(M.indexOf('function buildReservationEmail('), M.indexOf('async function sendViaResend(')).indexOf('bewertungsBlock(') === -1);
 t('das Restaurant liefert dafuer den Google-Link mit',
-  /select=name,street,city,phone,google_maps_url/.test(M));
+  /select=[a-z_,]*name,street,city,phone,(email,)?google_maps_url/.test(M));
 
 // ---- 6. Der obere Banner lag AUF der Kopfzeile --------------------------
 // .guest-header schwebt: position:fixed, top:16px, z-index:1000.
