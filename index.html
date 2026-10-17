@@ -21777,6 +21777,33 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             </div>
                             <p id="blockOnlineStand" style="font-size:12px;color:var(--text-secondary);margin:8px 0 0;"></p>
                         </div>
+                        <!-- SONDERZEITEN (16.10.2026): an einem Datum zusaetzlich buchbar,
+                             auch am Ruhetag oder in der Pause. -->
+                        <div class="panel" id="sonderKarte" style="padding:16px;margin-bottom:16px;">
+                            <h4 style="font-family:Epilogue,sans-serif;font-size:14px;font-weight:700;margin:0 0 4px;">Sonderzeiten – extra buchbar</h4>
+                            <p style="font-size:12px;color:var(--text-secondary);margin:0 0 10px;">An einem Tag zusätzlich Uhrzeiten freigeben – auch am Ruhetag oder in der Pause. Sperrungen gehen vor.</p>
+                            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:8px;">
+                                <div>
+                                    <label for="sonderDatum" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-secondary);display:block;margin-bottom:4px;">Tag</label>
+                                    <input type="date" id="sonderDatum" onchange="sonderVorschau()" style="width:100%;padding:10px 12px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;box-sizing:border-box;">
+                                </div>
+                                <div>
+                                    <label for="sonderVon" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-secondary);display:block;margin-bottom:4px;">Von</label>
+                                    <input type="time" id="sonderVon" step="900" value="12:00" onchange="sonderVorschau()" style="width:100%;padding:10px 12px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;box-sizing:border-box;">
+                                </div>
+                                <div>
+                                    <label for="sonderBis" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-secondary);display:block;margin-bottom:4px;">Letzte Uhrzeit</label>
+                                    <input type="time" id="sonderBis" step="900" value="13:00" onchange="sonderVorschau()" style="width:100%;padding:10px 12px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;box-sizing:border-box;">
+                                </div>
+                                <div>
+                                    <label for="sonderTische" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-secondary);display:block;margin-bottom:4px;">Tische</label>
+                                    <input type="number" id="sonderTische" min="1" max="200" inputmode="numeric" placeholder="alle" oninput="sonderVorschau()" style="width:100%;padding:10px 12px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;box-sizing:border-box;">
+                                </div>
+                            </div>
+                            <p id="sonderVorschauText" style="font-size:12px;color:var(--text-secondary);margin:0 0 10px;min-height:16px;"></p>
+                            <button type="button" id="sonderHinzu" onclick="sonderHinzufuegen()" style="width:100%;padding:10px;border:none;border-radius:9999px;background:var(--primary);color:#fff;font-weight:700;font-size:13px;cursor:pointer;">Freigeben</button>
+                            <div id="sonderListe" style="margin-top:12px;"></div>
+                        </div>
                         <div class="panel" style="padding:16px;">
                             <h4 style="font-family:Epilogue,sans-serif;font-size:14px;font-weight:700;margin:0 0 4px;">Sperrungen an diesem Tag</h4>
                             <p id="blockDateLabel" style="font-size:12px;color:var(--text-secondary);margin:0 0 16px;"></p>
@@ -32071,6 +32098,8 @@ function resCalRender() {
             }
         }
 
+        // Sonderzeit an diesem Datum: der Tag ist buchbar, auch am Ruhetag.
+        if (isClosed && _resRest && sonderzeitenAm(_resRest, ds).length) isClosed = false;
         var _voll = !isPast && !isClosed && _resRest && typeof ausgebuchtAm === 'function' && ausgebuchtAm(_resRest, ds);
         if (_voll && !isSel) {
             html += '<button type="button" class="kmi-cal-voll" onclick="resCalSelectDate(\'' + ds + '\')" title="ausgebucht – Warteliste möglich" aria-label="' + d + '. ausgebucht" style="width:100%;aspect-ratio:1;border-radius:16px;border:none;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;background:transparent;color:#b45309;text-decoration:line-through;cursor:pointer;">' + d + '</button>';
@@ -32162,6 +32191,41 @@ function resGuestRender() {
 //
 // Ohne Datum (das Sperr-Formular im Dashboard) bleibt es bei den
 // allgemeinen Zeiten -- nur ueber Mitternacht stimmt es jetzt auch dort.
+// SONDERZEITEN (Ibo, 16.10.2026: "spezial Zeit Freigabe ... 1 Stunde"
+// -- ausserhalb der Oeffnung). Der Wirt gibt an EINEM Datum zusaetzlich
+// Uhrzeiten frei, auch am Ruhetag oder in der Pause. Steht in
+// opening_hours.sonderzeiten als [{ datum, von, bis }] -- "bis" ist die
+// letzte buchbare Uhrzeit, wie "Ende" bei den Reservierungszeiten.
+// Keine neue Spalte, kein SQL. Sperrungen, "Ausgebucht" und Betriebsferien
+// haben weiter Vorrang: frei geben heisst nicht, eine Sperre aufheben.
+function sonderzeitenVon(restaurant) {
+    var oh = restaurant && restaurant.opening_hours;
+    if (typeof oh === 'string') { try { oh = JSON.parse(oh); } catch (e) { oh = null; } }
+    var roh = (oh && Array.isArray(oh.sonderzeiten)) ? oh.sonderzeiten : [];
+    return roh.filter(function (z) {
+        return z && /^\d{4}-\d{2}-\d{2}$/.test(String(z.datum)) && /^\d{2}:\d{2}/.test(String(z.von)) && /^\d{2}:\d{2}/.test(String(z.bis)) && String(z.bis).slice(0, 5) >= String(z.von).slice(0, 5);
+    }).map(function (z) {
+        var aus = { datum: String(z.datum), von: String(z.von).slice(0, 5), bis: String(z.bis).slice(0, 5) };
+        var ti = parseInt(z.tische, 10);
+        if (ti >= 1 && ti <= 200) aus.tische = ti;
+        return aus;
+    })
+      .sort(function (a, b) { return (a.datum + a.von) < (b.datum + b.von) ? -1 : 1; });
+}
+function sonderzeitenAm(restaurant, datum) {
+    return sonderzeitenVon(restaurant).filter(function (z) { return z.datum === datum; });
+}
+// Wie viele Tische zu dieser Uhrzeit online buchbar sind: eine Sonderzeit
+// mit Tisch-Zahl ("in der Zeit 3 Tische", Ibo 16.10.2026) gilt fuer ihre
+// Uhrzeiten, sonst die allgemeine Zahl (online_tische). null = alle.
+// Derselbe Wert steht in reservation-guest.js (tischGrenzeUm).
+function onlineTischeUm(restaurant, datum, zeit) {
+    var hhmm = String(zeit || '').slice(0, 5);
+    var z = sonderzeitenAm(restaurant, datum).filter(function (x) { return x.tische && x.von <= hhmm && hhmm <= x.bis; });
+    if (z.length) return Math.max.apply(null, z.map(function (x) { return x.tische; }));
+    return typeof onlineTischeVon === 'function' ? onlineTischeVon(restaurant) : null;
+}
+
 function reservierSchichtenAm(restaurant, datum) {
     var t = String(datum || '').split('-').map(Number);
     if (t.length !== 3 || !t[0] || !t[1] || !t[2]) return null;
@@ -32263,6 +32327,18 @@ function generateReservationSlots(restaurantId, datum) {
             if (slots.indexOf(timeStr) === -1) slots.push(timeStr);
         }
     });
+
+    // Sonderzeiten dieses Tages kommen dazu -- ohne Pause und ohne
+    // abgeschaltete Uhrzeiten, denn genau dafuer gibt der Wirt sie frei.
+    if (restaurant && datum) {
+        sonderzeitenAm(restaurant, datum).forEach(function (z) {
+            for (var sm = parseTime(z.von); sm <= parseTime(z.bis); sm += interval) {
+                var sh = Math.floor(sm / 60), smin = sm % 60;
+                var st = (sh < 10 ? '0' + sh : sh) + ':' + (smin < 10 ? '0' + smin : smin);
+                if (slots.indexOf(st) === -1) slots.push(st);
+            }
+        });
+    }
 
     return slots.sort();
 }
@@ -32778,7 +32854,7 @@ async function loadAvailableSlots() {
         var currentHour = now.getHours();
         var currentMin = now.getMinutes();
 
-        var _onlineT = onlineTischeVon(APP_DATA.restaurants ? APP_DATA.restaurants.find(function (r) { return r.id === restaurantId; }) : null);
+        var _otRest = APP_DATA.restaurants ? APP_DATA.restaurants.find(function (r) { return r.id === restaurantId; }) : null;
 
         // Auslastung pro Zeitslot berechnen
         var slotData = allTimes.map(function(t) {
@@ -32789,8 +32865,9 @@ async function loadAvailableSlots() {
             // Echte Tischanzahl minus gesperrte Tische
             var maxTables = (window._realTableCount || 30) - (blockedTablesPerSlot[t] || 0);
             if (maxTables < 1) maxTables = 1;
-            // Online buchbare Tische (vom Wirt festgelegt): hoechstens so
-            // viele pro Uhrzeit -- und der Gast sieht "noch N Tische".
+            // Online buchbare Tische (vom Wirt festgelegt, allgemein oder fuer
+            // eine Sonderzeit): hoechstens so viele -- Gast sieht "noch N Tische".
+            var _onlineT = _otRest ? onlineTischeUm(_otRest, date, t) : null;
             if (_onlineT) maxTables = Math.min(maxTables, _onlineT);
             var available = bookingsAtTime < maxTables;
 
@@ -39420,6 +39497,12 @@ async function addRestaurant(e) {
         so_start2: document.getElementById('openSoStart2')?.value || '',
         so_end2: document.getElementById('openSoEnd2')?.value || ''
     };
+    // Beim Bearbeiten nur die Wochentage ersetzen. Vorher ersetzte dieses
+    // Formular opening_hours ganz -- still weg waren Pause, abgeschaltete
+    // Uhrzeiten, Reservierungszeiten (res_fenster) und Sonderzeiten.
+    if (isEdit && existingRest && existingRest.opening_hours && typeof existingRest.opening_hours === 'object') {
+        openingHours = Object.assign({}, existingRest.opening_hours, openingHours);
+    }
     var restDayVal = document.getElementById('restDaySelect')?.value;
     var restDay = restDayVal !== '' && restDayVal !== undefined ? parseInt(restDayVal) : null;
 
@@ -47223,6 +47306,7 @@ function loadBlockingUI() {
 
     loadBlockTables(restId);
     onlineTischeAnzeigen(restId);
+    sonderAnzeigen(restId);
     selectBlockType(_blockSelectedType);
     blockCalRender();
     blockMonatLaden(restId);
@@ -47497,6 +47581,104 @@ async function onlineTischeSpeichern() {
     } catch (e) {
         if (stand) stand.textContent = 'Nicht gespeichert: ' + (e && e.message || e) + '. Gäste sehen den alten Stand.';
         showToast('Online-Tische nicht gespeichert', 'error');
+    }
+}
+
+// SONDERZEITEN im Dashboard (siehe sonderzeitenVon). Gespeichert wird in
+// opening_hours -- frisch gelesen, damit nichts anderes darin verloren geht,
+// und mit Antwort: "freigegeben" nur, wenn die Zeile wirklich geaendert wurde.
+function sonderSlots(restId, z) {
+    var r = (APP_DATA.restaurants || []).find(function (x) { return x && x.id === restId; });
+    var iv = (r && r.slot_interval_minutes) || 30, aus = [];
+    for (var m = parseTime(z.von); m <= parseTime(z.bis); m += iv) {
+        aus.push((m < 600 ? '0' : '') + Math.floor(m / 60) + ':' + (m % 60 < 10 ? '0' : '') + (m % 60));
+    }
+    return aus;
+}
+function sonderEingabe() {
+    var d = (document.getElementById('sonderDatum') || {}).value || '';
+    var v = ((document.getElementById('sonderVon') || {}).value || '').slice(0, 5);
+    var b = ((document.getElementById('sonderBis') || {}).value || '').slice(0, 5);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return { fehler: 'Bitte einen Tag wählen.' };
+    if (d < localDayStr(new Date())) return { fehler: 'Der Tag liegt in der Vergangenheit.' };
+    if (!/^\d{2}:\d{2}$/.test(v) || !/^\d{2}:\d{2}$/.test(b)) return { fehler: 'Bitte Von und Letzte Uhrzeit angeben.' };
+    if (b < v) return { fehler: 'Die letzte Uhrzeit liegt vor dem Beginn.' };
+    var tRoh = String((document.getElementById('sonderTische') || {}).value || '').trim();
+    var ti = tRoh === '' ? 0 : parseInt(tRoh, 10);
+    if (tRoh !== '' && (!(ti >= 1) || ti > 200)) return { fehler: 'Tische: bitte 1 bis 200 – oder leer für alle.' };
+    var z = { datum: d, von: v, bis: b };
+    if (ti) z.tische = ti;
+    return z;
+}
+function sonderVorschau() {
+    var el = document.getElementById('sonderVorschauText'), restId = sperrLokal();
+    if (!el || !restId) return;
+    var z = sonderEingabe();
+    if (z.fehler) { el.textContent = (document.getElementById('sonderDatum') || {}).value ? z.fehler : ''; return; }
+    el.textContent = 'Gäste können am ' + sperrDatumKurz(z.datum) + ' zusätzlich buchen: ' + sonderSlots(restId, z).join(' · ') + ' Uhr' +
+        (z.tische ? ' – je Uhrzeit höchstens ' + z.tische + (z.tische === 1 ? ' Tisch' : ' Tische') : '');
+}
+function sonderAnzeigen(restId) {
+    var liste = document.getElementById('sonderListe');
+    if (!liste) return;
+    var r = (APP_DATA.restaurants || []).find(function (x) { return x && x.id === restId; });
+    var heute = localDayStr(new Date());
+    var z = sonderzeitenVon(r).filter(function (x) { return x.datum >= heute; });
+    if (!z.length) { liste.innerHTML = '<p style="font-size:12px;color:var(--text-secondary);margin:0;">Keine Sonderzeiten.</p>'; sonderVorschau(); return; }
+    liste.innerHTML = z.map(function (x) {
+        return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--border-color);">' +
+            '<span class="material-symbols-outlined" style="font-size:18px;color:#047857;" aria-hidden="true">event_upcoming</span>' +
+            '<span style="flex:1;font-size:13px;color:var(--text-primary);"><b>' + escapeHtml(sperrDatumKurz(x.datum)) + '</b> · ' + escapeHtml(x.von) + '–' + escapeHtml(x.bis) + ' Uhr' + (x.tische ? ' · höchstens ' + x.tische + (x.tische === 1 ? ' Tisch' : ' Tische') : '') + '</span>' +
+            '<button type="button" onclick="sonderEntfernen(\'' + x.datum + '\',\'' + x.von + '\',\'' + x.bis + '\')" aria-label="Sonderzeit entfernen" style="padding:6px 12px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-size:12px;font-weight:600;cursor:pointer;">Entfernen</button></div>';
+    }).join('');
+    sonderVorschau();
+}
+async function sonderSpeichern(restId, aendern) {
+    var res = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=opening_hours', { headers: sperrKopf() });
+    var data = await res.json();
+    if (!data || !data[0]) throw new Error('Restaurant nicht lesbar');
+    var oh = data[0].opening_hours;
+    if (typeof oh === 'string') { try { oh = JSON.parse(oh); } catch (e) { oh = {}; } }
+    oh = Object.assign({}, (oh && typeof oh === 'object') ? oh : {});
+    var heute = localDayStr(new Date());
+    oh.sonderzeiten = aendern(sonderzeitenVon({ opening_hours: oh }).filter(function (x) { return x.datum >= heute; }));
+    var upd = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=id,opening_hours', {
+        method: 'PATCH',
+        headers: sperrKopf({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }),
+        body: JSON.stringify({ opening_hours: oh })
+    });
+    if (!upd.ok) throw new Error('HTTP ' + upd.status);
+    var zeilen = await upd.json();
+    if (!Array.isArray(zeilen) || !zeilen.length) throw new Error('keine Berechtigung – nichts gespeichert');
+    var appR = (APP_DATA.restaurants || []).find(function (r) { return r.id === restId; });
+    if (appR) appR.opening_hours = zeilen[0].opening_hours || oh;
+    sonderAnzeigen(restId);
+}
+async function sonderHinzufuegen() {
+    var restId = sperrLokal(), z = sonderEingabe(), el = document.getElementById('sonderVorschauText');
+    if (!restId) return;
+    if (z.fehler) { if (el) el.textContent = z.fehler; showToast(z.fehler, 'error'); return; }
+    try {
+        await sonderSpeichern(restId, function (alt) {
+            return alt.filter(function (x) { return !(x.datum === z.datum && x.von === z.von && x.bis === z.bis); }).concat([z]);
+        });
+        showToast('Freigegeben: ' + sperrDatumKurz(z.datum) + ' ' + z.von + '–' + z.bis + ' Uhr' + (z.tische ? ', ' + z.tische + (z.tische === 1 ? ' Tisch' : ' Tische') : ''), 'success');
+    } catch (e) {
+        if (el) el.textContent = 'Nicht gespeichert: ' + (e && e.message || e) + '. Gäste sehen den alten Stand.';
+        showToast('Sonderzeit nicht gespeichert', 'error');
+    }
+}
+async function sonderEntfernen(datum, von, bis) {
+    var restId = sperrLokal(), el = document.getElementById('sonderVorschauText');
+    if (!restId) return;
+    try {
+        await sonderSpeichern(restId, function (alt) {
+            return alt.filter(function (x) { return !(x.datum === datum && x.von === von && x.bis === bis); });
+        });
+        showToast('Sonderzeit entfernt', 'success');
+    } catch (e) {
+        if (el) el.textContent = 'Nicht entfernt: ' + (e && e.message || e) + '. Gäste sehen den alten Stand.';
+        showToast('Sonderzeit nicht entfernt', 'error');
     }
 }
 

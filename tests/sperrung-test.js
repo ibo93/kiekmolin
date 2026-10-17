@@ -172,7 +172,7 @@ Module._load = function (anfrage) {
     return echtLaden.apply(this, arguments);
 };
 function plus(tg) { var d = new Date(); d.setDate(d.getDate() + tg); return d.toLocaleDateString('sv-SE'); }
-function lauf(sperren, uhrzeit, notes, kaputt, features, belegt) {
+function lauf(sperren, uhrzeit, notes, kaputt, features, belegt, oh) {
     process.env.SUPABASE_SERVICE_KEY = 'x';
     var p = require.resolve(path.join(R, 'netlify/functions/reservation-guest.js')); delete require.cache[p];
     var F = require(p), gespeichert = null, alt = global.fetch, w = console.warn, l = console.log;
@@ -180,7 +180,7 @@ function lauf(sperren, uhrzeit, notes, kaputt, features, belegt) {
     global.fetch = function (url, o) {
         url = String(url);
         var antw = function (d, s) { return Promise.resolve({ ok: (s || 200) < 300, status: s || 200, json: function () { return Promise.resolve(d); }, text: function () { return Promise.resolve(JSON.stringify(d)); } }); };
-        if (/\/restaurants\?id=eq\./.test(url) && /features/.test(url)) return antw([{ id: 'r1', is_active: true, features: features || [] }]);
+        if (/\/restaurants\?id=eq\./.test(url) && /features/.test(url)) return antw([{ id: 'r1', is_active: true, features: features || [], opening_hours: /opening_hours/.test(url) ? (oh || null) : undefined }]);
         if (/\/reservations\?/.test(url) && /reservation_time=eq\./.test(url) && /status=in\.\(pending,confirmed,seated\)/.test(url)) return antw(belegt || []);
         if (/\/reservations\?/.test(url) && /status=eq\.blocked/.test(url)) {
             if (kaputt) return antw({ message: 'kaputt' }, 500);
@@ -214,6 +214,18 @@ function lauf(sperren, uhrzeit, notes, kaputt, features, belegt) {
     t('… Warteliste zählt nicht mit -> geht durch', r.code === 200, JSON.stringify(r));
     r = await lauf([], '19:00', '', false, ['online_tische:2'], [{ id: 'a' }]);
     t('… 1 von 2 belegt -> geht durch', r.code === 200, JSON.stringify(r));
+    // Sonderzeit mit Tisch-Zahl (Ibo 16.10.2026: "mit Tische so viel in die Zeit buchbar")
+    var SZ = { sonderzeiten: [{ datum: plus(3), von: '12:00', bis: '13:00', tische: 1 }] };
+    r = await lauf([], '12:30', '', false, [], [{ id: 'a' }], SZ);
+    t('Sonderzeit 12–13 Uhr mit 1 Tisch, schon 1 Reservierung um 12:30 -> 409', r.code === 409 && r.body.ausgebucht === true && r.gespeichert === null, JSON.stringify(r));
+    r = await lauf([], '12:30', '', false, [], [], SZ);
+    t('… noch frei -> geht durch', r.code === 200 && r.gespeichert !== null, JSON.stringify(r));
+    r = await lauf([], '19:00', '', false, ['online_tische:5'], [{ id: 'a' }, { id: 'b' }], SZ);
+    t('… außerhalb der Sonderzeit gilt die allgemeine Zahl (5) -> geht durch', r.code === 200, JSON.stringify(r));
+    r = await lauf([], '12:30', '', false, ['online_tische:1'], [{ id: 'a' }], { sonderzeiten: [{ datum: plus(3), von: '12:00', bis: '13:00', tische: 3 }] });
+    t('… Sonderzeit mit 3 Tischen geht vor der allgemeinen Zahl (1)', r.code === 200, JSON.stringify(r));
+    var TG = require(path.join(R, 'netlify/functions/reservation-guest.js'))._tischGrenzeUm;
+    t('Grenze: anderer Tag / ohne Tisch-Zahl / kaputt -> allgemeine Zahl', TG(['online_tische:4'], SZ, plus(4), '12:30') === 4 && TG([], { sonderzeiten: [{ datum: plus(3), von: '12:00', bis: '13:00' }] }, plus(3), '12:30') === null && TG([], '{kaputt', plus(3), '12:30') === null && TG([], JSON.stringify(SZ), plus(3), '13:00') === 1, '');
     // res-availability: Gast-Text nur fuer Sperren, Herkunft echter Reservierungen bleibt drin
     process.env.SUPABASE_SERVICE_KEY = 'x';
     var rap = require.resolve(path.join(R, 'netlify/functions/res-availability.js')); delete require.cache[rap];

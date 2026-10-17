@@ -47,7 +47,7 @@ function t(l, c, x) { n++; if (c === true) ok++; console.log((c === true ? 'OK  
     }
     return { ok: true, json: async function () { return []; } };
   };
-  var r = await RG.handler({ httpMethod: 'POST', body: JSON.stringify({ restaurant_id: RID, guest_name: 'Celina', guest_phone: '0151', party_size: 2, reservation_date: '2026-10-15', reservation_time: '19:00', table_id: TID, notes: 'Kinderstuhl' }) });
+  var r = await RG.handler({ httpMethod: 'POST', body: JSON.stringify({ restaurant_id: RID, guest_name: 'Celina', guest_phone: '0151', party_size: 2, reservation_date: (function () { var d = new Date(Date.now() + 14 * 864e5); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(), reservation_time: '19:00', table_id: TID, notes: 'Kinderstuhl' }) });
   var a = JSON.parse(r.body), zweiter = eingefuegt[1] || {};
   t('Gast mit Tischwunsch wird NICHT abgewiesen', a.ok === true && r.statusCode === 200, { code: r.statusCode, a: a });
   t('zweiter Versuch ohne table_id', eingefuegt.length === 2 && eingefuegt[0].table_id === TID && !('table_id' in zweiter), eingefuegt);

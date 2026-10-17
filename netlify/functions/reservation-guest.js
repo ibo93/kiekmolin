@@ -154,6 +154,7 @@ function zeitFehler(r, jetzt) {
 
 exports._ausgebuchtAm = ausgebuchtAm;
 exports._istWarteliste = istWarteliste;
+exports._tischGrenzeUm = tischGrenzeUm;
 
 // Sperrungen an einem Tag: 'tag' (ganzer Tag), 'zeit' (diese Uhrzeit)
 // oder null. Nur Sperren OHNE Tisch -- siehe 1d im Handler.
@@ -187,6 +188,22 @@ function onlineTische(merkmale) {
         if (m && +m[1] > 0) return +m[1];
     }
     return null;
+}
+
+// Grenze zu dieser Uhrzeit: eine Sonderzeit mit Tisch-Zahl
+// (opening_hours.sonderzeiten, Ibo 16.10.2026: "mit Tische so viel in die
+// Zeit buchbar") gilt fuer ihre Uhrzeiten, sonst online_tische.
+// Gleiche Regel wie onlineTischeUm in index.html.
+function tischGrenzeUm(merkmale, oh, datum, uhrzeit) {
+    if (typeof oh === 'string') { try { oh = JSON.parse(oh); } catch (e) { oh = null; } }
+    var hhmm = String(uhrzeit || '').slice(0, 5), beste = 0;
+    ((oh && Array.isArray(oh.sonderzeiten)) ? oh.sonderzeiten : []).forEach(function (z) {
+        if (!z || String(z.datum) !== String(datum)) return;
+        var ti = parseInt(z.tische, 10);
+        if (!(ti >= 1 && ti <= 200)) return;
+        if (String(z.von).slice(0, 5) <= hhmm && hhmm <= String(z.bis).slice(0, 5)) beste = Math.max(beste, ti);
+    });
+    return beste || onlineTische(merkmale);
 }
 
 // Wie viele Reservierungen zu genau dieser Uhrzeit schon stehen (ohne
@@ -231,7 +248,7 @@ exports.handler = async function (event) {
         // ---- 1. Gibt es das Haus, und nimmt es ueberhaupt Reservierungen?
         var rRes = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.'
             + encodeURIComponent(r.restaurant_id)
-            + '&select=id,is_active,features&limit=1', { headers: kopf() });
+            + '&select=id,is_active,features,opening_hours&limit=1', { headers: kopf() });
         if (!rRes.ok) return json(502, { ok: false, error: 'Restaurant nicht pruefbar' });
         var haus = (await rRes.json())[0];
         if (!haus)                    return json(404, { ok: false, error: 'Restaurant nicht gefunden' });
@@ -309,7 +326,7 @@ exports.handler = async function (event) {
             // Der Wirt gibt nur einen Teil der Tische online frei; die App
             // zeigt "noch 2 Tische". Ohne diese Pruefung kaeme die dritte
             // Buchung trotzdem durch. Faellt offen aus wie 1d.
-            var _ot = onlineTische(merkmale);
+            var _ot = tischGrenzeUm(merkmale, haus.opening_hours, r.reservation_date, r.reservation_time);
             if (_ot) {
                 var _belegt = await belegtUm(r.restaurant_id, r.reservation_date, r.reservation_time);
                 if (_belegt !== null && _belegt >= _ot) {
