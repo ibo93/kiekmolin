@@ -37,6 +37,8 @@ var SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
 var RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 var EMAIL_FROM = process.env.EMAIL_FROM || 'Kiek mol in <bestellung@kiekmolin.de>';
 var SITE = 'https://kiekmolin.de';
+var MAIL = require('./lib/mail-rahmen');
+var nurText = require('./lib/nur-text').nurText;
 
 /* Ohne Einwilligung geht nichts raus.
 
@@ -93,7 +95,7 @@ async function sendMail(to, subject, html) {
     var res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: EMAIL_FROM, to: [to], subject: subject, html: html })
+        body: JSON.stringify({ from: EMAIL_FROM, to: [to], subject: subject, html: html, text: nurText(html) })
     });
     if (!res.ok) {
         var t = ''; try { t = await res.text(); } catch (e) {}
@@ -105,32 +107,23 @@ async function sendMail(to, subject, html) {
    eine Erinnerung an einen schönen Abend, "Ihre Transaktion" wie eine
    Rechnung. Gebeten wird EINMAL, ohne Nachdruck, mit sichtbarem Weg zum
    Nein: Wer nicht mag, klickt nichts und hört nie wieder davon. */
-function baueMail(name, betrieb, anlassText, link) {
+function baueMail(name, betrieb, anlassText, link, lokal) {
     var anrede = name ? 'Hallo ' + esc(String(name).split(' ')[0]) + ',' : 'Guten Tag,';
-    return ''
-        + '<!doctype html><html><body style="margin:0;padding:0;background:#f4f4f2">'
-        + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f2;padding:24px 12px">'
-        + '<tr><td align="center">'
-        + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#fff;'
-        + 'border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Helvetica,Arial,sans-serif;color:#1a1a1a">'
-        + '<tr><td style="padding:24px 26px 6px;font-size:15px;line-height:1.6">' + anrede + '</td></tr>'
-        + '<tr><td style="padding:0 26px 4px;font-size:15px;line-height:1.65">'
-        + 'hat es geschmeckt ' + esc(anlassText) + ' bei <b>' + esc(betrieb) + '</b>?'
-        + '</td></tr>'
-        + '<tr><td style="padding:6px 26px 18px;font-size:14.5px;line-height:1.65;color:#4a4a4a">'
-        + 'Wenn Sie zwei Minuten haben: Eine kurze Bewertung hilft anderen Gästen bei der Suche '
-        + '— und dem Betrieb mehr, als man denkt.'
-        + '</td></tr>'
-        + '<tr><td style="padding:2px 26px 24px">'
-        + '<a href="' + esc(link) + '" style="display:inline-block;background:#1f7a3d;color:#fff;'
-        + 'text-decoration:none;padding:12px 22px;border-radius:7px;font-size:15px;font-weight:600">'
-        + 'Bewertung schreiben</a>'
-        + '</td></tr>'
-        + '<tr><td style="padding:14px 26px 22px;border-top:1px solid #ececec;font-size:12px;line-height:1.6;color:#8a8a8a">'
-        + 'Sie erhalten diese Nachricht einmalig, weil Sie bei der Buchung zugestimmt haben. '
-        + 'Wenn Sie nicht bewerten möchten, ignorieren Sie sie einfach — es folgt nichts weiter.'
-        + '</td></tr>'
-        + '</table></td></tr></table></body></html>';
+    // Rahmen: lib/mail-rahmen.js (17.10.2026). Der Text bleibt, wie er war.
+    return MAIL.rahmen({
+        titelText: 'Wie war es bei ' + betrieb + '?',
+        vorschau: 'Zwei Minuten für eine kurze Bewertung von ' + betrieb + '?',
+        lokal: lokal || { name: betrieb },
+        titel: 'Wie war es bei ' + esc(betrieb) + '?',
+        inhalt: '<p style="margin:0 0 6px;">' + anrede + '</p>'
+            + '<p style="margin:0 0 8px;">hat es geschmeckt ' + esc(anlassText) + ' bei <b>' + esc(betrieb) + '</b>?</p>'
+            + '<p style="margin:0 0 18px;color:#57534e;">Wenn Sie zwei Minuten haben: Eine kurze Bewertung hilft anderen Gästen bei der Suche '
+            + '— und dem Betrieb mehr, als man denkt.</p>'
+            + '<p style="margin:0 0 6px;font-size:26px;letter-spacing:4px;color:#f59e0b;">★★★★★</p>'
+            + MAIL.knopf('Bewertung schreiben', link, 'voll'),
+        fuss: 'Sie erhalten diese Nachricht einmalig, weil Sie bei der Buchung zugestimmt haben. '
+            + 'Wenn Sie nicht bewerten möchten, ignorieren Sie sie einfach — es folgt nichts weiter.'
+    });
 }
 
 /* Eine Zeile atomar für uns beanspruchen: Nur wenn die Spalte NOCH leer
@@ -168,7 +161,7 @@ exports.handler = async function () {
 
     var betriebe = {};
     try {
-        (await sbGet('restaurants?select=id,name,slug&limit=300')).forEach(function (r) { betriebe[r.id] = r; });
+        (await sbGet('restaurants?select=id,name,slug,city,logo_url&limit=300')).forEach(function (r) { betriebe[r.id] = r; });
     } catch (e) {
         return { statusCode: 200, body: 'Betriebe nicht lesbar: ' + e.message };
     }
@@ -236,7 +229,7 @@ exports.handler = async function () {
             await sendMail(
                 k.mail,
                 'Wie war es bei ' + b.name + '?',
-                baueMail(k.name, b.name, k.anlass, link)
+                baueMail(k.name, b.name, k.anlass, link, b)
             );
             verschickt++;
         } catch (e) {
@@ -250,3 +243,5 @@ exports.handler = async function () {
     console.log('[review-mail] ' + bericht);
     return { statusCode: 200, body: bericht };
 };
+
+exports._baueMail = baueMail;

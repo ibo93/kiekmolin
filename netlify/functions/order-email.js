@@ -48,6 +48,7 @@ var nurText = require('./lib/nur-text').nurText;
 var WARTEZEIT = require('./lib/wartezeit');
 var ZAHLART = require('./lib/zahlart');
 var BESTELLART = require('./lib/bestellart');
+var MAIL = require('./lib/mail-rahmen');
 
 var CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -83,13 +84,9 @@ function eur(n) { return (Number(n) || 0).toFixed(2).replace('.', ',') + ' €';
 function bewertungsBlock(rest, restName) {
     var url = rest && (rest.google_maps_url || rest.googleMapsUrl);
     if (!url || String(url).indexOf('http') !== 0) return '';
-    return '<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin:20px 0;text-align:center;">' +
-        '<p style="margin:0 0 10px;font-size:14px;color:#374151;">' +
-            'Hat es geschmeckt? Eine kurze Bewertung hilft ' + esc(restName || 'dem Restaurant') + ' sehr.' +
-        '</p>' +
-        '<a href="' + esc(url) + '" style="display:inline-block;background:#ffffff;border:1.5px solid #003d33;color:#003d33;' +
-        'text-decoration:none;padding:10px 20px;border-radius:9999px;font-weight:600;font-size:14px;">Bei Google bewerten</a>' +
-    '</div>';
+    return MAIL.kasten(
+        '<strong>Hat es geschmeckt?</strong><br>Eine kurze Bewertung hilft ' + esc(restName || 'dem Restaurant') + ' sehr.<br>' +
+        MAIL.knopf('★ Bei Google bewerten', url, 'rand'), 'gruen');
 }
 
 function buildEmail(o, rest) {
@@ -191,22 +188,25 @@ function buildEmail(o, rest) {
         }
     }
 
-    var html = '<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111827;">' +
-        '<h1 style="font-size:20px;margin:0 0 4px;color:#003d33;">Bestellung eingegangen ✅</h1>' +
-        '<p style="margin:0 0 16px;color:#6b7280;">#' + esc(o.order_number) + ' · ' + esc(o.restaurant_name || 'Restaurant') + ' · ' + typeLabel + '</p>' +
-        '<p style="margin:0 0 16px;">Moin' + (o.customer_name ? ' ' + esc(o.customer_name) : '') + ', deine Bestellung ist beim Restaurant eingegangen. Sobald sie bestätigt wird, siehst du den Live-Status hier:</p>' +
-        '<p style="margin:0 0 20px;"><a href="' + trackUrl + '" style="display:inline-block;background:#003d33;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:9999px;font-weight:600;">Bestellstatus verfolgen</a></p>' +
-        '<table style="width:100%;border-collapse:collapse;font-size:14px;">' + rows + '</table>' +
-        '<table style="width:100%;border-collapse:collapse;font-size:14px;margin-top:8px;">' + sums + '</table>' +
-        '<p style="margin:12px 0 0;color:#6b7280;font-size:13px;">Zahlung: ' + payLabel + '</p>' +
-        paypalBlock +
-        addr +
-        (o.delivery_notes ? '<p style="margin:8px 0 0;color:#6b7280;font-size:13px;">Hinweis: ' + esc(o.delivery_notes) + '</p>' : '') +
-        bewertungsBlock(rest, o.restaurant_name) +
-        '<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0 12px;">' +
-        '<p style="margin:0;color:#9ca3af;font-size:12px;">Diese Bestätigung wurde automatisch von kiekmolin.de verschickt. Fragen zur Bestellung beantwortet das Restaurant' +
-        (o.customer_phone ? '' : '') + '.</p>' +
-    '</div>';
+    var restName = o.restaurant_name || (rest && rest.name) || 'Restaurant';
+    var html = MAIL.rahmen({
+        titelText: 'Bestellung eingegangen',
+        vorschau: 'Bestellung #' + (o.order_number || '') + ' bei ' + restName + ' ist eingegangen – ' + eur(o.total) + '.',
+        lokal: rest ? Object.assign({ name: restName }, rest) : { name: restName },
+        status: { text: 'Eingegangen', art: 'gelb' },
+        titel: 'Deine Bestellung ist da',
+        inhalt: '<p style="margin:0 0 4px;color:#57534e;font-size:13px;">#' + esc(o.order_number) + ' · ' + typeLabel + '</p>' +
+            '<p style="margin:0 0 16px;">Moin' + (o.customer_name ? ' ' + esc(o.customer_name) : '') + ', deine Bestellung ist beim Restaurant eingegangen. Sobald sie bestätigt wird, siehst du den Live-Status hier:</p>' +
+            MAIL.knopf('Bestellstatus verfolgen', trackUrl, 'voll') +
+            '<table role="presentation" style="width:100%;border-collapse:collapse;font-size:14px;margin-top:18px;">' + rows + '</table>' +
+            '<table role="presentation" style="width:100%;border-collapse:collapse;font-size:14px;margin-top:8px;">' + sums + '</table>' +
+            '<p style="margin:12px 0 0;color:#57534e;font-size:13px;">Zahlung: ' + payLabel + '</p>' +
+            paypalBlock +
+            addr +
+            (o.delivery_notes ? '<p style="margin:8px 0 0;color:#57534e;font-size:13px;">Hinweis: ' + esc(o.delivery_notes) + '</p>' : '') +
+            bewertungsBlock(rest, restName),
+        fuss: 'Diese Bestätigung wurde automatisch von kiekmolin.de verschickt. Fragen zur Bestellung beantwortet das Restaurant.'
+    });
 
     return {
         subject: 'Bestellbestätigung #' + (o.order_number || '') + ' – ' + (o.restaurant_name || 'Kiek mol in'),
@@ -275,17 +275,21 @@ function buildAcceptedEmail(o, rest) {
             esc([rest.street, rest.city].filter(Boolean).join(', ')) + '</p>';
     }
 
-    var html = '<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111827;">' +
-        '<h1 style="font-size:20px;margin:0 0 4px;color:#003d33;">Bestellung bestätigt 👍</h1>' +
-        '<p style="margin:0 0 16px;color:#6b7280;">#' + esc(o.order_number) + ' · ' + esc(restName) + ' · ' + typeLabel + '</p>' +
-        '<p style="margin:0 0 16px;">Moin' + (o.customer_name ? ' ' + esc(o.customer_name) : '') +
-            ', ' + esc(restName) + ' hat deine Bestellung angenommen. ' + zeitText + '</p>' +
-        '<p style="margin:0 0 20px;"><a href="' + trackUrl + '" style="display:inline-block;background:#003d33;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:9999px;font-weight:600;">Bestellstatus verfolgen</a></p>' +
-        adresse +
-        (rest && rest.phone ? '<p style="margin:12px 0 0;color:#6b7280;font-size:13px;">Etwas stimmt nicht? Ruf direkt an: ' + esc(rest.phone) + '</p>' : '') +
-        '<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0 12px;">' +
-        '<p style="margin:0;color:#9ca3af;font-size:12px;">Automatisch verschickt von kiekmolin.de.</p>' +
-    '</div>';
+    var html = MAIL.rahmen({
+        titelText: 'Bestellung bestätigt',
+        vorschau: restName + ' hat deine Bestellung angenommen' + (min > 0 ? ' – ca. ' + min + ' Minuten.' : '.'),
+        lokal: rest ? Object.assign({ name: restName }, rest) : { name: restName },
+        status: { text: '✓ Angenommen', art: 'gruen' },
+        titel: 'Bestellung bestätigt',
+        inhalt: '<p style="margin:0 0 4px;color:#57534e;font-size:13px;">#' + esc(o.order_number) + ' · ' + typeLabel + '</p>' +
+            '<p style="margin:0 0 16px;">Moin' + (o.customer_name ? ' ' + esc(o.customer_name) : '') +
+                ', ' + esc(restName) + ' hat deine Bestellung angenommen. ' + zeitText + '</p>' +
+            MAIL.knopf('Bestellstatus verfolgen', trackUrl, 'voll') +
+            adresse +
+            MAIL.verweise([['Route planen', lieferung ? '' : MAIL.routeUrl(rest)],
+                [rest && rest.phone ? 'Anrufen' : '', rest && rest.phone ? 'tel:' + String(rest.phone).replace(/[^\d+]/g, '') : '']]) +
+            (rest && rest.phone ? '<p style="margin:12px 0 0;color:#57534e;font-size:13px;">Etwas stimmt nicht? Ruf direkt an: ' + esc(rest.phone) + '</p>' : '')
+    });
 
     return {
         subject: 'Bestellung bestätigt #' + (o.order_number || '') +
@@ -340,17 +344,18 @@ function buildZeitEmail(o, rest) {
 
     var trackUrl = 'https://kiekmolin.de/order/' + encodeURIComponent(o.order_number || '');
 
-    var html = '<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111827;">' +
-        '<h1 style="font-size:20px;margin:0 0 4px;color:#b45309;">Neue Zeit für deine Bestellung</h1>' +
-        '<p style="margin:0 0 16px;color:#6b7280;">#' + esc(o.order_number) + ' · ' + esc(restName) + ' · ' +
-            (lieferung ? 'Lieferung' : 'Abholung') + '</p>' +
-        '<p style="margin:0 0 16px;">Moin' + (o.customer_name ? ' ' + esc(o.customer_name) : '') +
-            ', ' + esc(restName) + ' hat die Zeit angepasst. ' + satz + '</p>' +
-        '<p style="margin:0 0 20px;"><a href="' + trackUrl + '" style="display:inline-block;background:#003d33;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:9999px;font-weight:600;">Bestellstatus verfolgen</a></p>' +
-        (rest && rest.phone ? '<p style="margin:12px 0 0;color:#6b7280;font-size:13px;">Passt das nicht? Ruf kurz an: ' + esc(rest.phone) + '</p>' : '') +
-        '<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0 12px;">' +
-        '<p style="margin:0;color:#9ca3af;font-size:12px;">Automatisch verschickt von kiekmolin.de.</p>' +
-    '</div>';
+    var html = MAIL.rahmen({
+        titelText: 'Neue Zeit für deine Bestellung',
+        vorschau: restName + ' hat die Zeit angepasst' + (uhr ? ' – jetzt gegen ' + uhr + ' Uhr.' : '.'),
+        lokal: rest ? Object.assign({ name: restName }, rest) : { name: restName },
+        status: { text: 'Zeit geändert', art: 'gelb' },
+        titel: 'Neue Zeit für deine Bestellung',
+        inhalt: '<p style="margin:0 0 4px;color:#57534e;font-size:13px;">#' + esc(o.order_number) + ' · ' + (lieferung ? 'Lieferung' : 'Abholung') + '</p>' +
+            '<p style="margin:0 0 16px;">Moin' + (o.customer_name ? ' ' + esc(o.customer_name) : '') +
+                ', ' + esc(restName) + ' hat die Zeit angepasst. ' + satz + '</p>' +
+            MAIL.knopf('Bestellstatus verfolgen', trackUrl, 'voll') +
+            (rest && rest.phone ? '<p style="margin:12px 0 0;color:#57534e;font-size:13px;">Passt das nicht? Ruf kurz an: ' + esc(rest.phone) + '</p>' : '')
+    });
 
     return {
         subject: 'Neue Zeit #' + (o.order_number || '') + (uhr ? ' – gegen ' + uhr + ' Uhr' : '') + ' – ' + restName,
@@ -367,35 +372,37 @@ function buildReservationEmail(r, rest, eventType) {
     } catch (e) {}
     var timeStr = String(r.reservation_time || '').slice(0, 5);
 
-    var head, intro, color;
+    var head, intro;
     if (eventType === 'confirmed') {
-        head = 'Reservierung bestätigt ✅';
+        head = 'Reservierung bestätigt';
         intro = 'gute Nachricht: ' + esc(restName) + ' hat deine Reservierung bestätigt. Wir freuen uns auf dich!';
-        color = '#16a34a';
     } else if (eventType === 'cancelled') {
         head = 'Reservierung leider nicht möglich';
         intro = 'leider kann ' + esc(restName) + ' deine Reservierung zu diesem Zeitpunkt nicht annehmen. ' +
             'Versuch es gern mit einer anderen Uhrzeit' + ((rest && rest.phone) ? ' oder ruf direkt an: <a href="tel:' + esc(rest.phone) + '" style="color:#003d33;">' + esc(rest.phone) + '</a>' : '') + '.';
-        color = '#b91c1c';
     } else {
-        head = 'Reservierungsanfrage eingegangen 📩';
+        head = 'Anfrage ist angekommen';
         intro = 'deine Reservierungsanfrage bei ' + esc(restName) + ' ist eingegangen. Das Restaurant bestätigt sie so schnell wie möglich — du bekommst dann noch eine E-Mail.';
-        color = '#003d33';
     }
 
-    function row(label, val) {
-        return '<tr><td style="padding:6px 12px 6px 0;color:#6b7280;white-space:nowrap;">' + label + '</td>' +
-            '<td style="padding:6px 0;font-weight:600;">' + val + '</td></tr>';
-    }
-    var details = '<table style="border-collapse:collapse;font-size:14px;margin:16px 0;">' +
-        row('Restaurant', esc(restName)) +
-        row('Datum', esc(dateStr)) +
-        row('Uhrzeit', esc(timeStr) + ' Uhr') +
-        row('Personen', esc(r.party_size || 2)) +
-        (r.occasion ? row('Anlass', esc(r.occasion)) : '') +
-        (r.notes ? row('Hinweis', esc(r.notes)) : '') +
-        ((rest && (rest.street || rest.city)) ? row('Adresse', esc(((rest.street || '') + ', ' + (rest.city || '')).replace(/^, |, $/g, ''))) : '') +
-    '</table>';
+    // Rahmen, Lokal-Band und Knoepfe: lib/mail-rahmen.js (17.10.2026).
+    var kurzTag = dateStr;
+    try {
+        kurzTag = new Date(r.reservation_date + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' });
+    } catch (e) {}
+    var details = MAIL.detailKarte([
+        ['Datum', esc(dateStr)],
+        ['Personen', esc(r.party_size || 2)],
+        ['Anlass', r.occasion ? esc(MAIL.anlassText(r.occasion)) : ''],
+        ['Hinweis', r.notes ? esc(r.notes) : ''],
+        ['Adresse', MAIL.adresse(rest) ? esc(MAIL.adresse(rest)) : '']
+    ], { links: esc(kurzTag), rechts: esc(timeStr) + ' Uhr' });
+
+    var verweise = eventType === 'cancelled' ? '' : MAIL.verweise([
+        ['Route planen', MAIL.routeUrl(rest)],
+        ['In den Kalender', eventType === 'confirmed' ? MAIL.kalenderUrl(r, rest) : ''],
+        [(rest && rest.phone) ? 'Anrufen' : '', (rest && rest.phone) ? 'tel:' + String(rest.phone).replace(/[^\d+]/g, '') : '']
+    ]);
 
     // Absage-Link SOFORT mitgeben -- nicht erst in der Erinnerungs-Mail.
     // Die kommt nämlich erst am Tag der Reservierung zwischen 9 und 11 Uhr:
@@ -406,33 +413,37 @@ function buildReservationEmail(r, rest, eventType) {
     var cancelBlock = '';
     if (r.id && eventType !== 'cancelled') {
         var cancelUrl = 'https://kiekmolin.de/.netlify/functions/res-cancel?id=' + encodeURIComponent(r.id);
-        cancelBlock =
-            '<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin:20px 0;">' +
-                '<p style="margin:0 0 10px;font-size:14px;color:#374151;">' +
-                    '<strong>Doch etwas dazwischengekommen?</strong><br>' +
-                    'Sag uns bitte kurz Bescheid – dann kann ' + esc(restName) + ' den Tisch noch weitergeben.' +
-                '</p>' +
-                '<a href="' + cancelUrl + '" style="display:inline-block;background:#ffffff;border:1.5px solid #b91c1c;color:#b91c1c;text-decoration:none;padding:10px 20px;border-radius:9999px;font-weight:600;font-size:14px;">Reservierung absagen</a>' +
-                ((rest && rest.phone)
-                    ? '<p style="margin:10px 0 0;font-size:12px;color:#6b7280;">Oder telefonisch: <a href="tel:' + esc(rest.phone) + '" style="color:#003d33;">' + esc(rest.phone) + '</a></p>'
-                    : '') +
-            '</div>';
+        cancelBlock = MAIL.kasten(
+            '<strong>Doch etwas dazwischengekommen?</strong><br>' +
+            'Sag uns bitte kurz Bescheid – dann kann ' + esc(restName) + ' den Tisch noch weitergeben.<br>' +
+            MAIL.knopf('Reservierung absagen', cancelUrl, 'rot') +
+            ((rest && rest.phone)
+                ? '<div style="margin-top:6px;font-size:12px;color:#57534e;">Oder telefonisch: <a href="tel:' + esc(rest.phone) + '" style="color:#0b3d33;">' + esc(rest.phone) + '</a></div>'
+                : ''));
     }
 
-    var html = '<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111827;">' +
-        '<h1 style="font-size:20px;margin:0 0 16px;color:' + color + ';">' + head + '</h1>' +
-        '<p style="margin:0 0 4px;">Moin' + (r.guest_name ? ' ' + esc(r.guest_name) : '') + ',</p>' +
-        '<p style="margin:0 0 8px;">' + intro + '</p>' +
-        details +
-        cancelBlock +
-        // Nur bei der BESTAETIGUNG. Bei einer offenen Anfrage war der Gast noch
-        // nicht da, und bei einer Absage wäre die Bitte um eine Bewertung
-        // schlicht unverschämt.
-        (eventType === 'confirmed' ? bewertungsBlock(rest, restName) : '') +
-        '<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0 12px;">' +
-        '<p style="margin:0;color:#9ca3af;font-size:12px;">Diese E-Mail wurde automatisch von kiekmolin.de verschickt.' +
-        (eventType === 'received' ? ' Die Reservierung ist erst nach Bestätigung durch das Restaurant verbindlich.' : '') + '</p>' +
-    '</div>';
+    var html = MAIL.rahmen({
+        titelText: head,
+        vorschau: eventType === 'confirmed' ? 'Dein Tisch bei ' + restName + ' am ' + kurzTag + ' um ' + timeStr + ' Uhr ist bestätigt.'
+                : eventType === 'cancelled' ? restName + ' kann die Reservierung leider nicht annehmen.'
+                : 'Deine Anfrage bei ' + restName + ' ist da – du bekommst noch eine Bestätigung.',
+        lokal: rest,
+        status: eventType === 'confirmed' ? { text: '✓ Bestätigt', art: 'gruen' }
+              : eventType === 'cancelled' ? { text: 'Nicht möglich', art: 'rot' }
+              : { text: 'Wartet auf Bestätigung', art: 'gelb' },
+        titel: head,
+        inhalt: '<p style="margin:0 0 4px;">Moin' + (r.guest_name ? ' ' + esc(r.guest_name) : '') + ',</p>' +
+            '<p style="margin:0;">' + intro + '</p>' +
+            details + verweise +
+            (eventType === 'cancelled' ? '<div style="margin-top:16px;">' + MAIL.knopf('Andere Uhrzeit wählen', MAIL.lokalUrl(rest), 'voll') + '</div>' : '') +
+            cancelBlock +
+            // Nur bei der BESTAETIGUNG. Bei einer offenen Anfrage war der Gast noch
+            // nicht da, und bei einer Absage wäre die Bitte um eine Bewertung
+            // schlicht unverschämt.
+            (eventType === 'confirmed' ? bewertungsBlock(rest, restName) : ''),
+        fuss: 'Diese E-Mail wurde automatisch von kiekmolin.de verschickt.' +
+            (eventType === 'received' ? ' Die Reservierung ist erst nach Bestätigung durch das Restaurant verbindlich.' : '')
+    });
 
     var subjPrefix = eventType === 'confirmed' ? 'Reservierung bestätigt'
         : (eventType === 'cancelled' ? 'Reservierung nicht möglich' : 'Reservierungsanfrage eingegangen');
@@ -492,7 +503,7 @@ async function handleReservation(resvId, eventType) {
     var rest = null;
     if (resv.restaurant_id) {
         try {
-            var rres = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(resv.restaurant_id) + '&select=name,street,city,phone,google_maps_url', { headers: sbHeaders() });
+            var rres = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(resv.restaurant_id) + '&select=id,slug,name,street,city,phone,google_maps_url,logo_url', { headers: sbHeaders() });
             if (rres.ok) { var rl = await rres.json(); rest = rl[0] || null; }
         } catch (e) {}
     }
@@ -531,10 +542,12 @@ exports.handler = async function (event) {
         try {
             await sendViaResend(to, {
                 subject: 'Kiek mol in – Test-E-Mail ✅',
-                html: '<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#111827;">' +
-                    '<h1 style="font-size:20px;color:#003d33;margin:0 0 12px;">Test erfolgreich ✅</h1>' +
-                    '<p style="margin:0;">Wenn du diese E-Mail siehst, funktioniert der Versand von kiekmolin.de. ' +
-                    'Bestell- und Reservierungsbestaetigungen kommen jetzt an.</p></div>'
+                html: MAIL.rahmen({
+                    titelText: 'Test erfolgreich', vorschau: 'Der Versand von kiekmolin.de funktioniert.',
+                    status: { text: '✓ Versand klappt', art: 'gruen' }, titel: 'Test erfolgreich',
+                    inhalt: '<p style="margin:0;">Wenn du diese E-Mail siehst, funktioniert der Versand von kiekmolin.de. ' +
+                        'Bestell- und Reservierungsbestaetigungen kommen jetzt an.</p>'
+                })
             });
             return json(200, { ok: true, key_gesetzt: true, gesendet: true, an: to, absender: EMAIL_FROM });
         } catch (e) {
@@ -587,7 +600,7 @@ exports.handler = async function (event) {
             if (zOrder.restaurant_id) {
                 try {
                     var zres = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.'
-                        + encodeURIComponent(zOrder.restaurant_id) + '&select=name,phone', { headers: sbHeaders() });
+                        + encodeURIComponent(zOrder.restaurant_id) + '&select=id,slug,name,city,phone,logo_url', { headers: sbHeaders() });
                     if (zres.ok) { var zl = await zres.json(); zRest = zl[0] || null; }
                 } catch (e) {}
             }
@@ -635,7 +648,7 @@ exports.handler = async function (event) {
             if (aOrder.restaurant_id) {
                 try {
                     var arres = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.'
-                        + encodeURIComponent(aOrder.restaurant_id) + '&select=name,street,city,phone,features',
+                        + encodeURIComponent(aOrder.restaurant_id) + '&select=id,slug,name,street,city,phone,features,logo_url',
                         { headers: sbHeaders() });
                     if (arres.ok) { var arl = await arres.json(); aRest = arl[0] || null; }
                 } catch (e) {}
@@ -683,7 +696,7 @@ exports.handler = async function (event) {
         if (order.restaurant_id) {
             try {
                 var orres = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.'
-                    + encodeURIComponent(order.restaurant_id) + '&select=name,google_maps_url,features',
+                    + encodeURIComponent(order.restaurant_id) + '&select=id,slug,name,city,google_maps_url,features,logo_url',
                     { headers: sbHeaders() });
                 if (orres.ok) { var orl = await orres.json(); restOrder = orl[0] || null; }
             } catch (e) {}
@@ -720,3 +733,6 @@ exports.handler = async function (event) {
         return json(e.resend ? 502 : 500, { error: e.message });
     }
 };
+
+// Fuer werkzeug/mails-ansehen.js: die Mails ohne Datenbank bauen.
+exports._baue = { buildEmail: buildEmail, buildAcceptedEmail: buildAcceptedEmail, buildZeitEmail: buildZeitEmail, buildReservationEmail: buildReservationEmail };

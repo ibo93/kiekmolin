@@ -135,7 +135,7 @@ t('er hat KEINEN Duplikatschutz -- zweimal geaendert heisst zweimal Bescheid',
 
 var vonM = mail.indexOf('function buildZeitEmail('), bisM = mail.indexOf('function buildReservationEmail(');
 t('buildZeitEmail laesst sich herausschneiden', vonM > 0 && bisM > vonM, vonM + '/' + bisM);
-var welt = {}; vm.createContext(welt);
+var welt = { MAIL: require(require('path').join(__dirname, '../netlify/functions/lib/mail-rahmen')) }; vm.createContext(welt);
 vm.runInContext('function esc(s){return String(s==null?"":s);}' + mail.slice(vonM, bisM) + '; this.bau = buildZeitEmail;', welt);
 
 var mA = welt.bau({ order_number: 'B-7', order_type: 'pickup', customer_name: 'Ibo',

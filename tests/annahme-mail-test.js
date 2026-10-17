@@ -39,9 +39,9 @@ function schneide(src, name) {
 }
 
 // Die Vorlage wirklich bauen.
-var bau = new Function('esc',
+var bau = new Function('MAIL', 'esc',
     schneide(MAIL, 'buildAcceptedEmail') + '; return buildAcceptedEmail;'
-)(function (s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); });
+)(require('path').join && require(require('path').join(__dirname, '../netlify/functions/lib/mail-rahmen')), function (s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); });
 
 // ---- 1. Abholung mit Wartezeit ---------------------------------------------
 (function () {

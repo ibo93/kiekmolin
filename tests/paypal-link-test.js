@@ -195,7 +195,7 @@ t('und es wird protokolliert', /'paypal_ohne_link'/.test(h), 'niemand erfaehrt e
 // ---- 7. Der Link ueberlebt die Bestellung -----------------------------
 console.log('\n-- In der Bestaetigungs-Mail --');
 t('die Mail laedt die features des Restaurants',
-  /select=name,google_maps_url,features/.test(mail), 'kennt den Namen nicht');
+  /select=[a-z_,]*name,[a-z_,]*google_maps_url,features/.test(mail), 'kennt den Namen nicht');
 t('sie baut einen PayPal-Bezahlknopf', /https:\/\/paypal\.me\/' \+ ppName \+ '\/' \+ ppBetrag \+ 'EUR'/.test(mail), 'kein Knopf');
 t('sie kann auch die PayPal-Adresse', /cmd=_xclick/.test(mail) && /business=' \+ encodeURIComponent\(ppMail\)/.test(mail), 'nur paypal.me');
 t('und einen eigenen Link -- aber nur https',
