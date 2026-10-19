@@ -76,6 +76,11 @@ function pruef(t, ok, x) { n++; if (!ok) rot++; console.log((ok ? 'OK  ' : 'FAIL
     });
     pruef(art + ': Kopf-Punkte (5), Weiter -> Foto 2, Selbstwechsel aus', kopf === '5|1|true', kopf);
     // Grossansicht: oeffnen, weiter, Escape schliesst
+    var menu = await s.evaluate(function () {
+      var d = document.querySelectorAll('.lp-menu-daumen'); if (d.length < 2) return 'keine Auswahl (' + d.length + ')';
+      d[1].click(); return d.length + '|' + (d[1].getAttribute('aria-current') === 'true') + '|' + !d[0].getAttribute('aria-current');
+    });
+    pruef(art + ': Speisekarte im Kasten: 2. Gericht antippen wählt es aus', /^\d+\|true\|true$/.test(menu), menu);
     await s.evaluate(function () { document.getElementById('lpBuehne').scrollIntoView({ block: 'center' }); });
     await s.click('#lpDaumen .lp-daumen-bild:nth-child(3)');
     var buehne = await s.evaluate(function () { return document.getElementById('lpBuehneNr').textContent + '|' + document.querySelectorAll('#lpDaumen [aria-current]').length; });
