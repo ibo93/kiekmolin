@@ -27095,22 +27095,44 @@ function parseTime(timeStr) {
     return hours * 60 + (minutes || 0);
 }
 
-function getOpeningTimeToday(restaurant) {
-    var now = new Date();
-    var dayNames = ['so', 'mo', 'di', 'mi', 'do', 'fr', 'sa'];
-    var dayKey = dayNames[now.getDay()];
-    var hours = restaurant.opening_hours;
-    if (hours && typeof hours === 'object' && hours[dayKey + '_start']) {
-        return hours[dayKey + '_start'].substring(0, 5);
+// ZWEI SCHICHTEN AM TAG (Ibo, 19.10.2026, Foto 17:13 von Luett Italia:
+// "Offen bis 14:30"). Offen war richtig -- die Abendschicht lief --, aber
+// die Uhrzeit kam immer aus der ERSTEN Schicht (_start / _end). Wer
+// 11:30-14:30 und 17:00-22:00 hat, stand abends mit "bis 14:30" da, in der
+// Pause mit "oeffnet heute 11:30". Jetzt zaehlt die Schicht, die gerade
+// laeuft, bzw. die naechste, die heute noch kommt.
+function naechsterStartHeute(restaurant, jetzt) {
+    jetzt = jetzt || new Date();
+    if (!restaurant) return '';
+    var k = ['so', 'mo', 'di', 'mi', 'do', 'fr', 'sa'][jetzt.getDay()];
+    var rd = restaurant.rest_day;
+    if (rd !== null && rd !== undefined && rd !== '' && ({ 0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 0 })[Number(rd)] === jetzt.getDay()) return '';
+    var oh = restaurant.opening_hours, starts = [];
+    if (typeof oh === 'string') { try { oh = JSON.parse(oh); } catch (e) { oh = null; } }
+    if (oh && typeof oh === 'object' && oh[k + '_start']) {
+        if (oh[k + '_end']) starts.push(String(oh[k + '_start']).slice(0, 5));
+        if (oh[k + '_start2'] && oh[k + '_end2']) starts.push(String(oh[k + '_start2']).slice(0, 5));
+    } else if (restaurant.opening_time) {
+        starts.push(String(restaurant.opening_time).slice(0, 5));
     }
-    return restaurant.opening_time || '11:00';
+    var min = jetzt.getHours() * 60 + jetzt.getMinutes();
+    var kommt = starts.filter(function (s) { return parseTime(s) > min; }).sort();
+    return kommt[0] || '';
+}
+
+function getOpeningTimeToday(restaurant, jetzt) {
+    // Die naechste Oeffnung HEUTE (zweite Schicht beachtet). Ist heute
+    // nichts mehr, kommt '' -- frueher stand dann die Morgenzeit da
+    // ("oeffnet heute 11:30" um 23 Uhr).
+    return naechsterStartHeute(restaurant, jetzt || new Date());
 }
 
 function getClosingTimeToday(restaurant) {
     // Samstagnacht um 01:30 schliesst die Bar um 03:00 -- nicht um das,
     // was fuer Sonntag eingetragen ist.
     var _laeuft = (typeof aktiveSchicht === 'function') ? aktiveSchicht(restaurant, new Date()) : null;
-    if (_laeuft && _laeuft.vonGestern) return _laeuft.ende;
+    // Laeuft gerade eine Schicht, endet DIESE -- auch die zweite am Abend.
+    if (_laeuft) return _laeuft.ende;
     var now = new Date();
     var dayNames = ['so', 'mo', 'di', 'mi', 'do', 'fr', 'sa'];
     var dayKey = dayNames[now.getDay()];
@@ -46165,8 +46187,9 @@ function lpVisitenkarte(rest, offen, schliesst) {
     var teile = [];
     var tage = ['so', 'mo', 'di', 'mi', 'do', 'fr', 'sa'];
     var oh = rest.opening_hours && typeof rest.opening_hours === 'object' ? rest.opening_hours : null;
-    var heuteStart = (oh && oh[tage[new Date().getDay()] + '_start']) || rest.opening_time || '';
-    heuteStart = String(heuteStart).slice(0, 5);
+    // Naechste Oeffnung heute, auch die zweite Schicht (19.10.2026).
+    var heuteStart = (typeof naechsterStartHeute === 'function') ? naechsterStartHeute(rest, new Date())
+        : String((oh && oh[tage[new Date().getDay()] + '_start']) || rest.opening_time || '').slice(0, 5);
     var jetzt = new Date(), jm = jetzt.getHours() * 60 + jetzt.getMinutes();
     var startMin = heuteStart ? (+heuteStart.slice(0, 2)) * 60 + (+heuteStart.slice(3, 5)) : null;
     if (offen) {
