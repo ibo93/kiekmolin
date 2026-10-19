@@ -2,8 +2,7 @@
 //
 // Ibo, 19.10.2026: "das alte ist gut, nur leicht anpassen: die
 // Oeffnungszeiten besser machen ... das grosse Bild noch anpassen" und
-// "von den Reservieren paar Ideen nehmen". Ausgefuehrt: lpZeitenHtml,
-// lpZusagenHtml.
+// "von den Reservieren paar Ideen nehmen". Ausgefuehrt: lpZeitenHtml.
 'use strict';
 var fs = require('fs'), path = require('path');
 var H = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
@@ -30,15 +29,13 @@ t('rest_day 0 ist Montag, nicht "kein Ruhetag"', di.indexOf('Montag</span><span>
 t('keine Zeiten: "Keine Angabe" statt leerer Liste', /Keine Angabe/.test(Z({ opening_hours: {} }, mo, false)) && /Keine Angabe/.test(Z(null, mo, false)), '');
 t('Lokalseite benutzt lpZeitenHtml', /\$\{lpZeitenHtml\(APP_DATA\.restaurants\.find/.test(H), '');
 
-var U = new Function(fn('lpZusagenHtml') + '; return lpZusagenHtml;')();
-var ohne = U({ features: [] }), mit = U({ features: JSON.stringify(['auto_confirm_reservations']) });
-t('ohne Auto-Bestätigung: KEIN "Sofort bestätigt" (wäre gelogen)', ohne.indexOf('Sofort') === -1 && /Antwort per E-Mail/.test(ohne), '');
-t('mit Auto-Bestätigung: "Sofort bestätigt"', /Sofort bestätigt/.test(mit), '');
-t('Kostenlos + Absagen immer', /Kostenlos/.test(ohne) && /Absagen/.test(ohne), '');
-t('Zusagen stehen NICHT in der schwebenden Leiste', /lpZusagen = noReservations \? '' : lpZusagenHtml\(rest\)/.test(H) && /\$\{lpZusagen \? '<div class="lp-zusagen-platz">'/.test(H) && H.indexOf('bar += lpZusagenHtml') === -1, '');
-var inhalt = (H.match(/KIN-SYMBOLSCHRIFT-INHALT:\s*([a-z0-9_,]+)/) || [])[1] || '';
-t('Symbole sind in der Symbolschrift (sonst steht das Wort da)', ['savings', 'mark_email_read', 'mark_email_unread', 'event_busy', 'chevron_left', 'chevron_right'].every(function (s) { return inhalt.split(',').indexOf(s) >= 0; }), '');
-
+// Ibo, 19.10.2026 abends: "das Kostenlos alles [raus] und kein Pfeil und
+// Speisekarte mach in Kasten mit Scrollen".
+t('Zusagen-Kasten ist wieder raus', H.indexOf('lpZusagenHtml') === -1 && H.indexOf('lp-zusagen') === -1, '');
+t('keine Pfeile mehr auf den Fotos (Kopf + großes Foto)', H.indexOf('lp-hero-pfeil') === -1 && H.indexOf('lp-buehne-pfeil') === -1 && H.indexOf('lpHeroZurueck') === -1, '');
+t('Speisekarte steht in einem Kasten, die Reihe scrollt darin', /class="lp-menu-aussen"/.test(H) && /class="lp-menu-kasten"/.test(H)
+  && /\.lp-menu-kasten \{[^}]*overflow: hidden;/.test(H) && /\.lp-menu-reihe \{ display: flex; overflow-x: auto;/.test(H), '');
+t('auch die nachgeladenen Gerichte landen als Karte im Kasten (nicht 320 px fest)', H.indexOf("html += '<div style=\"flex:0 0 320px;") === -1 && /html \+= '<div class="lp-menu-card">';/.test(H), '');
 t('großes Bild "Über uns": auf dem Handy 4:3 statt 4:5, gerade', /class="lp-ueber-bild"/.test(H) && /@media \(max-width: 899px\) \{ \.lp-ueber-bild \{ aspect-ratio: 4 \/ 3 !important; transform: none !important;/.test(H), '');
 
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' Tests FEHLGESCHLAGEN.'));
