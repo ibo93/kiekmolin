@@ -45,6 +45,10 @@ function pruef(t, ok, x) { n++; if (!ok) rot++; console.log((ok ? 'OK  ' : 'FAIL
         image: bilder[0], images: bilder, rating: 4.6, review_count: 128, cuisine_type: ['Italienisch', 'Pizza'], description: 'Hausgemachte Pasta, Pizza aus dem Steinofen und eine Terrasse am Kanal.',
         opening_time: '11:30', closing_time: '22:00', features: [], opening_hours: { mo_start: '11:30', mo_end: '22:00', di_start: '11:30', di_end: '22:00', mi_start: '11:30', mi_end: '22:00', do_start: '11:30', do_end: '22:00', fr_start: '11:30', fr_end: '23:00', sa_start: '11:30', sa_end: '23:00', so_start: '12:00', so_end: '21:30' } };
       APP_DATA.restaurants = [rest];
+      window._menuItemsCache = {}; window._menuItemsCache[rest.id] = [
+        { id: 'g1', name: 'Pizza Diavola', description: 'Salami piccante, Chili, Fior di Latte', base_price: 12.9, image: bilder[2] },
+        { id: 'g2', name: 'Tagliatelle al Ragù', description: 'Hausgemacht, 6 Stunden geschmort', base_price: 14.5, image: bilder[1] },
+        { id: 'g3', name: 'Tiramisù', description: 'Nach Rezept der Nonna', base_price: 6.9, image: bilder[4] }];
       await showRestaurantLanding(rest);
     });
     await s.waitForTimeout(1800);
@@ -77,10 +81,12 @@ function pruef(t, ok, x) { n++; if (!ok) rot++; console.log((ok ? 'OK  ' : 'FAIL
     pruef(art + ': Kopf-Punkte (5), Weiter -> Foto 2, Selbstwechsel aus', kopf === '5|1|true', kopf);
     // Grossansicht: oeffnen, weiter, Escape schliesst
     var menu = await s.evaluate(function () {
-      var d = document.querySelectorAll('.lp-menu-daumen'); if (d.length < 2) return 'keine Auswahl (' + d.length + ')';
-      d[1].click(); return d.length + '|' + (d[1].getAttribute('aria-current') === 'true') + '|' + !d[0].getAttribute('aria-current');
+      var k = document.querySelector('.lp-menu-kasten'), r = document.querySelector('.lp-menu-reihe'), g = document.querySelectorAll('.lp-gk');
+      if (!k || !g.length) return 'keine Gerichte';
+      var kr = k.getBoundingClientRect(), raus = Array.prototype.some.call(g, function (x) { var b = x.getBoundingClientRect(); return b.left < kr.left - 1 && b.right > kr.left; });
+      return g.length + '|' + (g[0].querySelector('h3').textContent) + '|' + (g[0].querySelector('.lp-gk-kopf span') || {}).textContent + '|' + (r.scrollWidth > r.clientWidth) + '|' + (k.scrollWidth <= k.clientWidth + 1);
     });
-    pruef(art + ': Speisekarte im Kasten: 2. Gericht antippen wählt es aus', /^\d+\|true\|true$/.test(menu), menu);
+    pruef(art + ': Speisekarte: Gerichte wie beim Bestellen (Foto, Name, Preis), scrollen im Kasten', /^3\|Pizza Diavola\|12,90 €\|(true|false)\|true$/.test(menu), menu);
     await s.evaluate(function () { document.getElementById('lpBuehne').scrollIntoView({ block: 'center' }); });
     await s.click('#lpDaumen .lp-daumen-bild:nth-child(3)');
     var buehne = await s.evaluate(function () { return document.getElementById('lpBuehneNr').textContent + '|' + document.querySelectorAll('#lpDaumen [aria-current]').length; });

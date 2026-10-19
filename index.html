@@ -46280,8 +46280,8 @@ async function showRestaurantLanding(rest) {
             h += '<button onclick="openMenuModal(\'' + rest.id + '\')" style="color:var(--ink-deep);font-weight:700;display:flex;align-items:center;gap:8px;background:none;border:none;cursor:pointer;font-family:Inter,sans-serif;font-size:14px;transition:transform 0.3s;" onmouseover="this.style.transform=\'translateX(8px)\'" onmouseout="this.style.transform=\'translateX(0)\'">Alle Gerichte <span class="material-symbols-outlined">arrow_forward</span></button>';
             h += '</div>';
             h += '<div data-lp-menu-scroll>' + lpMenuKastenHtml(menuItems.map(function (item) {
-                return { name: item.name, description: item.description, price: item.price, image: item.image || item.image_url };
-            })) + '</div>';
+                return { name: item.name, description: item.description, price: item.base_price || item.price, image: item.image || item.image_url };
+            }), rest.id) + '</div>';
             h += '</div></div></section>';
             return h;
         })()}
@@ -46479,7 +46479,7 @@ async function showRestaurantLanding(rest) {
             if (!container) return;
             container.innerHTML = lpMenuKastenHtml(items.slice(0, 6).map(function (item, i) {
                 return { name: item.name, description: item.description, price: item.base_price, image: imgs[i % imgs.length] || imgs[0] };
-            }));
+            }), rest.id);
         } catch(e) { console.log('LP Menu load error:', e); }
     })();
 
@@ -46619,44 +46619,32 @@ function lpDiashowZeige(i, vomGast) {
 // "Eindruecke": alle Fotos als Karussell zum Wischen (scroll-snap, ohne
 // Bibliothek). Am Rechner Pfeile, auf dem Handy wischen. Tippen oeffnet
 // das Foto gross (lpLightbox).
-// SPEISEKARTE IM KASTEN: EIN GERICHT GROSS, DARUNTER AUSWAEHLEN
-// (Ibo, 19.10.2026: "die Speisekarte soll die Bilder in einem Kasten mit
-// Auswaehlen"). Wie bei den Fotos: oben das gewaehlte Gericht gross mit
-// Name, Beschreibung und Preis, darunter bis zu 6 kleine Bilder. Kein
-// Scrollen zur Seite mehr.
+// SPEISEKARTE IM KASTEN, GERICHTE WIE BEIM BESTELLEN
+// (Ibo, 19.10.2026: "nicht so, so wie bei Bestellen mit Foto und
+// Gericht"). Jede Karte wie im Bestell-Menue: Foto oben, darunter Name
+// und Preis, Beschreibung, ein Knopf. Die Karten scrollen IM Kasten
+// (frueher wollte er "Kasten mit Scrollen"), nicht ueber den Rand.
+// Tippen fuehrt in die Speisekarte des Lokals -- dort wird bestellt.
 function lpMenuPreis(p) { var z = parseFloat(p); return isFinite(z) && z > 0 ? z.toFixed(2).replace('.', ',') + ' €' : ''; }
-function lpMenuBuehne(g) {
-    var bild = g.image && String(g.image).length > 5 && !/["'<>]/.test(String(g.image));
-    var preis = lpMenuPreis(g.price);
-    return (bild ? '<img src="' + g.image + '" alt="' + escapeHtml(g.name || 'Gericht') + '" loading="lazy" decoding="async">'
-                 : '<span class="lp-menu-ohnebild material-symbols-outlined" aria-hidden="true">restaurant</span>')
-        + '<div class="lp-menu-text"><h3>' + escapeHtml(g.name || '') + '</h3>'
-        + (g.description ? '<p>' + escapeHtml(g.description) + '</p>' : '')
-        + (preis ? '<span class="lp-menu-preis">' + preis + '</span>' : '') + '</div>';
-}
-function lpMenuKastenHtml(items) {
+function lpMenuKastenHtml(items, restId) {
     items = (items || []).filter(function (g) { return g && (g.name || g.image); }).slice(0, 6);
     if (!items.length) return '';
-    window._lpMenu = items;
-    var h = '<div id="lpMenuBuehne" class="lp-menu-buehne">' + lpMenuBuehne(items[0]) + '</div>';
-    if (items.length > 1) {
-        h += '<div class="lp-menu-wahl" style="--spalten:' + items.length + '">';
-        items.forEach(function (g, i) {
-            var bild = g.image && String(g.image).length > 5 && !/["'<>]/.test(String(g.image));
-            h += '<button type="button" class="lp-menu-daumen"' + (i === 0 ? ' aria-current="true"' : '') + ' onclick="lpMenuZeige(' + i + ')" aria-label="' + escapeHtml(g.name || ('Gericht ' + (i + 1))) + ' ansehen">'
-                + (bild ? '<img src="' + g.image + '" alt="" loading="lazy" decoding="async">' : '<span>' + escapeHtml(String(g.name || '?').charAt(0)) + '</span>')
-                + '</button>';
-        });
-        h += '</div>';
-    }
-    return h;
-}
-function lpMenuZeige(i) {
-    var items = window._lpMenu || [], b = document.getElementById('lpMenuBuehne');
-    if (!items[i] || !b) return;
-    b.innerHTML = lpMenuBuehne(items[i]);
-    var d = document.querySelectorAll('.lp-menu-daumen');
-    for (var k = 0; k < d.length; k++) { if (k === i) d[k].setAttribute('aria-current', 'true'); else d[k].removeAttribute('aria-current'); }
+    var rid = String(restId || '').replace(/[^a-zA-Z0-9_-]/g, '');
+    var auf = rid ? ' onclick="openMenuModal(\'' + rid + '\')"' : '';
+    var h = '<div class="lp-menu-reihe no-scrollbar">';
+    items.forEach(function (g) {
+        var bild = g.image && String(g.image).length > 5 && !/["'<>]/.test(String(g.image));
+        var preis = lpMenuPreis(g.price);
+        h += '<div class="lp-gk"' + auf + ' role="button" tabindex="0">'
+            + '<div class="lp-gk-bild">' + (bild ? '<img src="' + g.image + '" alt="' + escapeHtml(g.name || 'Gericht') + '" loading="lazy" decoding="async">'
+                                               : '<span class="material-symbols-outlined" aria-hidden="true">restaurant</span>') + '</div>'
+            + '<div class="lp-gk-text"><div class="lp-gk-kopf"><h3>' + escapeHtml(g.name || 'Gericht') + '</h3>'
+            + (preis ? '<span>' + preis + '</span>' : '') + '</div>'
+            + (g.description ? '<p>' + escapeHtml(g.description) + '</p>' : '')
+            + '<span class="lp-gk-knopf"><span class="material-symbols-outlined" aria-hidden="true">restaurant_menu</span>Zur Speisekarte</span>'
+            + '</div></div>';
+    });
+    return h + '</div>';
 }
 
 // OEFFNUNGSZEITEN AUF DER LOKALSEITE (Ibo, 19.10.2026: "die
@@ -48581,19 +48569,19 @@ function applyLiquidGlass(enable) {
         .lp-menu-kopf h2 { font-size: 28px !important; }
         .lp-menu-kopf p { font-size: 12px !important; white-space: nowrap; }
         .lp-menu-kopf button { white-space: nowrap; font-size: 13px !important; flex-shrink: 0; }
-        .lp-menu-buehne { position: relative; margin: 0 20px; aspect-ratio: 4 / 3; border-radius: 22px; overflow: hidden; background: linear-gradient(135deg,var(--marke-dunkel,#00251e),var(--marke,#003d33)); }
-        .lp-menu-buehne img { width: 100%; height: 100%; object-fit: cover; display: block; }
-        .lp-menu-buehne::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.78) 0%, transparent 55%); pointer-events: none; }
-        .lp-menu-ohnebild { position: absolute; top: 24px; left: 24px; font-size: 32px; color: rgba(255,213,79,0.6); }
-        .lp-menu-text { position: absolute; left: 20px; right: 20px; bottom: 18px; z-index: 1; color: #fff; }
-        .lp-menu-text h3 { font: 700 22px Epilogue, sans-serif; margin: 0 0 4px; }
-        .lp-menu-text p { font: 400 13px/1.45 Inter, sans-serif; color: rgba(255,255,255,0.8); margin: 0 0 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-        .lp-menu-preis { font: 700 18px Epilogue, sans-serif; color: #fed65b; }
-        .lp-menu-wahl { display: grid; grid-template-columns: repeat(var(--spalten, 6), minmax(0, 1fr)); gap: 8px; margin: 10px 20px 0; }
-        .lp-menu-daumen { aspect-ratio: 1; padding: 0; border: 2px solid transparent; border-radius: 14px; overflow: hidden; background: var(--marke, #003d33); color: #fed65b; font: 800 18px Epilogue, sans-serif; cursor: pointer; opacity: 0.7; transition: opacity .2s, border-color .2s; }
-        .lp-menu-daumen[aria-current="true"] { border-color: var(--marke, #003d33); opacity: 1; }
-        .lp-menu-daumen img { width: 100%; height: 100%; object-fit: cover; display: block; }
-        @media (min-width: 900px) { .lp-menu-buehne { aspect-ratio: 16 / 7; } .lp-menu-wahl { grid-template-columns: repeat(6, minmax(0, 1fr)); max-width: 620px; } }
+        .lp-menu-reihe { display: flex; overflow-x: auto; gap: 14px; padding: 0 20px 6px; scroll-snap-type: x mandatory; scroll-padding: 0 20px; -webkit-overflow-scrolling: touch; }
+        .lp-gk { flex: 0 0 78%; max-width: 280px; scroll-snap-align: start; border-radius: 24px; overflow: hidden; background: #fff; border: 1px solid #ecebe9; cursor: pointer; display: flex; flex-direction: column; }
+        .lp-gk-bild { height: 160px; background: linear-gradient(135deg,var(--marke-dunkel,#00251e),var(--marke,#003d33)); display: flex; align-items: center; justify-content: center; }
+        .lp-gk-bild img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .lp-gk-bild .material-symbols-outlined { font-size: 34px; color: rgba(255,213,79,0.6); }
+        .lp-gk-text { padding: 14px 16px 16px; display: flex; flex-direction: column; flex: 1; }
+        .lp-gk-kopf { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+        .lp-gk-kopf h3 { font: 700 17px/1.2 Epilogue, sans-serif; color: var(--ink-deep, #00251e); margin: 0; }
+        .lp-gk-kopf span { font: 700 17px Epilogue, sans-serif; color: #735c00; white-space: nowrap; }
+        .lp-gk-text p { font: 400 13px/1.5 Inter, sans-serif; color: var(--text-secondary, #404946); margin: 0 0 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .lp-gk-knopf { margin-top: auto; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; border-radius: 9999px; background: rgba(0,61,51,0.06); color: var(--marke, #003d33); font: 700 13px Inter, sans-serif; }
+        .lp-gk-knopf .material-symbols-outlined { font-size: 17px; }
+        @media (min-width: 768px) { .lp-gk { flex: 0 0 300px; } }
         .lp-galerie-innen { padding: 0 24px; }
         .lp-buehne { position: relative; border-radius: 28px; overflow: hidden; background: #e7e5e4; box-shadow: 0 18px 40px -18px rgba(0,0,0,0.35); }
         .lp-buehne-bild { display: block; width: 100%; aspect-ratio: 16 / 10; padding: 0; border: none; background: none; cursor: zoom-in; }

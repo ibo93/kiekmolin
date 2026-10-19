@@ -33,15 +33,16 @@ t('Lokalseite benutzt lpZeitenHtml', /\$\{lpZeitenHtml\(APP_DATA\.restaurants\.f
 // Speisekarte mach in Kasten mit Scrollen".
 t('Zusagen-Kasten ist wieder raus', H.indexOf('lpZusagenHtml') === -1 && H.indexOf('lp-zusagen') === -1, '');
 t('keine Pfeile mehr auf den Fotos (Kopf + großes Foto)', H.indexOf('lp-hero-pfeil') === -1 && H.indexOf('lp-buehne-pfeil') === -1 && H.indexOf('lpHeroZurueck') === -1, '');
-// "die Speisekarte soll die Bilder in einem Kasten mit Auswaehlen"
+// "nicht so, so wie bei Bestellen mit Foto und Gericht"
 var esc = function (x) { return String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); };
-var MW = {};
-var M = new Function('window', 'escapeHtml', fn('lpMenuPreis') + fn('lpMenuBuehne') + fn('lpMenuKastenHtml') + '; return lpMenuKastenHtml;')(MW, esc);
-var mk = M([{ name: 'Pizza <Diavola>', description: 'scharf', price: '12.9', image: 'p.jpg' }, { name: 'Tiramisù', price: 6.9, image: '' }, { name: 'Burrata', image: 'b.jpg' }]);
-t('Speisekarte: ein Gericht groß (Name, Preis) + Auswahl darunter', /id="lpMenuBuehne"/.test(mk) && /12,90 €/.test(mk) && (mk.match(/class="lp-menu-daumen"/g) || []).length === 3, mk.slice(0, 200));
-t('Auswahl wechselt das Gericht', /onclick="lpMenuZeige\(2\)"/.test(mk) && MW._lpMenu.length === 3, '');
-t('Name maskiert, Gericht ohne Bild zeigt den Anfangsbuchstaben', mk.indexOf('<Diavola>') === -1 && /<span>T<\/span>/.test(mk), '');
-t('Speisekarte scrollt nicht mehr zur Seite', H.indexOf('lp-menu-reihe') === -1 && /container\.innerHTML = lpMenuKastenHtml\(/.test(H) && /'<div data-lp-menu-scroll>' \+ lpMenuKastenHtml\(/.test(H), '');
+var M = new Function('escapeHtml', fn('lpMenuPreis') + fn('lpMenuKastenHtml') + '; return lpMenuKastenHtml;')(esc);
+var mk = M([{ name: 'Pizza <Diavola>', description: 'scharf', price: '12.9', image: 'pizza.jpg' }, { name: 'Tiramisù', price: 6.9, image: '' }, { name: 'Burrata', image: 'b.jpg' }], 'r-1"x');
+t('Speisekarte: jede Karte wie beim Bestellen (Foto, Name, Preis, Beschreibung)', (mk.match(/class="lp-gk"/g) || []).length === 3 && /<img src="pizza\.jpg"/.test(mk) && /12,90 €/.test(mk) && /<p>scharf<\/p>/.test(mk), mk.slice(0, 300));
+t('ohne Foto: Motiv statt leerer Fläche', /lp-gk-bild"><span class="material-symbols-outlined"[^>]*>restaurant</.test(mk), '');
+t('Tippen öffnet die Speisekarte des Lokals, Kennung bereinigt', /onclick="openMenuModal\('r-1x'\)"/.test(mk) && mk.indexOf('r-1"x') === -1, '');
+t('Name maskiert', mk.indexOf('<Diavola>') === -1, '');
+t('beide Wege (sofort + nachgeladen) übergeben die Lokal-Kennung', (H.match(/\}\), rest\.id\)/g) || []).length >= 2, '');
+t('Karten scrollen IM Kasten', /\.lp-menu-reihe \{ display: flex; overflow-x: auto;/.test(H), '');
 t('Speisekarte steht in einem Kasten', /class="lp-menu-aussen"/.test(H) && /class="lp-menu-kasten"/.test(H) && /\.lp-menu-kasten \{[^}]*overflow: hidden;/.test(H), '');
 t('großes Bild "Über uns": auf dem Handy 4:3 statt 4:5, gerade', /class="lp-ueber-bild"/.test(H) && /@media \(max-width: 899px\) \{ \.lp-ueber-bild \{ aspect-ratio: 4 \/ 3 !important; transform: none !important;/.test(H), '');
 
