@@ -25,18 +25,22 @@ var H = fs.readFileSync(KMI + '/index.html', 'utf8');
 var n = 0, ok = 0;
 function t(l, c, x) { n++; var g = c === true; if (g) ok++; console.log((g ? 'OK  ' : 'FAIL') + ' | ' + l + (g ? '' : '  -> ' + x)); }
 
-// Den ECHTEN Erzeuger aus der Datei schneiden statt ihn nachzubauen --
+// Den ECHTEN Erzeuger aus der Datei nehmen statt ihn nachzubauen --
 // nachgebaut würde der Test auch dann grün bleiben, wenn die Seite kaputt
-// ist.
-var anf = H.indexOf("var appR = APP_DATA.restaurants.find(function(x){ return x.id === rest.id; });");
-var ende = H.indexOf("return '<p style=\"font-size:18px;line-height:1.5;\">' + (hoursText || 'Keine Angabe') + '</p>';", anf);
-if (anf < 0 || ende < 0) { console.log('FAIL | Öffnungszeiten-Erzeuger nicht gefunden'); process.exit(1); }
-var koerper = H.slice(anf, ende) + "return (hoursText || 'Keine Angabe');";
-
-var zeiten = new Function('APP_DATA', 'rest', koerper);
+// ist. Seit 19.10.2026 ist das lpZeitenHtml (eine Zeile pro Tag statt
+// zusammengefasster Gruppen). zeige() macht daraus wieder "Mo: …"-Zeilen,
+// damit die Prüfungen unten lesbar bleiben.
+function fnAus(name) { var i = H.indexOf('function ' + name + '('); if (i < 0) return null; var d = 0, j = H.indexOf('{', i); for (var k = j; k < H.length; k++) { if (H[k] === '{') d++; else if (H[k] === '}') { d--; if (!d) return H.slice(i, k + 1); } } }
+var quelle = fnAus('lpZeitenHtml');
+if (!quelle) { console.log('FAIL | Öffnungszeiten-Erzeuger nicht gefunden'); process.exit(1); }
+var lpZeitenHtml = new Function(quelle + '; return lpZeitenHtml;')();
+var KURZ = { Montag: 'Mo', Dienstag: 'Di', Mittwoch: 'Mi', Donnerstag: 'Do', Freitag: 'Fr', Samstag: 'Sa', Sonntag: 'So' };
 
 function zeige(oh, restDay) {
-    return zeiten({ restaurants: [{ id: 'r1', opening_hours: oh, rest_day: restDay }] }, { id: 'r1' });
+    var h = lpZeitenHtml({ opening_hours: oh, rest_day: restDay }, new Date(2026, 9, 21), false, '', '');
+    var zeilen = [], re = /<span>([A-Za-z]+)(?: <b>[^<]*<\/b>)?<\/span><span>(.*?)<\/span><\/div>/g, m;
+    while ((m = re.exec(h))) zeilen.push(KURZ[m[1]] + ': ' + m[2].replace('<br>', ' & '));
+    return zeilen.length ? zeilen.join('\n') : (/Keine Angabe/.test(h) ? 'Keine Angabe' : h);
 }
 
 // So sieht Al Porto in der Datenbank aus: Zeiten für ALLE sieben Tage
@@ -58,7 +62,7 @@ t('am Ruhetag steht "Ruhetag", nicht die eingetragene Uhrzeit',
 t('die alte Zeile "Mo: 11:00–22:00" ist weg',
   !/Mo: 11:00/.test(mitRuhe), mitRuhe);
 t('die anderen Tage bleiben unveraendert',
-  /Di–Do: 16:00–22:00/.test(mitRuhe) && /Fr–Sa: 16:00–23:00/.test(mitRuhe) && /So: 16:00–22:00/.test(mitRuhe),
+  /Di: 16:00–22:00/.test(mitRuhe) && /Do: 16:00–22:00/.test(mitRuhe) && /Sa: 16:00–23:00/.test(mitRuhe) && /So: 16:00–22:00/.test(mitRuhe),
   mitRuhe);
 
 // ---- Ohne Ruhetag darf sich nichts ändern ----------------------------------
@@ -86,11 +90,11 @@ delete ohneMontag.mo_start; delete ohneMontag.mo_end;
 t('fehlende Zeiten zaehlen weiter als Ruhetag (der alte Weg bleibt)',
   /Mo: Ruhetag/.test(zeige(ohneMontag, null)), zeige(ohneMontag, null));
 
-// ---- Zwei Ruhetage hintereinander werden zusammengefasst --------------------
+// ---- Zwei Ruhetage hintereinander --------------------
 var moDiZu = Object.assign({}, ALPORTO);
 delete moDiZu.di_start; delete moDiZu.di_end;
-t('Montag (Feld) und Dienstag (ohne Zeiten) stehen zusammen',
-  /Mo–Di: Ruhetag/.test(zeige(moDiZu, 0)), zeige(moDiZu, 0));
+t('Montag (Feld) und Dienstag (ohne Zeiten) sind beide Ruhetag',
+  /Mo: Ruhetag/.test(zeige(moDiZu, 0)) && /Di: Ruhetag/.test(zeige(moDiZu, 0)), zeige(moDiZu, 0));
 
 // ---- Sekunden aus der Datenbank abschneiden ---------------------------------
 // Postgres liefert time-Spalten als "16:00:00". Ungekürzt stünde
@@ -105,10 +109,11 @@ t('Mittagspause wird weiter angezeigt',
       zeige({ mo_start: '11:00', mo_end: '14:00', mo_start2: '17:00', mo_end2: '22:00' }, null)),
   zeige({ mo_start: '11:00', mo_end: '14:00', mo_start2: '17:00', mo_end2: '22:00' }, null));
 // Hier hat nur der Montag Zeiten; alle anderen Tage sind mangels Zeiten
-// ohnehin Ruhetag, also fasst die Gruppierung korrekt "Mo–So" zusammen.
+// ohnehin Ruhetag. Ist auch der Montag zu, gibt es GAR keine Zeiten mehr --
+// dann steht "Keine Angabe" (kein Tag hat offen).
 var nurMontag = zeige({ mo_start: '11:00', mo_end: '14:00', mo_start2: '17:00', mo_end2: '22:00' }, 0);
 t('am Ruhetag wird auch keine zweite Schicht gezeigt',
-  /Ruhetag/.test(nurMontag) && !/17:00/.test(nurMontag), nurMontag);
+  !/17:00/.test(nurMontag), nurMontag);
 
 // ---- Nichts kippt ------------------------------------------------------------
 t('ohne Oeffnungszeiten kommt "Keine Angabe"',

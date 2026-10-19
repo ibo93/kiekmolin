@@ -17,12 +17,22 @@ var win = {};
 var G = new Function('window', 'escapeHtml', fn('lpGalerieHtml') + '; return lpGalerieHtml;')(win, function (x) { return String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); });
 var bilder = ['a.jpg', 'b.jpg', 'c.jpg', 'd.jpg', 'e.jpg', 'f.jpg'];
 var h = G(bilder, 'Die <Millis>');
-t('alle 6 Fotos im Karussell (vorher höchstens 4)', (h.match(/class="lp-karussell-bild"/g) || []).length === 6, (h.match(/lp-karussell-bild"/g) || []).length);
-t('jedes Foto öffnet die Großansicht an seiner Stelle', /onclick="lpLightbox\(5\)"/.test(h) && /6 \/ 6/.test(h), '');
+t('großes Foto + Vorschaubilder statt seitlicher Reihe (Ibo: "nicht nach rechts wischen")', /id="lpBuehne"/.test(h) && (h.match(/class="lp-daumen-bild"/g) || []).length === 6 && h.indexOf('lp-karussell') === -1, '');
+t('Vorschaubild wechselt das große Foto, das große Foto öffnet die Großansicht', /onclick="lpGalerieZeige\(4\)"/.test(h) && /onclick="lpLightbox\(window\._lpGalerieIdx \|\| 0\)"/.test(h) && /1 \/ 6/.test(h), '');
+var h9 = G(['1','2','3','4','5','6','7','8','9'].map(function (x) { return x + '.jpg'; }), 'x');
+t('mehr als 6 Fotos: letztes Vorschaubild zeigt "+4" und öffnet alle', (h9.match(/class="lp-daumen-bild"/g) || []).length === 6 && />\+4</.test(h9) && /onclick="lpLightbox\(5\)"/.test(h9) && /Alle 9 Fotos ansehen/.test(h9), '');
 t('Name im alt-Text maskiert', h.indexOf('<Millis>') === -1 && /Die &lt;Millis> – Foto 1/.test(h), '');
+// Blaettern: am Ende wieder vorn, Markierung wandert mit
+var daumen = [0,1,2].map(function () { var a = {}; return { setAttribute: function (k, v) { a[k] = v; }, removeAttribute: function (k) { delete a[k]; }, a: a }; });
+var bImg = { src: '', alt: 'x – Foto 1' }, bNr = { textContent: '' };
+var Z = new Function('window', 'document', fn('lpGalerieZeige') + fn('lpGalerieBlaettern') + '; return { z: lpGalerieZeige, b: lpGalerieBlaettern };')
+    ({ _lpGalerie: ['a','b','c'], _lpGalerieIdx: 0 }, { getElementById: function (id) { return id === 'lpBuehneImg' ? bImg : bNr; }, querySelectorAll: function () { return daumen; } });
+Z.b(-1);
+t('Zurück auf Foto 1 springt zu Foto 3, Markierung + Nummer stimmen', bImg.src === 'c' && bNr.textContent === '3 / 3' && daumen[2].a['aria-current'] === 'true' && !daumen[0].a['aria-current'] && /Foto 3$/.test(bImg.alt), bImg.src + ' ' + bNr.textContent);
 t('nur 1 Foto: kein Karussell', G(['a.jpg'], 'x') === '', '');
 t('Platzhalter-GIF und Adressen mit Anführungszeichen fliegen raus', G(['data:image/gif;base64,R0', 'a.jpg', 'b"onerror=x.jpg'], 'x') === '', G(['data:image/gif;base64,R0', 'a.jpg', 'b"onerror=x.jpg'], 'x'));
-t('die Liste für die Großansicht wird gemerkt', win._lpGalerie && win._lpGalerie.length === 6, '');
+t('die Liste für die Großansicht wird gemerkt (zuletzt 9 Fotos)', win._lpGalerie && win._lpGalerie.length === 9, '');
+t('Wischen auf dem großen Foto wird beim Aufbau angemeldet', /document\.body\.appendChild\(landing\);\s*lpGalerieWischen\(\);/.test(H), '');
 t('Lokalseite benutzt das Karussell statt des alten Rasters', /\$\{lpGalerieHtml\(rest\.images \|\| \[\], rest\.name\)\}/.test(H) && H.indexOf('class="lp-bento-grid"') === -1, '');
 
 // Kopf-Diashow: der Reihe nach, Gast blaettert -> Selbstwechsel aus

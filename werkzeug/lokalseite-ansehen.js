@@ -55,7 +55,7 @@ function pruef(t, ok, x) { n++; if (!ok) rot++; console.log((ok ? 'OK  ' : 'FAIL
       // sichtbares Foto oben: Heldenflaeche im Fenster minus Karte
       var fotoSicht = hr ? Math.max(0, Math.min(hr.bottom, innerHeight) - Math.max(hr.top, 0)) : 0;
       var verdeckt = kr ? Math.max(0, Math.min(kr.bottom, innerHeight) - Math.max(kr.top, 0)) * Math.min(1, kr.width / innerWidth) : 0;
-      var kar = document.getElementById('lpKarussell');
+      var kar = document.getElementById('lpDaumen');
       return { ragt: l.scrollWidth - l.clientWidth, fotoAnteil: Math.round(100 * Math.max(0, fotoSicht - verdeckt) / innerHeight),
         karussell: kar ? kar.querySelectorAll('img').length : 0, hoehe: l.scrollHeight };
     });
@@ -67,7 +67,7 @@ function pruef(t, ok, x) { n++; if (!ok) rot++; console.log((ok ? 'OK  ' : 'FAIL
     })));
     pruef(art + ': nichts ragt seitlich heraus', m.ragt <= 1, m.ragt + 'px');
     pruef(art + ': keine JS-Fehler', fehler.length === 0, fehler.join(' | '));
-    pruef(art + ': Karussell mit allen 5 Fotos', m.karussell === 5, m.karussell);
+    pruef(art + ': Vorschaubilder für alle 5 Fotos', m.karussell === 5, m.karussell);
     // Kopf: Punkte da, Weiter blaettert, Selbstwechsel haelt danach an
     var kopf = await s.evaluate(function () {
       var p = document.querySelectorAll('#lpHeroPunkte button'); if (!p.length) return 'keine Punkte';
@@ -76,8 +76,12 @@ function pruef(t, ok, x) { n++; if (!ok) rot++; console.log((ok ? 'OK  ' : 'FAIL
     });
     pruef(art + ': Kopf-Punkte (5), Weiter -> Foto 2, Selbstwechsel aus', kopf === '5|1|true', kopf);
     // Grossansicht: oeffnen, weiter, Escape schliesst
-    await s.evaluate(function () { document.getElementById('lpKarussell').scrollIntoView(); });
-    await s.click('#lpKarussell .lp-karussell-bild:nth-child(3)');
+    await s.evaluate(function () { document.getElementById('lpBuehne').scrollIntoView({ block: 'center' }); });
+    await s.click('#lpDaumen .lp-daumen-bild:nth-child(3)');
+    var buehne = await s.evaluate(function () { return document.getElementById('lpBuehneNr').textContent + '|' + document.querySelectorAll('#lpDaumen [aria-current]').length; });
+    pruef(art + ': Vorschaubild 3 antippen -> großes Foto 3', buehne === '3 / 5|1', buehne);
+    await s.screenshot({ path: path.join(AUS, NAME + '-' + art + '-fotos.png') });
+    await s.click('#lpBuehne');
     await s.waitForTimeout(200);
     var lb1 = await s.evaluate(function () { var b = document.getElementById('lpLightbox'); return b ? b.querySelector('.lp-lb-nr').textContent : 'zu'; });
     await s.screenshot({ path: path.join(AUS, NAME + '-' + art + '-gross.png') });
@@ -85,7 +89,7 @@ function pruef(t, ok, x) { n++; if (!ok) rot++; console.log((ok ? 'OK  ' : 'FAIL
     var lb2 = await s.evaluate(function () { return document.querySelector('#lpLightbox .lp-lb-nr').textContent; });
     await s.keyboard.press('Escape');
     var lb3 = await s.evaluate(function () { return !document.getElementById('lpLightbox'); });
-    pruef(art + ': Großansicht: Foto 3 öffnet, → zu 4, Escape schließt', lb1 === '3 / 5' && lb2 === '4 / 5' && lb3, lb1 + ' ' + lb2 + ' ' + lb3);
+    pruef(art + ': Großansicht: großes Foto öffnet bei 3, → zu 4, Escape schließt', lb1 === '3 / 5' && lb2 === '4 / 5' && lb3, lb1 + ' ' + lb2 + ' ' + lb3);
     await s.screenshot({ path: path.join(AUS, NAME + '-' + art + '-oben.png') });
     await s.evaluate(function () { var l = document.getElementById('restaurantLanding'); l.style.position = 'static'; l.style.overflow = 'visible'; document.querySelectorAll('body > *').forEach(function (x) { if (x !== l && !x.contains(l)) x.style.display = 'none'; }); });
     await s.screenshot({ path: path.join(AUS, NAME + '-' + art + '-ganz.png'), fullPage: true });
