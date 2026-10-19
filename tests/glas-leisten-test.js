@@ -72,7 +72,7 @@ var frei = H.match(/:is\(html, #kmi-glas\) :is\(([^{]*)\) \{\s*backdrop-filter: 
 t('die Leisten bekommen EINEN gemeinsamen Glas-Look', !!frei, null);
 LEISTEN.forEach(function (l) { t('  Leiste dabei: ' + l, !!frei && frei[1].indexOf(l) >= 0, l); });
 t('die Leisten der Lokalseite sind markiert (Kopfleiste und Aktionsleiste)',
-  /<nav class="kmi-glas-leiste" style="position:fixed;top:0;/.test(H) && /var bar = '<div class="kmi-glas-leiste kmi-glas-dunkel"/.test(H), null);
+  /<nav class="kmi-glas-leiste" style="position:fixed;top:0;/.test(H) && /var bar = '<div class="kmi-glas-leiste kmi-glas-dunkel( lp-aktionen)?"/.test(H), null);
 t('Grund der Leisten im Dunkeln dicht (nicht 5 % wie vorher beim Installieren-Banner)',
   /:is\(html, #kmi-glas\)\.dark-mode :is\(#guestTopNav[^{]*\.install-banner[^{]*\{\s*background-color: rgba\(18,20,20,0\.86\) !important;/.test(H), null);
 t('Fenster sind Inhalt: hell deckend weiss',

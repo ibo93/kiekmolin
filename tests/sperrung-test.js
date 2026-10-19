@@ -118,7 +118,9 @@ t('Uhrzeit zeigt "noch 2 Tische" / "noch 1 Tisch", ohne Grenze nichts',
 var las0 = fn('loadAvailableSlots');
 t('Gästeseite rechnet die Grenze ein (min(Tische, Online-Tische)) und gibt nochTische mit',
   /if \(_onlineT\) maxTables = Math\.min\(maxTables, _onlineT\);/.test(las0) && /nochTische: _onlineT \? Math\.max\(0, maxTables - bookingsAtTime\) : null/.test(las0), 'fehlt');
-t('beide Uhrzeit-Reihen (Mittag, Abend) zeigen es', (fn('renderSlotsWithSuggestions').match(/demandStyle\.badge \+ nochTischeHtml\(s\)/g) || []).length === 2, 'nur eine');
+// Seit 19.10.2026 (neues Reservieren) baut EINE Funktion die Knoepfe fuer
+// Mittag und Abend (resSlotsHtml, Umschalter waehlt die Liste).
+t('Mittag und Abend zeigen es (eine Knopf-Funktion fuer beide)', /nochTischeHtml\(s\)/.test(fn('resSlotsHtml')) && /resSlotsHtml\(liste\)/.test(fn('renderSlotsWithSuggestions')) && /window\._resTeil === 'mittag' \? mittag : abend/.test(fn('renderSlotsWithSuggestions')), 'fehlt');
 
 var slots = slotsJe('K', '2026-12-31');
 var g = S.gruppen([
