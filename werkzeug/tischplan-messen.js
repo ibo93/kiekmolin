@@ -63,7 +63,8 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
 
   async function seite(opt) {
     opt = opt || {};
-    var ctx = await b.newContext({ viewport: { width: 1180, height: 820 }, serviceWorkers: 'block' });
+    // KMI_DPR=2: wie ein iPad (Retina) -- für die Schärfe des Gastblicks
+    var ctx = await b.newContext({ viewport: { width: 1180, height: 820 }, deviceScaleFactor: +(process.env.KMI_DPR || 1), serviceWorkers: 'block' });
     var geschrieben = [];
     // Nachbau der Eindeutigkeit (restaurant_id, table_number): aktive + gelöschte Nummern.
     var belegt = TISCHE.map(function (t) { return t.table_number; }).concat((opt.geloescht || []).map(String));
@@ -657,7 +658,7 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
     var schild = document.querySelector('#tp3Boden .tp3-schild'); return { an: w.getAttribute('data-gast'), tf: b.style.transform, hoch: hoch, schild: schild ? getComputedStyle(schild).display : 'keins',
       plaetze: document.querySelectorAll('#tp3Seite [data-gast-platz]').length, text: document.getElementById('tp3Seite').innerText.slice(0, 60) };
   });
-  pruef('Gastblick: Kamera auf dem Stuhl (rotateX 80°, scale3d), Schilder weg', gast.an === '1' && /rotateX\(80deg\)/.test(gast.tf) && /scale3d/.test(gast.tf) && gast.schild === 'none', JSON.stringify(gast));
+  pruef('Gastblick: Kamera auf dem Stuhl (rotateX 85°, scale3d), Schilder weg', gast.an === '1' && /rotateX\(85deg\)/.test(gast.tf) && /scale3d/.test(gast.tf) && gast.schild === 'none', JSON.stringify(gast));
   pruef('Gastblick: Wände in Raumhöhe (alle hoch, nicht als Sockel)', gast.hoch >= 4, gast.hoch);
   pruef('Gastblick: Platz wählbar (Tisch 8 hat 4 Plätze)', gast.plaetze === 4, gast.plaetze);
   await p.s.locator('#tp3').screenshot({ path: path.join(AUS, 'tischplan-gastblick-1.png') });

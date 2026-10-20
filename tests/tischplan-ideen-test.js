@@ -68,6 +68,14 @@ console.log('\n-- 4. Gastblick --');
 t('Blickwinkel wie ein Auge (halbe Bühnenbreite, nicht 1700 px)', /clientWidth \|\| 600\) \* 0\.5\)/.test(block('gastAbstand')) && !/GAST_ABSTAND = 1700/.test(h), 'Fernglas');
 t('im Gastblick stehen alle Wände hoch', /function nahK\(k\) \{ return drei && !tp\.gast &&/.test(h), 'vorne nur Sockel');
 t('Wände in Raumhöhe 2,6 m', /WAND_H = tp\.gast \? Math\.round\(2\.6 \* tp\.ppm\) : 58;/.test(h), 'Modellhöhe');
+// Schärfe (Ibo: "es muss bessere Qualität sein"). Gemessen am 20.10.2026: eine
+// Vergrößerung nur in der Matrix (scale3d um das Auge) machte NICHTS schärfer.
+// Erst echte Pixel (CSS-zoom) -- der Test verlangt deshalb zoom, nicht scale3d.
+t('Gastblick in echter höherer Auflösung (CSS-zoom 3, von der Matrix wieder herausgerechnet)',
+  /GAST_FEIN = 3;/.test(h) && /boden\.style\.zoom = gt \? GAST_FEIN : '';/.test(h) && /\(S \/ Z\)/.test(block('gastTransform')), 'ohne zoom');
+t('weiche Schatten im Gastblick ohne Unschärfe', /\.tp3\[data-gast="1"\] \.tp3-f\[style\*="var\(--tp3-schatten\)"\] \{ box-shadow: none !important;/.test(h), 'verwischt');
+t('Tischbeine stechen nicht durch die Platte', /\.tp3\[data-gast="1"\] \.tp3-f\[style\*="var\(--tp3-bein\)"\] \{ display: none !important; \}/.test(h), 'sichtbar');
+t('zoom wird außerhalb des Gastblicks zurückgesetzt (sonst wäre der Plan 3x groß)', /boden\.style\.zoom = gt \? GAST_FEIN : '';\s*if \(gt\)/.test(h), 'bleibt');
 t('Augen über dem Sitz, nicht hinter der Lehne', /zurueck = -0\.08 \* tp\.ppm/.test(block('gastSicht')), 'Lehne im Bild');
 t('Wischen = umschauen', /if \(tp\.gast\) tp\.gast\.um = wisch\.d0 - dx \* 0\.3;/.test(h), 'dreht den Raum');
 t('Antippen im Gastblick wählt keinen anderen Tisch', /if \(tp\._gewischt \|\| tp\.gast\) return;/.test(h), 'fehlt');

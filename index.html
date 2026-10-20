@@ -18956,6 +18956,12 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 .tp3[data-gast="1"] .tp3-buehne { perspective-origin: 50% 50%; background: linear-gradient(#efe9df, #d9d2c5); }
                 .dark-mode .tp3[data-gast="1"] .tp3-buehne { background: linear-gradient(#2a2f2e, #161918); }
                 .tp3[data-gast="1"] .tp3-schild, .tp3[data-gast="1"] .tp3-legende, .tp3[data-gast="1"] .tp3-zoom, .tp3[data-gast="1"] .tp3-drehen, .tp3[data-gast="1"] .tp3-lichtzeile, .tp3[data-gast="1"] .tp3-tipp { display: none !important; }
+                /* Weiche Schatten (box-shadow mit 6 bis 60 px Unschärfe) werden aus der Nähe riesig
+                   und verwischen Tischkante und Stühle -- im Gastblick ohne Unschärfe. */
+                .tp3[data-gast="1"] .tp3-f[style*="var(--tp3-schatten)"] { box-shadow: none !important; opacity: 0.6; }
+                .tp3[data-gast="1"] .tp3-f[style*="0 0 60px"] { display: none !important; }
+                /* Tischbeine sieht ein sitzender Gast nicht -- aus der Nähe stachen sie durch die Platte. */
+                .tp3[data-gast="1"] .tp3-f[style*="var(--tp3-bein)"] { display: none !important; }
                 .tp3-boden.tp3-flug { transition: transform 0.55s cubic-bezier(0.2, 0.7, 0.2, 1); }
                 @media (prefers-reduced-motion: reduce) { .tp3-boden.tp3-flug { transition: none; } }
                 .tp3-gast-plaetze { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -19812,7 +19818,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 // Wände stehen voll hoch. Wischen = umschauen.
                 // Blickwinkel wie ein Auge (ca. 90° quer): die Perspektive ist halb so groß
                 // wie die Bühne breit ist. Mit den 1700 px des Modells wäre es ein Fernglas.
-                var GAST_NEIGUNG = 80, GAST_AUGE = 1.15;
+                var GAST_NEIGUNG = 85, GAST_AUGE = 1.15, GAST_FEIN = 3;  // 85°: Blick fast geradeaus, der eigene Tisch füllt nicht das halbe Bild
                 function gastAbstand() { var b = $('tp3Buehne'); return Math.max(260, Math.round((b && b.clientWidth || 600) * 0.5)); }
                 function gastSicht() {
                     var t = tp.gast && tischVon(tp.gast.id); if (!t) return null;
@@ -19829,7 +19835,15 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 function gastTransform() {
                     var v = gastSicht(); if (!v) return null;
                     var a = GAST_NEIGUNG * Math.PI / 180, d = gastAbstand(), S = d * Math.cos(a) / (GAST_AUGE * tp.ppm);
-                    return 'translate(-50%,-50%) rotateX(' + GAST_NEIGUNG + 'deg) translateY(' + Math.round(d * Math.sin(a)) + 'px) scale3d(' + S + ',' + S + ',' + S + ') rotateZ(' + (-v.blick) + 'deg) translate(' + (tp.W / 2 - v.x) + 'px,' + (tp.T / 2 - v.y) + 'px)';
+                    // SCHÄRFE (20.10.2026, Ibo: "es muss bessere Qualität sein"): Chrome malt
+                    // jede Fläche in ihrer eigenen Pixelgröße und vergrößert danach -- nahe
+                    // Dinge (Tisch, Stühle) wurden durch die Perspektive kantig. Im Gastblick
+                    // ist der Boden deshalb mit CSS-zoom GAST_FEIN-mal so groß gebaut (alle
+                    // Längen, auch die Höhen), und die Matrix rechnet das wieder heraus.
+                    // Gemessen: eine Szene, die schon in der Matrix größer ist (scale3d um
+                    // das Auge), malt Chrome NICHT schärfer -- erst echte Pixel helfen.
+                    var Z = GAST_FEIN;
+                    return 'translate(-50%,-50%) rotateX(' + GAST_NEIGUNG + 'deg) translateY(' + (d * Math.sin(a) / Z) + 'px) scale3d(' + (S / Z) + ',' + (S / Z) + ',' + (S / Z) + ') rotateZ(' + (-v.blick) + 'deg) translate(' + (tp.W / 2 - v.x) + 'px,' + (tp.T / 2 - v.y) + 'px)';
                 }
                 function gastStart(id) {
                     tp.gast = { id: id, platz: 0, um: 0, ansicht: tp.ansicht }; tp.ansicht = '3d'; zeichnen();
@@ -20054,6 +20068,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     var pan = (tp.panX || tp.panY) ? ' translate(' + Math.round(tp.panX) + 'px,' + Math.round(tp.panY) + 'px)' : '';
                     var gt = tp.gast && tp.ansicht === '3d' ? gastTransform() : null;
                     var bue = $('tp3Buehne'); if (bue) bue.style.perspective = gt ? gastAbstand() + 'px' : '';
+                    boden.style.zoom = gt ? GAST_FEIN : '';
                     if (gt) { boden.style.transform = gt; return; }
                     boden.style.transform = tp.ansicht === '3d'
                         ? 'translate(-50%,-46%)' + pan + ' scale(' + s + ') rotateX(' + NEIGUNG + 'deg) rotateZ(' + winkel() + 'deg)'
