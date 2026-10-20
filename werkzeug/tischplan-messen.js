@@ -92,7 +92,8 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
           belegt.push(nr);
         }
         if (opt.rlsLeer) return json([]);
-        return json([Object.assign({}, TISCHE[0], JSON.parse(rt.request().postData() || '{}'))], m === 'POST' ? 201 : 200);
+        // neue Tische bekommen eine eigene ID (sonst hätten zwei neue dieselbe wie Tisch 1)
+        return json([Object.assign({}, TISCHE[0], m === 'POST' ? { id: uuid(900 + geschrieben.length) } : {}, JSON.parse(rt.request().postData() || '{}'))], m === 'POST' ? 201 : 200);
       }
       if (/supabase\.co\/rest\/v1\/reservations/.test(u)) {
         if (m === 'GET') return json(RES);
@@ -116,6 +117,13 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
       if (/supabase\.co\/rest\/v1\/rpc\//.test(u)) { geschrieben.push({ m: m, u: u, body: rt.request().postData() }); return json({ success: true }); }
       if (/supabase\.co/.test(u)) return json([]);
       return rt.abort();
+    });
+    // Skizze einlesen (tischplan-skizze.js): Antwort aus opt.skizze, sonst "nicht eingerichtet".
+    await ctx.route(/\/\.netlify\/functions\/tischplan-skizze/, function (rt) {
+      var q = JSON.parse(rt.request().postData() || '{}');
+      geschrieben.push({ m: 'SKIZZE', u: rt.request().url(), body: JSON.stringify({ restaurant_id: q.restaurant_id, bild: String(q.bild || '').slice(0, 23) }), auth: rt.request().headers().authorization || '' });
+      var a = opt.skizze || { status: 500, d: { ok: false, fehler: 'Die Skizzen-Erkennung ist auf dem Server nicht eingerichtet (ANTHROPIC_API_KEY fehlt).' } };
+      rt.fulfill({ status: a.status, contentType: 'application/json', body: JSON.stringify(a.d) });
     });
     await ctx.route(/\/\.netlify\/functions\/waiter-pending/, function (rt) { rt.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(RUFE) }); });
     var s = await ctx.newPage(); var fehler = [];
@@ -623,6 +631,90 @@ var RUFE = { ok: true, rufe: [{ tisch: '6', grund: 'pay' }] };
   await p.s.click('#tp3Fertig'); await p.s.waitForTimeout(800);
   mel = await p.s.evaluate(function () { return document.getElementById('tp3Meldung').textContent; });
   pruef('ohne 41: nach Fertig steht da, dass der Raum NICHT gespeichert ist', /NICHT/.test(mel) && /41-tischplan-raum/.test(mel), mel);
+  await p.ctx.close();
+
+
+  // ---------- 8. Hinfliegen, Gastblick, Laufwege, Skizze (20.10.2026) ----------
+  p = await seite({ raum: RAUM });
+  await p.s.evaluate(function () { document.getElementById('tp3Buehne').scrollIntoView({ block: 'center' }); });
+  await p.s.evaluate(function (id) { document.querySelector('#tp3Boden .tp3-schild span[data-id="' + id + '"]').click(); }, uuid(8));
+  await p.s.waitForTimeout(800);
+  var flug = await p.s.evaluate(function (id) {
+    var b = document.getElementById('tp3Buehne').getBoundingClientRect(), t = Array.prototype.find.call(document.querySelectorAll('#tp3Boden .tp3-tisch'), function (x) { return x.getAttribute('data-id') === id; }).getBoundingClientRect();
+    return { zoom: window.tp3.zoom, dx: Math.round(t.left + t.width / 2 - (b.left + b.width / 2)), dy: Math.round(t.top + t.height / 2 - (b.top + b.height / 2)) };
+  }, uuid(8));
+  pruef('Tisch antippen: Ansicht fährt hin (Tisch in der Bühnenmitte) und vergrößert', flug.zoom >= 2.2 && Math.abs(flug.dx) < 40 && Math.abs(flug.dy) < 40, JSON.stringify(flug));
+  await p.s.locator('#tp3').screenshot({ path: path.join(AUS, 'tischplan-hinfliegen.png') });
+  for (var zi = 0; zi < 12; zi++) await p.s.click('#tp3ZoomRein');
+  var zmax = await p.s.evaluate(function () { return window.tp3.zoom; });
+  pruef('Zoom geht bis 6-fach (vorher 3)', zmax === 6, zmax);
+  await p.s.click('#tp3ZoomFit');
+  // Gastblick
+  await p.s.click('#tp3Seite [data-aktion="gast"]'); await p.s.waitForTimeout(300);
+  var gast = await p.s.evaluate(function () {
+    var w = document.getElementById('tp3'), b = document.getElementById('tp3Boden');
+    var hoch = Array.prototype.filter.call(b.querySelectorAll('.tp3-wand .tp3-f'), function (f) { return parseFloat(f.style.height) > 100; }).length;
+    var schild = document.querySelector('#tp3Boden .tp3-schild'); return { an: w.getAttribute('data-gast'), tf: b.style.transform, hoch: hoch, schild: schild ? getComputedStyle(schild).display : 'keins',
+      plaetze: document.querySelectorAll('#tp3Seite [data-gast-platz]').length, text: document.getElementById('tp3Seite').innerText.slice(0, 60) };
+  });
+  pruef('Gastblick: Kamera auf dem Stuhl (rotateX 80°, scale3d), Schilder weg', gast.an === '1' && /rotateX\(80deg\)/.test(gast.tf) && /scale3d/.test(gast.tf) && gast.schild === 'none', JSON.stringify(gast));
+  pruef('Gastblick: Wände in Raumhöhe (alle hoch, nicht als Sockel)', gast.hoch >= 4, gast.hoch);
+  pruef('Gastblick: Platz wählbar (Tisch 8 hat 4 Plätze)', gast.plaetze === 4, gast.plaetze);
+  await p.s.locator('#tp3').screenshot({ path: path.join(AUS, 'tischplan-gastblick-1.png') });
+  var tf1 = gast.tf;
+  await p.s.click('#tp3Seite [data-gast-platz="2"]'); await p.s.waitForTimeout(200);
+  var tf2 = await p.s.evaluate(function () { return document.getElementById('tp3Boden').style.transform; });
+  pruef('anderer Platz = anderer Blick', tf2 !== tf1, tf2);
+  await p.s.locator('#tp3').screenshot({ path: path.join(AUS, 'tischplan-gastblick-3.png') });
+  var bb = await p.s.locator('#tp3Buehne').boundingBox();
+  await p.s.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2); await p.s.mouse.down(); await p.s.mouse.move(bb.x + bb.width / 2 + 200, bb.y + bb.height / 2, { steps: 6 }); await p.s.mouse.up();
+  await p.s.waitForTimeout(150);
+  var um = await p.s.evaluate(function () { return window.tp3.gast && window.tp3.gast.um; });
+  pruef('Wischen im Gastblick = umschauen', Math.abs(um) > 20, um);
+  await p.s.click('#tp3Seite [data-aktion="gast-ende"]'); await p.s.waitForTimeout(200);
+  var ende = await p.s.evaluate(function () { return document.getElementById('tp3').getAttribute('data-gast') + ' ' + !!window.tp3.gast; });
+  pruef('Zurück zum Plan beendet den Gastblick', ende === '0 false', ende);
+  // Laufwege-Wache
+  await p.s.click('#tp3AnsichtOben'); await p.s.click('#tp3Bearbeiten'); await p.s.waitForTimeout(200);
+  var frei = await p.s.evaluate(function () { return document.querySelectorAll('#tp3Boden .tp3-eng').length + '|' + (document.querySelector('#tp3Seite .tp3-lauf') || {}).textContent; });
+  await p.s.evaluate(function (id) { var t = window.tp3.tische.find(function (x) { return x.id === id; }); t.x = 37; t.y = 50; }, uuid(5));
+  await p.s.click('#tp3Bereiche [data-bereich="main"]'); await p.s.waitForTimeout(200);
+  var eng = await p.s.evaluate(function () { return { linien: document.querySelectorAll('#tp3Boden .tp3-eng').length, mass: Array.prototype.map.call(document.querySelectorAll('#tp3Boden .tp3-eng-mass'), function (x) { return x.textContent; }), text: (document.querySelector('#tp3Seite .tp3-lauf') || {}).textContent || '' }; });
+  pruef('Laufwege: Tisch 5 dicht an Tisch 6 geschoben -> rote Linie mit Maß', eng.linien >= 1 && eng.mass.length >= 1, JSON.stringify(eng));
+  pruef('Laufwege: rechts steht, welche Tische und wie viel frei ist', /Tisch 5 ↔ Tisch 6|Tisch 6 ↔ Tisch 5/.test(eng.text) && /(cm frei|Stühle stoßen an)/.test(eng.text), eng.text);
+  await p.s.locator('#tp3').screenshot({ path: path.join(AUS, 'tischplan-laufwege.png') });
+  pruef('kein Seitenfehler bei Hinfliegen, Gastblick, Laufwege', !p.fehler.length, p.fehler.join(' | '));
+  await p.ctx.close();
+
+  // Skizze einlesen: L-Raum 14 x 8 m, Theke und Eingang, 12 Tische (10 vorhanden + 2 neu)
+  var SK = { ok: true, massstab: false, unsicher: ['Theke'], rahmen: { x0: 10, y0: 10, x1: 90, y1: 90 },
+    raum: { breite: 14, tiefe: 8, form: 'L', ecke: 'or', ausB: 4, ausT: 3, teile: [{ art: 'theke', x: 85, y: 70, b: 3, t: 0.8, dreh: 0 }, { art: 'tuer', x: 40, y: 100, b: 1, t: 0.12, dreh: 0 }] },
+    tische: [] };
+  for (var si = 0; si < 12; si++) SK.tische.push({ form: si % 3 === 0 ? 'rund' : 'eckig', plaetze: si % 3 === 0 ? 2 : 4, x: 10 + (si % 4) * 15, y: 20 + Math.floor(si / 4) * 28, dreh: 0, laenge_cm: null, breite_cm: null });
+  p = await seite({ skizze: { status: 200, d: SK } });
+  await p.s.click('#tp3AnsichtOben'); await p.s.click('#tp3Bearbeiten'); await p.s.waitForTimeout(200);
+  var png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEklEQVR4nGP4z8CAFWEXHbQSACj/P8Fu7N9hAAAAAElFTkSuQmCC', 'base64');
+  await p.s.setInputFiles('#tp3SkizzeDatei', { name: 'skizze.png', mimeType: 'image/png', buffer: png });
+  await p.s.waitForTimeout(1500);
+  var sk = await p.s.evaluate(function () { var r = window.tp3.raum.main; return { b: r.breite, t: r.tiefe, form: r.form, teile: r.teile.map(function (x) { return x.art; }).join(','), tische: window.tp3.tische.filter(function (t) { return t.bereich === 'main'; }).length,
+    img: !!document.querySelector('#tp3Boden img.tp3-skizze'), mel: document.getElementById('tp3Meldung').textContent, seite: document.getElementById('tp3Seite').innerText }; });
+  var skAufruf = p.geschrieben.filter(function (g) { return g.m === 'SKIZZE'; })[0] || {};
+  pruef('Skizze: Bild geht mit Anmeldung und Lokal an tischplan-skizze', /Bearer /.test(skAufruf.auth || '') && /"restaurant_id":"11111111/.test(skAufruf.body || '') && /data:image\/jpeg/.test(skAufruf.body || ''), JSON.stringify(skAufruf));
+  pruef('Skizze: Raum übernommen (L-Form 14 x 8 m, Theke, Eingang)', sk.b === 14 && sk.t === 8 && sk.form === 'L' && sk.teile === 'theke,tuer', JSON.stringify(sk));
+  var neuT = p.geschrieben.filter(function (g) { return g.m === 'POST' && /restaurant_tables/.test(g.u); });
+  pruef('Skizze: 10 vorhandene Tische verschoben, 2 neu angelegt (mit Lage)', sk.tische === 12 && neuT.length === 2 && neuT.every(function (g) { return /"pos_x":\d/.test(g.body); }), sk.tische + ' / ' + neuT.map(function (g) { return g.body; }).join(' '));
+  pruef('Skizze: Meldung sagt, was übernommen wurde', /Aus der Skizze: L-Form/.test(sk.mel) && /10 vorhandene verschoben, 2 neu angelegt/.test(sk.mel), sk.mel);
+  pruef('Skizze liegt unter dem Plan, "Bitte prüfen: Theke" steht rechts', sk.img && /Bitte prüfen: Theke/.test(sk.seite) && /geschätzt/.test(sk.seite), JSON.stringify(sk).slice(0, 300));
+  await p.s.locator('#tp3').screenshot({ path: path.join(AUS, 'tischplan-skizze.png') });
+  pruef('kein Seitenfehler beim Einlesen', !p.fehler.length, p.fehler.join(' | '));
+  await p.ctx.close();
+  // Regel 6: klappt das Lesen nicht, steht der Grund da -- nichts wird still verändert.
+  p = await seite({ raum: RAUM, skizze: { status: 504, d: { ok: false, fehler: 'Das Lesen hat zu lange gedauert. Bitte ein schärferes oder kleineres Foto versuchen.' } } });
+  await p.s.click('#tp3AnsichtOben'); await p.s.click('#tp3Bearbeiten'); await p.s.waitForTimeout(200);
+  await p.s.setInputFiles('#tp3SkizzeDatei', { name: 'skizze.png', mimeType: 'image/png', buffer: png });
+  await p.s.waitForTimeout(1200);
+  var skf = await p.s.evaluate(function () { return { mel: document.getElementById('tp3Meldung').textContent, cls: document.getElementById('tp3Meldung').className, b: window.tp3.raum.main.breite }; });
+  pruef('Skizze-Fehler: Grund steht als Fehlermeldung da, Raum bleibt unverändert', /zu lange gedauert/.test(skf.mel) && /fehler/.test(skf.cls) && skf.b === 16, JSON.stringify(skf));
   await p.ctx.close();
 
   await b.close(); srv.close();
