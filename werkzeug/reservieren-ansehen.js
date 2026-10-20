@@ -15,12 +15,14 @@ var chromium;
 try { chromium = require('playwright-core').chromium; } catch (e) { console.log('playwright-core fehlt.'); process.exit(0); }
 var W = path.resolve(__dirname, '..');
 var AUS = path.join(__dirname, 'ausgabe', 'reservieren'); fs.mkdirSync(AUS, { recursive: true });
-var NAME = (process.argv[2] || 'jetzt') + (process.env.KMI_DUNKEL ? '-dunkel' : '');
+var FARBE = process.env.KMI_FARBE || null;
+var NAME = (process.argv[2] || 'jetzt') + (FARBE ? '-farbe' : '') + (process.env.KMI_DUNKEL ? '-dunkel' : '');
 var RID = '33333333-3333-4333-8333-333333333333';
 // naechster Dienstag, mind. 2 Tage voraus
 var TAG = (function () { var d = new Date(); d.setDate(d.getDate() + 2); while (d.getDay() !== 2) d.setDate(d.getDate() + 1); return d.toLocaleDateString('sv-SE'); })();
 var OH = {}; ['mo', 'di', 'mi', 'do', 'fr', 'sa', 'so'].forEach(function (k) { OH[k + '_start'] = '11:30'; OH[k + '_end'] = '22:00'; });
 var REST = { id: RID, name: 'Die Millis', city: 'Emden', opening_time: '11:30', closing_time: '22:00', slot_interval_minutes: 30, rest_day: 0, opening_hours: OH, features: [] };
+if (FARBE) REST.brand_color = FARBE;
 // 4 Tische; 19:00 drei belegt (knapp), 19:30 vier (voll), 18:00 einer
 var BEL = [['18:00', 1], ['19:00', 3], ['19:30', 4], ['12:30', 2]].reduce(function (a, z) { for (var i = 0; i < z[1]; i++) a.push({ reservation_time: z[0] + ':00', status: 'confirmed', table_id: null }); return a; }, []);
 var n = 0, rot = 0;

@@ -10,7 +10,8 @@
 var path = require('path'), http = require('http'), fs = require('fs');
 var W = path.resolve(__dirname, '..');
 var AUS = path.join(__dirname, 'ausgabe', 'lokalseite'); fs.mkdirSync(AUS, { recursive: true });
-var NAME = process.argv[2] || 'jetzt';
+var NAME = (process.argv[2] || 'jetzt') + (process.env.KMI_FARBE ? '-farbe' : '');
+var FARBE = process.env.KMI_FARBE || null;  // z. B. #6b1220 = Bordeaux
 var chromium;
 try { chromium = require('playwright-core').chromium; } catch (e) { console.log('playwright-core fehlt.'); process.exit(0); }
 var n = 0, rot = 0;
@@ -30,7 +31,8 @@ function pruef(t, ok, x) { n++; if (!ok) rot++; console.log((ok ? 'OK  ' : 'FAIL
     await c.route(/^https?:\/\/(?!localhost)/, function (rt) { return /supabase\.co/.test(rt.request().url()) ? rt.fulfill({ status: 200, contentType: 'application/json', body: '[]' }) : rt.abort(); });
     var s = await c.newPage(); var fehler = []; s.on('pageerror', function (e) { fehler.push(e.message); });
     await s.goto('http://localhost:8892/', { waitUntil: 'load' }); await s.waitForTimeout(1500);
-    await s.evaluate(async function () {
+    await s.evaluate(async function (FARBE) {
+      window._FARBE = FARBE;
       document.querySelectorAll('#splashScreen,.kin-start-intro,#startIntro').forEach(function (x) { x.remove(); });
       function foto(a, b, seed) {
         var cv = document.createElement('canvas'); cv.width = 800; cv.height = 560; var g = cv.getContext('2d');
@@ -44,13 +46,14 @@ function pruef(t, ok, x) { n++; if (!ok) rot++; console.log((ok ? 'OK  ' : 'FAIL
       var rest = { id: 'r-millis', slug: 'die-millis', name: 'Die Millis', city: 'Emden', street: 'Auricher Straße 150', phone: '04921 9234444',
         image: bilder[0], images: bilder, rating: 4.6, review_count: 128, cuisine_type: ['Italienisch', 'Pizza'], description: 'Hausgemachte Pasta, Pizza aus dem Steinofen und eine Terrasse am Kanal.',
         opening_time: '11:30', closing_time: '22:00', features: [], opening_hours: { mo_start: '11:30', mo_end: '22:00', di_start: '11:30', di_end: '22:00', mi_start: '11:30', mi_end: '22:00', do_start: '11:30', do_end: '22:00', fr_start: '11:30', fr_end: '23:00', sa_start: '11:30', sa_end: '23:00', so_start: '12:00', so_end: '21:30' } };
+      if (window._FARBE) rest.brand_color = window._FARBE;
       APP_DATA.restaurants = [rest];
       window._menuItemsCache = {}; window._menuItemsCache[rest.id] = [
         { id: 'g1', name: 'Pizza Diavola', description: 'Salami piccante, Chili, Fior di Latte', base_price: 12.9, image: bilder[2] },
         { id: 'g2', name: 'Tagliatelle al Ragù', description: 'Hausgemacht, 6 Stunden geschmort', base_price: 14.5, image: bilder[1] },
         { id: 'g3', name: 'Tiramisù', description: 'Nach Rezept der Nonna', base_price: 6.9, image: bilder[4] }];
       await showRestaurantLanding(rest);
-    });
+    }, FARBE);
     await s.waitForTimeout(1800);
     var m = await s.evaluate(function () {
       var l = document.getElementById('restaurantLanding');

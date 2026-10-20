@@ -64,7 +64,7 @@ var mitte = { art: 'tuer', x: 50, y: 50, dreh: 0 };
 W2.rasten(mitte);
 t('mitten im Raum rastet nichts ein', mitte.x === 50 && mitte.y === 50, JSON.stringify(mitte));
 t('Seitenleiste hat feste Breite (sonst springt der Plan beim Antippen, gemessen 18 px)', /\.tp3-seite \{ flex: 0 0 320px; width: 320px; max-width: 320px; \}/.test(H), '');
-t('3D: Wischen dreht den Raum, ein Wischen ist kein Antippen', /tp\.drehung = wisch\.d0 \+ dx \* 0\.45/.test(H) && /if \(tp\._gewischt\) return;/.test(H), '');
+t('3D: Wischen dreht den Raum, ein Wischen ist kein Antippen', /tp\.drehung = wisch\.d0 \+ dx \* 0\.45/.test(H) && /if \(tp\._gewischt( \|\| tp\.gast)?\) return;/.test(H), '');
 
 // Echte Tischmaße (Ibo: "es muss mit den echten Maßen sein")
 var M = new Function('var tp = { ppm: 50 };' + ['formArt', 'standardMass', 'form', 'stuehle'].map(fn).join('\n')
@@ -140,7 +140,7 @@ var kaputt = Object.keys(Mb.MOEBEL).filter(function (a) { try { return !(Mb.MOEB
 t('alle Zeichnungen laufen in 3D ohne Fehler', kaputt.length === 0, kaputt.join(','));
 F.tp.raum = {};
 t('Boden: Gastraum Parkett, Terrasse von selbst draußen', F.raumVon('main').boden === 'parkett' && F.raumVon('terrace').boden === 'draussen' && F.raumVon('garten').boden === 'draussen', [F.raumVon('main').boden, F.raumVon('terrace').boden].join('/'));
-t('draußen: Glasgeländer statt hoher Wände', /var aussen = r\.boden === 'draussen';/.test(H) && /drei && \(aussen \|\|/.test(H), '');
+t('draußen: Glasgeländer statt hoher Wände', /var aussen = r\.boden === 'draussen';/.test(H) && /drei && (!tp\.gast && )?\(aussen \|\|/.test(H), '');
 t('im Live-Plan nur Eingang, Theke, Küche, WC, Lager beschriftet', Object.keys(TEILE.TEIL).filter(function (a) { return !TEILE.TEIL[a].still; }).sort().join(',') === 'kueche,lager,theke,tuer,wc', Object.keys(TEILE.TEIL).filter(function (a) { return !TEILE.TEIL[a].still; }).join(','));
 t('von oben: Schild an der Tischecke, damit Gedeck und Stühle sichtbar bleiben', /var ecke = tp\.ansicht === 'oben' && !gew && !tp\.bearbeiten/.test(H), '');
 t('feste Teile: dezente Schrift, Fenster/Wand/Pflanze im Live-Plan ohne', /\.tp3\[data-bearbeiten="0"\] \.tp3-schild\.teil\.still \{ display: none; \}/.test(H), '');

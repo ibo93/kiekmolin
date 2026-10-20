@@ -908,6 +908,25 @@
         von: function (restaurant) {
             if (!restaurant || !restaurant.brand_color) return this.STANDARD;
             return this.lesbar(restaurant.brand_color).farbe;
+        },
+
+        // DIE FARBE DES LOKALS AUCH BEIM RESERVIEREN UND BESTELLEN
+        // (Ibo, 20.10.2026: "muss auch bei Reservierungen und Online-
+        // Bestellung rein"). Vorher kam der Gast von der Lokalseite in
+        // seiner Farbe -- und landete beim Reservieren wieder im
+        // Kiek-mol-in-Gruen. Setzt die Variablen auf die genannten
+        // Elemente; ohne eigene Farbe die Hausfarbe (= wie bisher).
+        anwenden: function (elemente, restaurant) {
+            var f = this.von(restaurant), d = this.dunkler(f), k = this._kanaele(d);
+            var eigene = f !== this.STANDARD;
+            (elemente || []).forEach(function (el) {
+                if (!el || !el.style) return;
+                el.style.setProperty('--marke', f);
+                el.style.setProperty('--marke-dunkel', d);
+                el.style.setProperty('--marke-glas', 'rgba(' + k[0] + ',' + k[1] + ',' + k[2] + ',0.92)');
+                if (el.classList) el.classList.toggle('kmi-eigene-farbe', eigene);
+            });
+            return f;
         }
     };
     window.MARKE = MARKE;
@@ -4367,8 +4386,8 @@
         .res-stepper-text { display: flex; align-items: center; gap: 8px; font: 600 15px Inter, sans-serif; color: #00251e; }
         .res-stepper-knoepfe { display: flex; gap: 6px; }
         .res-stepper button { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-        .res-stepper-minus { border: 1px solid rgba(0,0,0,0.12); background: #fff; color: #003d33; }
-        .res-stepper-plus { border: none; background: #003d33; color: #fff; }
+        .res-stepper-minus { border: 1px solid rgba(0,0,0,0.12); background: #fff; color: var(--marke, #003d33); }
+        .res-stepper-plus { border: none; background: var(--marke, #003d33); color: #fff; }
         .res-stepper button:disabled { opacity: 0.35; cursor: default; }
         .res-kal-legende { display: flex; align-items: center; gap: 6px; margin: 10px 0 0; font-size: 12px; color: #404946; }
         .res-leg-zu { width: 7px; height: 7px; border-radius: 50%; background: #d6d3d1; }
@@ -4383,7 +4402,7 @@
         .res-balken { flex: 1; border-radius: 6px 6px 3px 3px; background: #b8e3d2; cursor: pointer; transition: background .2s; }
         .res-balken-knapp { background: #f6c77a; }
         .res-balken-voll { background: repeating-linear-gradient(135deg, #e7e5e4 0 5px, #f5f5f4 5px 10px); cursor: default; }
-        .res-balken-gewaehlt { background: #003d33 !important; }
+        .res-balken-gewaehlt { background: var(--marke, #003d33) !important; }
         .res-kurve-legende { display: flex; justify-content: space-between; margin: 6px 0 12px; font-size: 11px; color: #404946; }
         .res-slots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
         #reservationModal .slot-btn.res-slot { position: relative; height: 50px; padding: 0 !important; border-radius: 14px !important; border: 1px solid rgba(0,0,0,0.12) !important; background: #fff !important; color: #00251e !important; -webkit-backdrop-filter: none; backdrop-filter: none; font: 700 15px Epilogue, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; }
@@ -4392,7 +4411,7 @@
         .res-slot-knapp .res-slot-punkt { background: #f59e0b; }
         #reservationModal .slot-btn.res-slot-voll { border-style: dashed !important; background: #fafaf9 !important; color: #a8a29e !important; text-decoration: line-through; cursor: default; }
         .res-slot-voll .res-slot-punkt { display: none; }
-        #reservationModal .slot-btn.res-slot.selected { border: 2px solid #003d33 !important; background: #003d33 !important; color: #fff !important; box-shadow: none; }
+        #reservationModal .slot-btn.res-slot.selected { border: 2px solid var(--marke, #003d33) !important; background: var(--marke, #003d33) !important; color: #fff !important; box-shadow: none; }
         #reservationModal .res-slot.selected .res-slot-punkt { background: #fff; }
         #reservationModal .res-slot.selected .slot-noch { color: #fed65b; }
         .res-tipp:empty { display: none; }
@@ -4401,7 +4420,7 @@
         .res-tipp-gut { background: #ecfdf3; color: #065f46; }
         .res-tipp-knapp { background: #fff7ec; color: #7c2d12; }
 
-        #reservationModal #selectedSlotDisplay.res-ticket { margin: 4px 0 16px; padding: 0 !important; border: none !important; border-radius: 22px !important; background: #003d33 !important; color: #fff; overflow: hidden; }
+        #reservationModal #selectedSlotDisplay.res-ticket { margin: 4px 0 16px; padding: 0 !important; border: none !important; border-radius: 22px !important; background: var(--marke, #003d33) !important; color: #fff; overflow: hidden; }
         .res-ticket-oben { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1.5px dashed rgba(255,255,255,0.25); }
         .res-ticket-klein { margin: 0; font-size: 12px; color: #b8eddf; }
         .res-ticket-zeit { margin: 2px 0 0; font: 900 28px Epilogue, sans-serif; letter-spacing: -0.02em; color: #fff; }
@@ -4412,24 +4431,24 @@
         .res-ticket-knopf .material-symbols-outlined { font-size: 18px; }
 
         .res-s2-kopf { margin: 0 0 18px; }
-        .res-s2-schritt { margin: 0 0 8px; display: flex; align-items: center; gap: 10px; font: 700 11px Inter, sans-serif; letter-spacing: 0.22em; text-transform: uppercase; color: #003d33; }
-        .res-s2-schritt::before { content: ''; width: 32px; height: 1.5px; background: #003d33; }
+        .res-s2-schritt { margin: 0 0 8px; display: flex; align-items: center; gap: 10px; font: 700 11px Inter, sans-serif; letter-spacing: 0.22em; text-transform: uppercase; color: var(--marke, #003d33); }
+        .res-s2-schritt::before { content: ''; width: 32px; height: 1.5px; background: var(--marke, #003d33); }
         .res-s2-kopf h3 { margin: 0; font: 900 34px/1.02 Epilogue, sans-serif; letter-spacing: -0.035em; color: #00251e; }
         .res-s2-unter { margin: 8px 0 0; font-size: 14px; color: #404946; }
-        .res-s2-ticket { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; padding: 14px 16px; border-radius: 22px; background: #003d33; color: #fff; }
+        .res-s2-ticket { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; padding: 14px 16px; border-radius: 22px; background: var(--marke, #003d33); color: #fff; }
         .res-s2-tag { width: 50px; height: 50px; flex-shrink: 0; border-radius: 14px; background: rgba(255,255,255,0.1); display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .res-s2-tag small { font: 700 10px Inter, sans-serif; letter-spacing: 0.08em; color: #fed65b; }
         .res-s2-tag b { font: 900 20px/1 Epilogue, sans-serif; }
         .res-s2-was { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-        .res-s2-was b { font: 900 21px/1.1 Epilogue, sans-serif; white-space: nowrap; }
+        .res-s2-was b { font: 900 19px/1.1 Epilogue, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .res-s2-was small { margin-top: 2px; font-size: 12px; color: #b8eddf; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .res-s2-aendern { height: 38px; padding: 0 14px; border-radius: 9999px; border: 1px solid rgba(255,255,255,0.3); background: transparent; color: #fff; font: 600 13px Inter, sans-serif; cursor: pointer; flex-shrink: 0; }
 
         .res-felder { border-radius: 22px; border: 1px solid #b9c3bf; overflow: hidden; background: #f8faf9; }
-        .res-felder:focus-within { border-color: #003d33; }
+        .res-felder:focus-within { border-color: var(--marke, #003d33); }
         .res-feld { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid #f0efed; cursor: text; }
         .res-feld:last-of-type { border-bottom: none; }
-        .res-feld > .material-symbols-outlined { color: #003d33; }
+        .res-feld > .material-symbols-outlined { color: var(--marke, #003d33); }
         .res-feld-innen { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
         .res-feld-innen small { font: 700 11px Inter, sans-serif; letter-spacing: 0.04em; text-transform: uppercase; color: #404946; }
         #reservationModal .res-feld .form-input { border: none !important; background: transparent !important; padding: 2px 0 !important; height: auto !important; min-height: 26px; border-radius: 0 !important; box-shadow: none !important; font: 500 16px Inter, sans-serif; color: #191c1d; outline: none; }
@@ -4440,9 +4459,9 @@
         .res-anlass-chips { display: flex; flex-wrap: wrap; gap: 8px; }
         .res-anlass { height: 40px; padding: 0 14px; border-radius: 9999px; border: 1px solid #e7e5e4; background: #fff; color: #191c1d; font: 600 13px Inter, sans-serif; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
         .res-anlass .material-symbols-outlined { font-size: 17px; }
-        .res-anlass-an { border: 2px solid #003d33; background: #e8f1ed; color: #003d33; }
+        .res-anlass-an { border: 2px solid var(--marke, #003d33); background: #f4f6f5; color: var(--marke, #003d33); }
         .res-anlass-satz { margin: 0 2px; align-items: center; gap: 8px; font-size: 13px; color: #735c00; }
-        .res-wunsch-knopf { width: 100%; height: 50px; border-radius: 16px; border: 1px dashed #c9c6c3; background: #fff; display: flex; align-items: center; gap: 10px; padding: 0 16px; font: 600 14px Inter, sans-serif; color: #003d33; cursor: pointer; }
+        .res-wunsch-knopf { width: 100%; height: 50px; border-radius: 16px; border: 1px dashed #c9c6c3; background: #fff; display: flex; align-items: center; gap: 10px; padding: 0 16px; font: 600 14px Inter, sans-serif; color: var(--marke, #003d33); cursor: pointer; }
         .res-wunsch-knopf .material-symbols-outlined { font-size: 18px; }
         #reservationModal #submitReservationBtn { background: #fed65b !important; color: #00251e !important; font-family: Epilogue, sans-serif !important; font-weight: 800 !important; font-size: 17px !important; text-transform: none !important; letter-spacing: 0 !important; width: 100% !important; min-height: 58px; padding: 14px 24px !important; }
         #reservationModal #submitReservationBtn:hover { background: #fcd03d !important; }
@@ -4450,7 +4469,7 @@
         #reservationModal.res-schritt2 .res-footer-summary { padding: 8px 0 16px; margin-top: 8px; border-top: none; align-items: stretch; }
         .res-zusagen { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0 0 28px; padding: 14px 6px; border-radius: 20px; background: #eef6f2; }
         .res-zusage { display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; padding: 0 4px; }
-        .res-zusage .material-symbols-outlined { width: 34px; height: 34px; border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #003d33; }
+        .res-zusage .material-symbols-outlined { width: 34px; height: 34px; border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center; font-size: 18px; color: var(--marke, #003d33); }
         .res-zusage b { font: 800 13px Epilogue, sans-serif; color: #00251e; }
         .res-zusage small { font-size: 11px; line-height: 1.3; color: #404946; }
 
@@ -18933,6 +18952,36 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 .tp3-ruft-hof { position: absolute; border-radius: 20px; background: rgba(180,83,9,0.24); animation: tp3Puls 1.6s ease-in-out infinite; }
                 @keyframes tp3Puls { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
                 @media (prefers-reduced-motion: reduce) { .tp3-ruft-hof { animation: none; } }
+                /* Gastblick, Hinfliegen, Skizze, Laufwege (20.10.2026) */
+                .tp3[data-gast="1"] .tp3-buehne { perspective-origin: 50% 50%; background: linear-gradient(#efe9df, #d9d2c5); }
+                .dark-mode .tp3[data-gast="1"] .tp3-buehne { background: linear-gradient(#2a2f2e, #161918); }
+                .tp3[data-gast="1"] .tp3-schild, .tp3[data-gast="1"] .tp3-legende, .tp3[data-gast="1"] .tp3-zoom, .tp3[data-gast="1"] .tp3-drehen, .tp3[data-gast="1"] .tp3-lichtzeile, .tp3[data-gast="1"] .tp3-tipp { display: none !important; }
+                /* Weiche Schatten (box-shadow mit 6 bis 60 px Unschärfe) werden aus der Nähe riesig
+                   und verwischen Tischkante und Stühle -- im Gastblick ohne Unschärfe. */
+                .tp3[data-gast="1"] .tp3-f[style*="var(--tp3-schatten)"] { box-shadow: none !important; opacity: 0.6; }
+                .tp3[data-gast="1"] .tp3-f[style*="0 0 60px"] { display: none !important; }
+                /* Tischbeine sieht ein sitzender Gast nicht -- aus der Nähe stachen sie durch die Platte. */
+                .tp3[data-gast="1"] .tp3-f[style*="var(--tp3-bein)"] { display: none !important; }
+                .tp3-boden.tp3-flug { transition: transform 0.55s cubic-bezier(0.2, 0.7, 0.2, 1); }
+                @media (prefers-reduced-motion: reduce) { .tp3-boden.tp3-flug { transition: none; } }
+                .tp3-gast-plaetze { display: flex; flex-wrap: wrap; gap: 6px; }
+                .tp3-gast-plaetze button { padding: 0; width: 44px; }
+                .tp3-gast-plaetze button[aria-pressed="true"] { background: #003d33; color: #ffffff; border-color: #003d33; }
+                .dark-mode .tp3-gast-plaetze button[aria-pressed="true"] { background: #b8eddf; color: #00251e; border-color: #b8eddf; }
+                .tp3-skizze { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: fill; opacity: 0.55; mix-blend-mode: multiply; pointer-events: none; }
+                .dark-mode .tp3-skizze { mix-blend-mode: normal; opacity: 0.35; }
+                .tp3-skizze-kasten { display: flex; flex-direction: column; gap: 8px; padding: 14px; margin: 10px 0; border-radius: 16px; border: 1px dashed var(--tp3-rand); background: var(--tp3-zweit); }
+                .tp3-skizze-kasten b { font-size: 15px; color: var(--tp3-tief); }
+                .tp3-skizze-kasten span, .tp3-skizze-kasten small { font-size: 13px; line-height: 1.45; color: var(--tp3-leise); }
+                .tp3-skizze-kasten small.pruefen { color: #92400e; font-weight: 700; }
+                .dark-mode .tp3-skizze-kasten small.pruefen { color: #fdba74; }
+                .tp3-lauf { display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; margin: 0 0 10px; border-radius: 14px; background: #fef2f2; border: 1px solid #fecaca; color: #7f1d1d; font-size: 13px; line-height: 1.45; }
+                .tp3-lauf b { font-size: 14px; }
+                .tp3-lauf.ok { background: #f0fdf4; border-color: #bbf7d0; color: #14532d; }
+                .dark-mode .tp3-lauf { background: #3a1616; border-color: #7f1d1d; color: #fecaca; }
+                .dark-mode .tp3-lauf.ok { background: #12301f; border-color: #166534; color: #bbf7d0; }
+                .tp3-eng { position: absolute; height: 6px; border-radius: 3px; background: #dc2626; transform-origin: 0 50%; pointer-events: none; box-shadow: 0 0 0 2px rgba(255,255,255,0.8); }
+                .tp3-eng-mass { position: absolute; transform: translate(-50%, -50%); padding: 3px 8px; border-radius: 9999px; background: #b91c1c; color: #ffffff; font: 800 12px Inter, sans-serif; white-space: nowrap; pointer-events: none; z-index: 5; }
             </style>
             <div id="tp3" class="tp3" data-ansicht="3d" data-bearbeiten="0">
                 <div class="tp3-kopf">
@@ -19019,6 +19068,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     // Metern, Rechteck oder L-Form, feste Teile (Eingang, Theke ...).
                     raum: {}, raumGeaendert: false, ohneRaumSpalte: false, teilGewaehlt: null,
                     zoom: 1, panX: 0, panY: 0,
+                    gast: null, skizze: null,
                     W: 560, T: 420, ppm: 560 / 12
                 };
                 try { tp.ansicht = localStorage.getItem('kmi_tp3_ansicht') === 'oben' ? 'oben' : '3d'; } catch (e) { tp.ansicht = '3d'; }
@@ -19761,8 +19811,248 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     return m;
                 }
 
+                // ---------- Gastblick (20.10.2026) ----------
+                // Ibo: "Ideen, die so keiner hat". Platz antippen -- der Raum, wie
+                // der Gast ihn vom Stuhl sieht: Fenster, Theke, WC-Tür. Dieselbe
+                // Szene, nur die Kamera sitzt auf dem Stuhl (Augen 1,15 m), alle
+                // Wände stehen voll hoch. Wischen = umschauen.
+                // Blickwinkel wie ein Auge (ca. 90° quer): die Perspektive ist halb so groß
+                // wie die Bühne breit ist. Mit den 1700 px des Modells wäre es ein Fernglas.
+                var GAST_NEIGUNG = 85, GAST_AUGE = 1.15, GAST_FEIN = 3;  // 85°: Blick fast geradeaus, der eigene Tisch füllt nicht das halbe Bild
+                function gastAbstand() { var b = $('tp3Buehne'); return Math.max(260, Math.round((b && b.clientWidth || 600) * 0.5)); }
+                function gastSicht() {
+                    var t = tp.gast && tischVon(tp.gast.id); if (!t) return null;
+                    var g = form(t), sitze = stuehle(g, t.plaetze); if (!sitze.length) return null;
+                    var s = sitze[Math.max(0, Math.min(tp.gast.platz || 0, sitze.length - 1))];
+                    var dr = (t.drehung || 0) * Math.PI / 180, aus = s[2] * Math.PI / 180, zurueck = -0.08 * tp.ppm;
+                    // Augen über dem Sitz, leicht zum Tisch hin -- weiter hinten stünde die
+                    // eigene Stuhllehne mitten im Bild (gemessen im Browser, 20.10.2026)
+                    var lx = s[0] - g.b / 2 + Math.sin(aus) * zurueck, ly = s[1] - g.t / 2 - Math.cos(aus) * zurueck;
+                    return { x: t.x / 100 * tp.W + lx * Math.cos(dr) - ly * Math.sin(dr), y: t.y / 100 * tp.T + lx * Math.sin(dr) + ly * Math.cos(dr),
+                        // Blick zur Tischmitte = gegen die Stuhlrichtung; 0 = im Plan nach oben, im Uhrzeigersinn
+                        blick: s[2] + (t.drehung || 0) + 180 + (tp.gast.um || 0), anzahl: sitze.length };
+                }
+                function gastTransform() {
+                    var v = gastSicht(); if (!v) return null;
+                    var a = GAST_NEIGUNG * Math.PI / 180, d = gastAbstand(), S = d * Math.cos(a) / (GAST_AUGE * tp.ppm);
+                    // SCHÄRFE (20.10.2026, Ibo: "es muss bessere Qualität sein"): Chrome malt
+                    // jede Fläche in ihrer eigenen Pixelgröße und vergrößert danach -- nahe
+                    // Dinge (Tisch, Stühle) wurden durch die Perspektive kantig. Im Gastblick
+                    // ist der Boden deshalb mit CSS-zoom GAST_FEIN-mal so groß gebaut (alle
+                    // Längen, auch die Höhen), und die Matrix rechnet das wieder heraus.
+                    // Gemessen: eine Szene, die schon in der Matrix größer ist (scale3d um
+                    // das Auge), malt Chrome NICHT schärfer -- erst echte Pixel helfen.
+                    var Z = GAST_FEIN;
+                    return 'translate(-50%,-50%) rotateX(' + GAST_NEIGUNG + 'deg) translateY(' + (d * Math.sin(a) / Z) + 'px) scale3d(' + (S / Z) + ',' + (S / Z) + ',' + (S / Z) + ') rotateZ(' + (-v.blick) + 'deg) translate(' + (tp.W / 2 - v.x) + 'px,' + (tp.T / 2 - v.y) + 'px)';
+                }
+                function gastStart(id) {
+                    tp.gast = { id: id, platz: 0, um: 0, ansicht: tp.ansicht }; tp.ansicht = '3d'; zeichnen();
+                }
+                function gastEnde() {
+                    if (!tp.gast) return;
+                    tp.ansicht = tp.gast.ansicht || tp.ansicht; tp.gast = null; zeichnen();
+                }
+                function gastForm(t) {
+                    var v = gastSicht(), n = v ? v.anzahl : 0;
+                    var o = '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;"><div><h3>Gastblick · ' + esc(t.name) + '</h3><div class="tp3-unter">So sieht der Gast den Raum von seinem Platz.</div></div></div>'
+                        + '<div class="tp3-ueber">Platz</div><div class="tp3-gast-plaetze">';
+                    for (var i = 0; i < n; i++) o += '<button type="button" class="tp3-knopf" data-gast-platz="' + i + '" aria-pressed="' + (i === (tp.gast.platz || 0)) + '">' + (i + 1) + '</button>';
+                    return o + '</div><div class="tp3-unter">Auf dem Bild wischen, um sich umzuschauen.</div>'
+                        + '<button type="button" class="tp3-knopf haupt" data-aktion="gast-ende" style="height:48px;">Zurück zum Plan</button>';
+                }
+
+                // ---------- Hinfliegen (20.10.2026) ----------
+                // Tisch antippen: die Ansicht fährt hin und vergrößert (mindestens 2,2x).
+                // Erst ohne Übergang ausmessen, wo der Tisch landet, dann vom alten Bild
+                // aus mit Übergang dorthin -- sonst springt es.
+                var ZOOM_MAX = 6;
+                function hinfliegen(id) {
+                    var boden = $('tp3Boden'), b = $('tp3Buehne'); if (!boden || !b || tp.bearbeiten || tp.gast) return;
+                    var vorher = boden.style.transform;
+                    tp.zoom = Math.max(tp.zoom || 1, 2.2);
+                    zeichnen();
+                    var el = Array.prototype.find.call(boden.querySelectorAll('.tp3-tisch'), function (x) { return x.getAttribute('data-id') === String(id); });
+                    if (!el) return;
+                    var r = el.getBoundingClientRect(), br = b.getBoundingClientRect();
+                    tp.panX = (tp.panX || 0) + (br.left + br.width / 2) - (r.left + r.width / 2);
+                    tp.panY = (tp.panY || 0) + (br.top + br.height * 0.5) - (r.top + r.height / 2);
+                    boden.style.transform = vorher; void boden.offsetWidth;
+                    boden.classList.add('tp3-flug'); bodenStellen();
+                    clearTimeout(tp._flug); tp._flug = setTimeout(function () { var x = $('tp3Boden'); if (x) x.classList.remove('tp3-flug'); }, 650);
+                }
+
+                // ---------- Laufwege-Wache (20.10.2026) ----------
+                // Beim Aufstellen: wo kommt kein Kellner mehr durch? Gemessen wird
+                // zwischen den STUHLLEHNEN (Stuhl samt Gast ragt ca. 45 cm über die
+                // Tischkante), nicht zwischen den Tischplatten -- sonst wäre jeder
+                // Abstand "groß genug". Unter 60 cm passt niemand mit Tablett durch.
+                var LAUF_MIN = 0.6;
+                function flaechenVon(t, rm) {
+                    // Alles in Metern: Tischplatte als Vieleck (rund: Kreis), Stühle als Kreise.
+                    var g = form(t), cx = t.x / 100 * rm.breite, cy = t.y / 100 * rm.tiefe, dr = (t.drehung || 0) * Math.PI / 180;
+                    var c = Math.cos(dr), s = Math.sin(dr), L = g.L / 100, B = g.B / 100, ppm = tp.ppm || 560 / 12;
+                    function welt(x, y) { return [cx + x * c - y * s, cy + x * s + y * c]; }
+                    var o = [];
+                    if (g.art === 'rund') o.push({ k: welt(0, 0), r: L / 2 });
+                    else o.push({ p: [welt(-L / 2, -B / 2), welt(L / 2, -B / 2), welt(L / 2, B / 2), welt(-L / 2, B / 2)] });
+                    stuehle(g, t.plaetze).forEach(function (st) {
+                        var a = st[2] * Math.PI / 180, x = (st[0] - g.b / 2) / ppm + Math.sin(a) * 0.15, y = (st[1] - g.t / 2) / ppm - Math.cos(a) * 0.15;
+                        o.push({ k: welt(x, y), r: 0.3 });
+                    });
+                    return o;
+                }
+                function punktStrecke(p, a, b) {
+                    var dx = b[0] - a[0], dy = b[1] - a[1], l = dx * dx + dy * dy, u = l ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l)) : 0;
+                    var q = [a[0] + u * dx, a[1] + u * dy]; return { d: Math.hypot(p[0] - q[0], p[1] - q[1]), q: q };
+                }
+                function punktFlaeche(p, f) {
+                    if (f.k) { var d = Math.hypot(p[0] - f.k[0], p[1] - f.k[1]) || 1e-9; return { d: d - f.r, q: [f.k[0] + (p[0] - f.k[0]) / d * f.r, f.k[1] + (p[1] - f.k[1]) / d * f.r] }; }
+                    var best = null;
+                    for (var i = 0; i < f.p.length; i++) { var z = punktStrecke(p, f.p[i], f.p[(i + 1) % f.p.length]); if (!best || z.d < best.d) best = z; }
+                    return best;
+                }
+                function abstand(f1, f2) {
+                    // kleinster Abstand zweier Flächen samt der beiden nächsten Punkte
+                    if (f1.k) { var z = punktFlaeche(f1.k, f2), d = Math.hypot(z.q[0] - f1.k[0], z.q[1] - f1.k[1]) || 1e-9; return { d: z.d - f1.r, a: [f1.k[0] + (z.q[0] - f1.k[0]) / d * f1.r, f1.k[1] + (z.q[1] - f1.k[1]) / d * f1.r], b: z.q }; }
+                    if (f2.k) { var w = abstand(f2, f1); return { d: w.d, a: w.b, b: w.a }; }
+                    var best = null;
+                    f1.p.forEach(function (p) { var q = punktFlaeche(p, f2); if (!best || q.d < best.d) best = { d: q.d, a: p, b: q.q }; });
+                    f2.p.forEach(function (p) { var q = punktFlaeche(p, f1); if (!best || q.d < best.d) best = { d: q.d, a: q.q, b: p }; });
+                    return best;
+                }
+                function engstellen() {
+                    var rm = raumVon(tp.bereich || 'main'), liste = tp.tische.filter(function (t) { return t.bereich === tp.bereich; });
+                    var fl = liste.map(function (t) { return flaechenVon(t, rm); }), o = [];
+                    for (var i = 0; i < liste.length; i++) for (var j = i + 1; j < liste.length; j++) {
+                        var best = null;
+                        fl[i].forEach(function (a) { fl[j].forEach(function (b) { var z = abstand(a, b); if (!best || z.d < best.d) best = z; }); });
+                        if (best && best.d < LAUF_MIN) o.push({ t1: liste[i], t2: liste[j], d: Math.max(0, best.d), a: best.a, b: best.b });
+                    }
+                    return o.sort(function (p, q) { return p.d - q.d; });
+                }
+                function cmText(d) { return d <= 0.02 ? 'Stühle stoßen an' : Math.round(d * 100) + ' cm'; }
+                function engstellenHtml(liste) {
+                    // Von oben beim Bearbeiten: rote Linie zwischen den nächsten Punkten, Maß daneben
+                    var rm = raumVon(tp.bereich || 'main'), k = tp.W / rm.breite;
+                    return liste.map(function (e) {
+                        var x1 = e.a[0] * k, y1 = e.a[1] * k, x2 = e.b[0] * k, y2 = e.b[1] * k, l = Math.max(4, Math.hypot(x2 - x1, y2 - y1)), w = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
+                        return '<div class="tp3-eng" style="left:' + x1 + 'px;top:' + (y1 - 3) + 'px;width:' + l + 'px;transform:rotate(' + w + 'deg);"></div>'
+                            + '<div class="tp3-eng-mass" style="left:' + ((x1 + x2) / 2) + 'px;top:' + ((y1 + y2) / 2) + 'px;">' + esc(cmText(e.d)) + '</div>';
+                    }).join('');
+                }
+                function engstellenListe(liste) {
+                    if (!liste.length) return '<div class="tp3-lauf ok"><b>Laufwege frei</b><span>Überall mindestens ' + Math.round(LAUF_MIN * 100) + ' cm zwischen den Stuhllehnen.</span></div>';
+                    return '<div class="tp3-lauf"><b>' + (liste.length === 1 ? 'Eine Engstelle' : liste.length + ' Engstellen') + '</b>'
+                        + liste.slice(0, 5).map(function (e) { return '<span>' + esc(e.t1.name) + ' ↔ ' + esc(e.t2.name) + ': ' + esc(cmText(e.d)) + ' frei</span>'; }).join('')
+                        + '<small>Gemessen zwischen den Stuhllehnen. Mit Tablett braucht ein Kellner mindestens ' + Math.round(LAUF_MIN * 100) + ' cm.</small></div>';
+                }
+
+                // ---------- Skizze einlesen (20.10.2026) ----------
+                // Ibo: "wenn ich die Skizze der Plan einfüge, so passt sich der
+                // Tischplan auch an das Lokal an". Foto -> netlify/functions/
+                // tischplan-skizze.js (Claude liest Raum, Teile, Tische) -> hier
+                // übernehmen. Raum und Teile ersetzen den bisherigen Raum; Tische:
+                // vorhandene werden an die erkannten Stellen gerückt (keiner wird
+                // gelöscht), fehlende neu angelegt. Gespeichert wird mit "Fertig".
+                // Die Skizze selbst liegt nur in dieser Sitzung unter dem Plan.
+                function bildVerkleinern(datei, max) {
+                    return new Promise(function (ok, nein) {
+                        var fr = new FileReader();
+                        fr.onerror = function () { nein(new Error('Datei nicht lesbar')); };
+                        fr.onload = function () {
+                            var img = new Image();
+                            img.onerror = function () { nein(new Error('Das ist kein Bild, das der Browser öffnen kann. Bitte ein Foto (JPG/PNG) wählen.')); };
+                            img.onload = function () {
+                                var f = Math.min(1, max / Math.max(img.width, img.height)), c = document.createElement('canvas');
+                                c.width = Math.round(img.width * f); c.height = Math.round(img.height * f);
+                                var x = c.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height);
+                                ok(c.toDataURL('image/jpeg', 0.85));
+                            };
+                            img.src = fr.result;
+                        };
+                        fr.readAsDataURL(datei);
+                    });
+                }
+                function skizzeZuschneiden(bild, rahmen) {
+                    // Nur der Raum (Rahmen in % des Bildes), damit die Skizze genau unter dem Plan liegt.
+                    return new Promise(function (ok) {
+                        if (!rahmen) return ok(bild);
+                        var img = new Image();
+                        img.onload = function () {
+                            var x0 = rahmen.x0 / 100 * img.width, y0 = rahmen.y0 / 100 * img.height, w = (rahmen.x1 - rahmen.x0) / 100 * img.width, h = (rahmen.y1 - rahmen.y0) / 100 * img.height;
+                            if (w < 20 || h < 20) return ok(bild);
+                            var c = document.createElement('canvas'); c.width = Math.round(w); c.height = Math.round(h);
+                            c.getContext('2d').drawImage(img, x0, y0, w, h, 0, 0, c.width, c.height); ok(c.toDataURL('image/jpeg', 0.8));
+                        };
+                        img.onerror = function () { ok(bild); };
+                        img.src = bild;
+                    });
+                }
+                async function skizzeLesen(datei) {
+                    if (!datei || !tp.bearbeiten) return;
+                    if (/pdf$/i.test(datei.type || datei.name || '')) { melden('PDF geht hier noch nicht – bitte ein Foto oder einen Screenshot vom Plan wählen.', 'fehler'); return; }
+                    if (tp.skizzeLaeuft) return;
+                    tp.skizzeLaeuft = true; seiteZeichnen();
+                    melden('Skizze wird gelesen … das dauert ein paar Sekunden.', 'hinweis');
+                    try {
+                        var bild = await bildVerkleinern(datei, 1600);
+                        var res = await fetch('/.netlify/functions/tischplan-skizze', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + kmiToken() }, body: JSON.stringify({ restaurant_id: tp.rid, bild: bild }) });
+                        var d = await res.json().catch(function () { return null; });
+                        // Regel 6: nie still. Kein ok -> der Satz vom Server, sonst der Status.
+                        if (!res.ok || !d || !d.ok) throw new Error(d && d.fehler ? d.fehler : 'Die Skizze konnte nicht gelesen werden (Fehler ' + res.status + ').');
+                        tp.skizze = { bild: await skizzeZuschneiden(bild, d.rahmen), zeigen: true, erkannt: d };
+                        await skizzeUebernehmen(d);
+                    } catch (e) { melden(String(e && e.message || e), 'fehler'); }
+                    finally { tp.skizzeLaeuft = false; seiteZeichnen(); }
+                }
+                async function skizzeUebernehmen(d) {
+                    merken();
+                    var r = raumVon(tp.bereich || 'main'), q = d.raum || {};
+                    r.breite = q.breite; r.tiefe = q.tiefe; r.form = q.form === 'L' ? 'L' : 'rechteck';
+                    if (r.form === 'L') { r.ecke = q.ecke; r.ausB = q.ausB; r.ausT = q.ausT; }
+                    masseSetzen();
+                    r.teile = (q.teile || []).map(function (x, i) { var teil = { id: 'k' + Date.now().toString(36) + i, art: x.art, x: x.x, y: x.y, b: x.b, t: x.t, dreh: x.dreh || 0 }; if ((TEIL[x.art] || {}).wand) anWandRasten(teil); return teil; });
+                    tp.raumGeaendert = true;
+                    var da = tp.tische.filter(function (t) { return t.bereich === tp.bereich; }), frei = da.slice(), neu = 0;
+                    var FORM = { rund: 'round', eckig: 'square', lang: 'rectangle' };
+                    // Vorhandene Tische nach Plätzen zuordnen (der 6er auf den 6er-Platz),
+                    // nicht der Reihe nach -- sonst landet ein Langtisch auf einem 2er-Platz.
+                    var reihe = (d.tische || []).map(function (k, i) { return i; }).sort(function (a, b) { return d.tische[b].plaetze - d.tische[a].plaetze; }), zu = {};
+                    reihe.forEach(function (i) {
+                        if (!frei.length) return;
+                        var k = d.tische[i], best = frei.slice().sort(function (a, b) { return Math.abs(a.plaetze - k.plaetze) - Math.abs(b.plaetze - k.plaetze); })[0];
+                        zu[i] = best; frei.splice(frei.indexOf(best), 1);
+                    });
+                    for (var i = 0; i < (d.tische || []).length; i++) {
+                        var k = d.tische[i], lage = ausEckeSchieben(r, { x: k.x, y: k.y });
+                        if (zu[i]) { var t = zu[i]; t.x = lage.x; t.y = lage.y; t.drehung = k.dreh || 0; geaendert(t); continue; }
+                        var art = FORM[k.form] || 'square', L = k.laenge_cm || standardMass(k.form, k.plaetze).L, B = k.form === 'rund' ? L : (k.breite_cm || standardMass(k.form, k.plaetze).B);
+                        await tischAnlegen('skizze', [k.plaetze, art, L, B], 0, 0, { x: lage.x, y: lage.y, drehung: k.dreh || 0 });
+                        neu++;
+                    }
+                    tp.gewaehlt = null; tp.teilGewaehlt = null;
+                    var n = (d.tische || []).length, bewegt = Math.min(n, da.length);
+                    melden('Aus der Skizze: ' + (r.form === 'L' ? 'L-Form' : 'Rechteck') + ' ' + m(r.breite).replace(' m', '') + ' × ' + m(r.tiefe) + ', ' + r.teile.length + ' feste Teile, ' + n + ' Tische'
+                        + (bewegt ? ' (' + bewegt + ' vorhandene verschoben' + (neu ? ', ' + neu + ' neu angelegt' : '') + ')' : (neu ? ' (neu angelegt)' : ''))
+                        + (da.length > n ? '. ' + (da.length - n) + ' Tische standen nicht in der Skizze und bleiben, wo sie waren' : '')
+                        + '. Bitte prüfen und mit „Fertig“ speichern.', 'hinweis');
+                    zeichnen();
+                }
+                function skizzeHtml() {
+                    var sk = tp.skizze, lauft = tp.skizzeLaeuft;
+                    var o = '<div class="tp3-skizze-kasten"><b>Aus Skizze erstellen</b><span>Foto vom Grundriss – Handzeichnung oder Plan. Raum, Theke, Eingang und Tische werden erkannt, du prüfst nur noch.</span>'
+                        + '<label class="tp3-knopf haupt" style="display:flex;align-items:center;justify-content:center;height:48px;cursor:pointer;' + (lauft ? 'opacity:0.6;pointer-events:none;' : '') + '">' + (lauft ? 'Wird gelesen …' : (sk ? 'Andere Skizze wählen' : 'Skizze fotografieren oder wählen'))
+                        + '<input type="file" id="tp3SkizzeDatei" accept="image/*" style="display:none;"></label>';
+                    if (sk && sk.erkannt) {
+                        var e = sk.erkannt;
+                        o += '<button type="button" class="tp3-knopf" data-raum="skizze-zeigen" aria-pressed="' + !!sk.zeigen + '" style="height:44px;">' + (sk.zeigen ? 'Skizze ausblenden' : 'Skizze unter dem Plan zeigen') + '</button>';
+                        if (!e.massstab) o += '<small>Kein Maß in der Skizze gefunden – Breite und Tiefe sind geschätzt. Bitte unten nachmessen.</small>';
+                        if (e.unsicher && e.unsicher.length) o += '<small class="pruefen">Bitte prüfen: ' + esc(e.unsicher.join(', ')) + '</small>';
+                    }
+                    return o + '</div>';
+                }
                 // ---------- Zeichnen ----------
-                function winkel() { return DREH0 + tp.drehung; }
+                function winkel() { if (tp.gast) { var v = gastSicht(); if (v) return -v.blick; } return DREH0 + tp.drehung; }
                 function massstab() { return grundMassstab() * (tp.zoom || 1); }
                 function grundMassstab() {
                     var b = $('tp3Buehne'); if (!b) return 1;
@@ -19776,6 +20066,10 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     var boden = $('tp3Boden'); if (!boden) return;
                     var s = massstab();
                     var pan = (tp.panX || tp.panY) ? ' translate(' + Math.round(tp.panX) + 'px,' + Math.round(tp.panY) + 'px)' : '';
+                    var gt = tp.gast && tp.ansicht === '3d' ? gastTransform() : null;
+                    var bue = $('tp3Buehne'); if (bue) bue.style.perspective = gt ? gastAbstand() + 'px' : '';
+                    boden.style.zoom = gt ? GAST_FEIN : '';
+                    if (gt) { boden.style.transform = gt; return; }
                     boden.style.transform = tp.ansicht === '3d'
                         ? 'translate(-50%,-46%)' + pan + ' scale(' + s + ') rotateX(' + NEIGUNG + 'deg) rotateZ(' + winkel() + 'deg)'
                         : 'translate(-50%,' + (tp.bearbeiten ? '-58%' : '-54%') + ')' + pan + ' scale(' + s + ')';
@@ -19814,7 +20108,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     var rad = winkel() * Math.PI / 180, cs = Math.cos(rad), sn = Math.sin(rad), auf = oeffnungen(r), lt = drei && !tp.bearbeiten ? licht() : 'tag';
                     function gl(a, b, x, y) { return Math.abs(a - x) < 0.5 && Math.abs(b - y) < 0.5; }
                     var aussen = r.boden === 'draussen';
-                    function nahK(k) { return drei && (aussen || (k[4] * sn + k[5] * cs) > 0.01); }
+                    function nahK(k) { return drei && !tp.gast && (aussen || (k[4] * sn + k[5] * cs) > 0.01); }
                     function innenEcke(x, y) { return !!ie && gl(x, y, ie.x, ie.y); }
                     function verlauf(a, b, richtung) { return 'background:linear-gradient(to ' + richtung + ',' + a + ',' + b + ');'; }
                     var o = '';
@@ -19859,7 +20153,8 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                                 if (!nah) {
                                     var innen = waag ? y1 - ny * 0.8 : x1 - nx * 0.8;
                                     var glas = 'border:2px solid #2f3533;background:linear-gradient(to right, transparent calc(50% - 1px), #2f3533 calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)),' + (lt === 'nacht' ? 'linear-gradient(to bottom,#2c3d4f,#1b2733);' : 'linear-gradient(to bottom,rgba(232,243,249,0.96),rgba(168,203,222,0.92));');
-                                    g += waag ? standX(f.von, f.bis, innen, 11, 36, glas) : standY(f.von, f.bis, innen, 11, 36, glas);
+                                    var fz = tp.gast ? Math.round(0.8 * tp.ppm) : 11, fh = tp.gast ? Math.round(1.5 * tp.ppm) : 36;  // im Gastblick in echter Höhe
+                                    g += waag ? standX(f.von, f.bis, innen, fz, fh, glas) : standY(f.von, f.bis, innen, fz, fh, glas);
                                     if (lt !== 'nacht') {
                                         var T2 = 90, li = lt === 'abend' ? 'rgba(255,186,110,0.50)' : 'rgba(255,243,212,0.60)', fv = verlauf(li, 'rgba(255,243,212,0)', ny < 0 ? 'bottom' : ny > 0 ? 'top' : nx < 0 ? 'right' : 'left');
                                         g += ny < 0 ? flach(f.von - 8, y1, f.bis - f.von + 16, T2, 0.3, fv) : ny > 0 ? flach(f.von - 8, y1 - T2, f.bis - f.von + 16, T2, 0.3, fv)
@@ -19992,6 +20287,8 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     var wurzel = $('tp3'); if (!wurzel) return;
                     wurzel.setAttribute('data-ansicht', tp.ansicht);
                     wurzel.setAttribute('data-bearbeiten', tp.bearbeiten ? '1' : '0');
+                    if (tp.gast && (tp.bearbeiten || tp.ansicht !== '3d' || !tischVon(tp.gast.id))) tp.gast = null;
+                    wurzel.setAttribute('data-gast', tp.gast ? '1' : '0');
                     var lt = tp.ansicht === '3d' && !tp.bearbeiten ? licht() : 'tag';
                     wurzel.setAttribute('data-licht', lt);
                     var lz = $('tp3Licht');
@@ -20014,10 +20311,16 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     boden.setAttribute('data-boden', raum.boden);
                     tp.s = massstab();
                     var liste = tp.tische.filter(function (t) { return t.bereich === tp.bereich; });
-                    var h = bodenStuecke(raum) + modellLicht(raum) + waende() + masseHtml(raum);
+                    // Gastblick: Wände in echter Raumhöhe (2,6 m) statt als Schnittmodell
+                    WAND_H = tp.gast ? Math.round(2.6 * tp.ppm) : 58;
+                    // Skizze direkt über dem Boden (bei der L-Form liegen Bodenstücke darüber), unter allem anderen
+                    var skz = tp.bearbeiten && tp.ansicht === 'oben' && tp.skizze && tp.skizze.zeigen ? '<img class="tp3-skizze" alt="" src="' + tp.skizze.bild + '">' : '';
+                    var h = bodenStuecke(raum) + skz + modellLicht(raum) + waende() + masseHtml(raum);
+                    tp.eng = tp.bearbeiten ? engstellen() : [];
                     raum.teile.forEach(function (teil) { h += teilHtml(teil); });
                     if (!tp.bearbeiten) h += verbundLinien(liste);
                     liste.forEach(function (t) { h += tischHtml(t); });
+                    if (tp.bearbeiten && tp.ansicht === 'oben') h += engstellenHtml(tp.eng);
                     boden.innerHTML = h;
                     var leer = $('tp3Leer'); if (leer) leer.remove();
                     var text = null;
@@ -20141,7 +20444,8 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 }
                 function raumForm() {
                     var r = raumVon(tp.bereich || 'main');
-                    var o = '<h3>Raum</h3><div class="tp3-unter">' + esc(bereichName(tp.bereich)) + ' · so groß und so geformt wie euer Lokal. Tische und Teile ziehen, antippen zum Ändern.</div><div class="tp3-form">'
+                    var o = '<h3>Raum</h3><div class="tp3-unter">' + esc(bereichName(tp.bereich)) + ' · so groß und so geformt wie euer Lokal. Tische und Teile ziehen, antippen zum Ändern.</div>'
+                        + skizzeHtml() + engstellenListe(tp.eng || []) + '<div class="tp3-form">'
                         + schritt('Breite', r.breite, 'breite') + schritt('Tiefe', r.tiefe, 'tiefe')
                         + '<label>Form<div class="tp3-pille" role="group">'
                         + '<button type="button" data-raum="form-rechteck" aria-pressed="' + (r.form !== 'L') + '" style="flex:1;">Rechteck</button>'
@@ -20200,12 +20504,14 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             + (tp.bearbeiten ? '' : heuteListe(null));
                         return;
                     }
+                    if (tp.gast && tp.gast.id === t.id) { s.innerHTML = gastForm(t); return; }
                     if (tp.dazuFuer !== t.id) { tp.dazu = []; tp.dazuFuer = t.id; }
                     var g = form(t), formName = { rund: 'rund', eckig: 'eckig', lang: 'lang' }[g.art];
                     var o = '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;"><div><h3>' + esc(t.name) + '</h3><div class="tp3-unter">'
                         + esc(t.plaetze) + ' Plätze · ' + formName + ' · ' + esc(bereichName(t.bereich)) + '</div></div>'
                         + '<button type="button" class="tp3-knopf" data-aktion="schliessen" aria-label="Schließen" style="padding:0;width:44px;">✕</button></div>';
                     if (tp.bearbeiten) { s.innerHTML = o + bearbeitenForm(t); return; }
+                    o += '<button type="button" class="tp3-knopf" data-aktion="gast" style="height:44px;">Gastblick – vom Platz aus sehen</button>';
                     var z = zustand(t);
                     if (z.art === 'res' && z.res) {
                         var r = z.res, ende = hhmm(minuten(r.reservation_time) + (+r.duration_minutes || 120));
@@ -20469,24 +20775,25 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     tp.legtAn = true;
                     try { await tischAnlegen(art, vorlage, 0, 0); } finally { tp.legtAn = false; }
                 }
-                async function tischAnlegen(art, vorlage, nr, versuch) {
+                async function tischAnlegen(art, vorlage, nr, versuch, lage) {
                     // Kleinste freie Nummer; hält sie ein gelöschter Tisch, wird sie frei
                     // gemacht. Klappt das nicht (z. B. Rechte), die nächste -- höchstens 25.
                     if (!nr) nr = freieNummer();
                     if (!versuch || versuch === 0) await nummerFreigeben(nr);
                     var daten = { restaurant_id: tp.rid, table_name: 'Tisch ' + nr, table_number: String(nr), min_capacity: Math.max(1, Math.floor(vorlage[0] / 2)), max_capacity: vorlage[0], area: tp.bereich || 'main', status: 'available', is_active: true, table_shape: vorlage[1] };
-                    if (!tp.ohnePosSpalten) { daten.pos_x = 50; daten.pos_y = 50; daten.rotation = 0; }
+                    var lg = lage || { x: 50, y: 50, drehung: 0 };
+                    if (!tp.ohnePosSpalten) { daten.pos_x = lg.x; daten.pos_y = lg.y; daten.rotation = lg.drehung; }
                     try {
                         var r = await sbWrite(SUPABASE_URL + '/rest/v1/restaurant_tables', { method: 'POST', headers: kopf({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }), body: JSON.stringify(daten) });
                         var z = (await r.json())[0];
                         if (!z) throw new Error('die Datenbank hat den Tisch nicht angelegt');
-                        tp.tische.push({ id: z.id, nummer: z.table_number, name: z.table_name, plaetze: +z.max_capacity, status: 'available', bereich: z.area || 'main', form: z.table_shape, x: 50, y: 50, drehung: 0, laenge: vorlage[2], breite: vorlage[3] });
-                        tp.gewaehlt = z.id; geaendert(tischVon(z.id)); melden('');
+                        tp.tische.push({ id: z.id, nummer: z.table_number, name: z.table_name, plaetze: +z.max_capacity, status: 'available', bereich: z.area || 'main', form: z.table_shape, x: lg.x, y: lg.y, drehung: lg.drehung, laenge: vorlage[2], breite: vorlage[3] });
+                        if (!lage) tp.gewaehlt = z.id; geaendert(tischVon(z.id)); melden('');
                         zeichnen();
                     } catch (e) {
                         var m = String(e && e.message || e);
-                        if (/pos_x|pos_y|rotation/.test(m) && !tp.ohnePosSpalten) { tp.ohnePosSpalten = true; return tischAnlegen(art, vorlage, nr, versuch + 1); }
-                        if (/23505|duplicate/i.test(m) && versuch < 25) return tischAnlegen(art, vorlage, freieNummer(nr + 1), versuch + 1);
+                        if (/pos_x|pos_y|rotation/.test(m) && !tp.ohnePosSpalten) { tp.ohnePosSpalten = true; return tischAnlegen(art, vorlage, nr, versuch + 1, lage); }
+                        if (/23505|duplicate/i.test(m) && versuch < 25) return tischAnlegen(art, vorlage, freieNummer(nr + 1), versuch + 1, lage);
                         melden('Tisch nicht angelegt – ' + (/23505|duplicate/i.test(m) ? 'die Nummer ' + nr + ' gibt es schon.' : m), 'fehler');
                     }
                 }
@@ -20600,7 +20907,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     // ZOOM: Knoepfe, zwei Finger, Strg+Mausrad (Trackpad). Von oben
                     // verschiebt ein Finger den vergroesserten Plan.
                     function zoomSetzen(z) {
-                        tp.zoom = Math.max(0.6, Math.min(3, Math.round(z * 100) / 100));
+                        tp.zoom = Math.max(0.6, Math.min(ZOOM_MAX, Math.round(z * 100) / 100));
                         if (tp.zoom <= 1) { tp.panX = 0; tp.panY = 0; }
                         zeichnen();
                     }
@@ -20630,7 +20937,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         if (pinch) {
                             var ids = Object.keys(finger); if (ids.length < 2) return;
                             var a = finger[ids[0]], b = finger[ids[1]];
-                            tp.zoom = Math.max(0.6, Math.min(3, pinch.z0 * Math.hypot(a.x - b.x, a.y - b.y) / pinch.d0));
+                            tp.zoom = Math.max(0.6, Math.min(ZOOM_MAX, pinch.z0 * Math.hypot(a.x - b.x, a.y - b.y) / pinch.d0));
                             bodenStellen(); return;
                         }
                         if (schieben && e.pointerId === schieben.id) {
@@ -20651,14 +20958,14 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     var wisch = null;
                     buehne.addEventListener('pointerdown', function (e) {
                         if (tp.bearbeiten || tp.ansicht !== '3d' || pinch || e.target.closest('button,.tp3-drehen,.tp3-legende,.tp3-zoom')) return;
-                        wisch = { x0: e.clientX, d0: tp.drehung, id: e.pointerId, bewegt: false };
+                        wisch = { x0: e.clientX, d0: tp.gast ? (tp.gast.um || 0) : tp.drehung, id: e.pointerId, bewegt: false };
                     });
                     buehne.addEventListener('pointermove', function (e) {
                         if (!wisch || e.pointerId !== wisch.id) return;
                         var dx = e.clientX - wisch.x0;
                         if (!wisch.bewegt && Math.abs(dx) < 6) return;
                         if (!wisch.bewegt) { wisch.bewegt = true; try { buehne.setPointerCapture(e.pointerId); } catch (x) {} }
-                        tp.drehung = wisch.d0 + dx * 0.45;
+                        if (tp.gast) tp.gast.um = wisch.d0 - dx * 0.3; else tp.drehung = wisch.d0 + dx * 0.45;
                         if (wisch.bild) return;
                         wisch.bild = requestAnimationFrame(function () { if (wisch) wisch.bild = 0; zeichnen(); });
                     });
@@ -20671,10 +20978,11 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     buehne.addEventListener('pointercancel', zugEnde);
                     buehne.addEventListener('click', function (e) {
                         if (tp.bearbeiten && tp.ansicht === 'oben') return;
-                        if (tp._gewischt) return;                       // war ein Wischen, kein Tippen
+                        if (tp._gewischt || tp.gast) return;            // war ein Wischen, kein Tippen
                         var el = e.target.closest('[data-id]');
                         if (!el) { if (e.target === buehne || e.target.id === 'tp3Boden') { tp.gewaehlt = null; zeichnen(); } return; }
-                        tp.gewaehlt = el.getAttribute('data-id'); zeichnen();
+                        tp.gewaehlt = el.getAttribute('data-id');
+                        if (tp.bearbeiten) zeichnen(); else hinfliegen(tp.gewaehlt);
                     });
                     $('tp3Seite').addEventListener('click', async function (e) {
                         var kt = e.target.closest('[data-neu-teil]');
@@ -20685,7 +20993,10 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             if (tg) { tp.dazu = tp.dazu || []; var i = tp.dazu.indexOf(id); if (i >= 0) tp.dazu.splice(i, 1); else tp.dazu.push(id); dazuAuffrischen(tg); }
                             return;
                         }
+                        var gp = e.target.closest('[data-gast-platz]');
+                        if (gp && tp.gast) { tp.gast.platz = +gp.getAttribute('data-gast-platz') || 0; tp.gast.um = 0; zeichnen(); return; }
                         var ra = e.target.closest('[data-raum]');
+                        if (ra && tp.bearbeiten && ra.getAttribute('data-raum') === 'skizze-zeigen') { if (tp.skizze) tp.skizze.zeigen = !tp.skizze.zeigen; zeichnen(); return; }
                         if (ra && tp.bearbeiten) { raumAktion(ra.getAttribute('data-raum')); return; }
                         var t = tischVon(tp.gewaehlt);
                         var f = e.target.closest('[data-form]');
@@ -20704,6 +21015,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         var b = e.target.closest('[data-aktion]'); if (!b) return;
                         var a = b.getAttribute('data-aktion');
                         if (a === 'schliessen') { tp.gewaehlt = null; tp.teilGewaehlt = null; zeichnen(); return; }
+                        if (a === 'gast-ende') { gastEnde(); return; }
                         if (!t) return;
                         var z = zustand(t);
                         if (a === 'mehr' || a === 'weniger') { merken(); t.plaetze = Math.max(1, Math.min(30, t.plaetze + (a === 'mehr' ? 1 : -1))); geaendert(t); zeichnen(); }
@@ -20734,6 +21046,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         else if (a === 'besetzen') tischStatus(t, 'occupied');
                         else if (a === 'frei') { if (z.res && z.res.status === 'seated') await resStatus(z.res, 'finished'); tischStatus(t, 'available'); }
                         else if (a === 'reservieren') reservieren(t);
+                        else if (a === 'gast') gastStart(t.id);
                         else if (a === 'dazu-auto') {
                             // nächste freie Tische, bis die Plätze reichen
                             var w = dazuWerte(t), platz = (tp.dazu || []).map(tischVon).reduce(function (s, x) { return s + (+x.plaetze || 0); }, +t.plaetze || 0);
@@ -20746,6 +21059,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         var t = tischVon(tp.gewaehlt); if (t && !tp.bearbeiten) dazuAuffrischen(t);
                     });
                     $('tp3Seite').addEventListener('change', function (e) {
+                        if (e.target.id === 'tp3SkizzeDatei') { var dt = e.target.files && e.target.files[0]; e.target.value = ''; skizzeLesen(dt); return; }
                         var t = tischVon(tp.gewaehlt); if (!t || !tp.bearbeiten) return;
                         if (e.target.id === 'tp3eName') { merken(); t.name = e.target.value.trim() || t.name; geaendert(t); zeichnen(); }
                         if (e.target.id === 'tp3eNr') {
@@ -32135,6 +32449,8 @@ function openReservation(restaurantId, datum) {
         showToast(zahlsperreGastText(restaurant), 'info');
         return;
     }
+    // Farbe des Lokals auch beim Reservieren (20.10.2026).
+    if (typeof MARKE !== 'undefined' && MARKE.anwenden) MARKE.anwenden([document.getElementById('reservationModal')], restaurant);
     // Neues Reservieren: immer mit Schritt 1 beginnen, Tageszeit neu waehlen.
     window._resTeil = null;
     if (typeof resSchritt === 'function') resSchritt(1);
@@ -32298,7 +32614,7 @@ function resCalRender() {
         if (isPast || isClosed) {
             html += '<button type="button" disabled style="width:100%;aspect-ratio:1;border-radius:16px;border:none;display:flex;align-items:center;justify-content:center;font-size:13px;cursor:not-allowed;background:transparent;' + (isClosed ? 'color:rgba(239,68,68,0.3);' : 'color:rgba(64,73,70,0.25);') + '">' + d + '</button>';
         } else if (isSel) {
-            html += '<button type="button" onclick="resCalSelectDate(\'' + ds + '\')" style="width:100%;aspect-ratio:1;border-radius:16px;border:none;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:#003d33;color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(0,61,51,0.3);transition:all 0.2s;">' + d + '</button>';
+            html += '<button type="button" onclick="resCalSelectDate(\'' + ds + '\')" style="width:100%;aspect-ratio:1;border-radius:16px;border:none;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:var(--marke,#003d33);color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(0,61,51,0.3);transition:all 0.2s;">' + d + '</button>';
         } else if (isToday) {
             html += '<button type="button" onclick="resCalSelectDate(\'' + ds + '\')" style="width:100%;aspect-ratio:1;border-radius:16px;border:none;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:#fed65b;color:#735c00;cursor:pointer;box-shadow:0 0 0 2px rgba(115,92,0,0.2);transition:all 0.2s;">' + d + '</button>';
         } else {
@@ -46406,8 +46722,14 @@ async function showRestaurantLanding(rest) {
     // Jetzt stehen sie IM cssText. Damit kann keine spaetere Zuweisung
     // sie mehr aus Versehen mitnehmen -- es gibt nur noch eine.
     landing.style.cssText = '--marke:' + _marke + ';--marke-dunkel:' + MARKE.dunkler(_marke) + ';'
+        + '--marke-glas:rgba(' + MARKE._kanaele(MARKE.dunkler(_marke)).join(',') + ',0.92);'
         + '--marke-label:' + (_marke === MARKE.STANDARD ? '#75a89b' : '#ffffff') + ';'
         + 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#f8f9fa;overflow-y:auto;';
+    // Eigene Farbe gewaehlt? Dann tragen auch Name, Ueberschriften-Zeilen
+    // ("Über uns", "Eindrücke") und Preise sie (Ibo, 20.10.2026: "es muss
+    // mehr sein"). Sterne, "heute" und "offen" bleiben Gold/Gruen -- die
+    // stehen fuer eine Bedeutung, die auf jeder Seite gleich sein muss.
+    if (_marke !== MARKE.STANDARD && landing.classList) landing.classList.add('lp-eigene-farbe');
 
     landing.innerHTML = `
         <!-- TopAppBar -->
@@ -46463,9 +46785,9 @@ async function showRestaurantLanding(rest) {
                 <div class="lp-hero-karte" style="backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);padding:32px 48px;border-radius:48px;max-width:640px;width:100%;text-align:center;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
                     ${logoHtml}
                     <div style="display:flex;justify-content:center;gap:4px;margin-bottom:16px;">
-                        ${rest.rating ? '<span class="material-symbols-outlined" style="color:var(--lp-akzent,#735c00);font-variation-settings:\'FILL\' 1;">star</span>'.repeat(Math.min(Math.round(rest.rating), 5)) : ''}
+                        ${rest.rating ? '<span class="material-symbols-outlined" style="color:var(--lp-stern,#735c00);font-variation-settings:\'FILL\' 1;">star</span>'.repeat(Math.min(Math.round(rest.rating), 5)) : ''}
                     </div>
-                    <h1 class="lp-hero-name" style="font-family:'Epilogue',sans-serif;font-size:48px;font-weight:800;color:var(--ink-deep);letter-spacing:-0.04em;margin-bottom:8px;line-height:1;text-transform:uppercase;">${rest.name}</h1>
+                    <h1 class="lp-hero-name" style="font-family:'Epilogue',sans-serif;font-size:48px;font-weight:800;color:var(--lp-name,var(--ink-deep));letter-spacing:-0.04em;margin-bottom:8px;line-height:1;text-transform:uppercase;">${rest.name}</h1>
                     <p class="lp-hero-ort" style="font-family:'Epilogue',sans-serif;font-size:18px;color:var(--ink-strong);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px;">${rest.city || 'Greetsiel'}, Ostfriesland</p>
                     ${lpVisitenkarte(rest, landingIsOpen, landingCloseTime)}
                     ${abAchtzehn(rest) ? '<div class="lp-ab18"><span class="material-symbols-outlined" aria-hidden="true">badge</span>Ab 18 · Ausweis mitbringen</div>' : ''}
@@ -46492,7 +46814,7 @@ async function showRestaurantLanding(rest) {
                 if (typeof zahlsperreBestellenAus === 'function' && zahlsperreBestellenAus(rest)) noOrdering = true;
                 if (typeof zahlsperreReservierenAus === 'function' && zahlsperreReservierenAus(rest)) noReservations = true;
                 var _t = translations[currentLanguage] || translations.de;
-                var bar = '<div class="kmi-glas-leiste kmi-glas-dunkel lp-aktionen" style="background:rgba(0,37,30,0.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);padding:8px;border-radius:9999px;display:flex;align-items:center;gap:8px;box-shadow:0 20px 40px -8px rgba(0,0,0,0.15);border:1px solid rgba(255,255,255,0.1);">';
+                var bar = '<div class="kmi-glas-leiste kmi-glas-dunkel lp-aktionen" style="background:var(--marke-glas,rgba(0,37,30,0.85));backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);padding:8px;border-radius:9999px;display:flex;align-items:center;gap:8px;box-shadow:0 20px 40px -8px rgba(0,0,0,0.15);border:1px solid rgba(255,255,255,0.1);">';
                 if (!noReservations) {
                     bar += '<button onclick="openReservation(\'' + rest.id + '\')" style="background:var(--marke,#003d33);color:white;padding:12px 24px;border-radius:9999px;border:none;font-family:Epilogue,sans-serif;font-weight:700;font-size:12px;letter-spacing:0.1em;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(0,37,30,0.3);transition:all 0.2s;text-transform:uppercase;" onmousedown="this.style.transform=\'scale(0.95)\'" onmouseup="this.style.transform=\'scale(1)\'"><span class="material-symbols-outlined" style="font-size:16px;">calendar_today</span>RESERVIEREN</button>';
                 }
@@ -48932,7 +49254,7 @@ function applyLiquidGlass(enable) {
         .lp-gk-text { padding: 14px 16px 16px; display: flex; flex-direction: column; flex: 1; }
         .lp-gk-kopf { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
         .lp-gk-kopf h3 { font: 700 17px/1.2 Epilogue, sans-serif; color: var(--ink-deep, #00251e); margin: 0; }
-        .lp-gk-kopf span { font: 700 17px Epilogue, sans-serif; color: #735c00; white-space: nowrap; }
+        .lp-gk-kopf span { font: 700 17px Epilogue, sans-serif; color: var(--lp-akzent, #735c00); white-space: nowrap; }
         .lp-gk-text p { font: 400 13px/1.5 Inter, sans-serif; color: var(--text-secondary, #404946); margin: 0 0 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .lp-gk-knopf { margin-top: auto; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; border-radius: 9999px; background: rgba(0,61,51,0.06); color: var(--marke, #003d33); font: 700 13px Inter, sans-serif; }
         .lp-gk-knopf .material-symbols-outlined { font-size: 17px; }
@@ -48995,6 +49317,11 @@ function applyLiquidGlass(enable) {
              "Adresse", Öffnungszeiten  #9ca8a4 auf Markenfarbe 2,04: 1
            Im Hellen bleibt jede Farbe, wie sie war -- die Variablen tragen
            dort genau die alten Werte. */
+        #restaurantLanding.lp-eigene-farbe { --lp-akzent: var(--marke); --lp-name: var(--marke); }
+        #menuModal.kmi-eigene-farbe { --kmi-preis: var(--marke); }
+        .dark-mode #menuModal.kmi-eigene-farbe { --kmi-preis: #fed65b; }
+        .dark-mode #restaurantLanding.lp-eigene-farbe { --lp-akzent: #fed65b; --lp-name: var(--ink-deep); }
+        .dark-mode #restaurantLanding { --lp-stern: #fed65b; }
         #restaurantLanding {
             --lp-akzent: #735c00;
             --lp-karte: #ffffff;
@@ -53164,7 +53491,7 @@ document.addEventListener('error', function(e) {
 
         <!-- Floating Cart Bar (Stitch) -->
         <div id="menuFloatingCartBar" style="display:none;position:fixed;bottom:96px;left:50%;transform:translateX(-50%);width:90%;max-width:512px;z-index:60;">
-            <div style="background:rgba(0,37,30,0.95);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:9999px;padding:8px 8px 8px 20px;box-shadow:0 24px 48px -8px rgba(25,28,29,0.3);display:flex;align-items:center;justify-content:space-between;border:1px solid rgba(255,255,255,0.1);">
+            <div style="background:var(--marke-glas,rgba(0,37,30,0.95));backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:9999px;padding:8px 8px 8px 20px;box-shadow:0 24px 48px -8px rgba(25,28,29,0.3);display:flex;align-items:center;justify-content:space-between;border:1px solid rgba(255,255,255,0.1);">
                 <div style="display:flex;align-items:center;gap:12px;">
                     <div id="floatingCartCount" style="width:40px;height:40px;border-radius:9999px;background:#fed65b;display:flex;align-items:center;justify-content:center;color:#745c00;font-weight:700;font-size:14px;">0</div>
                     <div style="display:flex;flex-direction:column;">
@@ -55138,6 +55465,8 @@ async function openMenuModal(restaurantId) {
     try {
     // Prüfe ob Online-Bestellungen aktiviert sind
     var appRest = APP_DATA.restaurants ? APP_DATA.restaurants.find(function(r) { return r.id === restaurantId; }) : null;
+    // Farbe des Lokals auch beim Bestellen (20.10.2026), ohne eigene: Hausfarbe.
+    if (typeof MARKE !== 'undefined' && MARKE.anwenden) MARKE.anwenden([document.getElementById('menuModal'), document.getElementById('menuFloatingCartBar'), document.getElementById('cartPanel')], appRest);
 
     // NUR SPEISEKARTE ZEIGEN -- DER SCHALTER TAT BIS ZUM 17.09.2026 DAS GEGENTEIL.
     //
@@ -57591,7 +57920,7 @@ function gerichtKartenHtml(items, versatz) {
             + '<span style="display:inline-flex;gap:4px;vertical-align:middle;margin-left:2px;">'
             + (typeof getMenuBadgeIcons === 'function' ? getMenuBadgeIcons(item) : '')
             + '</span></h3>';
-        html += '<span style="font-family:Epilogue,sans-serif;font-size:18px;font-weight:700;color:#735c00;white-space:nowrap;margin-left:8px;">' + pricePrefix + displayPrice.toFixed(2).replace('.', ',') + ' €</span>';
+        html += '<span class="kmi-preis" style="font-family:Epilogue,sans-serif;font-size:18px;font-weight:700;color:var(--kmi-preis,#735c00);white-space:nowrap;margin-left:8px;">' + pricePrefix + displayPrice.toFixed(2).replace('.', ',') + ' €</span>';
         html += '</div>';
         // Beschreibung
         html += '<p style="color:var(--text-secondary);font-size:14px;margin-bottom:20px;line-height:1.625;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-family:Inter,sans-serif;" data-item-id="' + (item.id || '') + '">' + (_tr.description || item.description || '') + '</p>';
@@ -57607,7 +57936,7 @@ function gerichtKartenHtml(items, versatz) {
                   + '<span class="material-symbols-outlined" style="font-size:17px;">restaurant_menu</span>'
                   + 'Nur zum Ansehen</div>';
         } else {
-        html += '<button onclick="openItemOptions(\'' + item.id + '\', window._menuDisplayItems[' + idx + '])" style="width:100%;padding:12px;border-radius:48px;background:#00251e;color:white;border:none;font-family:Epilogue,sans-serif;font-weight:600;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;" onmouseover="this.style.background=\'#003d33\'" onmouseout="this.style.background=\'#00251e\'" onmousedown="this.style.transform=\'scale(0.95)\'" onmouseup="this.style.transform=\'scale(1)\'">';
+        html += '<button onclick="openItemOptions(\'' + item.id + '\', window._menuDisplayItems[' + idx + '])" style="width:100%;padding:12px;border-radius:48px;background:var(--marke-dunkel,#00251e);color:white;border:none;font-family:Epilogue,sans-serif;font-weight:600;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;" onmouseover="this.style.background=\'#003d33\'" onmouseout="this.style.background=\'#00251e\'" onmousedown="this.style.transform=\'scale(0.95)\'" onmouseup="this.style.transform=\'scale(1)\'">';
         html += '<span class="material-symbols-outlined" style="font-size:18px;">add</span>';
         html += 'Hinzufügen</button>';
         }
