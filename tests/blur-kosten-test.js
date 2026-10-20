@@ -116,7 +116,9 @@ var karteHero = h.slice(hero, hero + 3000);
 t('die Ueberschrift ist NICHT mehr weiss',
   /<h1[^>]*color:white/.test(karteHero) === false, 'noch weiss');
 t('der Name laeuft ueber die Farbmarke',
-  /<h1[^>]*color:var\(--ink-deep\)[^>]*>\$\{rest\.name\}/.test(karteHero), karteHero.slice(0, 500));
+  // seit 20.10.2026 mit Zwischenschritt --lp-name (eigene Farbe des Lokals),
+  // Rueckfall weiterhin --ink-deep
+  /<h1[^>]*color:var\(--lp-name,var\(--ink-deep\)\)[^>]*>\$\{rest\.name\}/.test(karteHero), karteHero.slice(0, 500));
 t('die Ortszeile ebenfalls',
   /color:var\(--ink-strong\)[^>]*>\$\{rest\.city/.test(karteHero), 'noch fest verdrahtet');
 t('der Beschreibungstext ebenfalls',

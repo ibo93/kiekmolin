@@ -908,6 +908,25 @@
         von: function (restaurant) {
             if (!restaurant || !restaurant.brand_color) return this.STANDARD;
             return this.lesbar(restaurant.brand_color).farbe;
+        },
+
+        // DIE FARBE DES LOKALS AUCH BEIM RESERVIEREN UND BESTELLEN
+        // (Ibo, 20.10.2026: "muss auch bei Reservierungen und Online-
+        // Bestellung rein"). Vorher kam der Gast von der Lokalseite in
+        // seiner Farbe -- und landete beim Reservieren wieder im
+        // Kiek-mol-in-Gruen. Setzt die Variablen auf die genannten
+        // Elemente; ohne eigene Farbe die Hausfarbe (= wie bisher).
+        anwenden: function (elemente, restaurant) {
+            var f = this.von(restaurant), d = this.dunkler(f), k = this._kanaele(d);
+            var eigene = f !== this.STANDARD;
+            (elemente || []).forEach(function (el) {
+                if (!el || !el.style) return;
+                el.style.setProperty('--marke', f);
+                el.style.setProperty('--marke-dunkel', d);
+                el.style.setProperty('--marke-glas', 'rgba(' + k[0] + ',' + k[1] + ',' + k[2] + ',0.92)');
+                if (el.classList) el.classList.toggle('kmi-eigene-farbe', eigene);
+            });
+            return f;
         }
     };
     window.MARKE = MARKE;
@@ -4367,8 +4386,8 @@
         .res-stepper-text { display: flex; align-items: center; gap: 8px; font: 600 15px Inter, sans-serif; color: #00251e; }
         .res-stepper-knoepfe { display: flex; gap: 6px; }
         .res-stepper button { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-        .res-stepper-minus { border: 1px solid rgba(0,0,0,0.12); background: #fff; color: #003d33; }
-        .res-stepper-plus { border: none; background: #003d33; color: #fff; }
+        .res-stepper-minus { border: 1px solid rgba(0,0,0,0.12); background: #fff; color: var(--marke, #003d33); }
+        .res-stepper-plus { border: none; background: var(--marke, #003d33); color: #fff; }
         .res-stepper button:disabled { opacity: 0.35; cursor: default; }
         .res-kal-legende { display: flex; align-items: center; gap: 6px; margin: 10px 0 0; font-size: 12px; color: #404946; }
         .res-leg-zu { width: 7px; height: 7px; border-radius: 50%; background: #d6d3d1; }
@@ -4383,7 +4402,7 @@
         .res-balken { flex: 1; border-radius: 6px 6px 3px 3px; background: #b8e3d2; cursor: pointer; transition: background .2s; }
         .res-balken-knapp { background: #f6c77a; }
         .res-balken-voll { background: repeating-linear-gradient(135deg, #e7e5e4 0 5px, #f5f5f4 5px 10px); cursor: default; }
-        .res-balken-gewaehlt { background: #003d33 !important; }
+        .res-balken-gewaehlt { background: var(--marke, #003d33) !important; }
         .res-kurve-legende { display: flex; justify-content: space-between; margin: 6px 0 12px; font-size: 11px; color: #404946; }
         .res-slots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
         #reservationModal .slot-btn.res-slot { position: relative; height: 50px; padding: 0 !important; border-radius: 14px !important; border: 1px solid rgba(0,0,0,0.12) !important; background: #fff !important; color: #00251e !important; -webkit-backdrop-filter: none; backdrop-filter: none; font: 700 15px Epilogue, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; }
@@ -4392,7 +4411,7 @@
         .res-slot-knapp .res-slot-punkt { background: #f59e0b; }
         #reservationModal .slot-btn.res-slot-voll { border-style: dashed !important; background: #fafaf9 !important; color: #a8a29e !important; text-decoration: line-through; cursor: default; }
         .res-slot-voll .res-slot-punkt { display: none; }
-        #reservationModal .slot-btn.res-slot.selected { border: 2px solid #003d33 !important; background: #003d33 !important; color: #fff !important; box-shadow: none; }
+        #reservationModal .slot-btn.res-slot.selected { border: 2px solid var(--marke, #003d33) !important; background: var(--marke, #003d33) !important; color: #fff !important; box-shadow: none; }
         #reservationModal .res-slot.selected .res-slot-punkt { background: #fff; }
         #reservationModal .res-slot.selected .slot-noch { color: #fed65b; }
         .res-tipp:empty { display: none; }
@@ -4401,7 +4420,7 @@
         .res-tipp-gut { background: #ecfdf3; color: #065f46; }
         .res-tipp-knapp { background: #fff7ec; color: #7c2d12; }
 
-        #reservationModal #selectedSlotDisplay.res-ticket { margin: 4px 0 16px; padding: 0 !important; border: none !important; border-radius: 22px !important; background: #003d33 !important; color: #fff; overflow: hidden; }
+        #reservationModal #selectedSlotDisplay.res-ticket { margin: 4px 0 16px; padding: 0 !important; border: none !important; border-radius: 22px !important; background: var(--marke, #003d33) !important; color: #fff; overflow: hidden; }
         .res-ticket-oben { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1.5px dashed rgba(255,255,255,0.25); }
         .res-ticket-klein { margin: 0; font-size: 12px; color: #b8eddf; }
         .res-ticket-zeit { margin: 2px 0 0; font: 900 28px Epilogue, sans-serif; letter-spacing: -0.02em; color: #fff; }
@@ -4412,24 +4431,24 @@
         .res-ticket-knopf .material-symbols-outlined { font-size: 18px; }
 
         .res-s2-kopf { margin: 0 0 18px; }
-        .res-s2-schritt { margin: 0 0 8px; display: flex; align-items: center; gap: 10px; font: 700 11px Inter, sans-serif; letter-spacing: 0.22em; text-transform: uppercase; color: #003d33; }
-        .res-s2-schritt::before { content: ''; width: 32px; height: 1.5px; background: #003d33; }
+        .res-s2-schritt { margin: 0 0 8px; display: flex; align-items: center; gap: 10px; font: 700 11px Inter, sans-serif; letter-spacing: 0.22em; text-transform: uppercase; color: var(--marke, #003d33); }
+        .res-s2-schritt::before { content: ''; width: 32px; height: 1.5px; background: var(--marke, #003d33); }
         .res-s2-kopf h3 { margin: 0; font: 900 34px/1.02 Epilogue, sans-serif; letter-spacing: -0.035em; color: #00251e; }
         .res-s2-unter { margin: 8px 0 0; font-size: 14px; color: #404946; }
-        .res-s2-ticket { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; padding: 14px 16px; border-radius: 22px; background: #003d33; color: #fff; }
+        .res-s2-ticket { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; padding: 14px 16px; border-radius: 22px; background: var(--marke, #003d33); color: #fff; }
         .res-s2-tag { width: 50px; height: 50px; flex-shrink: 0; border-radius: 14px; background: rgba(255,255,255,0.1); display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .res-s2-tag small { font: 700 10px Inter, sans-serif; letter-spacing: 0.08em; color: #fed65b; }
         .res-s2-tag b { font: 900 20px/1 Epilogue, sans-serif; }
         .res-s2-was { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-        .res-s2-was b { font: 900 21px/1.1 Epilogue, sans-serif; white-space: nowrap; }
+        .res-s2-was b { font: 900 19px/1.1 Epilogue, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .res-s2-was small { margin-top: 2px; font-size: 12px; color: #b8eddf; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .res-s2-aendern { height: 38px; padding: 0 14px; border-radius: 9999px; border: 1px solid rgba(255,255,255,0.3); background: transparent; color: #fff; font: 600 13px Inter, sans-serif; cursor: pointer; flex-shrink: 0; }
 
         .res-felder { border-radius: 22px; border: 1px solid #b9c3bf; overflow: hidden; background: #f8faf9; }
-        .res-felder:focus-within { border-color: #003d33; }
+        .res-felder:focus-within { border-color: var(--marke, #003d33); }
         .res-feld { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid #f0efed; cursor: text; }
         .res-feld:last-of-type { border-bottom: none; }
-        .res-feld > .material-symbols-outlined { color: #003d33; }
+        .res-feld > .material-symbols-outlined { color: var(--marke, #003d33); }
         .res-feld-innen { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
         .res-feld-innen small { font: 700 11px Inter, sans-serif; letter-spacing: 0.04em; text-transform: uppercase; color: #404946; }
         #reservationModal .res-feld .form-input { border: none !important; background: transparent !important; padding: 2px 0 !important; height: auto !important; min-height: 26px; border-radius: 0 !important; box-shadow: none !important; font: 500 16px Inter, sans-serif; color: #191c1d; outline: none; }
@@ -4440,9 +4459,9 @@
         .res-anlass-chips { display: flex; flex-wrap: wrap; gap: 8px; }
         .res-anlass { height: 40px; padding: 0 14px; border-radius: 9999px; border: 1px solid #e7e5e4; background: #fff; color: #191c1d; font: 600 13px Inter, sans-serif; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
         .res-anlass .material-symbols-outlined { font-size: 17px; }
-        .res-anlass-an { border: 2px solid #003d33; background: #e8f1ed; color: #003d33; }
+        .res-anlass-an { border: 2px solid var(--marke, #003d33); background: #f4f6f5; color: var(--marke, #003d33); }
         .res-anlass-satz { margin: 0 2px; align-items: center; gap: 8px; font-size: 13px; color: #735c00; }
-        .res-wunsch-knopf { width: 100%; height: 50px; border-radius: 16px; border: 1px dashed #c9c6c3; background: #fff; display: flex; align-items: center; gap: 10px; padding: 0 16px; font: 600 14px Inter, sans-serif; color: #003d33; cursor: pointer; }
+        .res-wunsch-knopf { width: 100%; height: 50px; border-radius: 16px; border: 1px dashed #c9c6c3; background: #fff; display: flex; align-items: center; gap: 10px; padding: 0 16px; font: 600 14px Inter, sans-serif; color: var(--marke, #003d33); cursor: pointer; }
         .res-wunsch-knopf .material-symbols-outlined { font-size: 18px; }
         #reservationModal #submitReservationBtn { background: #fed65b !important; color: #00251e !important; font-family: Epilogue, sans-serif !important; font-weight: 800 !important; font-size: 17px !important; text-transform: none !important; letter-spacing: 0 !important; width: 100% !important; min-height: 58px; padding: 14px 24px !important; }
         #reservationModal #submitReservationBtn:hover { background: #fcd03d !important; }
@@ -4450,7 +4469,7 @@
         #reservationModal.res-schritt2 .res-footer-summary { padding: 8px 0 16px; margin-top: 8px; border-top: none; align-items: stretch; }
         .res-zusagen { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0 0 28px; padding: 14px 6px; border-radius: 20px; background: #eef6f2; }
         .res-zusage { display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; padding: 0 4px; }
-        .res-zusage .material-symbols-outlined { width: 34px; height: 34px; border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #003d33; }
+        .res-zusage .material-symbols-outlined { width: 34px; height: 34px; border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center; font-size: 18px; color: var(--marke, #003d33); }
         .res-zusage b { font: 800 13px Epilogue, sans-serif; color: #00251e; }
         .res-zusage small { font-size: 11px; line-height: 1.3; color: #404946; }
 
@@ -32135,6 +32154,8 @@ function openReservation(restaurantId, datum) {
         showToast(zahlsperreGastText(restaurant), 'info');
         return;
     }
+    // Farbe des Lokals auch beim Reservieren (20.10.2026).
+    if (typeof MARKE !== 'undefined' && MARKE.anwenden) MARKE.anwenden([document.getElementById('reservationModal')], restaurant);
     // Neues Reservieren: immer mit Schritt 1 beginnen, Tageszeit neu waehlen.
     window._resTeil = null;
     if (typeof resSchritt === 'function') resSchritt(1);
@@ -32298,7 +32319,7 @@ function resCalRender() {
         if (isPast || isClosed) {
             html += '<button type="button" disabled style="width:100%;aspect-ratio:1;border-radius:16px;border:none;display:flex;align-items:center;justify-content:center;font-size:13px;cursor:not-allowed;background:transparent;' + (isClosed ? 'color:rgba(239,68,68,0.3);' : 'color:rgba(64,73,70,0.25);') + '">' + d + '</button>';
         } else if (isSel) {
-            html += '<button type="button" onclick="resCalSelectDate(\'' + ds + '\')" style="width:100%;aspect-ratio:1;border-radius:16px;border:none;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:#003d33;color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(0,61,51,0.3);transition:all 0.2s;">' + d + '</button>';
+            html += '<button type="button" onclick="resCalSelectDate(\'' + ds + '\')" style="width:100%;aspect-ratio:1;border-radius:16px;border:none;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:var(--marke,#003d33);color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(0,61,51,0.3);transition:all 0.2s;">' + d + '</button>';
         } else if (isToday) {
             html += '<button type="button" onclick="resCalSelectDate(\'' + ds + '\')" style="width:100%;aspect-ratio:1;border-radius:16px;border:none;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:#fed65b;color:#735c00;cursor:pointer;box-shadow:0 0 0 2px rgba(115,92,0,0.2);transition:all 0.2s;">' + d + '</button>';
         } else {
@@ -46406,8 +46427,14 @@ async function showRestaurantLanding(rest) {
     // Jetzt stehen sie IM cssText. Damit kann keine spaetere Zuweisung
     // sie mehr aus Versehen mitnehmen -- es gibt nur noch eine.
     landing.style.cssText = '--marke:' + _marke + ';--marke-dunkel:' + MARKE.dunkler(_marke) + ';'
+        + '--marke-glas:rgba(' + MARKE._kanaele(MARKE.dunkler(_marke)).join(',') + ',0.92);'
         + '--marke-label:' + (_marke === MARKE.STANDARD ? '#75a89b' : '#ffffff') + ';'
         + 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#f8f9fa;overflow-y:auto;';
+    // Eigene Farbe gewaehlt? Dann tragen auch Name, Ueberschriften-Zeilen
+    // ("Über uns", "Eindrücke") und Preise sie (Ibo, 20.10.2026: "es muss
+    // mehr sein"). Sterne, "heute" und "offen" bleiben Gold/Gruen -- die
+    // stehen fuer eine Bedeutung, die auf jeder Seite gleich sein muss.
+    if (_marke !== MARKE.STANDARD && landing.classList) landing.classList.add('lp-eigene-farbe');
 
     landing.innerHTML = `
         <!-- TopAppBar -->
@@ -46463,9 +46490,9 @@ async function showRestaurantLanding(rest) {
                 <div class="lp-hero-karte" style="backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);padding:32px 48px;border-radius:48px;max-width:640px;width:100%;text-align:center;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
                     ${logoHtml}
                     <div style="display:flex;justify-content:center;gap:4px;margin-bottom:16px;">
-                        ${rest.rating ? '<span class="material-symbols-outlined" style="color:var(--lp-akzent,#735c00);font-variation-settings:\'FILL\' 1;">star</span>'.repeat(Math.min(Math.round(rest.rating), 5)) : ''}
+                        ${rest.rating ? '<span class="material-symbols-outlined" style="color:var(--lp-stern,#735c00);font-variation-settings:\'FILL\' 1;">star</span>'.repeat(Math.min(Math.round(rest.rating), 5)) : ''}
                     </div>
-                    <h1 class="lp-hero-name" style="font-family:'Epilogue',sans-serif;font-size:48px;font-weight:800;color:var(--ink-deep);letter-spacing:-0.04em;margin-bottom:8px;line-height:1;text-transform:uppercase;">${rest.name}</h1>
+                    <h1 class="lp-hero-name" style="font-family:'Epilogue',sans-serif;font-size:48px;font-weight:800;color:var(--lp-name,var(--ink-deep));letter-spacing:-0.04em;margin-bottom:8px;line-height:1;text-transform:uppercase;">${rest.name}</h1>
                     <p class="lp-hero-ort" style="font-family:'Epilogue',sans-serif;font-size:18px;color:var(--ink-strong);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px;">${rest.city || 'Greetsiel'}, Ostfriesland</p>
                     ${lpVisitenkarte(rest, landingIsOpen, landingCloseTime)}
                     ${abAchtzehn(rest) ? '<div class="lp-ab18"><span class="material-symbols-outlined" aria-hidden="true">badge</span>Ab 18 · Ausweis mitbringen</div>' : ''}
@@ -46492,7 +46519,7 @@ async function showRestaurantLanding(rest) {
                 if (typeof zahlsperreBestellenAus === 'function' && zahlsperreBestellenAus(rest)) noOrdering = true;
                 if (typeof zahlsperreReservierenAus === 'function' && zahlsperreReservierenAus(rest)) noReservations = true;
                 var _t = translations[currentLanguage] || translations.de;
-                var bar = '<div class="kmi-glas-leiste kmi-glas-dunkel lp-aktionen" style="background:rgba(0,37,30,0.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);padding:8px;border-radius:9999px;display:flex;align-items:center;gap:8px;box-shadow:0 20px 40px -8px rgba(0,0,0,0.15);border:1px solid rgba(255,255,255,0.1);">';
+                var bar = '<div class="kmi-glas-leiste kmi-glas-dunkel lp-aktionen" style="background:var(--marke-glas,rgba(0,37,30,0.85));backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);padding:8px;border-radius:9999px;display:flex;align-items:center;gap:8px;box-shadow:0 20px 40px -8px rgba(0,0,0,0.15);border:1px solid rgba(255,255,255,0.1);">';
                 if (!noReservations) {
                     bar += '<button onclick="openReservation(\'' + rest.id + '\')" style="background:var(--marke,#003d33);color:white;padding:12px 24px;border-radius:9999px;border:none;font-family:Epilogue,sans-serif;font-weight:700;font-size:12px;letter-spacing:0.1em;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(0,37,30,0.3);transition:all 0.2s;text-transform:uppercase;" onmousedown="this.style.transform=\'scale(0.95)\'" onmouseup="this.style.transform=\'scale(1)\'"><span class="material-symbols-outlined" style="font-size:16px;">calendar_today</span>RESERVIEREN</button>';
                 }
@@ -48932,7 +48959,7 @@ function applyLiquidGlass(enable) {
         .lp-gk-text { padding: 14px 16px 16px; display: flex; flex-direction: column; flex: 1; }
         .lp-gk-kopf { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
         .lp-gk-kopf h3 { font: 700 17px/1.2 Epilogue, sans-serif; color: var(--ink-deep, #00251e); margin: 0; }
-        .lp-gk-kopf span { font: 700 17px Epilogue, sans-serif; color: #735c00; white-space: nowrap; }
+        .lp-gk-kopf span { font: 700 17px Epilogue, sans-serif; color: var(--lp-akzent, #735c00); white-space: nowrap; }
         .lp-gk-text p { font: 400 13px/1.5 Inter, sans-serif; color: var(--text-secondary, #404946); margin: 0 0 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .lp-gk-knopf { margin-top: auto; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; border-radius: 9999px; background: rgba(0,61,51,0.06); color: var(--marke, #003d33); font: 700 13px Inter, sans-serif; }
         .lp-gk-knopf .material-symbols-outlined { font-size: 17px; }
@@ -48995,6 +49022,11 @@ function applyLiquidGlass(enable) {
              "Adresse", Öffnungszeiten  #9ca8a4 auf Markenfarbe 2,04: 1
            Im Hellen bleibt jede Farbe, wie sie war -- die Variablen tragen
            dort genau die alten Werte. */
+        #restaurantLanding.lp-eigene-farbe { --lp-akzent: var(--marke); --lp-name: var(--marke); }
+        #menuModal.kmi-eigene-farbe { --kmi-preis: var(--marke); }
+        .dark-mode #menuModal.kmi-eigene-farbe { --kmi-preis: #fed65b; }
+        .dark-mode #restaurantLanding.lp-eigene-farbe { --lp-akzent: #fed65b; --lp-name: var(--ink-deep); }
+        .dark-mode #restaurantLanding { --lp-stern: #fed65b; }
         #restaurantLanding {
             --lp-akzent: #735c00;
             --lp-karte: #ffffff;
@@ -53164,7 +53196,7 @@ document.addEventListener('error', function(e) {
 
         <!-- Floating Cart Bar (Stitch) -->
         <div id="menuFloatingCartBar" style="display:none;position:fixed;bottom:96px;left:50%;transform:translateX(-50%);width:90%;max-width:512px;z-index:60;">
-            <div style="background:rgba(0,37,30,0.95);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:9999px;padding:8px 8px 8px 20px;box-shadow:0 24px 48px -8px rgba(25,28,29,0.3);display:flex;align-items:center;justify-content:space-between;border:1px solid rgba(255,255,255,0.1);">
+            <div style="background:var(--marke-glas,rgba(0,37,30,0.95));backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:9999px;padding:8px 8px 8px 20px;box-shadow:0 24px 48px -8px rgba(25,28,29,0.3);display:flex;align-items:center;justify-content:space-between;border:1px solid rgba(255,255,255,0.1);">
                 <div style="display:flex;align-items:center;gap:12px;">
                     <div id="floatingCartCount" style="width:40px;height:40px;border-radius:9999px;background:#fed65b;display:flex;align-items:center;justify-content:center;color:#745c00;font-weight:700;font-size:14px;">0</div>
                     <div style="display:flex;flex-direction:column;">
@@ -55138,6 +55170,8 @@ async function openMenuModal(restaurantId) {
     try {
     // Prüfe ob Online-Bestellungen aktiviert sind
     var appRest = APP_DATA.restaurants ? APP_DATA.restaurants.find(function(r) { return r.id === restaurantId; }) : null;
+    // Farbe des Lokals auch beim Bestellen (20.10.2026), ohne eigene: Hausfarbe.
+    if (typeof MARKE !== 'undefined' && MARKE.anwenden) MARKE.anwenden([document.getElementById('menuModal'), document.getElementById('menuFloatingCartBar'), document.getElementById('cartPanel')], appRest);
 
     // NUR SPEISEKARTE ZEIGEN -- DER SCHALTER TAT BIS ZUM 17.09.2026 DAS GEGENTEIL.
     //
@@ -57591,7 +57625,7 @@ function gerichtKartenHtml(items, versatz) {
             + '<span style="display:inline-flex;gap:4px;vertical-align:middle;margin-left:2px;">'
             + (typeof getMenuBadgeIcons === 'function' ? getMenuBadgeIcons(item) : '')
             + '</span></h3>';
-        html += '<span style="font-family:Epilogue,sans-serif;font-size:18px;font-weight:700;color:#735c00;white-space:nowrap;margin-left:8px;">' + pricePrefix + displayPrice.toFixed(2).replace('.', ',') + ' €</span>';
+        html += '<span class="kmi-preis" style="font-family:Epilogue,sans-serif;font-size:18px;font-weight:700;color:var(--kmi-preis,#735c00);white-space:nowrap;margin-left:8px;">' + pricePrefix + displayPrice.toFixed(2).replace('.', ',') + ' €</span>';
         html += '</div>';
         // Beschreibung
         html += '<p style="color:var(--text-secondary);font-size:14px;margin-bottom:20px;line-height:1.625;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-family:Inter,sans-serif;" data-item-id="' + (item.id || '') + '">' + (_tr.description || item.description || '') + '</p>';
@@ -57607,7 +57641,7 @@ function gerichtKartenHtml(items, versatz) {
                   + '<span class="material-symbols-outlined" style="font-size:17px;">restaurant_menu</span>'
                   + 'Nur zum Ansehen</div>';
         } else {
-        html += '<button onclick="openItemOptions(\'' + item.id + '\', window._menuDisplayItems[' + idx + '])" style="width:100%;padding:12px;border-radius:48px;background:#00251e;color:white;border:none;font-family:Epilogue,sans-serif;font-weight:600;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;" onmouseover="this.style.background=\'#003d33\'" onmouseout="this.style.background=\'#00251e\'" onmousedown="this.style.transform=\'scale(0.95)\'" onmouseup="this.style.transform=\'scale(1)\'">';
+        html += '<button onclick="openItemOptions(\'' + item.id + '\', window._menuDisplayItems[' + idx + '])" style="width:100%;padding:12px;border-radius:48px;background:var(--marke-dunkel,#00251e);color:white;border:none;font-family:Epilogue,sans-serif;font-weight:600;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;" onmouseover="this.style.background=\'#003d33\'" onmouseout="this.style.background=\'#00251e\'" onmousedown="this.style.transform=\'scale(0.95)\'" onmouseup="this.style.transform=\'scale(1)\'">';
         html += '<span class="material-symbols-outlined" style="font-size:18px;">add</span>';
         html += 'Hinzufügen</button>';
         }

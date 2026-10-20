@@ -15,7 +15,8 @@ var chromium;
 try { chromium = require('playwright-core').chromium; } catch (e) { console.log('playwright-core fehlt.'); process.exit(0); }
 var W = path.resolve(__dirname, '..');
 var AUS = path.join(__dirname, 'ausgabe', 'bestellseite'); fs.mkdirSync(AUS, { recursive: true });
-var NAME = process.argv[2] || 'jetzt';
+var FARBE = process.env.KMI_FARBE || null;
+var NAME = (process.argv[2] || 'jetzt') + (FARBE ? '-farbe' : '');
 var RID = '11111111-1111-4111-8111-111111111111';
 var KAT = [{ id: 'c1', restaurant_id: RID, name: 'Pizza', sort_order: 1 }, { id: 'c2', restaurant_id: RID, name: 'Pasta', sort_order: 2 }, { id: 'c3', restaurant_id: RID, name: 'Desserts', sort_order: 3 }];
 var ITEMS = [];
@@ -23,6 +24,7 @@ var ITEMS = [];
   ITEMS.push({ id: 'i' + i, restaurant_id: RID, category_id: g[1], name: g[0], description: 'Frisch zubereitet mit Zutaten aus der Region', base_price: g[2], price: g[2], is_available: true, sort_order: i });
 });
 var REST = { id: RID, name: 'Die Millis', city: 'Emden', street: 'Auricher Straße 150', is_active: true, features: ['delivery', 'pickup'], opening_hours: { mo_start: '00:00', mo_end: '23:59', di_start: '00:00', di_end: '23:59', mi_start: '00:00', mi_end: '23:59', do_start: '00:00', do_end: '23:59', fr_start: '00:00', fr_end: '23:59', sa_start: '00:00', sa_end: '23:59', so_start: '00:00', so_end: '23:59' } };
+if (FARBE) REST.brand_color = FARBE;
 var n = 0, rot = 0;
 function pruef(t, ok, x) { n++; if (!ok) rot++; console.log((ok ? 'OK  ' : 'FAIL') + ' | ' + t + (ok ? '' : '  -> ' + x)); }
 (async function () {
