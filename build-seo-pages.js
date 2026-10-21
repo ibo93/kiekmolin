@@ -2096,6 +2096,53 @@ function loadProspects() {
   return data;
 }
 
+// SCHON KUNDE? (21.10.2026)
+//
+// Ibo: "Taverna Jever ist auch Kunde" -- Google zeigte trotzdem die
+// OpenStreetMap-Seite "Restaurant Taverna Jever – Adresse, Telefon &
+// Oeffnungszeiten", mit "ist Italian in Jever". Grund: import-osm.js holt
+// ALLE Lokale aus OpenStreetMap, und hier wurde fuer jedes eine Seite
+// gebaut -- ohne Abgleich mit den Kunden. Jeder Kunde, den es auch in
+// OpenStreetMap gibt, hatte damit ZWEI Seiten, und die falsche konkurrierte
+// mit der richtigen.
+//
+// Gleich ist ein Lokal, wenn es im selben Ort liegt und
+//   - der Name passt (ohne "Restaurant", "Pizzeria" ... und ohne den Ort), oder
+//   - die Telefonnummer gleich ist.
+// (Nicht ueber die Lage allein -- siehe unten.)
+// Dann gibt es keine zweite Seite; die alte Adresse leitet per 301 auf die
+// Kundenseite um (_redirects), damit Google den Treffer uebertraegt.
+var NAME_FUELL = ['restaurant', 'ristorante', 'pizzeria', 'trattoria', 'taverna', 'cafe', 'bistro', 'imbiss', 'grill', 'bar', 'gasthaus', 'gasthof', 'haus', 'zum', 'zur', 'am', 'im', 'der', 'die', 'das', 'und'];
+function nameKern(name, city) {
+  var c = normalize(city || '');
+  var w = normalize(name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ').split(' ').filter(function (x) { return x && x !== c; });
+  var kern = w.filter(function (x) { return NAME_FUELL.indexOf(x) < 0; });
+  // Besteht der Name NUR aus allgemeinen Woertern ("Restaurant Taverna"),
+  // bleibt das letzte davon stehen -- sonst waere der Kern leer und nichts passte.
+  return (kern.length ? kern : w.slice(-1)).join(' ');
+}
+function telKern(t) { var d = String(t || '').replace(/\D/g, ''); if (d.indexOf('0049') === 0) d = d.slice(4); else if (d.indexOf('49') === 0 && d.length >= 10) d = d.slice(2); return d.replace(/^0+/, ''); }
+function kundeFuerProspect(p, restaurants) {
+  if (!p || !Array.isArray(restaurants)) return null;
+  var ort = normalize(p.city || ''), kern = nameKern(p.name, p.city), tel = telKern(p.phone);
+  return restaurants.find(function (r) {
+    if (!r || !r.slug || normalize(r.city || '') !== ort) return false;
+    var rk = nameKern(r.name, r.city);
+    // Gleicher Kern: ja ("Restaurant Taverna" = "Taverna Jever" in Jever).
+    // Enthalten nur ab ZWEI Woertern: sonst waere "Cafe Luett" dasselbe
+    // Lokal wie "Luett Italia" (gemessen beim Bauen, 21.10.2026).
+    var kurz = kern.length <= rk.length ? kern : rk, lang = kurz === kern ? rk : kern;
+    if (kern && rk && kern.length >= 3 && rk.length >= 3 && (kern === rk || (kurz.split(' ').length >= 2 && (' ' + lang + ' ').indexOf(' ' + kurz + ' ') >= 0))) return true;
+    var rt = telKern(r.phone);
+    if (tel && rt && tel.length >= 6 && tel === rt) return true;
+    // KEIN Abgleich nur ueber die Lage: in einer Fussgaengerzone liegen zwei
+    // verschiedene Lokale oft keine 80 m auseinander -- dann verschwaende die
+    // Seite eines fremden Lokals und leitete auf einen Kunden um.
+    return false;
+  }) || null;
+}
+
 function prospectSlug(p) {
   const raw = (p.name || '') + (p.city ? ' ' + p.city : '');
   // normalize() macht ä->ae etc. + lowercase; NFD-Strip entfernt Rest-Akzente
@@ -3378,6 +3425,37 @@ async function main() {
     console.warn('[seo] WARN: prospects.json nicht lesbar -', e.message);
   }
 
+  // Kunden NICHT ein zweites Mal als OpenStreetMap-Seite bauen (siehe
+  // kundeFuerProspect). Die alte Adresse leitet auf die Kundenseite um.
+  const umleitungen = [];
+  if (supaOk && restaurants.length) {
+    prospects = prospects.filter(function (p) {
+      const k = kundeFuerProspect(p, restaurants);
+      if (!k) return true;
+      const alt = prospectSlug(p);
+      if (alt && alt !== k.slug) umleitungen.push('/' + alt + ' /' + k.slug + ' 301');
+      console.log('[seo] = ' + (p.name || '?') + ' ist Kunde "' + k.name + '" -> keine OSM-Seite' + (alt !== k.slug ? ', /' + alt + ' -> /' + k.slug : ''));
+      return false;
+    });
+  } else {
+    console.warn('[seo] WARN: ohne Kundenliste kein Abgleich -- Kunden koennen doppelt als OSM-Seite erscheinen.');
+  }
+  try {
+    // Eigener Block zwischen zwei Marken -- jeder Build ersetzt nur ihn.
+    // (Netlify kennt in _redirects nur ganze Kommentarzeilen.)
+    const datei = path.join(OUT_DIR, '_redirects'), A = '# OSM-KUNDE ANFANG', E = '# OSM-KUNDE ENDE';
+    let alt = fs.existsSync(datei) ? fs.readFileSync(datei, 'utf8') : '';
+    const i = alt.indexOf(A), j = alt.indexOf(E);
+    if (i >= 0 && j > i) alt = alt.slice(0, i) + alt.slice(j + E.length);
+    alt = alt.replace(/\n{3,}/g, '\n\n').trim();
+    const zeilen = [];
+    umleitungen.forEach(function (z) { const t = z.split(' '); zeilen.push(z, t[0] + '.html ' + t[1] + ' 301'); });
+    fs.writeFileSync(datei, (alt ? alt + '\n\n' : '') + [A].concat(zeilen, [E]).join('\n') + '\n', 'utf8');
+    console.log('[seo] Umleitungen OSM -> Kunde:', umleitungen.length);
+  } catch (e) {
+    console.warn('[seo] WARN: _redirects nicht geschrieben -', e.message);
+  }
+
   buildAvailableSlugs(restaurants, prospects);
   console.log('[seo] Verlinkbare Verzeichnis-Seiten:', AVAILABLE_SLUGS.size);
 
@@ -3557,6 +3635,8 @@ if (require.main === module) {
     ortSlug: ortSlug,
     ortLohntSeite: ortLohntSeite,
     prospectSlug: prospectSlug,
+    kundeFuerProspect: kundeFuerProspect,
+    nameKern: nameKern,
     generateGastroPage,
   gastroLeistungen,
   buildGastroFaqs,
