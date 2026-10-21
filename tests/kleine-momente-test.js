@@ -52,25 +52,12 @@ t('Route und Kalender in der Bestaetigung', /In den Kalender/.test(conf) && /goo
 t('Restaurantname in der Bestaetigung escaped', /escapeHtml\(reservation\.restaurantName \|\| 'Das Restaurant'\)/.test(H), '');
 
 // ---------- Stempel-Moment ----------
-var alp = fn('addLoyaltyPoint');
-t('addLoyaltyPoint meldet Erfolg (true) und Rueckfall aufs Geraet (false)', /return true;\s*\} catch\(e\)/.test(alp) && /return false;\s*\}\s*\}$/.test(alp.trim()), '');
-t('Moment nur, wenn die Datenbank den Stempel angenommen hat',
-  /addLoyaltyPoint\(phone, _lpRid\)\.then\(function \(ok\) \{ if \(ok\) stempelMoment\(phone, _lpRid, _lpName\); \}\)/.test(H), '');
+// Seit 21.10.2026 vergibt die Datenbank den Stempel beim Annehmen
+// (datenbank/46). Den Moment nach der Bestellung prueft jetzt
+// tests/stempelkarten-test.js -- mit "kommt, sobald angenommen" und
+// "Neuer Stempel" (wenn das Lokal sofort annimmt).
 t('Platz fuer den Moment in der Bestellbestaetigung', /<div id="ocStempelMoment" aria-live="polite"><\/div>/.test(H), '');
-var sm = fn('stempelMoment');
-t('Vibrieren nur ohne "Bewegung reduzieren"', /prefers-reduced-motion: reduce/.test(sm) && /if \(!ruhig && navigator\.vibrate\)/.test(sm), '');
-// Moment wirklich rendern
-var box = { innerHTML: '' };
-var sb2 = { document: { getElementById: function () { return box; } }, getLoyaltyData: function () { return { orders: 13 }; }, window: {}, navigator: {} };
-vm.createContext(sb2); vm.runInContext(sm, sb2); sb2.stempelMoment('0491', 'r1', 'Zum <b>Kutter</b>');
-t('13. Bestellung: "Neuer Stempel! 3 von 10", drei volle Felder, das dritte neu, Geschenk auf Feld 10',
-  /Neuer Stempel! 3 von 10/.test(box.innerHTML) && (box.innerHTML.match(/ voll/g) || []).length === 3 && /voll neu/.test(box.innerHTML)
-  && /Noch 7 Bestellungen bis/.test(box.innerHTML) && /kmi-stempel-punkt ziel/.test(box.innerHTML) && /<b>9<\/b>/.test(box.innerHTML), box.innerHTML.slice(0, 160));
-t('Lokalname im Kopf, ohne HTML', /<em>Zum bKutter\/b<\/em>/.test(box.innerHTML) && !/<b>Kutter/.test(box.innerHTML), (box.innerHTML.match(/<em>.*?<\/em>/) || [''])[0]);
-sb2.getLoyaltyData = function () { return { orders: 19 }; }; sb2.stempelMoment('0491', 'r1');
-t('19. Bestellung: "Noch 1 Bestellung" (Einzahl)', /Noch 1 Bestellung bis/.test(box.innerHTML), '');
-sb2.getLoyaltyData = function () { return { orders: 20 }; }; sb2.stempelMoment('0491', 'r1');
-t('20. Bestellung: "Geschafft", alle 10 voll, kein Geschenk-Platzhalter mehr', /Geschafft/.test(box.innerHTML) && (box.innerHTML.match(/ voll/g) || []).length === 10 && !/ziel/.test(box.innerHTML), box.innerHTML.slice(0, 120));
+t('Vibrieren nur ohne "Bewegung reduzieren"', /prefers-reduced-motion: reduce/.test(fn('stempelNachBestellung')) && /if \(schon && !ruhig && navigator\.vibrate\)/.test(fn('stempelNachBestellung')), '');
 
 // ---------- Knoepfe ----------
 t('Knoepfe geben nach -- mit "scale", nicht "transform" (verschiebt sonst zentrierte Knoepfe)',

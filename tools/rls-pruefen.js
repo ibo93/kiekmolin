@@ -48,6 +48,8 @@ var TABELLEN = [
   { name: 'order_items',        stufe: 'person',      was: 'Was genau bestellt wurde' },
   { name: 'reservations',       stufe: 'person',      was: 'Name, Telefon, und wann jemand nicht zu Hause ist' },
   { name: 'loyalty_stamps',     stufe: 'person',      was: 'Treuepunkte je Gast' },
+  { name: 'stempelkarten',      stufe: 'person',      was: 'Stempel je Gast und Haus (datenbank/46)' },
+  { name: 'stempel_buchungen',  stufe: 'person',      was: 'Jeder Stempel und jede Einloesung (datenbank/46)' },
   { name: 'reward_redemptions', stufe: 'person',      was: 'Eingeloeste Praemien je Gast' },
   { name: 'push_subscriptions', stufe: 'person',      was: 'Push-Kanaele der Geraete' },
   { name: 'coupons',            stufe: 'person',      was: 'Gutscheine, teils personengebunden' },
