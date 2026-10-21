@@ -349,6 +349,15 @@ function generateEposBon(order, restaurantName) {
         xml += zeile('********************************', { align: 'center' });
     }
 
+    // ---- 3b. Stempelkarte eingeloest (datenbank/46) -----------------------
+    // Die Kueche muss wissen, dass etwas gratis dazugehoert -- sonst fehlt
+    // es auf dem Teller. Kein Guthaben (Datenbank sagt nein): nicht drucken.
+    if (order.stempel_einloesen && order.stempel_ergebnis !== 'kein_guthaben' && order.stempel_ergebnis !== 'zurueck') {
+        xml += leer();
+        xml += gross('STEMPELKARTE');
+        xml += zeile('Gast loest Belohnung ein', { align: 'center' });
+    }
+
     // ---- 4. Fuer wen -- je nach Art das, was zaehlt ----------------------
     xml += leer();
     if (vorOrt) {
@@ -683,7 +692,7 @@ exports.handler = async function (event) {
         // ein Totalausfall geworden. Also: PostgREST nennt im Fehler die
         // Spalte, die es nicht gibt. Die fliegt raus, der Rest bleibt.
         var zusatz = ['scheduled_at', 'payment_method', 'payment_status',
-                      'estimated_minutes', 'estimated_time'];
+                      'estimated_minutes', 'estimated_time', 'stempel_einloesen', 'stempel_ergebnis'];
         var orders = null;
         for (var vers = 0; vers < zusatz.length + 1; vers++) {
             try {

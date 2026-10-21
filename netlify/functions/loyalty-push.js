@@ -7,7 +7,16 @@
 //   - 2 Tage inaktiv + min. 3 Stempel -> "Lust auf was Leckeres?"
 //   - 7 Tage inaktiv + min. 3 Stempel -> "Wir vermissen dich!"
 //
-// Spam-Schutz: last_push_at darf nicht jünger als 5 Tage sein.
+// Spam-Schutz: letzter_push darf nicht jünger als 5 Tage sein.
+//
+// SEIT 21.10.2026 aus der Tabelle stempelkarten (datenbank/46). Vorher
+// loyalty_stamps, die der Browser selbst beschrieb -- und die Erinnerung
+// versprach ein Gratis-Essen, das man nirgends einloesen konnte. Ziel und
+// Belohnung kommen jetzt vom Lokal (stempel_ziel, stempel_belohnung).
+//
+// ALLE Kandidaten, seitenweise: vorher holte die Abfrage ohne Reihenfolge
+// immer dieselben ersten 200 Zeilen -- wer keine Nachricht bekam, blieb
+// vorne stehen, und alle dahinter kamen nie dran.
 //
 // ENV-Vars: SUPABASE_URL, SUPABASE_SERVICE_KEY, VAPID_PUBLIC, VAPID_PRIVATE, VAPID_SUBJECT
 
@@ -89,28 +98,32 @@ function inQuietHours() {
   return h >= QUIET_HOURS_START || h < QUIET_HOURS_END;
 }
 
-function decideMessage(row, restName) {
-  // row: { stamps_count, free_meals_earned, free_meals_used, last_order_at, last_push_at }
-  const stampsInCard = row.stamps_count % 10;  // 0-9
-  const hasFree = (row.free_meals_earned || 0) > (row.free_meals_used || 0);
-  const hoursSinceLastOrder = row.last_order_at
-    ? (Date.now() - new Date(row.last_order_at).getTime()) / 3600000
+function decideMessage(row, restName, haus) {
+  // row: { stempel, guthaben, gesamt, letzte_bestellung } aus stempelkarten
+  haus = haus || {};
+  const ziel = haus.stempel_ziel || 10;
+  const belohnung = haus.stempel_belohnung || 'eine Belohnung';
+  const stampsInCard = row.stempel || 0;
+  const hasFree = (row.guthaben || 0) > 0;
+  const hoursSinceLastOrder = row.letzte_bestellung
+    ? (Date.now() - new Date(row.letzte_bestellung).getTime()) / 3600000
     : Infinity;
+  row.stamps_count = row.gesamt || 0;
 
   // Prio 1: Gratis-Belohnung wartet
   if (hasFree) {
     return {
       title: '🎁 Deine Belohnung wartet!',
-      body: 'Bei ' + restName + ' hast du eine Gratis-Mahlzeit gut. Jetzt einlösen!',
+      body: 'Bei ' + restName + ' wartet ' + belohnung + ' auf dich. Beim nächsten Bestellen im Warenkorb einlösen.',
       tag: 'loyalty-free-' + row.restaurant_id
     };
   }
 
   // Prio 2: 9/10 — nur noch 1
-  if (stampsInCard === 9) {
+  if (stampsInCard === ziel - 1) {
     return {
       title: '🍕 Nur noch 1 bis zur Belohnung',
-      body: 'Eine Bestellung mehr bei ' + restName + ' und du bekommst eine Gratis-Mahlzeit!',
+      body: 'Eine Bestellung mehr bei ' + restName + ' und du bekommst ' + belohnung + '!',
       tag: 'loyalty-almost-' + row.restaurant_id
     };
   }
@@ -137,9 +150,12 @@ function decideMessage(row, restName) {
 }
 
 exports.handler = async function() {
+  // 200 statt 500: bei 500 haelt Netlify den Lauf fuer misslungen und
+  // startet ihn neu (siehe CLAUDE.md, Wache) -- am fehlenden Schluessel
+  // aendert das nichts. Der Fehler steht im Protokoll.
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !VAPID_PUBLIC || !VAPID_PRIVATE) {
     console.error('[loyalty-push] missing ENV');
-    return { statusCode: 500, body: 'missing env' };
+    return { statusCode: 200, body: 'missing env' };
   }
 
   // Ruhezeiten respektieren
@@ -151,45 +167,49 @@ exports.handler = async function() {
   try {
     // Alle Stempel-Einträge holen die noch keinen Push hatten oder >5 Tage her
     const cutoff = new Date(Date.now() - MIN_PUSH_GAP_DAYS * 24 * 3600 * 1000).toISOString();
-    const rows = await sbGet(
-      'loyalty_stamps?or=(last_push_at.is.null,last_push_at.lt.' + encodeURIComponent(cutoff) + ')' +
-      '&select=customer_phone,restaurant_id,stamps_count,free_meals_earned,free_meals_used,last_order_at,last_push_at' +
-      '&limit=200'
-    );
+    let rows = [];
+    for (let seite = 0; seite < 20; seite++) {
+      const teil = await sbGet(
+        'stempelkarten?or=(letzter_push.is.null,letzter_push.lt.' + encodeURIComponent(cutoff) + ')&gesamt=gt.0' +
+        '&select=telefon,restaurant_id,stempel,guthaben,gesamt,letzte_bestellung' +
+        '&order=restaurant_id.asc,telefon.asc&limit=500&offset=' + (seite * 500)
+      );
+      rows = rows.concat(teil);
+      if (teil.length < 500) break;
+    }
     if (!rows.length) {
       return { statusCode: 200, body: 'no candidates' };
     }
 
-    // Restaurant-Namen sammeln
+    // Lokale: Name, Ziel, Belohnung -- und nur die mit eingeschalteter Karte
     const restIds = Array.from(new Set(rows.map(r => r.restaurant_id).filter(Boolean)));
     const restList = restIds.length
-      ? await sbGet('restaurants?id=in.(' + restIds.map(encodeURIComponent).join(',') + ')&select=id,name')
+      ? await sbGet('restaurants?id=in.(' + restIds.map(encodeURIComponent).join(',') + ')&select=id,name,features,stempel_ziel,stempel_belohnung')
       : [];
-    const nameById = {};
-    restList.forEach(r => { nameById[r.id] = r.name; });
+    const nameById = {}, hausById = {};
+    restList.forEach(r => { nameById[r.id] = r.name; if (JSON.stringify(r.features || []).indexOf('loyalty_points') >= 0) hausById[r.id] = r; });
+
+    // Geraete mit Zustimmung (datenbank/43), Nummer vereinheitlicht wie
+    // kmi_tel() in datenbank/46 -- "0491 123" und "+49 491 123" sind derselbe Gast.
+    const tel = (p) => { let d = String(p || '').replace(/\D/g, ''); if (d.startsWith('0049')) d = '0' + d.slice(4); else if (d.startsWith('49') && d.length >= 10) d = '0' + d.slice(2); return d; };
+    let alleSubs;
+    try {
+      alleSubs = await sbGet('push_subscriptions?customer_phone=not.is.null&angebote=eq.true&select=endpoint,p256dh_key,auth_key,id,customer_phone&limit=5000');
+    } catch (e) {
+      if (/-> 400/.test(e.message)) { console.warn('[loyalty-push] Spalte angebote fehlt (datenbank/43) -- keine Werbe-Push.'); return { statusCode: 200, body: 'angebote fehlt' }; }
+      throw e;
+    }
+    const subsByTel = {};
+    alleSubs.forEach(s => { const k = tel(s.customer_phone); (subsByTel[k] = subsByTel[k] || []).push(s); });
 
     let sent = 0, skipped = 0;
 
     for (const row of rows) {
-      const msg = decideMessage(row, nameById[row.restaurant_id] || 'deinem Restaurant');
+      if (!hausById[row.restaurant_id]) { skipped++; continue; }   // Karte im Lokal aus
+      const msg = decideMessage(row, nameById[row.restaurant_id] || 'deinem Restaurant', hausById[row.restaurant_id]);
       if (!msg) { skipped++; continue; }
 
-      // Subscriptions des Kunden holen (Kunden-Subs haben restaurant_id = NULL,
-      // Match via customer_phone)
-      // Stempel-Erinnerungen und "wir vermissen dich" sind Werbung: nur an
-      // Geraete mit Zustimmung (datenbank/43). Fehlt die Spalte, geht nichts
-      // raus -- einmal ins Protokoll, nicht fuer jeden Gast.
-      let subs;
-      try {
-        subs = await sbGet(
-          'push_subscriptions?customer_phone=eq.' + encodeURIComponent(row.customer_phone) +
-          '&angebote=eq.true&select=endpoint,p256dh_key,auth_key,id'
-        );
-      } catch (e) {
-        if (/-> 400/.test(e.message)) { console.warn('[loyalty-push] Spalte angebote fehlt (datenbank/43) -- keine Werbe-Push.'); break; }
-        console.warn('[loyalty-push] subs lookup failed for', row.customer_phone, e.message);
-        continue;
-      }
+      const subs = subsByTel[row.telefon] || [];
       if (!subs || !subs.length) { skipped++; continue; }
 
       const payload = {
@@ -217,16 +237,16 @@ exports.handler = async function() {
       // last_push_at setzen
       try {
         await sbPatch(
-          'loyalty_stamps?customer_phone=eq.' + encodeURIComponent(row.customer_phone) +
+          'stempelkarten?telefon=eq.' + encodeURIComponent(row.telefon) +
           '&restaurant_id=eq.' + encodeURIComponent(row.restaurant_id),
-          { last_push_at: new Date().toISOString() }
+          { letzter_push: new Date().toISOString() }
         );
       } catch (e) {
         console.warn('[loyalty-push] PATCH last_push_at failed:', e.message);
       }
 
       sent += ok > 0 ? 1 : 0;
-      console.log('[loyalty-push]', msg.tag, '->', row.customer_phone.slice(-4), 'devices:', ok, '/', subs.length);
+      console.log('[loyalty-push]', msg.tag, '->', row.telefon.slice(-4), 'devices:', ok, '/', subs.length);
     }
 
     return {
@@ -235,6 +255,6 @@ exports.handler = async function() {
     };
   } catch (err) {
     console.error('[loyalty-push] fatal:', err && err.stack ? err.stack : err);
-    return { statusCode: 500, body: err.message || 'error' };
+    return { statusCode: 200, body: 'fehler: ' + (err.message || 'error') };
   }
 };

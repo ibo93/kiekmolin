@@ -20,9 +20,11 @@ var mpSubs = (MP.match(/sbGet\('push_subscriptions\?[^']*'\)/) || [''])[0];
 t('marketing-push holt nur Abos mit angebote=eq.true', /angebote=eq\.true/.test(mpSubs), mpSubs);
 t('marketing-push ohne Spalte (400): niemand bekommt etwas, Hinweis auf datenbank/43', /if \(\/-> 400\/\.test\(e\.message\)\) return json\(200, \{ ok: false, error: 'Angebote per Push sind noch nicht eingerichtet: datenbank\/43/.test(MP), '');
 t('marketing-push: sbGet wirft wirklich "-> 400" (sonst greift der Zweig nie)', /throw new Error\(.*' -> ' \+ res\.status\)/.test(fn('sbGet', MP)), fn('sbGet', MP));
-var lpSubs = (LP.match(/'push_subscriptions\?customer_phone=eq\.'[^;]*;/) || [''])[0];
+// loyalty-push holt seit 21.10.2026 (datenbank/46) die Abos EINMAL fuer alle
+// und ordnet sie ueber die vereinheitlichte Nummer zu -- nicht mehr je Gast.
+var lpSubs = (LP.match(/sbGet\('push_subscriptions\?[^']*'\)/) || [''])[0];
 t('loyalty-push holt nur Abos mit angebote=eq.true', /&angebote=eq\.true/.test(lpSubs), lpSubs);
-t('loyalty-push ohne Spalte: bricht ab statt allen zu senden', /if \(\/-> 400\/\.test\(e\.message\)\) { console\.warn\([^;]*; break; \}/.test(LP) && /throw new Error\(.*' -> ' \+ res\.status\)/.test(fn('sbGet', LP)), '');
+t('loyalty-push ohne Spalte: hoert auf, statt allen zu senden', /if \(\/-> 400\/\.test\(e\.message\)\) \{ console\.warn\([^;]*; return \{ statusCode: 200, body: 'angebote fehlt' \}; \}/.test(LP) && /throw new Error\(.*' -> ' \+ res\.status\)/.test(fn('sbGet', LP)), '');
 t('SQL 43: Spalte angebote, Standard false', /add column if not exists angebote boolean not null default false/.test(S), '');
 
 // ---- Gerät: Haken, Standard aus

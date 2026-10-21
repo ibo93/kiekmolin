@@ -48,7 +48,10 @@ var ALLOWED = [
     // verschickt review-mail nichts (BGH VI ZR 225/17). Fehlt die Spalte
     // noch, wirft der selbst-heilende Insert sie raus -- eine Bestellung
     // darf nicht an einer Bewertungsspalte scheitern.
-    'review_consent'
+    'review_consent',
+    // Stempelkarte einloesen (datenbank/46). Fehlt die Spalte, wirft der
+    // selbst-heilende Insert sie raus -- die Bestellung geht trotzdem durch.
+    'stempel_einloesen'
 ];
 
 // Selbst-heilender Insert: fehlt eine Spalte in der Tabelle, entfernen und erneut.
@@ -207,6 +210,24 @@ async function preisCheck(order) {
     return preisPruefung.pruefe(order, daten);
 }
 
+// STEMPELKARTE EINLOESEN (datenbank/46): nur mit Guthaben. Sonst saehe der
+// Wirt bei der Bestellung "Gast loest ein", obwohl nichts da ist. Den echten
+// Abzug macht die Datenbank beim Annehmen (atomar) -- das hier ist nur die
+// Vorpruefung. Kann sie nicht pruefen (Funktion fehlt, Netz), bleibt der
+// Wunsch stehen: dann entscheidet die Datenbank beim Annehmen.
+async function stempelGuthabenDa(order) {
+    try {
+        var res = await fetch(SUPABASE_URL + '/rest/v1/rpc/kmi_stempel_stand', {
+            method: 'POST',
+            headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ p_restaurant: order.restaurant_id, p_telefon: String(order.customer_phone || '') })
+        });
+        if (!res.ok) { console.warn('[order-save] Stempel-Vorpruefung nicht moeglich', res.status); return true; }
+        var s = await res.json();
+        return !!(s && s.aktiv && s.guthaben > 0);
+    } catch (e) { console.warn('[order-save] Stempel-Vorpruefung', e && e.message); return true; }
+}
+
 // WhatsApp-Angebot eingeloest? (datenbank/42) Kam die Bestellung mit einem
 // persoenlichen Kampagnen-Code, beim Gast eintragen: wann, welche Bestellung,
 // wie viel Umsatz -- daraus rechnet der Monatsbericht. Nur mit dem
@@ -290,6 +311,9 @@ exports.handler = async function (event) {
             : WARTEZEIT.zusage(feats, order.order_type, !!(order.requested_time || order.scheduled_at));
         if (zusage) Object.keys(zusage).forEach(function (k) { order[k] = zusage[k]; });
 
+        if (order.stempel_einloesen) order.stempel_einloesen = await stempelGuthabenDa(order);
+        else delete order.stempel_einloesen;
+
         var r = await resilientInsert(order);
         if (r.ok) {
             var id = (r.data && r.data[0] && r.data[0].id) || null;
@@ -299,6 +323,8 @@ exports.handler = async function (event) {
                 // Damit der Browser dem Gast nicht "wird gleich bestaetigt"
                 // zeigt, waehrend sie schon bestaetigt ist.
                 sofort_bestaetigt: !!zusage,
+                // false = Gast wollte einloesen, hat aber kein Guthaben
+                stempel_einloesen: order.stempel_einloesen === undefined ? undefined : !!order.stempel_einloesen,
                 minuten: (zusage && zusage.estimated_minutes) || null
             });
         }
