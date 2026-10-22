@@ -443,38 +443,77 @@ async function fetchRestaurants() {
 }
 
 async function fetchMenuItems(restaurantId) {
-  // Bis zu 30 verfügbare Items, populaere zuerst, dann nach sort_order
-  // Fault-tolerant: bei Fehler leeres Array zurueck, Page wird trotzdem gebaut
+  // Ganze Karte statt limit=30 (22.10.2026, Erklaerung unter karteSortieren).
+  // "price" gibt es nicht, die Spalte heisst base_price: mit dem falschen
+  // Namen kam 400 und die Seite war OHNE GERICHTE. Fehler -> Protokoll und
+  // zweiter Versuch mit der schlichten Abfrage.
   if (!restaurantId) return [];
-  const url = SUPABASE_URL + '/rest/v1/menu_items'
+  const basis = SUPABASE_URL + '/rest/v1/menu_items'
     + '?restaurant_id=eq.' + encodeURIComponent(restaurantId)
-    + '&is_available=eq.true'
-    // "price" gibt es nicht -- die Spalte heisst base_price.
-    //
-    // Mit dem falschen Namen antwortete PostgREST mit 400, der
-    // Fault-tolerant-Zweig sprang an und lieferte ein leeres Array. Die
-    // Seite wurde also gebaut, nur OHNE GERICHTE. Google sah eine
-    // Restaurantseite ohne Speisekarte, und niemandem fiel es auf, weil
-    // hier kein Fehler geworfen wird.
-    //
-    // 134 Fehlversuche in knapp einem Tag -- fuer jeden Betrieb bei
-    // jedem Bau.
-    + '&select=name,description,base_price,image_url,is_popular,menu_categories(name)'
-    + '&order=is_popular.desc,sort_order.asc'
-    + '&limit=30';
-  try {
-    const res = await fetch(url, {
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': 'Bearer ' + SUPABASE_KEY,
-        'Accept': 'application/json'
-      }
-    });
-    if (!res.ok) return [];
-    return await res.json();
-  } catch (e) {
-    return [];
+    + '&is_available=eq.true';
+  const versuche = [
+    basis + '&select=name,description,base_price,image_url,is_popular,sort_order,menu_categories(name,sort_order)&order=sort_order.asc&limit=500',
+    basis + '&select=name,description,base_price,image_url,is_popular,menu_categories(name)&order=is_popular.desc,sort_order.asc&limit=500'
+  ];
+  for (let i = 0; i < versuche.length; i++) {
+    try {
+      const res = await fetch(versuche[i], {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Accept': 'application/json' }
+      });
+      if (!res.ok) { console.warn('[seo] WARN: Speisekarte ' + restaurantId + ' Versuch ' + (i + 1) + ': HTTP ' + res.status); continue; }
+      const liste = await res.json();
+      if (!Array.isArray(liste)) continue;
+      return karteSortieren(liste);
+    } catch (e) {
+      console.warn('[seo] WARN: Speisekarte ' + restaurantId + ': ' + e.message);
+    }
   }
+  return [];
+}
+
+// DIE GANZE KARTE (22.10.2026). Vorher limit=30, die beliebtesten zuerst --
+// Luett Italia hat rund 140 Gerichte, Google und KI-Assistenten sahen 30.
+// Wer "Pizza Diavola Wittmund" sucht, fand das Lokal nicht, wenn die
+// Diavola nicht unter den 30 war. Jetzt alle verfuegbaren, in der
+// Reihenfolge der Karte: Kategorie (sort_order), dann Gericht.
+function karteSortieren(liste) {
+  const k = function (it) { return it && it.menu_categories && it.menu_categories.sort_order != null ? Number(it.menu_categories.sort_order) : 9999; };
+  return (liste || []).map(function (it, i) { return { it: it, i: i }; })
+    .sort(function (a, b) { return (k(a.it) - k(b.it)) || ((Number(a.it.sort_order) || 0) - (Number(b.it.sort_order) || 0)) || (a.i - b.i); })
+    .map(function (x) { return x.it; });
+}
+// Beliebte zuerst -- fuer die Beschreibung im Google-Treffer und die KI-Liste.
+function beliebteZuerst(liste) {
+  return (liste || []).slice().sort(function (a, b) { return (b && b.is_popular ? 1 : 0) - (a && a.is_popular ? 1 : 0); });
+}
+
+// DER RICHTIGE ARTIKEL (22.10.2026). Im Google-Treffer stand "Luett Italia
+// ist ein Pizzeria in Wittmund" -- fuer jede Kategorie "ein".
+const LOKAL_ART = { 'Pizzeria': 'eine Pizzeria', 'Döner': 'ein Döner-Imbiss', 'Fischrestaurant': 'ein Fischrestaurant',
+  'Griechisches Restaurant': 'ein griechisches Restaurant', 'Café': 'ein Café', 'Restaurant': 'ein Restaurant' };
+function lokalArt(label) { return LOKAL_ART[label] || ('ein ' + label); }
+
+// KUECHE AUF DEUTSCH. OpenStreetMap liefert englische Schluessel
+// ("italian;pizza") -- auf der Seite stand "Restaurant Taverna ist Italian
+// in Jever". Unbekannte Schluessel fallen weg, statt englisch dazustehen.
+const KUECHE_ADJ = { italian: 'italienische', greek: 'griechische', turkish: 'türkische', chinese: 'chinesische', asian: 'asiatische',
+  japanese: 'japanische', thai: 'thailändische', vietnamese: 'vietnamesische', indian: 'indische', german: 'deutsche', regional: 'regionale',
+  american: 'amerikanische', mexican: 'mexikanische', spanish: 'spanische', french: 'französische', croatian: 'kroatische',
+  mediterranean: 'mediterrane', portuguese: 'portugiesische', lebanese: 'libanesische', syrian: 'syrische', arab: 'arabische',
+  persian: 'persische', korean: 'koreanische', balkan: 'Balkan-', vegetarian: 'vegetarische', vegan: 'vegane' };
+const KUECHE_NOMEN = { pizza: 'Pizza', kebab: 'Döner & Kebab', doner: 'Döner', sushi: 'Sushi', fish: 'Fisch', seafood: 'Fisch & Meeresfrüchte',
+  burger: 'Burger', steak_house: 'Steaks', ice_cream: 'Eis', coffee_shop: 'Kaffee & Kuchen', cake: 'Kuchen', sandwich: 'Sandwiches',
+  chicken: 'Hähnchen', friture: 'Pommes & Imbiss', pasta: 'Pasta', crepe: 'Crêpes', breakfast: 'Frühstück', fish_and_chips: 'Fish & Chips', grill: 'Grill' };
+function kuecheText(roh) {
+  const teile = String(roh || '').toLowerCase().split(/[;,]/).map(function (x) { return x.trim().replace(/\s+/g, '_'); }).filter(Boolean);
+  const adj = [], nomen = [];
+  teile.forEach(function (t) {
+    if (KUECHE_ADJ[t] && adj.indexOf(KUECHE_ADJ[t]) < 0) adj.push(KUECHE_ADJ[t]);
+    else if (KUECHE_NOMEN[t] && nomen.indexOf(KUECHE_NOMEN[t]) < 0) nomen.push(KUECHE_NOMEN[t]);
+  });
+  const o = [];
+  if (adj.length) o.push(adj.join(' und ').replace('Balkan- und', 'Balkan und') + ' Küche');
+  return o.concat(nomen).join(', ').replace(/^./, function (c) { return c.toUpperCase(); });
 }
 
 async function fetchReviews(targetId) {
@@ -1870,7 +1909,7 @@ function generateRestaurantPage(rest, menuItems, reviews) {
   // Meta-Description mit Menü-Items wenn vorhanden (genau wie ostfriesland.app)
   let description;
   if (menuItems.length >= 3) {
-    const sampleItems = menuItems.slice(0, 5).map(function(it) { return safeText(it.name, ''); }).filter(function(n) { return n; });
+    const sampleItems = beliebteZuerst(menuItems).slice(0, 5).map(function(it) { return safeText(it.name, ''); }).filter(function(n) { return n; });
     description = name + ' ' + cityRaw + ': ' + sampleItems.join(' · ') + '. Online bestellen, Speisekarte ansehen & Tisch reservieren.';
   } else {
     description = name + ' in ' + cityRaw + ' – Speisekarte ansehen, online bestellen & Tisch reservieren.';
@@ -1963,7 +2002,7 @@ function generateRestaurantPage(rest, menuItems, reviews) {
     '<div class="intro fade d1">\n' +
       (rest.description
         ? '<p>' + escapeHtml(rest.description) + '</p>'
-        : '<p>' + escapeHtml(name) + ' ist ein ' + escapeHtml(catLabel) + ' in ' + escapeHtml(cityRaw) +
+        : '<p>' + escapeHtml(name) + ' ist ' + escapeHtml(lokalArt(catLabel)) + ' in ' + escapeHtml(cityRaw) +
           '. Auf ' + BRAND + ' kannst du die komplette Speisekarte ansehen, online bestellen oder einen Tisch reservieren – kostenlos und ohne App-Download.</p>') +
       (addrLine ? '<p><strong>Adresse:</strong> ' + addrLine + '</p>' : '') +
       (rest.phone ? '<p><strong>Telefon:</strong> <a href="tel:' + escapeAttr(rest.phone) + '">' + escapeHtml(rest.phone) + '</a></p>' : '') +
@@ -1974,7 +2013,7 @@ function generateRestaurantPage(rest, menuItems, reviews) {
       + (kannBestellen(rest) ? 'Online bestellen bei ' : 'Speisekarte von ') + escapeHtml(name) + '</a></p>\n' +
     (menuItems.length
       ? '<h2 id="speisekarte">Speisekarte von ' + escapeHtml(name) + '</h2>\n' +
-        '<p style="margin:0 0 16px;color:#666;">Die ' + menuItems.length + ' beliebtesten Gerichte – komplette Karte mit allen Optionen in der App.</p>\n' +
+        '<p style="margin:0 0 16px;color:#666;">' + (menuItems.length >= 500 ? 'Ein Auszug von ' + gerichteZahl(menuItems.length) : menuItems.length === 1 ? 'Das Gericht der Karte' : 'Alle ' + gerichteZahl(menuItems.length) + ' der Karte') + ' – Größen, Extras und Bestellen in der App.</p>\n' +
         renderMenuListHtml(menuItems) + '\n'
       : '<h2>Speisekarte' + (kannBestellen(rest) ? ' ansehen & online bestellen' : ' ansehen') + '</h2>\n' +
         '<p>Die vollständige Speisekarte von ' + escapeHtml(name) + ' findest du in der ' + BRAND + '-App.'
@@ -2246,7 +2285,9 @@ function generateProspectPage(p, partnerRestaurants, allProspects) {
   const eName = escapeHtml(name);
   const eCity = escapeHtml(cityRaw);
   // Küche aus OSM (falls vorhanden), sonst die Kategorie
-  const cuisineRaw = p.cuisine ? (String(p.cuisine).charAt(0).toUpperCase() + String(p.cuisine).slice(1)) : catLabel;
+  // Kueche auf Deutsch (kuecheText); ohne bekannte Angabe die Kategorie.
+  const kueche = kuecheText(p.cuisine);
+  const cuisineRaw = kueche || catLabel;
   const eCuisine = escapeHtml(cuisineRaw);
   const hoursLine = p.hours ? escapeHtml(String(p.hours)) : '';
 
@@ -2279,7 +2320,7 @@ function generateProspectPage(p, partnerRestaurants, allProspects) {
 
   // FAQ (sichtbar + FAQPage-JSON-LD) - nur Fragen mit echter Antwort
   const faqs = [];
-  faqs.push({ q: 'Welche Art von Lokal ist ' + name + '?', a: name + ' ist ' + cuisineRaw + ' in ' + cityRaw + ' (Ostfriesland).' });
+  faqs.push({ q: 'Welche Art von Lokal ist ' + name + '?', a: name + ' ist ' + lokalArt(catLabel) + ' in ' + cityRaw + ' (Ostfriesland)' + (kueche ? ' – Küche: ' + kueche : '') + '.' });
   if (p.street || p.zip) {
     faqs.push({ q: 'Wo finde ich ' + name + '?', a: name + ' befindet sich in ' + (p.street ? p.street + ', ' : '') + (p.zip ? p.zip + ' ' : '') + cityRaw + '.' });
   }
@@ -2411,7 +2452,7 @@ function generateProspectPage(p, partnerRestaurants, allProspects) {
       (addrLine ? '<p><strong>Adresse:</strong> ' + addrLine + '</p>' : '') +
       (p.phone ? '<p><strong>Telefon:</strong> <a href="tel:' + escapeAttr(String(p.phone).replace(/\s+/g, '')) + '">' + escapeHtml(String(p.phone)) + '</a></p>' : '') +
       (hoursLine ? '<p><strong>Öffnungszeiten:</strong> ' + hoursLine + ' <span style="color:#888;font-size:13px;">(laut OpenStreetMap – bitte bestätigen)</span></p>' : '') +
-      (p.cuisine ? '<p><strong>Küche:</strong> ' + eCuisine + '</p>' : '') +
+      (kueche ? '<p><strong>Küche:</strong> ' + escapeHtml(kueche) + '</p>' : '') +
       (p.website ? '<p><strong>Website:</strong> <a href="' + escapeAttr(p.website) + '" rel="nofollow">' + escapeHtml(p.website) + '</a></p>' : '') +
       inhaberZeile +
     '</div>\n' +
@@ -3189,7 +3230,8 @@ function writeRobots() {
 // writeLlmsTxt auf CITIES zurueck wie frueher.
 var LLMS_ORTE = [];
 
-function writeLlmsTxt(restaurants) {
+function writeLlmsTxt(restaurants, karten) {
+  karten = karten || {};
   const zeilen = [
     '# Kiek mol in – Restaurants in Ostfriesland',
     '',
@@ -3221,7 +3263,14 @@ function writeLlmsTxt(restaurants) {
     const oeff = parseOeffnungszeiten(r);
     if (oeff.text) teile.push('geöffnet ' + oeff.text);
     if (r.phone) teile.push('Tel. ' + r.phone);
-    teile.push('Online bestellen & Tisch reservieren');
+    // NUR, WAS ES GIBT (22.10.2026). Hier stand bei JEDEM Betrieb "Online
+    // bestellen & Tisch reservieren" -- auch bei Haeusern ohne Bestellung.
+    // Ein KI-Assistent gibt das weiter, und der Gast steht vor einer Seite,
+    // auf der er nicht bestellen kann.
+    const kann = [kannBestellen(r) ? 'online bestellen' : '', kannReservieren(r) ? 'Tisch reservieren' : ''].filter(Boolean);
+    teile.push(kann.length ? 'Auf Kiek mol in: Speisekarte, ' + kann.join(' und ') : 'Auf Kiek mol in: Speisekarte');
+    const karte = beliebteZuerst(karten[r.id] || []).slice(0, 6).map(function (it) { const pr = fmtPrice(it); return safeText(it.name, '') + (pr ? ' (' + pr + ')' : ''); }).filter(Boolean);
+    if (karte.length) teile.push('Beliebt: ' + karte.join(', '));
     zeilen.push('- [' + name + '](' + SITE_URL + '/' + r.slug + '): ' + teile.join('. ') + '.');
   });
   // NUR ORTE, DIE ES ALS SEITE GIBT.
@@ -3248,9 +3297,48 @@ function writeLlmsTxt(restaurants) {
   CATEGORIES.forEach(function(c) {
     zeilen.push('- [' + c.plural + ' in Ostfriesland](' + SITE_URL + '/' + c.slug + '-ostfriesland)');
   });
-  zeilen.push('');
+  zeilen.push('', '## Ausführlich', '', '- [Alle Speisekarten als Text](' + SITE_URL + '/llms-full.txt): jedes Gericht mit Preis, je Restaurant.', '');
   fs.writeFileSync(path.join(OUT_DIR, 'llms.txt'), zeilen.join('\n'), 'utf8');
+  writeLlmsFull(valid, karten);
   return valid.length;
+}
+
+// LLMS-FULL.TXT (22.10.2026) -- die ganzen Speisekarten fuer KI-Assistenten.
+//
+// Ibo: "bei KI muessen wir gut vertreten sein". Fragt jemand ChatGPT oder
+// Perplexity "wo gibt es gute Pizza in Wittmund", antworten sie aus dem,
+// was sie lesen koennen. Die Speisekarte steht in der App (JavaScript) --
+// fuer sie unsichtbar. Hier steht sie als schlichter Text: je Restaurant
+// Ort, Adresse, Oeffnungszeiten, was man auf Kiek mol in tun kann, und
+// jedes Gericht mit Preis und Kurzbeschreibung. Nur echte Daten, keine
+// Superlative.
+function writeLlmsFull(restaurants, karten) {
+  const z = ['# Kiek mol in – Speisekarten der Restaurants in Ostfriesland', '',
+    '> Stand ' + new Date().toISOString().slice(0, 10) + '. Preise in Euro, wie auf der Karte des Restaurants. Bestellen und reservieren über den Link je Restaurant.', ''];
+  (restaurants || []).forEach(function (r) {
+    const name = safeText(r.name, 'Restaurant'), ort = safeText(r.city, 'Ostfriesland');
+    z.push('## ' + name + ' (' + ort + ')', '');
+    z.push('- Art: ' + lokalArt(detectCategoryForRest(r).label));
+    if (r.street) z.push('- Adresse: ' + safeText(r.street, '') + ', ' + (r.zip ? r.zip + ' ' : '') + ort);
+    if (r.phone) z.push('- Telefon: ' + r.phone);
+    const oeff = parseOeffnungszeiten(r);
+    if (oeff.text) z.push('- Geöffnet: ' + oeff.text);
+    const kann = [kannBestellen(r) ? 'online bestellen' : '', kannReservieren(r) ? 'Tisch reservieren' : ''].filter(Boolean);
+    z.push('- Auf Kiek mol in: Speisekarte' + (kann.length ? ', ' + kann.join(', ') : '') + ' – ' + SITE_URL + '/' + r.slug);
+    const karte = karten[r.id] || [];
+    if (karte.length) {
+      z.push('', '### Speisekarte (' + karte.length + ' Gerichte)');
+      let kat = null;
+      karte.forEach(function (it) {
+        const k = (it.menu_categories && it.menu_categories.name) || 'Speisekarte';
+        if (k !== kat) { z.push('', '**' + safeText(k, 'Speisekarte') + '**'); kat = k; }
+        const pr = fmtPrice(it), d = it.description ? ' – ' + String(safeText(it.description, '')).slice(0, 120) : '';
+        z.push('- ' + safeText(it.name, 'Gericht') + (pr ? ': ' + pr : '') + d);
+      });
+    }
+    z.push('');
+  });
+  fs.writeFileSync(path.join(OUT_DIR, 'llms-full.txt'), z.join('\n'), 'utf8');
 }
 
 // IndexNow: Suchmaschinen (Bing, Yandex u.a. -> Google liest IndexNow-Daten
@@ -3545,6 +3633,7 @@ async function main() {
   // Per-Restaurant SEO-Pages — damit "La Piazza Greetsiel" direkt findet
   // Inkl. Menu-Items aus Supabase fuer Rich Snippets (wie ostfriesland.app)
   let restaurantPages = 0;
+  const kartenNachId = {};   // fuer llms.txt / llms-full.txt
   let totalMenuItems = 0;
   let totalReviews = 0;
   for (const rest of restaurants) {
@@ -3554,6 +3643,7 @@ async function main() {
       if (rest.id) {
         menuItems = await fetchMenuItems(rest.id);
         reviews = await fetchReviews(rest.id);
+        kartenNachId[rest.id] = menuItems;
       }
       const result = generateRestaurantPage(rest, menuItems, reviews);
       if (result) {
@@ -3593,7 +3683,7 @@ async function main() {
   console.log('[seo] + robots.txt (KI-Crawler ausdruecklich erlaubt)');
   try {
     LLMS_ORTE = alleOrte;
-    const llmsCount = writeLlmsTxt(restaurants);
+    const llmsCount = writeLlmsTxt(restaurants, kartenNachId);
     console.log('[seo] + llms.txt (' + llmsCount + ' Betriebe fuer KI-Assistenten)');
   } catch (e) {
     console.warn('[seo] WARN: llms.txt fehlgeschlagen -', e.message);
@@ -3635,6 +3725,10 @@ if (require.main === module) {
     ortSlug: ortSlug,
     ortLohntSeite: ortLohntSeite,
     prospectSlug: prospectSlug,
+    lokalArt: lokalArt,
+    kuecheText: kuecheText,
+    karteSortieren: karteSortieren,
+    fetchMenuItems: fetchMenuItems,
     kundeFuerProspect: kundeFuerProspect,
     nameKern: nameKern,
     generateGastroPage,
