@@ -10,8 +10,7 @@
 // "anfragen", aus der das CRM sie von selbst abholt.
 //
 // Die Mail bleibt der Hauptweg und laeuft ZUERST: Klemmt die Datenbank, kommt
-// die Anfrage trotzdem an. Ohne SUPABASE_URL/SUPABASE_ANON_KEY verhaelt sich
-// die Function exakt wie vorher.
+// die Anfrage trotzdem an.
 //
 // Aufbewahrung: Anfragen ohne Auftrag werden nach zwoelf Monaten geloescht -
 // so steht es im Datenschutzhinweis.
@@ -25,7 +24,10 @@
 'use strict';
 
 var RESEND_API_KEY = process.env.RESEND_API_KEY || '';
-var EMAIL_FROM = process.env.EMAIL_FROM || '';
+// Derselbe Absender wie bei den Bestell-Mails (order-email & Co.). Ohne
+// Ersatzwert lief diese Function als einzige ins Leere, sobald EMAIL_FROM
+// in Netlify nicht gesetzt ist.
+var EMAIL_FROM = process.env.EMAIL_FROM || 'Kiek mol in <bestellung@kiekmolin.de>';
 /* Ausweichadresse, und zwar bewusst fest verdrahtet.
    Ibo hat zweimal gefragt "wo bekomme ich den Antrag". Die ehrliche
    Antwort war bis eben: "an die Adresse in der Netlify-Variablen
@@ -35,9 +37,16 @@ var EMAIL_FROM = process.env.EMAIL_FROM || '';
    Impressum und in der Datenschutzerklaerung -- die gibt es. */
 var AGENTUR_EMAIL = process.env.AGENTUR_EMAIL || 'info@kiekmolin.de';
 
-// Optional: ohne diese beiden laeuft alles wie vorher, nur ohne CRM-Eintrag.
-var SUPABASE_URL = (process.env.SUPABASE_URL || '').replace(/\/+$/, '').replace(/\/rest\/v1$/, '');
-var SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
+// GEAENDERT 22.10.2026: Ibo um 21:38 auf /gastro -- wieder "Das hat gerade
+// nicht geklappt". Gemessen: Netlify 200 um 19:38:36 UTC, in den edge_logs
+// von Supabase NULL Zugriffe auf anfragen. Die Rettung ins CRM ist nie
+// gelaufen, weil diese Function als einzige ohne SUPABASE_URL und
+// SUPABASE_ANON_KEY still aufgab. Jetzt wie lead-zaehler: feste Adresse als
+// Ersatz, und ersatzweise der Server-Schluessel, der in Netlify nachweislich
+// gesetzt ist (der Zaehler kommt damit an). Er bleibt im Server.
+var SUPABASE_URL = (process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co')
+    .replace(/\/+$/, '').replace(/\/rest\/v1$/, '');
+var SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_KEY || '';
 
 var CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -211,7 +220,10 @@ exports.handler = async function (event) {
 // Legt die Anfrage in die Tabelle "anfragen". Gibt true/false zurueck und
 // wirft nie - der Mailweg ist schon gelaufen, hier darf nichts mehr kippen.
 async function inDieDatenbank(a) {
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
+    if (!SUPABASE_ANON_KEY) {
+        console.error('agentur-lead: kein Supabase-Schluessel - Anfrage von "' + a.betrieb + '" nicht im CRM');
+        return false;
+    }
     var istMail = a.kontakt.indexOf('@') > 0;
     try {
         var antwort = await fetch(SUPABASE_URL + '/rest/v1/anfragen', {
