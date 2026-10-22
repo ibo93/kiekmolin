@@ -476,15 +476,26 @@
             "name": "Restaurants in Ostfriesland",
             "url": "https://kiekmolin.de"
         },
-        "isPartOf": {
-            "@type": "WebSite",
-            "name": "Kiek mol in",
-            "url": "https://kiekmolin.de",
-            "potentialAction": {
-                "@type": "SearchAction",
-                "target": "https://kiekmolin.de/?q={search_term_string}",
-                "query-input": "required name=search_term_string"
-            }
+        "isPartOf": { "@id": "https://kiekmolin.de/#website" }
+    }
+    </script>
+    <!-- WEBSITE-NAME FUER GOOGLE (22.10.2026). Ueber jedem Treffer stand
+         "kiekmolin.de" statt "Kiek mol in": Google liest den Namen nur aus
+         einem EIGENEN WebSite-Eintrag auf der Startseite. Vorher stand er
+         nur verschachtelt unter WebPage (isPartOf) -- das zaehlt nicht. -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "@id": "https://kiekmolin.de/#website",
+        "name": "Kiek mol in",
+        "alternateName": ["KiekMolIn", "kiekmolin.de"],
+        "url": "https://kiekmolin.de/",
+        "inLanguage": "de-DE",
+        "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://kiekmolin.de/?q={search_term_string}",
+            "query-input": "required name=search_term_string"
         }
     }
     </script>

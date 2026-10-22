@@ -94,7 +94,11 @@ console.log('\n-- 4. Was still scheitert, faellt sonst nie auf --');
 // Seite. Aber genau deshalb muss der Test hier stehen: der Bau meldet
 // nichts.
 t('die Speisekarten-Abfrage faengt Fehler weiterhin ab',
-  /async function fetchMenuItems[\s\S]{0,900}?catch/.test(seoCode), 'Bau kippt bei einem Fehler');
+  // In der GANZEN Funktion (bis zur naechsten), nicht in den ersten 900 Zeichen:
+  // seit 22.10.2026 hat sie zwei Abfragen und ist laenger.
+  (function () { var a = seoCode.indexOf('async function fetchMenuItems'); if (a < 0) return false;
+    var rest = seoCode.slice(a + 10), b = rest.search(/\n(async )?function /);
+    return /catch \(/.test(b < 0 ? rest : rest.slice(0, b)); })(), 'Bau kippt bei einem Fehler');
 t('und der Grund fuer den Test steht in der Datei',
   seo.indexOf('OHNE GERICHTE') > -1 || seo.indexOf('OHNE Gerichte') > -1, 'keine Begruendung');
 
