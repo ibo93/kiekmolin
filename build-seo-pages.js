@@ -16,6 +16,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 // ==================== CONFIG ====================
 
@@ -513,6 +514,63 @@ function aufLaenge(text, max) {
   const i = kurz.lastIndexOf(' ');
   return (i > 60 ? kurz.slice(0, i) : kurz).replace(/[\s,:;–-]+$/, '') + '…';
 }
+
+// ==================== BILDER ALS ECHTE DATEIEN ====================
+//
+// Gemessen am 23.10.2026: Fotos von Gerichten und Logos liegen in der
+// Datenbank als Text (data:image/jpeg;base64,...) -- so speichert sie das
+// Dashboard (compressImage). Dieser Text stand bisher UNVERAENDERT im
+// Speisekarten-Schema der Restaurantseite:
+//   - Google nimmt dort nur echte Bild-Adressen; ein data:-Bild ist dort
+//     ungueltig und taucht nie in der Bildersuche auf
+//   - die Seite wird schwer (Taverna: rund 80 KB je Abruf, andere 8 KB),
+//     und seit dem 22.10. steht die GANZE Karte drauf
+// Jetzt wird jedes solche Bild beim Bauen eine Datei unter /bilder/<haus>/
+// und ueberall steht deren Adresse. Ein Bild, das schon eine Adresse hat,
+// bleibt, wie es ist. Alles andere (kaputt, SVG, zu gross) faellt weg --
+// kein Bild ist besser als ein ungueltiges.
+const BILD_CACHE = new Map();
+const BILD_MAX_BYTES = 2 * 1024 * 1024;
+
+function dateiName(x) {
+  return normalize(x).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
+}
+
+function bildUrl(wert, ordner, name) {
+  if (!wert) return '';
+  const s = String(wert).trim();
+  if (/^https?:\/\//i.test(s)) return s;
+  if (/^\/[^/]/.test(s)) return SITE_URL + s;
+  const m = /^data:image\/(jpeg|jpg|png|webp|gif);base64,([A-Za-z0-9+/=\s]+)$/i.exec(s);
+  if (!m) return '';
+  const roh = m[2].replace(/\s+/g, '');
+  const hash = crypto.createHash('sha1').update(roh).digest('hex').slice(0, 10);
+  const o = dateiName(ordner) || 'allgemein';
+  const schluessel = o + '/' + hash;
+  if (BILD_CACHE.has(schluessel)) return BILD_CACHE.get(schluessel);
+  let buf;
+  try { buf = Buffer.from(roh, 'base64'); } catch (e) { return ''; }
+  if (!buf.length || buf.length > BILD_MAX_BYTES) return '';
+  const art = m[1].toLowerCase() === 'jpeg' ? 'jpg' : m[1].toLowerCase();
+  const datei = (dateiName(name) || 'bild') + '-' + hash + '.' + art;
+  try {
+    const dir = path.join(OUT_DIR, 'bilder', o);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, datei), buf);
+  } catch (e) {
+    console.warn('[seo] WARN: Bild nicht geschrieben -', e.message);
+    return '';
+  }
+  const url = SITE_URL + '/bilder/' + o + '/' + datei;
+  BILD_CACHE.set(schluessel, url);
+  return url;
+}
+
+// Bild und Logo eines Partners -- die Datenbank nennt sie image_url und
+// logo_url, aeltere Daten image und logo.
+function restBild(rest) { return rest ? bildUrl(rest.image || rest.image_url, rest.slug || rest.id, 'titel') : ''; }
+function restLogo(rest) { return rest ? bildUrl(rest.logo || rest.logo_url, rest.slug || rest.id, 'logo') : ''; }
 
 function ratingStars(rating) {
   const r = Number(rating) || 0;
@@ -1020,7 +1078,7 @@ function renderCard(rest) {
   const slug = rest.slug || rest.id;
   const link = '/' + encodeURIComponent(slug);
   const name = escapeHtml(safeText(rest.name, 'Restaurant'));
-  const img = rest.image || rest.logo || '';
+  const img = restBild(rest) || restLogo(rest);
   const imgStyle = img ? 'background-image:url(' + escapeAttr(img) + ')' : '';
   const r = fmtRating(rest.rating);
   const stars = ratingStars(rest.rating);
@@ -1131,7 +1189,8 @@ function buildItemListJsonLd(restaurants, pageUrl, max) {
         'name': safeText(rest.name, 'Restaurant'),
         'url': SITE_URL + '/' + slug
       };
-      if (rest.image) item.image = rest.image;
+      const _bild = restBild(rest);
+      if (_bild) item.image = _bild;
       if (rest.phone) item.telephone = rest.phone;
       if (rest.street || rest.zip || rest.city) {
         item.address = {
@@ -1442,8 +1501,9 @@ function buildRestaurantJsonLd(rest, reviews) {
   };
   // image ist fuer LocalBusiness-Rich-Results faktisch Pflicht -- ohne Bild
   // zeigt Google gar kein Rich Result. Daher immer ein Fallback setzen.
-  item.image = rest.image || (SITE_URL + '/og-image.png');
-  if (rest.logo) item.logo = rest.logo;
+  item.image = restBild(rest) || (SITE_URL + '/og-image.png');
+  const _logo = restLogo(rest);
+  if (_logo) item.logo = _logo;
   if (rest.phone) item.telephone = rest.phone;
   if (rest.email) item.email = rest.email;
   if (rest.website) item.sameAs = [rest.website];
@@ -1868,7 +1928,8 @@ function buildMenuJsonLd(rest, menuItems) {
               'priceCurrency': 'EUR'
             };
           }
-          if (it.image_url) item.image = it.image_url;
+          const _b = bildUrl(it.image_url, slug, it.name);
+          if (_b) item.image = _b;
           return item;
         })
       };
@@ -1876,7 +1937,7 @@ function buildMenuJsonLd(rest, menuItems) {
   };
 }
 
-function renderMenuListHtml(menuItems) {
+function renderMenuListHtml(menuItems, rest, cityRaw) {
   if (!menuItems || !menuItems.length) return '';
   // In Sections nach Kategorie
   const sections = {};
@@ -1895,6 +1956,11 @@ function renderMenuListHtml(menuItems) {
       const itDesc = it.description ? escapeHtml(String(it.description).slice(0, 140)) : '';
       const itPrice = escapeHtml(fmtPrice(it));
       html += '<li style="padding:10px 0;border-bottom:1px solid #f4f4f0;display:flex;justify-content:space-between;gap:14px;align-items:flex-start;">';
+      // Das Foto als echtes <img> mit beschreibendem alt -- so kann es in
+      // der Google-Bildersuche erscheinen ("Pizza Margherita – La Piazza,
+      // Greetsiel"). Feste Groesse, damit nichts springt.
+      const itBild = rest ? bildUrl(it.image_url, rest.slug || rest.id, it.name) : '';
+      if (itBild) html += '<img src="' + escapeAttr(itBild) + '" alt="' + escapeAttr(safeText(it.name, 'Gericht') + ' – ' + safeText(rest.name, '') + (cityRaw ? ', ' + cityRaw : '')) + '" width="72" height="72" loading="lazy" decoding="async" style="width:72px;height:72px;object-fit:cover;border-radius:12px;flex:0 0 72px;">';
       html +=   '<div style="flex:1;min-width:0;">';
       html +=     '<div style="font-weight:600;color:#1a1a1a;font-size:15px;">' + itName + (it.is_popular ? ' <span style="background:' + ACCENT_COLOR + ';color:#fff;font-size:10px;padding:2px 6px;border-radius:var(--r-voll);font-weight:700;margin-left:6px;">BELIEBT</span>' : '') + '</div>';
       if (itDesc) html += '<div style="color:#666;font-size:13px;margin-top:2px;line-height:1.4;">' + itDesc + '</div>';
@@ -1951,7 +2017,9 @@ function renderReviewsHtml(rest, reviews) {
 }
 
 function renderRestaurantHero(rest, name, cityRaw, catLabel, menuItems, slug) {
-  const img = rest.image || rest.logo || '';
+  const titel = restBild(rest);
+  const logo = restLogo(rest);
+  const img = titel || logo;
   const ratingTxt = fmtRating(rest.rating);
   const stars = ratingTxt ? renderStars(rest.rating) : '';
   const metaParts = [];
@@ -1962,9 +2030,13 @@ function renderRestaurantHero(rest, name, cityRaw, catLabel, menuItems, slug) {
   const meta = metaParts.join('<span class="dot"> · </span>');
 
   return '<section class="hero' + (img ? '' : ' hero-fallback') + ' fade">' +
-    (img ? '<div class="bg" style="background-image:url(' + escapeAttr(img) + ')"></div>' : '') +
+    // Ein echtes <img> statt CSS-Hintergrund: Hintergrundbilder nimmt
+    // Google nicht in die Bildersuche auf (Ibo: "die Logos oder Bilder vom
+    // Restaurant werden nicht gefunden"). Der alt-Text sagt, was zu sehen ist.
+    (img ? '<img class="bg" src="' + escapeAttr(img) + '" alt="' + escapeAttr(name + (titel ? ' in ' : ' – Logo, ') + cityRaw) + '" width="1200" height="630" style="width:100%;height:100%;object-fit:cover;">' : '') +
     '<div class="ov"></div>' +
     '<div class="inner">' +
+      (logo && titel ? '<img src="' + escapeAttr(logo) + '" alt="' + escapeAttr('Logo von ' + name + ', ' + cityRaw) + '" width="64" height="64" style="width:64px;height:64px;object-fit:contain;background:#fff;border-radius:14px;padding:4px;margin:0 0 12px;display:block;">' : '') +
       '<h1>' + escapeHtml(name) + '</h1>' +
       '<div class="meta">' + meta + '</div>' +
       // Nur anbieten, was das Haus wirklich kann -- ein Knopf ins Leere ist
@@ -2111,13 +2183,13 @@ function generateRestaurantPage(rest, menuItems, reviews) {
     '<meta property="og:url" content="' + escapeAttr(url) + '">\n' +
     // Restaurantfoto, sonst das Marken-Bild -- ein Share ohne Bild bekommt
     // deutlich weniger Klicks.
-    '<meta property="og:image" content="' + escapeAttr(rest.image || (SITE_URL + '/og-image.png')) + '">\n' +
+    '<meta property="og:image" content="' + escapeAttr(restBild(rest) || (SITE_URL + '/og-image.png')) + '">\n' +
     '<meta property="og:locale" content="de_DE">\n' +
     '<meta property="og:site_name" content="' + BRAND + '">\n' +
     '<meta name="twitter:card" content="summary_large_image">\n' +
     '<meta name="twitter:title" content="' + escapeAttr(title) + '">\n' +
     '<meta name="twitter:description" content="' + escapeAttr(description) + '">\n' +
-    '<meta name="twitter:image" content="' + escapeAttr(rest.image || (SITE_URL + '/og-image.png')) + '">\n' +
+    '<meta name="twitter:image" content="' + escapeAttr(restBild(rest) || (SITE_URL + '/og-image.png')) + '">\n' +
     '<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">\n' +
     '<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">\n' +
     '<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">\n' +
@@ -2163,7 +2235,7 @@ function generateRestaurantPage(rest, menuItems, reviews) {
     (menuItems.length
       ? '<h2 id="speisekarte">Speisekarte von ' + escapeHtml(name) + '</h2>\n' +
         '<p style="margin:0 0 16px;color:#666;">' + (menuItems.length >= 500 ? 'Ein Auszug von ' + gerichteZahl(menuItems.length) : menuItems.length === 1 ? 'Das Gericht der Karte' : 'Alle ' + gerichteZahl(menuItems.length) + ' der Karte') + ' – Größen, Extras und Bestellen in der App.</p>\n' +
-        renderMenuListHtml(menuItems) + '\n'
+        renderMenuListHtml(menuItems, rest, cityRaw) + '\n'
       : '<h2>Speisekarte' + (kannBestellen(rest) ? ' ansehen & online bestellen' : ' ansehen') + '</h2>\n' +
         '<p>Die vollständige Speisekarte von ' + escapeHtml(name) + ' findest du in der ' + BRAND + '-App.'
         + (kannBestellen(rest) ? ' Online bestellen geht direkt – Abholung oder Lieferung (wo verfügbar).' : '') + '</p>\n') +
@@ -2209,7 +2281,12 @@ function generateRestaurantPage(rest, menuItems, reviews) {
     .filter(function(d) { return /^\d{4}-\d{2}-\d{2}$/.test(d); })
     .sort();
   const lastmod = daten.length ? daten[daten.length - 1] : null;
-  return { filename: filename, url: url, count: 1, restaurant: true, menuCount: menuItems.length, lastmod: lastmod };
+  // Die Fotos der Gerichte fuer die Bild-Sitemap.
+  // Titelbild und Logo zuerst -- auch sie sollen in der Bildersuche stehen.
+  const bilder = [restBild(rest), restLogo(rest)].concat(menuItems.map(function(it) { return bildUrl(it.image_url, slug, it.name); }))
+    .filter(function(u) { return u && u.indexOf(SITE_URL + '/bilder/') === 0; });
+  return { filename: filename, url: url, count: 1, restaurant: true, menuCount: menuItems.length, lastmod: lastmod,
+           bilder: Array.from(new Set(bilder)).slice(0, 1000) };
 }
 
 // ==================== PROSPECT / VERZEICHNIS-SEITEN ====================
@@ -3418,7 +3495,9 @@ function generateGastroPage() {
 function writeSitemap(generated) {
   const today = new Date().toISOString().slice(0, 10);
   let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
-  xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
+  // Bild-Erweiterung: so findet Google die Fotos der Gerichte auch ohne
+  // jede Seite einzeln zu rendern (Google-Bildersuche).
+  xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n';
   xml += '  <url><loc>' + SITE_URL + '/</loc><lastmod>' + today + '</lastmod><priority>1.0</priority><changefreq>daily</changefreq></url>\n';
   // Wirte-Seite (Sichtbarkeits-Check): sie soll gefunden werden, wenn ein
   // Gastronom nach seiner eigenen Sichtbarkeit sucht - das sind die Anfragen,
@@ -3429,7 +3508,8 @@ function writeSitemap(generated) {
     // weit oben wie eine Betriebsseite und aendert sich selten.
     const prio = g.gastro ? '0.9' : (g.restaurant ? '0.9' : (g.prospect ? '0.6' : '0.8'));
     const freq = g.gastro ? 'monthly' : (g.restaurant ? 'daily' : (g.prospect ? 'monthly' : 'weekly'));
-    xml += '  <url><loc>' + g.url + '</loc><lastmod>' + (g.lastmod || today) + '</lastmod><priority>' + prio + '</priority><changefreq>' + freq + '</changefreq></url>\n';
+    const bilderXml = (g.bilder || []).map(function(b) { return '<image:image><image:loc>' + escapeHtml(b) + '</image:loc></image:image>'; }).join('');
+    xml += '  <url><loc>' + g.url + '</loc><lastmod>' + (g.lastmod || today) + '</lastmod><priority>' + prio + '</priority><changefreq>' + freq + '</changefreq>' + bilderXml + '</url>\n';
   });
   xml += '</urlset>\n';
   fs.writeFileSync(path.join(OUT_DIR, 'sitemap.xml'), xml, 'utf8');
