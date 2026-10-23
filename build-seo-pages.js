@@ -16,6 +16,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 // ==================== CONFIG ====================
 
@@ -384,6 +385,192 @@ function categoryMatches(rest, cat) {
   const blob = haystack.join(' ');
   return cat.keywords.some(function(kw) { return blob.indexOf(normalize(kw)) !== -1; });
 }
+
+// ==================== ORT x ART ("Pizzerien in Greetsiel") ====================
+//
+// Ibo am 23.10.2026: "es muss nicht den Restaurantnamen suchen -- bei
+// Begriffen wie Pizza, Pasta ... die Sichtbarkeit muss richtig gut sein."
+//
+// Gemessen vorher: diese Seiten gab es NUR, wo ein Partner dieser Art sitzt,
+// und auf ihnen standen NUR Partner -- meist einer. In Orten ohne Partner-
+// Pizzeria fand Google fuer "Pizza <Ort>" bei uns gar nichts. Und kein
+// einziges Gericht stand drauf; "Pizza Diavola" oder "Pasta" gab es nur auf
+// der einzelnen Restaurantseite.
+//
+// Jetzt: alle Betriebe dieser Art im Ort (Partner oben, die anderen als
+// Zeile darunter) und die echten Gerichte mit Preis aus den Karten der
+// Partner. Seite nach derselben Regel wie die Ortsseiten: mit Partner
+// immer, sonst ab MIN_EINTRAEGE Betrieben dieser Art.
+
+// Alle Betriebe einer Art in einem Ort. Die Nicht-Partner nach ihrer
+// erkannten Art (OSM-Kueche, sonst Name) -- dieselbe Erkennung wie auf
+// ihrer eigenen Seite, sonst stuende ein Betrieb hier als Pizzeria und
+// dort als Restaurant.
+function kategorieDaten(city, cat, restaurants, prospects) {
+  const matched = (restaurants || []).filter(function(r) {
+    return cityMatches(r, city) && categoryMatches(r, cat);
+  });
+  const weitere = prospectsImOrt(prospects, city).filter(function(p) {
+    return detectProspectCategory(p).slug === cat.slug;
+  });
+  // Heisst ein Betrieb schlicht "Döner" und liegt in Emden, hat SEINE Seite
+  // schon die Adresse /doener-emden (gemessen: Googlebot ruft sie ab). Ohne
+  // Partner bekommt die Art-Seite die Adresse dann nicht -- sie wuerde die
+  // Betriebsseite ueberschreiben. Entwuerfe zaehlen mit, auch sie liegen dort.
+  const slug = cat.slug + '-' + city.slug;
+  const belegt = (prospects || []).some(function(p) {
+    return p && p.name && normalize(p.city) === normalize(city.name) && prospectSlug(p) === slug;
+  });
+  return { matched: matched, weitere: weitere, belegt: belegt };
+}
+
+function kategorieLohntSeite(partnerAnzahl, weitereAnzahl) {
+  return ortLohntSeite(partnerAnzahl, weitereAnzahl);
+}
+
+// Woran man ein Gericht einer Art erkennt -- am Namen des Gerichts oder
+// an seiner Rubrik auf der Karte. Das Wort kommt nur in Titel und
+// Ueberschrift, wenn es auf einer echten Karte auch steht.
+const KATEGORIE_GERICHTE = {
+  'pizzeria': [
+    { wort: 'Pizza', re: /pizza/i },
+    { wort: 'Pasta', re: /pasta|spaghetti|penne|tagliatelle|lasagne|tortellini|rigatoni|gnocchi|maccheroni/i }
+  ],
+  'doener': [
+    { wort: 'Döner', re: /d(ö|oe|o)ner/i },
+    { wort: 'Dürüm', re: /d(ü|ue|u)r(ü|ue|u)m/i },
+    { wort: 'Lahmacun', re: /lahmacun/i }
+  ],
+  'fischrestaurant': [
+    { wort: 'Fisch', re: /fisch|scholle|matjes|lachs|zander|backfisch|kabeljau/i },
+    { wort: 'Krabben', re: /krabbe|nordseekrabbe|garnele/i }
+  ],
+  'griechisches-restaurant': [
+    { wort: 'Gyros', re: /gyros/i },
+    { wort: 'Souvlaki', re: /souvlaki|suflaki|souflaki/i }
+  ],
+  'cafe': [
+    { wort: 'Kuchen', re: /kuchen|torte/i },
+    { wort: 'Eis', re: /(^|[^a-zäöü])eis([^a-zäöü]|$)|eisbecher|spaghettieis/i }
+  ]
+};
+
+// Die Gerichte einer Art aus den Karten der Partner. Beliebte zuerst,
+// hoechstens 6 je Haus, jedes nur einmal. Ohne Karte oder ohne Treffer:
+// nichts -- dann steht auch kein "Pizza & Pasta" in Titel oder Text.
+function gerichteFuerKategorie(cat, matched, karten) {
+  const muster = KATEGORIE_GERICHTE[cat.slug] || [];
+  const worte = [];
+  const proHaus = [];
+  if (!muster.length || !karten) return { worte: worte, proHaus: proHaus };
+  (matched || []).forEach(function(rest) {
+    const karte = karten[rest.id] || [];
+    const gesehen = new Set();
+    const treffer = [];
+    beliebteZuerst(karte).forEach(function(it) {
+      if (!it || !it.name || treffer.length >= 6) return;
+      const text = String(it.name) + ' ' + String((it.menu_categories && it.menu_categories.name) || '');
+      const m = muster.filter(function(x) { return x.re.test(text); });
+      if (!m.length) return;
+      const schluessel = normalize(it.name);
+      if (gesehen.has(schluessel)) return;
+      gesehen.add(schluessel);
+      m.forEach(function(x) { if (worte.indexOf(x.wort) < 0) worte.push(x.wort); });
+      treffer.push(it);
+    });
+    if (treffer.length) proHaus.push({ rest: rest, gerichte: treffer });
+  });
+  // In der Reihenfolge der Liste oben, nicht in der Reihenfolge der Funde.
+  worte.sort(function(a, b) {
+    return muster.findIndex(function(x) { return x.wort === a; }) - muster.findIndex(function(x) { return x.wort === b; });
+  });
+  return { worte: worte, proHaus: proHaus };
+}
+
+function renderGerichteSection(city, cat, auswahl) {
+  if (!auswahl || !auswahl.proHaus.length) return '';
+  const kopf = (auswahl.worte.length ? auswahl.worte.join(' & ') : cat.plural) + ' in ' + city.name;
+  return '<section class="gerichte">' +
+    '<h2>' + escapeHtml(kopf) + ' – Gerichte und Preise</h2>' +
+    auswahl.proHaus.map(function(h) {
+      const link = '/' + encodeURIComponent(h.rest.slug || h.rest.id);
+      return '<h3><a href="' + escapeAttr(link) + '">' + escapeHtml(safeText(h.rest.name, 'Restaurant')) + '</a></h3>' +
+        '<ul class="gerichte-liste">' + h.gerichte.map(function(it) {
+          const pr = fmtPrice(it);
+          return '<li>' + escapeHtml(safeText(it.name, 'Gericht')) + (pr ? ' <span class="preis">' + escapeHtml(pr) + '</span>' : '') + '</li>';
+        }).join('') + '</ul>';
+    }).join('') +
+    // Woher die Preise kommen, und dass sie sich aendern koennen.
+    '<p class="weitere-hinweis">Preise aus der Speisekarte des Restaurants bei ' + BRAND + ', Stand ' +
+      new Date().toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' }) + '. Die ganze Karte steht auf der Seite des Restaurants.</p>' +
+  '</section>';
+}
+
+// Auf 160 Zeichen kuerzen, aber an einer Wortgrenze -- nicht mitten im
+// Gericht.
+function aufLaenge(text, max) {
+  if (text.length <= max) return text;
+  const kurz = text.slice(0, max - 1);
+  const i = kurz.lastIndexOf(' ');
+  return (i > 60 ? kurz.slice(0, i) : kurz).replace(/[\s,:;–-]+$/, '') + '…';
+}
+
+// ==================== BILDER ALS ECHTE DATEIEN ====================
+//
+// Gemessen am 23.10.2026: Fotos von Gerichten und Logos liegen in der
+// Datenbank als Text (data:image/jpeg;base64,...) -- so speichert sie das
+// Dashboard (compressImage). Dieser Text stand bisher UNVERAENDERT im
+// Speisekarten-Schema der Restaurantseite:
+//   - Google nimmt dort nur echte Bild-Adressen; ein data:-Bild ist dort
+//     ungueltig und taucht nie in der Bildersuche auf
+//   - die Seite wird schwer (Taverna: rund 80 KB je Abruf, andere 8 KB),
+//     und seit dem 22.10. steht die GANZE Karte drauf
+// Jetzt wird jedes solche Bild beim Bauen eine Datei unter /bilder/<haus>/
+// und ueberall steht deren Adresse. Ein Bild, das schon eine Adresse hat,
+// bleibt, wie es ist. Alles andere (kaputt, SVG, zu gross) faellt weg --
+// kein Bild ist besser als ein ungueltiges.
+const BILD_CACHE = new Map();
+const BILD_MAX_BYTES = 2 * 1024 * 1024;
+
+function dateiName(x) {
+  return normalize(x).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
+}
+
+function bildUrl(wert, ordner, name) {
+  if (!wert) return '';
+  const s = String(wert).trim();
+  if (/^https?:\/\//i.test(s)) return s;
+  if (/^\/[^/]/.test(s)) return SITE_URL + s;
+  const m = /^data:image\/(jpeg|jpg|png|webp|gif);base64,([A-Za-z0-9+/=\s]+)$/i.exec(s);
+  if (!m) return '';
+  const roh = m[2].replace(/\s+/g, '');
+  const hash = crypto.createHash('sha1').update(roh).digest('hex').slice(0, 10);
+  const o = dateiName(ordner) || 'allgemein';
+  const schluessel = o + '/' + hash;
+  if (BILD_CACHE.has(schluessel)) return BILD_CACHE.get(schluessel);
+  let buf;
+  try { buf = Buffer.from(roh, 'base64'); } catch (e) { return ''; }
+  if (!buf.length || buf.length > BILD_MAX_BYTES) return '';
+  const art = m[1].toLowerCase() === 'jpeg' ? 'jpg' : m[1].toLowerCase();
+  const datei = (dateiName(name) || 'bild') + '-' + hash + '.' + art;
+  try {
+    const dir = path.join(OUT_DIR, 'bilder', o);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, datei), buf);
+  } catch (e) {
+    console.warn('[seo] WARN: Bild nicht geschrieben -', e.message);
+    return '';
+  }
+  const url = SITE_URL + '/bilder/' + o + '/' + datei;
+  BILD_CACHE.set(schluessel, url);
+  return url;
+}
+
+// Bild und Logo eines Partners -- die Datenbank nennt sie image_url und
+// logo_url, aeltere Daten image und logo.
+function restBild(rest) { return rest ? bildUrl(rest.image || rest.image_url, rest.slug || rest.id, 'titel') : ''; }
+function restLogo(rest) { return rest ? bildUrl(rest.logo || rest.logo_url, rest.slug || rest.id, 'logo') : ''; }
 
 function ratingStars(rating) {
   const r = Number(rating) || 0;
@@ -862,6 +1049,13 @@ function pageCss() {
     .weitere-tel{color:#64748b;font-size:14px;text-decoration:none;margin-left:auto}
     .weitere-tel:hover{text-decoration:underline}
     @media(max-width:560px){.weitere-tel{margin-left:0}}
+    .gerichte{margin:34px 0 0}
+    .gerichte h2{margin:0 0 10px}
+    .gerichte h3{margin:18px 0 6px;font-size:16px}
+    .gerichte h3 a{color:${PRIMARY_COLOR};text-decoration:none}
+    .gerichte-liste{list-style:none;margin:0;padding:0;border-top:1px solid #e2e8f0}
+    .gerichte-liste li{display:flex;justify-content:space-between;gap:14px;padding:9px 2px;border-bottom:1px solid #e2e8f0}
+    .gerichte-liste .preis{color:#334155;font-weight:600;white-space:nowrap}
     .crosslinks{background:#fff;border-radius:var(--r-md);padding:22px;margin:32px 0}
     .crosslinks h3{margin:0 0 10px;font-size:16px;color:${PRIMARY_COLOR}}
     .crosslinks .links{display:flex;flex-wrap:wrap;gap:8px}
@@ -884,7 +1078,7 @@ function renderCard(rest) {
   const slug = rest.slug || rest.id;
   const link = '/' + encodeURIComponent(slug);
   const name = escapeHtml(safeText(rest.name, 'Restaurant'));
-  const img = rest.image || rest.logo || '';
+  const img = restBild(rest) || restLogo(rest);
   const imgStyle = img ? 'background-image:url(' + escapeAttr(img) + ')' : '';
   const r = fmtRating(rest.rating);
   const stars = ratingStars(rest.rating);
@@ -968,12 +1162,12 @@ function renderProspectRow(p) {
 
 // Der zweite Block der Ortsseite. Die Ueberschrift sagt nuechtern, was es
 // ist -- kein "Geheimtipps", kein "Die schoensten". Es ist eine Liste.
-function renderWeitereSection(city, weitere) {
+function renderWeitereSection(city, weitere, ueberschrift) {
   if (!weitere || !weitere.length) return '';
   const zeilen = weitere.map(renderProspectRow).filter(function(z) { return z; });
   if (!zeilen.length) return '';
   return '<section class="weitere">' +
-    '<h2>Weitere Betriebe in ' + escapeHtml(city.name) + '</h2>' +
+    '<h2>' + escapeHtml(ueberschrift || ('Weitere Betriebe in ' + city.name)) + '</h2>' +
     // Sagt dem Gast, warum diese Eintraege anders aussehen. Ohne den Satz
     // wirkt die Liste wie ein schlechterer Teil derselben Sache.
     '<p class="weitere-hinweis">Diese Betriebe sind nicht bei ' + BRAND + '. ' +
@@ -995,7 +1189,8 @@ function buildItemListJsonLd(restaurants, pageUrl, max) {
         'name': safeText(rest.name, 'Restaurant'),
         'url': SITE_URL + '/' + slug
       };
-      if (rest.image) item.image = rest.image;
+      const _bild = restBild(rest);
+      if (_bild) item.image = _bild;
       if (rest.phone) item.telephone = rest.phone;
       if (rest.street || rest.zip || rest.city) {
         item.address = {
@@ -1133,10 +1328,14 @@ function buildAvailableSlugs(restaurants, prospects) {
     const w = prospectsImOrt(prospects, city).length;
     if (ortLohntSeite(p, w)) AVAILABLE_SLUGS.add('restaurants-' + city.slug);
   });
-  CITIES.forEach(function(city) {
+  // Ort x Art nach DERSELBEN Regel wie generateCityCategoryPage -- ueber
+  // alle Orte mit Daten, nicht nur die 28 aus CITIES.
+  ALLE_ORTE = ermittleOrte(restaurants, prospects);
+  ALLE_ORTE.forEach(function(city) {
     CATEGORIES.forEach(function(cat) {
       if (cat.slug === 'restaurant') return; // wird bewusst nie gebaut
-      if (restaurants.some(function(r) { return cityMatches(r, city) && categoryMatches(r, cat); })) {
+      const d = kategorieDaten(city, cat, restaurants, prospects);
+      if (d.matched.length || (!d.belegt && kategorieLohntSeite(0, d.weitere.length))) {
         AVAILABLE_SLUGS.add(cat.slug + '-' + city.slug);
       }
     });
@@ -1150,9 +1349,17 @@ function buildAvailableSlugs(restaurants, prospects) {
   return AVAILABLE_SLUGS;
 }
 
-function renderCrossLinks(currentCity, currentCat) {
+// Alle Orte mit Daten (siehe ermittleOrte), gesetzt von buildAvailableSlugs.
+// Leer -> wie frueher nur CITIES.
+let ALLE_ORTE = [];
+
+function renderCrossLinks(currentCity, currentCat, selbst) {
   const otherCats = CATEGORIES.filter(function(c) { return c.slug !== currentCat.slug; });
-  const otherCities = CITIES.filter(function(c) { return c.slug !== currentCity.slug; });
+  const otherCities = (ALLE_ORTE.length ? ALLE_ORTE : CITIES).filter(function(c) { return c.slug !== currentCity.slug; });
+  // Von der Betriebsseite einer Pizzeria auf "Pizzerien in <Ort>" -- der
+  // Weg, ueber den Google die Seite fuer die Art findet. Auf dieser Seite
+  // selbst natuerlich nicht.
+  const eigene = !selbst && currentCat.slug !== 'restaurant' && slugExists(currentCat.slug + '-' + currentCity.slug);
 
   // NUR auf Seiten verlinken, die es wirklich gibt. Vorher wurde blind ueber
   // alle Kategorien x Orte iteriert -- von 16 Links existierte teils einer.
@@ -1164,12 +1371,13 @@ function renderCrossLinks(currentCity, currentCat) {
   const cityLinks = otherCities.filter(function(c) { return slugExists(currentCat.slug + '-' + c.slug); });
   const hasRegion = slugExists(currentCat.slug + '-ostfriesland');
 
-  if (!catLinks.length && !cityLinks.length && !hasRegion) return '';
+  if (!catLinks.length && !cityLinks.length && !hasRegion && !eigene) return '';
 
   let html = '<section class="crosslinks">';
-  if (catLinks.length) {
+  if (catLinks.length || eigene) {
     html += '<h3>Auch beliebt in ' + escapeHtml(currentCity.name) + '</h3>';
     html += '<div class="links">';
+    if (eigene) html += '<a href="/' + currentCat.slug + '-' + currentCity.slug + '">Alle ' + escapeHtml(currentCat.plural) + ' in ' + escapeHtml(currentCity.name) + '</a>';
     catLinks.forEach(function(c) {
       html += '<a href="/' + c.slug + '-' + currentCity.slug + '">' + escapeHtml(c.label) + ' in ' + escapeHtml(currentCity.name) + '</a>';
     });
@@ -1212,7 +1420,7 @@ function buildPage(opts) {
     : (opts.extraHtml ? ''
       : '<div class="empty">Aktuell keine passenden Restaurants gelistet. Schau später wieder vorbei oder besuche <a href="/">die Hauptseite</a>.</div>');
 
-  const crossLinks = (opts.city && opts.category) ? renderCrossLinks(opts.city, opts.category) : '';
+  const crossLinks = (opts.city && opts.category) ? renderCrossLinks(opts.city, opts.category, true) : '';
   const lang = opts.lang || 'de';
   // hreflang-Paare fuer Google: jede Seite verlinkt auf ihre andersprachige
   // Variante. canonical zeigt auf die Sprachversion der aktuellen Seite.
@@ -1293,8 +1501,9 @@ function buildRestaurantJsonLd(rest, reviews) {
   };
   // image ist fuer LocalBusiness-Rich-Results faktisch Pflicht -- ohne Bild
   // zeigt Google gar kein Rich Result. Daher immer ein Fallback setzen.
-  item.image = rest.image || (SITE_URL + '/og-image.png');
-  if (rest.logo) item.logo = rest.logo;
+  item.image = restBild(rest) || (SITE_URL + '/og-image.png');
+  const _logo = restLogo(rest);
+  if (_logo) item.logo = _logo;
   if (rest.phone) item.telephone = rest.phone;
   if (rest.email) item.email = rest.email;
   if (rest.website) item.sameAs = [rest.website];
@@ -1719,7 +1928,8 @@ function buildMenuJsonLd(rest, menuItems) {
               'priceCurrency': 'EUR'
             };
           }
-          if (it.image_url) item.image = it.image_url;
+          const _b = bildUrl(it.image_url, slug, it.name);
+          if (_b) item.image = _b;
           return item;
         })
       };
@@ -1727,7 +1937,7 @@ function buildMenuJsonLd(rest, menuItems) {
   };
 }
 
-function renderMenuListHtml(menuItems) {
+function renderMenuListHtml(menuItems, rest, cityRaw) {
   if (!menuItems || !menuItems.length) return '';
   // In Sections nach Kategorie
   const sections = {};
@@ -1746,6 +1956,11 @@ function renderMenuListHtml(menuItems) {
       const itDesc = it.description ? escapeHtml(String(it.description).slice(0, 140)) : '';
       const itPrice = escapeHtml(fmtPrice(it));
       html += '<li style="padding:10px 0;border-bottom:1px solid #f4f4f0;display:flex;justify-content:space-between;gap:14px;align-items:flex-start;">';
+      // Das Foto als echtes <img> mit beschreibendem alt -- so kann es in
+      // der Google-Bildersuche erscheinen ("Pizza Margherita – La Piazza,
+      // Greetsiel"). Feste Groesse, damit nichts springt.
+      const itBild = rest ? bildUrl(it.image_url, rest.slug || rest.id, it.name) : '';
+      if (itBild) html += '<img src="' + escapeAttr(itBild) + '" alt="' + escapeAttr(safeText(it.name, 'Gericht') + ' – ' + safeText(rest.name, '') + (cityRaw ? ', ' + cityRaw : '')) + '" width="72" height="72" loading="lazy" decoding="async" style="width:72px;height:72px;object-fit:cover;border-radius:12px;flex:0 0 72px;">';
       html +=   '<div style="flex:1;min-width:0;">';
       html +=     '<div style="font-weight:600;color:#1a1a1a;font-size:15px;">' + itName + (it.is_popular ? ' <span style="background:' + ACCENT_COLOR + ';color:#fff;font-size:10px;padding:2px 6px;border-radius:var(--r-voll);font-weight:700;margin-left:6px;">BELIEBT</span>' : '') + '</div>';
       if (itDesc) html += '<div style="color:#666;font-size:13px;margin-top:2px;line-height:1.4;">' + itDesc + '</div>';
@@ -1802,7 +2017,9 @@ function renderReviewsHtml(rest, reviews) {
 }
 
 function renderRestaurantHero(rest, name, cityRaw, catLabel, menuItems, slug) {
-  const img = rest.image || rest.logo || '';
+  const titel = restBild(rest);
+  const logo = restLogo(rest);
+  const img = titel || logo;
   const ratingTxt = fmtRating(rest.rating);
   const stars = ratingTxt ? renderStars(rest.rating) : '';
   const metaParts = [];
@@ -1813,9 +2030,13 @@ function renderRestaurantHero(rest, name, cityRaw, catLabel, menuItems, slug) {
   const meta = metaParts.join('<span class="dot"> · </span>');
 
   return '<section class="hero' + (img ? '' : ' hero-fallback') + ' fade">' +
-    (img ? '<div class="bg" style="background-image:url(' + escapeAttr(img) + ')"></div>' : '') +
+    // Ein echtes <img> statt CSS-Hintergrund: Hintergrundbilder nimmt
+    // Google nicht in die Bildersuche auf (Ibo: "die Logos oder Bilder vom
+    // Restaurant werden nicht gefunden"). Der alt-Text sagt, was zu sehen ist.
+    (img ? '<img class="bg" src="' + escapeAttr(img) + '" alt="' + escapeAttr(name + (titel ? ' in ' : ' – Logo, ') + cityRaw) + '" width="1200" height="630" style="width:100%;height:100%;object-fit:cover;">' : '') +
     '<div class="ov"></div>' +
     '<div class="inner">' +
+      (logo && titel ? '<img src="' + escapeAttr(logo) + '" alt="' + escapeAttr('Logo von ' + name + ', ' + cityRaw) + '" width="64" height="64" style="width:64px;height:64px;object-fit:contain;background:#fff;border-radius:14px;padding:4px;margin:0 0 12px;display:block;">' : '') +
       '<h1>' + escapeHtml(name) + '</h1>' +
       '<div class="meta">' + meta + '</div>' +
       // Nur anbieten, was das Haus wirklich kann -- ein Knopf ins Leere ist
@@ -1962,13 +2183,13 @@ function generateRestaurantPage(rest, menuItems, reviews) {
     '<meta property="og:url" content="' + escapeAttr(url) + '">\n' +
     // Restaurantfoto, sonst das Marken-Bild -- ein Share ohne Bild bekommt
     // deutlich weniger Klicks.
-    '<meta property="og:image" content="' + escapeAttr(rest.image || (SITE_URL + '/og-image.png')) + '">\n' +
+    '<meta property="og:image" content="' + escapeAttr(restBild(rest) || (SITE_URL + '/og-image.png')) + '">\n' +
     '<meta property="og:locale" content="de_DE">\n' +
     '<meta property="og:site_name" content="' + BRAND + '">\n' +
     '<meta name="twitter:card" content="summary_large_image">\n' +
     '<meta name="twitter:title" content="' + escapeAttr(title) + '">\n' +
     '<meta name="twitter:description" content="' + escapeAttr(description) + '">\n' +
-    '<meta name="twitter:image" content="' + escapeAttr(rest.image || (SITE_URL + '/og-image.png')) + '">\n' +
+    '<meta name="twitter:image" content="' + escapeAttr(restBild(rest) || (SITE_URL + '/og-image.png')) + '">\n' +
     '<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">\n' +
     '<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">\n' +
     '<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">\n' +
@@ -2014,7 +2235,7 @@ function generateRestaurantPage(rest, menuItems, reviews) {
     (menuItems.length
       ? '<h2 id="speisekarte">Speisekarte von ' + escapeHtml(name) + '</h2>\n' +
         '<p style="margin:0 0 16px;color:#666;">' + (menuItems.length >= 500 ? 'Ein Auszug von ' + gerichteZahl(menuItems.length) : menuItems.length === 1 ? 'Das Gericht der Karte' : 'Alle ' + gerichteZahl(menuItems.length) + ' der Karte') + ' – Größen, Extras und Bestellen in der App.</p>\n' +
-        renderMenuListHtml(menuItems) + '\n'
+        renderMenuListHtml(menuItems, rest, cityRaw) + '\n'
       : '<h2>Speisekarte' + (kannBestellen(rest) ? ' ansehen & online bestellen' : ' ansehen') + '</h2>\n' +
         '<p>Die vollständige Speisekarte von ' + escapeHtml(name) + ' findest du in der ' + BRAND + '-App.'
         + (kannBestellen(rest) ? ' Online bestellen geht direkt – Abholung oder Lieferung (wo verfügbar).' : '') + '</p>\n') +
@@ -2060,7 +2281,12 @@ function generateRestaurantPage(rest, menuItems, reviews) {
     .filter(function(d) { return /^\d{4}-\d{2}-\d{2}$/.test(d); })
     .sort();
   const lastmod = daten.length ? daten[daten.length - 1] : null;
-  return { filename: filename, url: url, count: 1, restaurant: true, menuCount: menuItems.length, lastmod: lastmod };
+  // Die Fotos der Gerichte fuer die Bild-Sitemap.
+  // Titelbild und Logo zuerst -- auch sie sollen in der Bildersuche stehen.
+  const bilder = [restBild(rest), restLogo(rest)].concat(menuItems.map(function(it) { return bildUrl(it.image_url, slug, it.name); }))
+    .filter(function(u) { return u && u.indexOf(SITE_URL + '/bilder/') === 0; });
+  return { filename: filename, url: url, count: 1, restaurant: true, menuCount: menuItems.length, lastmod: lastmod,
+           bilder: Array.from(new Set(bilder)).slice(0, 1000) };
 }
 
 // ==================== PROSPECT / VERZEICHNIS-SEITEN ====================
@@ -2478,61 +2704,108 @@ function generateProspectPage(p, partnerRestaurants, allProspects) {
 
 // ==================== PAGE GENERATORS ====================
 
-function generateCityCategoryPage(city, cat, restaurants, lang) {
-  const matched = restaurants.filter(function(r) {
-    return cityMatches(r, city) && categoryMatches(r, cat);
-  });
-  matched.sort(function(a, b) { return (Number(b.rating) || 0) - (Number(a.rating) || 0); });
-  if (matched.length === 0) return null;
-
+function generateCityCategoryPage(city, cat, restaurants, lang, prospects, karten) {
   lang = lang || 'de';
   const isEn = lang === 'en';
+  const d = kategorieDaten(city, cat, restaurants, prospects);
+  const matched = d.matched;
+  matched.sort(function(a, b) { return (Number(b.rating) || 0) - (Number(a.rating) || 0); });
+  // Die englische Fassung bleibt, wie sie war: nur wo ein Partner sitzt,
+  // nur mit Partnern. Eine englische Liste von Telefonnummern bringt
+  // niemandem etwas und verdoppelt nur die duennen Seiten.
+  const weitere = isEn ? [] : d.weitere.slice().sort(function(a, b) {
+    return String(a.name || '').localeCompare(String(b.name || ''), 'de');
+  });
+  if (matched.length === 0 && (isEn || d.belegt || !kategorieLohntSeite(0, weitere.length))) return null;
+
   const slug = cat.slug + '-' + city.slug;
   const deUrl = SITE_URL + '/' + slug;
-  const enUrl = SITE_URL + '/en/' + slug;
+  // Ohne Partner gibt es keine englische Seite -- dann darf auch kein
+  // hreflang darauf zeigen (der Catch-All machte daraus die Startseite).
+  const enUrl = matched.length ? SITE_URL + '/en/' + slug : null;
   const url = isEn ? enUrl : deUrl;
   const pluralL = isEn ? (cat.pluralEn || cat.plural) : cat.plural;
   const labelL = isEn ? (cat.labelEn || cat.label) : cat.label;
   const descEn = cat.descriptionEn || cat.description;
+  const gesamt = matched.length + weitere.length;
+  const auswahl = isEn ? { worte: [], proHaus: [] } : gerichteFuerKategorie(cat, matched, karten);
+  const bestellbar = matched.some(function(r) { return kannBestellen(r); });
 
   // Titel mit echter Anzahl + Jahr: "Die 7 besten Pizzerien in Emden (2026)"
   // klickt nachweislich besser als ein generischer Titel - Anzahl und Jahr
   // sind ECHT (Anzahl = gelistete Betriebe, Jahr = Build-Zeitpunkt).
+  //
+  // Wo ein Partner sitzt, bleibt der Titel, wie er war: "pizzeria greetsiel"
+  // bringt mit genau diesem Titel Klicks (Search Console, Oktober 2026),
+  // und ein neuer Titel faengt bei Google von vorn an.
   const jahr = new Date().getFullYear();
   const title = matched.length >= 2
     ? (isEn
       ? 'The ' + matched.length + ' best ' + pluralL + ' in ' + city.name + ' (' + jahr + ') | ' + BRAND
       : 'Die ' + matched.length + ' besten ' + cat.plural + ' in ' + city.name + ' (' + jahr + ') | ' + BRAND)
-    : (isEn
+    : matched.length === 1
+    ? (isEn
       ? pluralL + ' in ' + city.name + ' – order online | ' + BRAND
-      : cat.plural + ' in ' + city.name + ' – online bestellen | ' + BRAND);
-  const description = isEn
-    ? 'The best ' + pluralL + ' in ' + city.name + ' on ' + BRAND + '. ' +
-      descEn.charAt(0).toUpperCase() + descEn.slice(1) + '. View menu, order online & book a table – free!'
-    : 'Die besten ' + cat.plural + ' in ' + city.name + ' auf ' + BRAND + '. ' +
-      cat.descriptionDe.charAt(0).toUpperCase() + cat.descriptionDe.slice(1) +
-      '. Speisekarte ansehen, online bestellen & reservieren – kostenlos!';
+      : cat.plural + ' in ' + city.name + ' – online bestellen | ' + BRAND)
+    // Ohne Partner: nichts versprechen, was die Seite nicht hat.
+    : cat.plural + ' in ' + city.name + ' – Adressen & Telefon | ' + BRAND;
+
+  // DIE BESCHREIBUNG IM GOOGLE-TREFFER mit echten Gerichten und Preisen,
+  // wo es sie gibt -- so wie ostfriesland.app im Treffer zu La Piazza.
+  let description;
+  if (auswahl.proHaus.length) {
+    const erstes = auswahl.proHaus[0];
+    const beispiele = erstes.gerichte.slice(0, 3).map(function(it) {
+      const pr = fmtPrice(it);
+      return safeText(it.name, '') + (pr ? ' ' + pr : '');
+    }).join(', ');
+    description = auswahl.worte.join(' & ') + ' in ' + city.name + ': ' + beispiele + ' bei ' + safeText(erstes.rest.name, '') + '. ' +
+      (gesamt === 1 ? 'Ein Betrieb' : 'Alle ' + gesamt + ' ' + cat.plural) + ' mit Adresse' +
+      (bestellbar ? ', Speisekarte & Online-Bestellung.' : ' und Speisekarte.');
+  } else if (matched.length) {
+    description = isEn
+      ? 'The best ' + pluralL + ' in ' + city.name + ' on ' + BRAND + '. ' +
+        descEn.charAt(0).toUpperCase() + descEn.slice(1) + '. View menu, order online & book a table – free!'
+      : 'Die besten ' + cat.plural + ' in ' + city.name + ' auf ' + BRAND + '. ' +
+        cat.descriptionDe.charAt(0).toUpperCase() + cat.descriptionDe.slice(1) +
+        '. Speisekarte ansehen, online bestellen & reservieren – kostenlos!';
+  } else {
+    description = gesamt + ' ' + cat.plural + ' in ' + city.name + ' auf einen Blick – mit Adresse und Telefonnummer.';
+  }
 
   const html = buildPage({
     lang: lang,
     altDe: deUrl,
     altEn: enUrl,
     title: title,
-    description: description.length > 165 ? description.slice(0, 162) + '...' : description,
+    description: aufLaenge(description, 160),
     canonical: url,
     h1: matched.length >= 2
       ? (isEn ? 'The ' + matched.length + ' best ' : 'Die ' + matched.length + ' besten ') + pluralL + ' in ' + city.name
-      : (isEn ? 'The best ' : 'Die besten ') + pluralL + ' in ' + city.name,
-    subtitle: matched.length + ' ' + (matched.length === 1 ? labelL : pluralL) + ' in ' + city.name +
-      (isEn ? ' – menus, reviews, order online' : ' – Speisekarten, Bewertungen, online bestellen'),
-    intro: isEn ? buildIntroEn(city, cat, matched.length) : buildIntro(city, cat, matched.length),
+      : matched.length === 1
+      ? (isEn ? 'The best ' : 'Die besten ') + pluralL + ' in ' + city.name
+      : cat.plural + ' in ' + city.name,
+    subtitle: isEn
+      ? matched.length + ' ' + (matched.length === 1 ? labelL : pluralL) + ' in ' + city.name + ' – menus, reviews, order online'
+      : gesamt + ' ' + (gesamt === 1 ? labelL : pluralL) + ' in ' + city.name +
+        (matched.length ? ' – Speisekarten, Bewertungen, online bestellen' : ' – Adressen und Telefonnummern'),
+    intro: isEn ? buildIntroEn(city, cat, matched.length)
+      : matched.length ? buildIntro(city, cat, matched.length) : buildKategorieIntroOhnePartner(city, cat, weitere),
     restaurants: matched,
-    faqs: isEn ? buildFaqsEn(city, cat, matched) : buildFaqs(city, cat, matched),
+    // Die ItemList bildet die ganze Seite ab, nicht nur die Partner.
+    itemListe: weitere.length ? matched.concat(weitere.map(alsListenEintrag)) : null,
+    extraHtml: renderGerichteSection(city, cat, auswahl) +
+      renderWeitereSection(city, weitere, 'Weitere ' + cat.plural + ' in ' + city.name),
+    faqs: isEn ? buildFaqsEn(city, cat, matched) : buildKategorieFaqs(city, cat, matched, weitere),
+    // Die Ortsstufe nur, wenn es die Ortsseite gibt -- sonst zeigt der
+    // Breadcrumb ins Leere (Catch-All, Soft-404).
     breadcrumbs: [
-      { name: isEn ? 'Home' : 'Startseite', url: isEn ? SITE_URL + '/en' : SITE_URL + '/' },
-      { name: city.name, url: isEn ? SITE_URL + '/en/restaurants-' + city.slug : SITE_URL + '/restaurants-' + city.slug },
+      { name: isEn ? 'Home' : 'Startseite', url: isEn ? SITE_URL + '/en' : SITE_URL + '/' }
+    ].concat(slugExists('restaurants-' + city.slug)
+      ? [{ name: city.name, url: isEn ? SITE_URL + '/en/restaurants-' + city.slug : SITE_URL + '/restaurants-' + city.slug }]
+      : []).concat([
       { name: pluralL + ' in ' + city.name, url: url }
-    ],
+    ]),
     city: city,
     category: cat,
     gridHeading: (isEn ? 'Top ' : 'Top-') + pluralL + ' in ' + city.name
@@ -2544,8 +2817,41 @@ function generateCityCategoryPage(city, cat, restaurants, lang) {
   }
   const relpath = (isEn ? 'en/' : '') + slug + '.html';
   fs.writeFileSync(path.join(OUT_DIR, relpath), html, 'utf8');
-  return { filename: relpath, url: url, count: matched.length };
+  return { filename: relpath, url: url, count: matched.length, weitere: weitere.length,
+           gerichte: auswahl.proHaus.reduce(function(n, h) { return n + h.gerichte.length; }, 0) };
 }
+
+// Vorspann ohne Partner: sachlich. buildIntro verspricht Bestellen und
+// Reservieren -- hier gibt es beides nicht.
+function buildKategorieIntroOhnePartner(city, cat, weitere) {
+  return '<p>' + escapeHtml(weitere.length + ' ' + cat.plural + ' in ' + city.name +
+    ', die wir kennen – mit Adresse und, wo bekannt, Telefonnummer.') + '</p>' +
+    '<p>' + escapeHtml('Keiner davon ist bisher bei ' + BRAND + '. Speisekarte, Online-Bestellung und Reservierung ' +
+    'gibt es deshalb hier noch nicht – am besten direkt beim Betrieb anrufen.') + '</p>';
+}
+
+// Die Frage, die Gaeste wirklich stellen: "Welche Pizzerien gibt es in X?"
+// Die Antwort nennt alle beim Namen, Partner zuerst.
+function buildKategorieFaqs(city, cat, matched, weitere) {
+  const partner = matched.map(function(r) { return safeText(r.name, ''); }).filter(Boolean);
+  const namen = partner.concat(weitere.map(function(p) { return safeText(p.name, ''); })).filter(Boolean);
+  const alle = namen.length ? {
+    q: 'Welche ' + cat.plural + ' gibt es in ' + city.name + '?',
+    a: 'In ' + city.name + ': ' + namen.slice(0, 12).join(', ') +
+      (namen.length > 12 ? ' und ' + (namen.length - 12) + ' weitere' : '') + '.' +
+      (partner.length ? ' Bei ' + partner.join(', ') + ' siehst du auf ' + BRAND + ' die ganze Speisekarte.' : '')
+  } : null;
+  if (matched.length) {
+    const f = buildFaqs(city, cat, matched);
+    if (alle) f.splice(1, 0, alle);
+    return f;
+  }
+  return (alle ? [alle] : []).concat([{
+    q: 'Kann ich bei ' + cat.plural + ' in ' + city.name + ' online bestellen?',
+    a: 'Über ' + BRAND + ' noch nicht – keiner der Betriebe hier ist bisher dabei. Die Telefonnummern stehen oben in der Liste.'
+  }]);
+}
+
 
 // VORSPANN DER ORTSSEITE -- SACHLICH, NICHT SCHOEN.
 //
@@ -2624,6 +2930,19 @@ function buildOrtsFaqs(city, matched, weitere, isEn) {
   return faqs;
 }
 
+// Von der Ortsseite auf "Pizzerien in <Ort>", "Döner in <Ort>" ... --
+// nur auf Seiten, die es gibt (slugExists).
+function renderArtenImOrt(city) {
+  const arten = CATEGORIES.filter(function(c) {
+    return c.slug !== 'restaurant' && slugExists(c.slug + '-' + city.slug);
+  });
+  if (!arten.length) return '';
+  return '<section class="crosslinks"><h3>Nach Art in ' + escapeHtml(city.name) + '</h3><div class="links">' +
+    arten.map(function(c) {
+      return '<a href="/' + c.slug + '-' + city.slug + '">' + escapeHtml(c.plural) + ' in ' + escapeHtml(city.name) + '</a>';
+    }).join('') + '</div></section>';
+}
+
 function generateCityOverview(city, restaurants, lang, prospects) {
   const matched = restaurants.filter(function(r) { return cityMatches(r, city); });
   matched.sort(function(a, b) { return (Number(b.rating) || 0) - (Number(a.rating) || 0); });
@@ -2687,7 +3006,7 @@ function generateCityOverview(city, restaurants, lang, prospects) {
     // stuende im Schema eine Liste mit 3 Eintraegen unter einer Seite, auf
     // der 40 stehen.
     itemListe: matched.concat(weitere.map(alsListenEintrag)),
-    extraHtml: renderWeitereSection(city, weitere),
+    extraHtml: (isEn ? '' : renderArtenImOrt(city)) + renderWeitereSection(city, weitere),
     faqs: buildOrtsFaqs(city, matched, weitere, isEn),
     breadcrumbs: [
       { name: isEn ? 'Home' : 'Startseite', url: isEn ? SITE_URL + '/en' : SITE_URL + '/' },
@@ -3176,7 +3495,9 @@ function generateGastroPage() {
 function writeSitemap(generated) {
   const today = new Date().toISOString().slice(0, 10);
   let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
-  xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
+  // Bild-Erweiterung: so findet Google die Fotos der Gerichte auch ohne
+  // jede Seite einzeln zu rendern (Google-Bildersuche).
+  xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n';
   xml += '  <url><loc>' + SITE_URL + '/</loc><lastmod>' + today + '</lastmod><priority>1.0</priority><changefreq>daily</changefreq></url>\n';
   // Wirte-Seite (Sichtbarkeits-Check): sie soll gefunden werden, wenn ein
   // Gastronom nach seiner eigenen Sichtbarkeit sucht - das sind die Anfragen,
@@ -3187,7 +3508,8 @@ function writeSitemap(generated) {
     // weit oben wie eine Betriebsseite und aendert sich selten.
     const prio = g.gastro ? '0.9' : (g.restaurant ? '0.9' : (g.prospect ? '0.6' : '0.8'));
     const freq = g.gastro ? 'monthly' : (g.restaurant ? 'daily' : (g.prospect ? 'monthly' : 'weekly'));
-    xml += '  <url><loc>' + g.url + '</loc><lastmod>' + (g.lastmod || today) + '</lastmod><priority>' + prio + '</priority><changefreq>' + freq + '</changefreq></url>\n';
+    const bilderXml = (g.bilder || []).map(function(b) { return '<image:image><image:loc>' + escapeHtml(b) + '</image:loc></image:image>'; }).join('');
+    xml += '  <url><loc>' + g.url + '</loc><lastmod>' + (g.lastmod || today) + '</lastmod><priority>' + prio + '</priority><changefreq>' + freq + '</changefreq>' + bilderXml + '</url>\n';
   });
   xml += '</urlset>\n';
   fs.writeFileSync(path.join(OUT_DIR, 'sitemap.xml'), xml, 'utf8');
@@ -3572,22 +3894,36 @@ async function main() {
     process.exit(0);
   }
 
-  // Pro Stadt × Kategorie: DE + EN
+  // Die Speisekarten ZUERST holen: die Seiten "Pizzerien in <Ort>" zeigen
+  // seit 23.10.2026 echte Gerichte mit Preis. Unten bei den Restaurant-
+  // seiten werden dieselben Karten benutzt -- jede nur einmal geholt.
+  const kartenNachId = {};   // auch fuer llms.txt / llms-full.txt
+  for (const rest of restaurants) {
+    if (!rest || !rest.id) continue;
+    try { kartenNachId[rest.id] = await fetchMenuItems(rest.id); }
+    catch (e) { kartenNachId[rest.id] = []; console.warn('[seo] WARN: Speisekarte', rest.name, '-', e.message); }
+  }
+
+  // Pro Ort × Art: DE + EN (EN nur mit Partner, siehe generateCityCategoryPage).
+  // Ueber ALLE Orte mit Daten -- dieselbe Liste wie buildAvailableSlugs.
   const LANGS = ['de', 'en'];
-  for (const city of CITIES) {
+  let kategorieSeiten = 0, kategorieOhnePartner = 0;
+  for (const city of ermittleOrte(restaurants, prospects)) {
     for (const cat of CATEGORIES) {
       if (cat.slug === 'restaurant') continue;
       for (const lng of LANGS) {
-        const result = generateCityCategoryPage(city, cat, restaurants, lng);
+        const result = generateCityCategoryPage(city, cat, restaurants, lng, prospects, kartenNachId);
         if (result) {
-          console.log('[seo] +', result.filename, '(' + result.count + ' restaurants)');
+          console.log('[seo] +', result.filename, '(' + result.count + ' Partner, ' + result.weitere + ' weitere, ' + result.gerichte + ' Gerichte)');
           generated.push(result);
+          if (lng === 'de') { kategorieSeiten++; if (!result.count) kategorieOhnePartner++; }
         } else if (lng === 'de') {
           skipped++;
         }
       }
     }
   }
+  console.log('[seo] Ort x Art:', kategorieSeiten, 'Seiten, davon ohne Partner:', kategorieOhnePartner);
 
   // Ortsseiten ueber ALLE Orte, fuer die es Daten gibt -- nicht nur die 28
   // aus CITIES. import-osm.js holt 45; die 19 dazwischen hatten bisher
@@ -3633,7 +3969,6 @@ async function main() {
   // Per-Restaurant SEO-Pages — damit "La Piazza Greetsiel" direkt findet
   // Inkl. Menu-Items aus Supabase fuer Rich Snippets (wie ostfriesland.app)
   let restaurantPages = 0;
-  const kartenNachId = {};   // fuer llms.txt / llms-full.txt
   let totalMenuItems = 0;
   let totalReviews = 0;
   for (const rest of restaurants) {
@@ -3641,9 +3976,8 @@ async function main() {
       let menuItems = [];
       let reviews = [];
       if (rest.id) {
-        menuItems = await fetchMenuItems(rest.id);
+        menuItems = kartenNachId[rest.id] || [];
         reviews = await fetchReviews(rest.id);
-        kartenNachId[rest.id] = menuItems;
       }
       const result = generateRestaurantPage(rest, menuItems, reviews);
       if (result) {

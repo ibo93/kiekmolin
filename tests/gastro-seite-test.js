@@ -380,12 +380,13 @@ function briefkasten(nutzlast, ohne, mailWeg) {
     var altFetch = global.fetch;
     var altWarn = console.warn;
     var alt = {};
-    ['RESEND_API_KEY', 'EMAIL_FROM', 'AGENTUR_EMAIL', 'SUPABASE_URL', 'SUPABASE_ANON_KEY'].forEach(function (k) {
+    ['RESEND_API_KEY', 'EMAIL_FROM', 'AGENTUR_EMAIL', 'SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_KEY'].forEach(function (k) {
         alt[k] = process.env[k];
     });
     process.env.RESEND_API_KEY = 'k'; process.env.EMAIL_FROM = 'a@b.de';
     process.env.AGENTUR_EMAIL = 'ibo@example.de';
     process.env.SUPABASE_URL = 'https://test.supabase.co'; process.env.SUPABASE_ANON_KEY = 'anon';
+    process.env.SUPABASE_SERVICE_KEY = 'dienst';
     (ohne || []).forEach(function (k) { delete process.env[k]; });
     delete require.cache[require.resolve(path.join(KMI, 'netlify', 'functions', 'agentur-lead.js'))];
 
@@ -394,7 +395,7 @@ function briefkasten(nutzlast, ohne, mailWeg) {
     };
 
     global.fetch = function (url, opt) {
-        gesendet.push({ url: String(url), body: JSON.parse((opt || {}).body || '{}') });
+        gesendet.push({ url: String(url), body: JSON.parse((opt || {}).body || '{}'), kopf: (opt || {}).headers || {} });
         if (/resend/.test(String(url))) {
             if (mailWeg === 'wirft') return Promise.reject(new Error('socket hang up'));
             if (mailWeg === 'fehler') {
@@ -505,6 +506,34 @@ var BASIS = { betrieb: 'Testhaus', ort: 'Greetsiel', name: 'Ibo', kontakt: 'ibo@
           mailAus.protokoll.some(function (z) { return fall.spur.test(z); }),
           mailAus.protokoll.join(' | ') || '(nichts protokolliert)');
     }
+
+    // h) Ohne die Variablen, die nur diese Function brauchte (22.10.2026).
+    //    Ibo um 21:38 auf /gastro: "Das hat gerade nicht geklappt". Gemessen:
+    //    Netlify 200, in Supabase NULL Zugriffe auf anfragen -- die Rettung
+    //    lief nie. Das passt genau dazu, dass dort SUPABASE_URL/ANON_KEY
+    //    fehlen; die Variablen selbst kann ich nicht sehen. Alle Faelle oben
+    //    setzen sie und haetten das nie bemerkt. Gesetzt ist nachweislich
+    //    SUPABASE_SERVICE_KEY (der Zaehler kommt damit an).
+    var OHNE_NETLIFY = ['EMAIL_FROM', 'SUPABASE_URL', 'SUPABASE_ANON_KEY'];
+    var echt = await briefkasten(Object.assign({ quelle: 'gastro' }, BASIS), OHNE_NETLIFY);
+    var kEcht = JSON.parse(echt.antwort.body);
+    var mailEcht = echt.gesendet.filter(function (r) { return /resend/.test(r.url); })[0];
+    var dbEcht = echt.gesendet.filter(function (r) { return /rest\/v1\/anfragen/.test(r.url); })[0];
+    t('ohne Netlify-Variablen: die Mail geht trotzdem raus, mit dem Absender der Bestell-Mails',
+      !!mailEcht && /bestellung@kiekmolin\.de/.test(mailEcht.body.from || ''), mailEcht && mailEcht.body.from);
+    t('ohne Netlify-Variablen: die Anfrage landet im CRM, im echten Projekt',
+      !!dbEcht && /^https:\/\/mvrgmbdokdzmumdyezha\.supabase\.co\/rest\/v1\/anfragen/.test(dbEcht.url),
+      echt.gesendet.map(function (r) { return r.url; }).join(', '));
+    t('ohne Netlify-Variablen: mit dem Server-Schluessel', !!dbEcht && dbEcht.kopf.apikey === 'dienst', dbEcht && dbEcht.kopf.apikey);
+    t('ohne Netlify-Variablen: der Wirt liest "Angekommen"', kEcht.ok === true && kEcht.imCrm === true, kEcht);
+    var echtAus = await briefkasten(Object.assign({ quelle: 'gastro' }, BASIS), OHNE_NETLIFY, 'fehler');
+    var kEchtAus = JSON.parse(echtAus.antwort.body);
+    t('ohne Netlify-Variablen + Resend klemmt: die Anfrage ist trotzdem gerettet',
+      kEchtAus.mailAus === true && kEchtAus.imCrm === true, kEchtAus);
+    // Ganz ohne Schluessel darf es nicht still bleiben.
+    var keiner = await briefkasten(Object.assign({ quelle: 'gastro' }, BASIS),
+      OHNE_NETLIFY.concat(['SUPABASE_SERVICE_KEY']), 'fehler');
+    t('ohne jeden Schluessel: ehrlich imCrm false', JSON.parse(keiner.antwort.body).imCrm === false, keiner.antwort.body);
 
     // g) Ohne Betrieb geht nichts
     var f = await briefkasten({ quelle: 'gastro', kontakt: 'a@b.de' });
