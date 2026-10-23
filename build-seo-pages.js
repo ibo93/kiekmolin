@@ -385,6 +385,135 @@ function categoryMatches(rest, cat) {
   return cat.keywords.some(function(kw) { return blob.indexOf(normalize(kw)) !== -1; });
 }
 
+// ==================== ORT x ART ("Pizzerien in Greetsiel") ====================
+//
+// Ibo am 23.10.2026: "es muss nicht den Restaurantnamen suchen -- bei
+// Begriffen wie Pizza, Pasta ... die Sichtbarkeit muss richtig gut sein."
+//
+// Gemessen vorher: diese Seiten gab es NUR, wo ein Partner dieser Art sitzt,
+// und auf ihnen standen NUR Partner -- meist einer. In Orten ohne Partner-
+// Pizzeria fand Google fuer "Pizza <Ort>" bei uns gar nichts. Und kein
+// einziges Gericht stand drauf; "Pizza Diavola" oder "Pasta" gab es nur auf
+// der einzelnen Restaurantseite.
+//
+// Jetzt: alle Betriebe dieser Art im Ort (Partner oben, die anderen als
+// Zeile darunter) und die echten Gerichte mit Preis aus den Karten der
+// Partner. Seite nach derselben Regel wie die Ortsseiten: mit Partner
+// immer, sonst ab MIN_EINTRAEGE Betrieben dieser Art.
+
+// Alle Betriebe einer Art in einem Ort. Die Nicht-Partner nach ihrer
+// erkannten Art (OSM-Kueche, sonst Name) -- dieselbe Erkennung wie auf
+// ihrer eigenen Seite, sonst stuende ein Betrieb hier als Pizzeria und
+// dort als Restaurant.
+function kategorieDaten(city, cat, restaurants, prospects) {
+  const matched = (restaurants || []).filter(function(r) {
+    return cityMatches(r, city) && categoryMatches(r, cat);
+  });
+  const weitere = prospectsImOrt(prospects, city).filter(function(p) {
+    return detectProspectCategory(p).slug === cat.slug;
+  });
+  // Heisst ein Betrieb schlicht "Döner" und liegt in Emden, hat SEINE Seite
+  // schon die Adresse /doener-emden (gemessen: Googlebot ruft sie ab). Ohne
+  // Partner bekommt die Art-Seite die Adresse dann nicht -- sie wuerde die
+  // Betriebsseite ueberschreiben. Entwuerfe zaehlen mit, auch sie liegen dort.
+  const slug = cat.slug + '-' + city.slug;
+  const belegt = (prospects || []).some(function(p) {
+    return p && p.name && normalize(p.city) === normalize(city.name) && prospectSlug(p) === slug;
+  });
+  return { matched: matched, weitere: weitere, belegt: belegt };
+}
+
+function kategorieLohntSeite(partnerAnzahl, weitereAnzahl) {
+  return ortLohntSeite(partnerAnzahl, weitereAnzahl);
+}
+
+// Woran man ein Gericht einer Art erkennt -- am Namen des Gerichts oder
+// an seiner Rubrik auf der Karte. Das Wort kommt nur in Titel und
+// Ueberschrift, wenn es auf einer echten Karte auch steht.
+const KATEGORIE_GERICHTE = {
+  'pizzeria': [
+    { wort: 'Pizza', re: /pizza/i },
+    { wort: 'Pasta', re: /pasta|spaghetti|penne|tagliatelle|lasagne|tortellini|rigatoni|gnocchi|maccheroni/i }
+  ],
+  'doener': [
+    { wort: 'Döner', re: /d(ö|oe|o)ner/i },
+    { wort: 'Dürüm', re: /d(ü|ue|u)r(ü|ue|u)m/i },
+    { wort: 'Lahmacun', re: /lahmacun/i }
+  ],
+  'fischrestaurant': [
+    { wort: 'Fisch', re: /fisch|scholle|matjes|lachs|zander|backfisch|kabeljau/i },
+    { wort: 'Krabben', re: /krabbe|nordseekrabbe|garnele/i }
+  ],
+  'griechisches-restaurant': [
+    { wort: 'Gyros', re: /gyros/i },
+    { wort: 'Souvlaki', re: /souvlaki|suflaki|souflaki/i }
+  ],
+  'cafe': [
+    { wort: 'Kuchen', re: /kuchen|torte/i },
+    { wort: 'Eis', re: /(^|[^a-zäöü])eis([^a-zäöü]|$)|eisbecher|spaghettieis/i }
+  ]
+};
+
+// Die Gerichte einer Art aus den Karten der Partner. Beliebte zuerst,
+// hoechstens 6 je Haus, jedes nur einmal. Ohne Karte oder ohne Treffer:
+// nichts -- dann steht auch kein "Pizza & Pasta" in Titel oder Text.
+function gerichteFuerKategorie(cat, matched, karten) {
+  const muster = KATEGORIE_GERICHTE[cat.slug] || [];
+  const worte = [];
+  const proHaus = [];
+  if (!muster.length || !karten) return { worte: worte, proHaus: proHaus };
+  (matched || []).forEach(function(rest) {
+    const karte = karten[rest.id] || [];
+    const gesehen = new Set();
+    const treffer = [];
+    beliebteZuerst(karte).forEach(function(it) {
+      if (!it || !it.name || treffer.length >= 6) return;
+      const text = String(it.name) + ' ' + String((it.menu_categories && it.menu_categories.name) || '');
+      const m = muster.filter(function(x) { return x.re.test(text); });
+      if (!m.length) return;
+      const schluessel = normalize(it.name);
+      if (gesehen.has(schluessel)) return;
+      gesehen.add(schluessel);
+      m.forEach(function(x) { if (worte.indexOf(x.wort) < 0) worte.push(x.wort); });
+      treffer.push(it);
+    });
+    if (treffer.length) proHaus.push({ rest: rest, gerichte: treffer });
+  });
+  // In der Reihenfolge der Liste oben, nicht in der Reihenfolge der Funde.
+  worte.sort(function(a, b) {
+    return muster.findIndex(function(x) { return x.wort === a; }) - muster.findIndex(function(x) { return x.wort === b; });
+  });
+  return { worte: worte, proHaus: proHaus };
+}
+
+function renderGerichteSection(city, cat, auswahl) {
+  if (!auswahl || !auswahl.proHaus.length) return '';
+  const kopf = (auswahl.worte.length ? auswahl.worte.join(' & ') : cat.plural) + ' in ' + city.name;
+  return '<section class="gerichte">' +
+    '<h2>' + escapeHtml(kopf) + ' – Gerichte und Preise</h2>' +
+    auswahl.proHaus.map(function(h) {
+      const link = '/' + encodeURIComponent(h.rest.slug || h.rest.id);
+      return '<h3><a href="' + escapeAttr(link) + '">' + escapeHtml(safeText(h.rest.name, 'Restaurant')) + '</a></h3>' +
+        '<ul class="gerichte-liste">' + h.gerichte.map(function(it) {
+          const pr = fmtPrice(it);
+          return '<li>' + escapeHtml(safeText(it.name, 'Gericht')) + (pr ? ' <span class="preis">' + escapeHtml(pr) + '</span>' : '') + '</li>';
+        }).join('') + '</ul>';
+    }).join('') +
+    // Woher die Preise kommen, und dass sie sich aendern koennen.
+    '<p class="weitere-hinweis">Preise aus der Speisekarte des Restaurants bei ' + BRAND + ', Stand ' +
+      new Date().toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' }) + '. Die ganze Karte steht auf der Seite des Restaurants.</p>' +
+  '</section>';
+}
+
+// Auf 160 Zeichen kuerzen, aber an einer Wortgrenze -- nicht mitten im
+// Gericht.
+function aufLaenge(text, max) {
+  if (text.length <= max) return text;
+  const kurz = text.slice(0, max - 1);
+  const i = kurz.lastIndexOf(' ');
+  return (i > 60 ? kurz.slice(0, i) : kurz).replace(/[\s,:;–-]+$/, '') + '…';
+}
+
 function ratingStars(rating) {
   const r = Number(rating) || 0;
   const full = Math.floor(r);
@@ -862,6 +991,13 @@ function pageCss() {
     .weitere-tel{color:#64748b;font-size:14px;text-decoration:none;margin-left:auto}
     .weitere-tel:hover{text-decoration:underline}
     @media(max-width:560px){.weitere-tel{margin-left:0}}
+    .gerichte{margin:34px 0 0}
+    .gerichte h2{margin:0 0 10px}
+    .gerichte h3{margin:18px 0 6px;font-size:16px}
+    .gerichte h3 a{color:${PRIMARY_COLOR};text-decoration:none}
+    .gerichte-liste{list-style:none;margin:0;padding:0;border-top:1px solid #e2e8f0}
+    .gerichte-liste li{display:flex;justify-content:space-between;gap:14px;padding:9px 2px;border-bottom:1px solid #e2e8f0}
+    .gerichte-liste .preis{color:#334155;font-weight:600;white-space:nowrap}
     .crosslinks{background:#fff;border-radius:var(--r-md);padding:22px;margin:32px 0}
     .crosslinks h3{margin:0 0 10px;font-size:16px;color:${PRIMARY_COLOR}}
     .crosslinks .links{display:flex;flex-wrap:wrap;gap:8px}
@@ -968,12 +1104,12 @@ function renderProspectRow(p) {
 
 // Der zweite Block der Ortsseite. Die Ueberschrift sagt nuechtern, was es
 // ist -- kein "Geheimtipps", kein "Die schoensten". Es ist eine Liste.
-function renderWeitereSection(city, weitere) {
+function renderWeitereSection(city, weitere, ueberschrift) {
   if (!weitere || !weitere.length) return '';
   const zeilen = weitere.map(renderProspectRow).filter(function(z) { return z; });
   if (!zeilen.length) return '';
   return '<section class="weitere">' +
-    '<h2>Weitere Betriebe in ' + escapeHtml(city.name) + '</h2>' +
+    '<h2>' + escapeHtml(ueberschrift || ('Weitere Betriebe in ' + city.name)) + '</h2>' +
     // Sagt dem Gast, warum diese Eintraege anders aussehen. Ohne den Satz
     // wirkt die Liste wie ein schlechterer Teil derselben Sache.
     '<p class="weitere-hinweis">Diese Betriebe sind nicht bei ' + BRAND + '. ' +
@@ -1133,10 +1269,14 @@ function buildAvailableSlugs(restaurants, prospects) {
     const w = prospectsImOrt(prospects, city).length;
     if (ortLohntSeite(p, w)) AVAILABLE_SLUGS.add('restaurants-' + city.slug);
   });
-  CITIES.forEach(function(city) {
+  // Ort x Art nach DERSELBEN Regel wie generateCityCategoryPage -- ueber
+  // alle Orte mit Daten, nicht nur die 28 aus CITIES.
+  ALLE_ORTE = ermittleOrte(restaurants, prospects);
+  ALLE_ORTE.forEach(function(city) {
     CATEGORIES.forEach(function(cat) {
       if (cat.slug === 'restaurant') return; // wird bewusst nie gebaut
-      if (restaurants.some(function(r) { return cityMatches(r, city) && categoryMatches(r, cat); })) {
+      const d = kategorieDaten(city, cat, restaurants, prospects);
+      if (d.matched.length || (!d.belegt && kategorieLohntSeite(0, d.weitere.length))) {
         AVAILABLE_SLUGS.add(cat.slug + '-' + city.slug);
       }
     });
@@ -1150,9 +1290,17 @@ function buildAvailableSlugs(restaurants, prospects) {
   return AVAILABLE_SLUGS;
 }
 
-function renderCrossLinks(currentCity, currentCat) {
+// Alle Orte mit Daten (siehe ermittleOrte), gesetzt von buildAvailableSlugs.
+// Leer -> wie frueher nur CITIES.
+let ALLE_ORTE = [];
+
+function renderCrossLinks(currentCity, currentCat, selbst) {
   const otherCats = CATEGORIES.filter(function(c) { return c.slug !== currentCat.slug; });
-  const otherCities = CITIES.filter(function(c) { return c.slug !== currentCity.slug; });
+  const otherCities = (ALLE_ORTE.length ? ALLE_ORTE : CITIES).filter(function(c) { return c.slug !== currentCity.slug; });
+  // Von der Betriebsseite einer Pizzeria auf "Pizzerien in <Ort>" -- der
+  // Weg, ueber den Google die Seite fuer die Art findet. Auf dieser Seite
+  // selbst natuerlich nicht.
+  const eigene = !selbst && currentCat.slug !== 'restaurant' && slugExists(currentCat.slug + '-' + currentCity.slug);
 
   // NUR auf Seiten verlinken, die es wirklich gibt. Vorher wurde blind ueber
   // alle Kategorien x Orte iteriert -- von 16 Links existierte teils einer.
@@ -1164,12 +1312,13 @@ function renderCrossLinks(currentCity, currentCat) {
   const cityLinks = otherCities.filter(function(c) { return slugExists(currentCat.slug + '-' + c.slug); });
   const hasRegion = slugExists(currentCat.slug + '-ostfriesland');
 
-  if (!catLinks.length && !cityLinks.length && !hasRegion) return '';
+  if (!catLinks.length && !cityLinks.length && !hasRegion && !eigene) return '';
 
   let html = '<section class="crosslinks">';
-  if (catLinks.length) {
+  if (catLinks.length || eigene) {
     html += '<h3>Auch beliebt in ' + escapeHtml(currentCity.name) + '</h3>';
     html += '<div class="links">';
+    if (eigene) html += '<a href="/' + currentCat.slug + '-' + currentCity.slug + '">Alle ' + escapeHtml(currentCat.plural) + ' in ' + escapeHtml(currentCity.name) + '</a>';
     catLinks.forEach(function(c) {
       html += '<a href="/' + c.slug + '-' + currentCity.slug + '">' + escapeHtml(c.label) + ' in ' + escapeHtml(currentCity.name) + '</a>';
     });
@@ -1212,7 +1361,7 @@ function buildPage(opts) {
     : (opts.extraHtml ? ''
       : '<div class="empty">Aktuell keine passenden Restaurants gelistet. Schau später wieder vorbei oder besuche <a href="/">die Hauptseite</a>.</div>');
 
-  const crossLinks = (opts.city && opts.category) ? renderCrossLinks(opts.city, opts.category) : '';
+  const crossLinks = (opts.city && opts.category) ? renderCrossLinks(opts.city, opts.category, true) : '';
   const lang = opts.lang || 'de';
   // hreflang-Paare fuer Google: jede Seite verlinkt auf ihre andersprachige
   // Variante. canonical zeigt auf die Sprachversion der aktuellen Seite.
@@ -2478,61 +2627,108 @@ function generateProspectPage(p, partnerRestaurants, allProspects) {
 
 // ==================== PAGE GENERATORS ====================
 
-function generateCityCategoryPage(city, cat, restaurants, lang) {
-  const matched = restaurants.filter(function(r) {
-    return cityMatches(r, city) && categoryMatches(r, cat);
-  });
-  matched.sort(function(a, b) { return (Number(b.rating) || 0) - (Number(a.rating) || 0); });
-  if (matched.length === 0) return null;
-
+function generateCityCategoryPage(city, cat, restaurants, lang, prospects, karten) {
   lang = lang || 'de';
   const isEn = lang === 'en';
+  const d = kategorieDaten(city, cat, restaurants, prospects);
+  const matched = d.matched;
+  matched.sort(function(a, b) { return (Number(b.rating) || 0) - (Number(a.rating) || 0); });
+  // Die englische Fassung bleibt, wie sie war: nur wo ein Partner sitzt,
+  // nur mit Partnern. Eine englische Liste von Telefonnummern bringt
+  // niemandem etwas und verdoppelt nur die duennen Seiten.
+  const weitere = isEn ? [] : d.weitere.slice().sort(function(a, b) {
+    return String(a.name || '').localeCompare(String(b.name || ''), 'de');
+  });
+  if (matched.length === 0 && (isEn || d.belegt || !kategorieLohntSeite(0, weitere.length))) return null;
+
   const slug = cat.slug + '-' + city.slug;
   const deUrl = SITE_URL + '/' + slug;
-  const enUrl = SITE_URL + '/en/' + slug;
+  // Ohne Partner gibt es keine englische Seite -- dann darf auch kein
+  // hreflang darauf zeigen (der Catch-All machte daraus die Startseite).
+  const enUrl = matched.length ? SITE_URL + '/en/' + slug : null;
   const url = isEn ? enUrl : deUrl;
   const pluralL = isEn ? (cat.pluralEn || cat.plural) : cat.plural;
   const labelL = isEn ? (cat.labelEn || cat.label) : cat.label;
   const descEn = cat.descriptionEn || cat.description;
+  const gesamt = matched.length + weitere.length;
+  const auswahl = isEn ? { worte: [], proHaus: [] } : gerichteFuerKategorie(cat, matched, karten);
+  const bestellbar = matched.some(function(r) { return kannBestellen(r); });
 
   // Titel mit echter Anzahl + Jahr: "Die 7 besten Pizzerien in Emden (2026)"
   // klickt nachweislich besser als ein generischer Titel - Anzahl und Jahr
   // sind ECHT (Anzahl = gelistete Betriebe, Jahr = Build-Zeitpunkt).
+  //
+  // Wo ein Partner sitzt, bleibt der Titel, wie er war: "pizzeria greetsiel"
+  // bringt mit genau diesem Titel Klicks (Search Console, Oktober 2026),
+  // und ein neuer Titel faengt bei Google von vorn an.
   const jahr = new Date().getFullYear();
   const title = matched.length >= 2
     ? (isEn
       ? 'The ' + matched.length + ' best ' + pluralL + ' in ' + city.name + ' (' + jahr + ') | ' + BRAND
       : 'Die ' + matched.length + ' besten ' + cat.plural + ' in ' + city.name + ' (' + jahr + ') | ' + BRAND)
-    : (isEn
+    : matched.length === 1
+    ? (isEn
       ? pluralL + ' in ' + city.name + ' – order online | ' + BRAND
-      : cat.plural + ' in ' + city.name + ' – online bestellen | ' + BRAND);
-  const description = isEn
-    ? 'The best ' + pluralL + ' in ' + city.name + ' on ' + BRAND + '. ' +
-      descEn.charAt(0).toUpperCase() + descEn.slice(1) + '. View menu, order online & book a table – free!'
-    : 'Die besten ' + cat.plural + ' in ' + city.name + ' auf ' + BRAND + '. ' +
-      cat.descriptionDe.charAt(0).toUpperCase() + cat.descriptionDe.slice(1) +
-      '. Speisekarte ansehen, online bestellen & reservieren – kostenlos!';
+      : cat.plural + ' in ' + city.name + ' – online bestellen | ' + BRAND)
+    // Ohne Partner: nichts versprechen, was die Seite nicht hat.
+    : cat.plural + ' in ' + city.name + ' – Adressen & Telefon | ' + BRAND;
+
+  // DIE BESCHREIBUNG IM GOOGLE-TREFFER mit echten Gerichten und Preisen,
+  // wo es sie gibt -- so wie ostfriesland.app im Treffer zu La Piazza.
+  let description;
+  if (auswahl.proHaus.length) {
+    const erstes = auswahl.proHaus[0];
+    const beispiele = erstes.gerichte.slice(0, 3).map(function(it) {
+      const pr = fmtPrice(it);
+      return safeText(it.name, '') + (pr ? ' ' + pr : '');
+    }).join(', ');
+    description = auswahl.worte.join(' & ') + ' in ' + city.name + ': ' + beispiele + ' bei ' + safeText(erstes.rest.name, '') + '. ' +
+      (gesamt === 1 ? 'Ein Betrieb' : 'Alle ' + gesamt + ' ' + cat.plural) + ' mit Adresse' +
+      (bestellbar ? ', Speisekarte & Online-Bestellung.' : ' und Speisekarte.');
+  } else if (matched.length) {
+    description = isEn
+      ? 'The best ' + pluralL + ' in ' + city.name + ' on ' + BRAND + '. ' +
+        descEn.charAt(0).toUpperCase() + descEn.slice(1) + '. View menu, order online & book a table – free!'
+      : 'Die besten ' + cat.plural + ' in ' + city.name + ' auf ' + BRAND + '. ' +
+        cat.descriptionDe.charAt(0).toUpperCase() + cat.descriptionDe.slice(1) +
+        '. Speisekarte ansehen, online bestellen & reservieren – kostenlos!';
+  } else {
+    description = gesamt + ' ' + cat.plural + ' in ' + city.name + ' auf einen Blick – mit Adresse und Telefonnummer.';
+  }
 
   const html = buildPage({
     lang: lang,
     altDe: deUrl,
     altEn: enUrl,
     title: title,
-    description: description.length > 165 ? description.slice(0, 162) + '...' : description,
+    description: aufLaenge(description, 160),
     canonical: url,
     h1: matched.length >= 2
       ? (isEn ? 'The ' + matched.length + ' best ' : 'Die ' + matched.length + ' besten ') + pluralL + ' in ' + city.name
-      : (isEn ? 'The best ' : 'Die besten ') + pluralL + ' in ' + city.name,
-    subtitle: matched.length + ' ' + (matched.length === 1 ? labelL : pluralL) + ' in ' + city.name +
-      (isEn ? ' – menus, reviews, order online' : ' – Speisekarten, Bewertungen, online bestellen'),
-    intro: isEn ? buildIntroEn(city, cat, matched.length) : buildIntro(city, cat, matched.length),
+      : matched.length === 1
+      ? (isEn ? 'The best ' : 'Die besten ') + pluralL + ' in ' + city.name
+      : cat.plural + ' in ' + city.name,
+    subtitle: isEn
+      ? matched.length + ' ' + (matched.length === 1 ? labelL : pluralL) + ' in ' + city.name + ' – menus, reviews, order online'
+      : gesamt + ' ' + (gesamt === 1 ? labelL : pluralL) + ' in ' + city.name +
+        (matched.length ? ' – Speisekarten, Bewertungen, online bestellen' : ' – Adressen und Telefonnummern'),
+    intro: isEn ? buildIntroEn(city, cat, matched.length)
+      : matched.length ? buildIntro(city, cat, matched.length) : buildKategorieIntroOhnePartner(city, cat, weitere),
     restaurants: matched,
-    faqs: isEn ? buildFaqsEn(city, cat, matched) : buildFaqs(city, cat, matched),
+    // Die ItemList bildet die ganze Seite ab, nicht nur die Partner.
+    itemListe: weitere.length ? matched.concat(weitere.map(alsListenEintrag)) : null,
+    extraHtml: renderGerichteSection(city, cat, auswahl) +
+      renderWeitereSection(city, weitere, 'Weitere ' + cat.plural + ' in ' + city.name),
+    faqs: isEn ? buildFaqsEn(city, cat, matched) : buildKategorieFaqs(city, cat, matched, weitere),
+    // Die Ortsstufe nur, wenn es die Ortsseite gibt -- sonst zeigt der
+    // Breadcrumb ins Leere (Catch-All, Soft-404).
     breadcrumbs: [
-      { name: isEn ? 'Home' : 'Startseite', url: isEn ? SITE_URL + '/en' : SITE_URL + '/' },
-      { name: city.name, url: isEn ? SITE_URL + '/en/restaurants-' + city.slug : SITE_URL + '/restaurants-' + city.slug },
+      { name: isEn ? 'Home' : 'Startseite', url: isEn ? SITE_URL + '/en' : SITE_URL + '/' }
+    ].concat(slugExists('restaurants-' + city.slug)
+      ? [{ name: city.name, url: isEn ? SITE_URL + '/en/restaurants-' + city.slug : SITE_URL + '/restaurants-' + city.slug }]
+      : []).concat([
       { name: pluralL + ' in ' + city.name, url: url }
-    ],
+    ]),
     city: city,
     category: cat,
     gridHeading: (isEn ? 'Top ' : 'Top-') + pluralL + ' in ' + city.name
@@ -2544,8 +2740,41 @@ function generateCityCategoryPage(city, cat, restaurants, lang) {
   }
   const relpath = (isEn ? 'en/' : '') + slug + '.html';
   fs.writeFileSync(path.join(OUT_DIR, relpath), html, 'utf8');
-  return { filename: relpath, url: url, count: matched.length };
+  return { filename: relpath, url: url, count: matched.length, weitere: weitere.length,
+           gerichte: auswahl.proHaus.reduce(function(n, h) { return n + h.gerichte.length; }, 0) };
 }
+
+// Vorspann ohne Partner: sachlich. buildIntro verspricht Bestellen und
+// Reservieren -- hier gibt es beides nicht.
+function buildKategorieIntroOhnePartner(city, cat, weitere) {
+  return '<p>' + escapeHtml(weitere.length + ' ' + cat.plural + ' in ' + city.name +
+    ', die wir kennen – mit Adresse und, wo bekannt, Telefonnummer.') + '</p>' +
+    '<p>' + escapeHtml('Keiner davon ist bisher bei ' + BRAND + '. Speisekarte, Online-Bestellung und Reservierung ' +
+    'gibt es deshalb hier noch nicht – am besten direkt beim Betrieb anrufen.') + '</p>';
+}
+
+// Die Frage, die Gaeste wirklich stellen: "Welche Pizzerien gibt es in X?"
+// Die Antwort nennt alle beim Namen, Partner zuerst.
+function buildKategorieFaqs(city, cat, matched, weitere) {
+  const partner = matched.map(function(r) { return safeText(r.name, ''); }).filter(Boolean);
+  const namen = partner.concat(weitere.map(function(p) { return safeText(p.name, ''); })).filter(Boolean);
+  const alle = namen.length ? {
+    q: 'Welche ' + cat.plural + ' gibt es in ' + city.name + '?',
+    a: 'In ' + city.name + ': ' + namen.slice(0, 12).join(', ') +
+      (namen.length > 12 ? ' und ' + (namen.length - 12) + ' weitere' : '') + '.' +
+      (partner.length ? ' Bei ' + partner.join(', ') + ' siehst du auf ' + BRAND + ' die ganze Speisekarte.' : '')
+  } : null;
+  if (matched.length) {
+    const f = buildFaqs(city, cat, matched);
+    if (alle) f.splice(1, 0, alle);
+    return f;
+  }
+  return (alle ? [alle] : []).concat([{
+    q: 'Kann ich bei ' + cat.plural + ' in ' + city.name + ' online bestellen?',
+    a: 'Über ' + BRAND + ' noch nicht – keiner der Betriebe hier ist bisher dabei. Die Telefonnummern stehen oben in der Liste.'
+  }]);
+}
+
 
 // VORSPANN DER ORTSSEITE -- SACHLICH, NICHT SCHOEN.
 //
@@ -2624,6 +2853,19 @@ function buildOrtsFaqs(city, matched, weitere, isEn) {
   return faqs;
 }
 
+// Von der Ortsseite auf "Pizzerien in <Ort>", "Döner in <Ort>" ... --
+// nur auf Seiten, die es gibt (slugExists).
+function renderArtenImOrt(city) {
+  const arten = CATEGORIES.filter(function(c) {
+    return c.slug !== 'restaurant' && slugExists(c.slug + '-' + city.slug);
+  });
+  if (!arten.length) return '';
+  return '<section class="crosslinks"><h3>Nach Art in ' + escapeHtml(city.name) + '</h3><div class="links">' +
+    arten.map(function(c) {
+      return '<a href="/' + c.slug + '-' + city.slug + '">' + escapeHtml(c.plural) + ' in ' + escapeHtml(city.name) + '</a>';
+    }).join('') + '</div></section>';
+}
+
 function generateCityOverview(city, restaurants, lang, prospects) {
   const matched = restaurants.filter(function(r) { return cityMatches(r, city); });
   matched.sort(function(a, b) { return (Number(b.rating) || 0) - (Number(a.rating) || 0); });
@@ -2687,7 +2929,7 @@ function generateCityOverview(city, restaurants, lang, prospects) {
     // stuende im Schema eine Liste mit 3 Eintraegen unter einer Seite, auf
     // der 40 stehen.
     itemListe: matched.concat(weitere.map(alsListenEintrag)),
-    extraHtml: renderWeitereSection(city, weitere),
+    extraHtml: (isEn ? '' : renderArtenImOrt(city)) + renderWeitereSection(city, weitere),
     faqs: buildOrtsFaqs(city, matched, weitere, isEn),
     breadcrumbs: [
       { name: isEn ? 'Home' : 'Startseite', url: isEn ? SITE_URL + '/en' : SITE_URL + '/' },
@@ -3572,22 +3814,36 @@ async function main() {
     process.exit(0);
   }
 
-  // Pro Stadt × Kategorie: DE + EN
+  // Die Speisekarten ZUERST holen: die Seiten "Pizzerien in <Ort>" zeigen
+  // seit 23.10.2026 echte Gerichte mit Preis. Unten bei den Restaurant-
+  // seiten werden dieselben Karten benutzt -- jede nur einmal geholt.
+  const kartenNachId = {};   // auch fuer llms.txt / llms-full.txt
+  for (const rest of restaurants) {
+    if (!rest || !rest.id) continue;
+    try { kartenNachId[rest.id] = await fetchMenuItems(rest.id); }
+    catch (e) { kartenNachId[rest.id] = []; console.warn('[seo] WARN: Speisekarte', rest.name, '-', e.message); }
+  }
+
+  // Pro Ort × Art: DE + EN (EN nur mit Partner, siehe generateCityCategoryPage).
+  // Ueber ALLE Orte mit Daten -- dieselbe Liste wie buildAvailableSlugs.
   const LANGS = ['de', 'en'];
-  for (const city of CITIES) {
+  let kategorieSeiten = 0, kategorieOhnePartner = 0;
+  for (const city of ermittleOrte(restaurants, prospects)) {
     for (const cat of CATEGORIES) {
       if (cat.slug === 'restaurant') continue;
       for (const lng of LANGS) {
-        const result = generateCityCategoryPage(city, cat, restaurants, lng);
+        const result = generateCityCategoryPage(city, cat, restaurants, lng, prospects, kartenNachId);
         if (result) {
-          console.log('[seo] +', result.filename, '(' + result.count + ' restaurants)');
+          console.log('[seo] +', result.filename, '(' + result.count + ' Partner, ' + result.weitere + ' weitere, ' + result.gerichte + ' Gerichte)');
           generated.push(result);
+          if (lng === 'de') { kategorieSeiten++; if (!result.count) kategorieOhnePartner++; }
         } else if (lng === 'de') {
           skipped++;
         }
       }
     }
   }
+  console.log('[seo] Ort x Art:', kategorieSeiten, 'Seiten, davon ohne Partner:', kategorieOhnePartner);
 
   // Ortsseiten ueber ALLE Orte, fuer die es Daten gibt -- nicht nur die 28
   // aus CITIES. import-osm.js holt 45; die 19 dazwischen hatten bisher
@@ -3633,7 +3889,6 @@ async function main() {
   // Per-Restaurant SEO-Pages — damit "La Piazza Greetsiel" direkt findet
   // Inkl. Menu-Items aus Supabase fuer Rich Snippets (wie ostfriesland.app)
   let restaurantPages = 0;
-  const kartenNachId = {};   // fuer llms.txt / llms-full.txt
   let totalMenuItems = 0;
   let totalReviews = 0;
   for (const rest of restaurants) {
@@ -3641,9 +3896,8 @@ async function main() {
       let menuItems = [];
       let reviews = [];
       if (rest.id) {
-        menuItems = await fetchMenuItems(rest.id);
+        menuItems = kartenNachId[rest.id] || [];
         reviews = await fetchReviews(rest.id);
-        kartenNachId[rest.id] = menuItems;
       }
       const result = generateRestaurantPage(rest, menuItems, reviews);
       if (result) {
