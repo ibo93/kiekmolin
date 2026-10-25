@@ -3801,6 +3801,30 @@ function injectHomepageRestaurantLinks(restaurants) {
   }
 }
 
+// ==================== UNVOLLSTAENDIGER BAU GEHT NICHT LIVE ====================
+//
+// Gemessen am 23.10.2026: OpenStreetMap lieferte beim Bau nichts. Dieser
+// Bau lief trotzdem "erfolgreich" durch und ging mit 724 statt 2200 Dateien
+// live. Rund 1250 Betriebsseiten lieferten Google zwei Tage lang die
+// App-Startseite (731 KB statt 6 KB). Fuer Gaeste sah alles normal aus --
+// sie werden auf diesen Seiten ohnehin in die App geleitet.
+//
+// Darum: Fehlt eine Quelle, bricht der Bau AUF NETLIFY mit Fehler ab.
+// netlify.toml verbindet die Schritte mit &&, ein gescheiterter Bau wird
+// nicht veroeffentlicht, und der letzte gute Stand bleibt live.
+// Lokal und in Tests nur eine Warnung.
+const MIN_VERZEICHNIS = parseInt(process.env.SEO_MIN_VERZEICHNIS || '900', 10) || 900;
+
+function bauVollstaendig(supaOk, partnerAnzahl, betriebeAnzahl) {
+  if (!supaOk) return 'Supabase war nicht erreichbar -- ohne Partner fehlen Restaurant-, Orts- und Art-Seiten';
+  if (!partnerAnzahl) return 'Supabase lieferte keinen einzigen Partner';
+  if (betriebeAnzahl < MIN_VERZEICHNIS) {
+    return 'nur ' + betriebeAnzahl + ' Betriebe aus OpenStreetMap (mindestens ' + MIN_VERZEICHNIS +
+      ') -- ohne sie fehlen die Betriebsseiten';
+  }
+  return null;
+}
+
 // ==================== MAIN ====================
 
 async function main() {
@@ -3833,6 +3857,16 @@ async function main() {
     prospects = loadProspects();
   } catch (e) {
     console.warn('[seo] WARN: prospects.json nicht lesbar -', e.message);
+  }
+
+  const unvollstaendig = bauVollstaendig(supaOk, restaurants.length, prospects.length);
+  if (unvollstaendig) {
+    if (process.env.NETLIFY === 'true') {
+      console.error('[seo] BAU ABGEBROCHEN: ' + unvollstaendig + '.');
+      console.error('[seo] Netlify laesst den letzten guten Stand live. Spaeter erneut bauen ("Retry deploy").');
+      process.exit(1);
+    }
+    console.warn('[seo] WARN: unvollstaendig (' + unvollstaendig + ') -- lokal wird trotzdem gebaut.');
   }
 
   // Kunden NICHT ein zweites Mal als OpenStreetMap-Seite bauen (siehe
@@ -4064,6 +4098,7 @@ if (require.main === module) {
     karteSortieren: karteSortieren,
     fetchMenuItems: fetchMenuItems,
     kundeFuerProspect: kundeFuerProspect,
+    bauVollstaendig: bauVollstaendig,
     nameKern: nameKern,
     generateGastroPage,
   gastroLeistungen,

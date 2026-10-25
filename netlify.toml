@@ -6,14 +6,23 @@
   #    die Verzeichnis-/SEO-Seiten der Nicht-Partner (mehr Google-Reichweite).
   # 2. SEO-Landing-Pages aus Supabase (Partner) + prospects.json (Nicht-Partner).
   # 3. Minifizieren. 4. Build-Ausweis nach /version.txt schreiben.
-  # Fault-tolerant: Schlaegt ein Schritt fehl, wird trotzdem deployed.
+  #
+  # NICHT MEHR "trotzdem deployen" beim Seitenbau (25.10.2026). Gemessen am
+  # 23.10.: OpenStreetMap lieferte beim Bau nichts, der Bau lief "erfolgreich"
+  # durch und ging mit 724 statt 2200 Dateien live -- rund 1250 Betriebsseiten
+  # lieferten Google zwei Tage lang die App-Startseite. Fuer Gaeste sah alles
+  # normal aus, deshalb fiel es niemandem auf.
+  # Jetzt: Ist der Bau unvollstaendig, bricht build-seo-pages.js mit Fehler ab
+  # (Pruefung bauVollstaendig), die Kette unten ist mit && verbunden, und
+  # Netlify laesst den letzten guten Stand live. OSM darf weiter scheitern --
+  # ob genug Betriebe da sind, entscheidet der Seitenbau.
   #
   # Schritt 4 steht ABSICHTLICH am Ende und ohne "|| echo": er haengt von nichts
   # ab (liest nur Umgebungsvariablen, schreibt eine Textdatei) und beantwortet
   # danach die Frage, die uns einen halben Tag gekostet hat -- naemlich WELCHER
   # Commit hier eigentlich liegt. Ein alter Deploy meldet dasselbe "ready" wie
   # ein frischer; kiekmolin.de/version.txt sagt die Wahrheit.
-  command = "node import-osm.js || echo 'OSM import failed - continuing'; node build-seo-pages.js || echo 'SEO build script failed - continuing'; node minify-build.js || echo 'Minify failed - continuing'; node build-version.js"
+  command = "(node import-osm.js || echo 'OSM import failed - continuing') && node build-seo-pages.js && (node minify-build.js || echo 'Minify failed - continuing') && node build-version.js"
   publish = "."
 
 [build.environment]
