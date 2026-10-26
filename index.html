@@ -420,6 +420,23 @@
 .sperr-punkt{display:inline-block;width:7px;height:7px;border-radius:50%;background:#d97706;vertical-align:middle;}
 .sperr-punkt-tag{background:#b91c1c;}
 .sperr-tag-punkt{position:absolute;left:50%;bottom:2px;transform:translateX(-50%);width:5px;height:5px;}
+
+        /* NEUERÖFFNUNG + AUSGEBUCHT-ANRUFEN (26.10.2026). Flaechen hier statt
+           inline, damit Hell und Dunkel an EINER Stelle stehen. Gruen und Gold
+           sind Marke und bleiben in beiden Themen gleich (wie die Hauptknoepfe). */
+        .kmi-eroeffnung-kasten { background: #003d33; color: #ffffff; }
+        .kmi-eroeffnung-gold { background: #ffd54f; color: #00251e; }
+        .kmi-eroeffnung-zaehlpille { background: #00251e; color: #ffd54f; }
+        .kmi-eroeffnung-knopf { background: #ffffff; color: #00251e; }
+        .kmi-neu-eroeffnet { background: #003d33; color: #ffffff; }
+        .kmi-ausgebucht-anrufen { background: #003d33; color: #ffffff; }
+        .kmi-ausgebucht-anrufen.kmi-eroeffnung-knopf { background: #ffffff; color: #00251e; }
+        /* Dunkel: bewusst dieselben Werte. Gold mit #00251e (11,6 : 1) und Weiss
+           auf dem gruenen Kasten lesen sich in beiden Themen; der Kasten selbst
+           ist dunkelgruen und dreht nicht mit. */
+        .dark-mode .kmi-eroeffnung-gold { background: #ffd54f; color: #00251e; }
+        .dark-mode .kmi-eroeffnung-knopf { background: #ffffff; color: #00251e; }
+        .dark-mode .kmi-ausgebucht-anrufen.kmi-eroeffnung-knopf { background: #ffffff; color: #00251e; }
 </style>
     <!-- Die Symbolschrift liegt IM Projekt, nicht bei Google.
          Material Symbols ist eine Ligaturschrift: im HTML steht wirklich
@@ -16626,6 +16643,8 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
             <p style="font-size:13px;color:var(--text-secondary);margin-top:2px;" id="restaurantSubtitle"></p>
 
             <!-- Tagesangebote / Happy Hour -->
+            <!-- Neueröffnung (Ibo, 26.10.2026): die naechste Eroeffnung, gross. -->
+            <div id="eroeffnungBanner" style="display:none;"></div>
             <div id="dailySpecialsContainer" style="display:none;margin-bottom:16px;"></div>
 
             <!-- Filter Buttons — Stitch Pill Style -->
@@ -17464,7 +17483,8 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             </div>
                         </div>
                         <!-- Reservierungen ausgebucht: nur Reservierungen voll, Bestellen
-                             geht weiter. Gäste sehen "ausgebucht" + Warteliste. -->
+                             geht weiter. Gäste sehen "ausgebucht" + Anruf-Knopf
+                             (ohne Nummer: Warteliste). -->
                         <div id="ausgebuchtBlock" style="padding-top:12px;margin-top:12px;border-top:1px solid rgba(255,255,255,0.15);">
                             <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
                                 <span class="material-symbols-outlined" style="font-size:18px;">event_busy</span>
@@ -17481,6 +17501,21 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             </div>
                             <div id="ausgebuchtListe" style="margin-top:8px;display:flex;flex-direction:column;gap:6px;"></div>
                             <div id="ausgebuchtStand" role="status" aria-live="polite" style="font-family:Inter,sans-serif;font-size:12px;line-height:1.4;margin-top:6px;color:#ffffff;">Nichts eingetragen – Gäste können normal reservieren.</div>
+                        </div>
+                        <!-- Neueröffnung (Ibo, 26.10.2026): Datum eintragen, dann sehen Gäste
+                             den Kasten auf der Startseite, den Balken auf eurer Seite und
+                             einen Tage-Zähler. 30 Tage danach steht "Neu eröffnet" dran. -->
+                        <div id="eroeffnungBlock" style="padding-top:12px;margin-top:12px;border-top:1px solid rgba(255,255,255,0.15);">
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                                <span class="material-symbols-outlined" style="font-size:18px;">event_upcoming</span>
+                                <span style="font-family:Inter,sans-serif;font-size:13px;font-weight:600;">Neueröffnung</span>
+                            </div>
+                            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                                <input type="date" id="eroeffnungDatum" style="flex:1;min-width:140px;padding:8px 10px;border-radius:12px;border:none;background:rgba(255,255,255,0.12);color:white;font-family:Inter,sans-serif;font-size:12px;color-scheme:dark;" aria-label="Datum der Neueröffnung">
+                                <button type="button" data-eroeffnung="speichern" style="padding:8px 14px;border:none;border-radius:9999px;background:#FFD54F;color:#00251e;font-family:Inter,sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Speichern</button>
+                                <button type="button" data-eroeffnung="loeschen" style="padding:8px 14px;border:1px solid rgba(255,255,255,0.35);border-radius:9999px;background:transparent;color:#ffffff;font-family:Inter,sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Löschen</button>
+                            </div>
+                            <div id="eroeffnungStand" role="status" aria-live="polite" style="font-family:Inter,sans-serif;font-size:12px;line-height:1.4;margin-top:6px;color:#ffffff;">Keine Neueröffnung eingetragen.</div>
                         </div>
                     </div>
                 </div>
@@ -27035,6 +27070,152 @@ function ausgebuchtText(z) {
 }
 window.ausgebuchtAm = ausgebuchtAm; window.ausgebuchtZeitraeume = ausgebuchtZeitraeume;
 
+// AUSGEBUCHT HEISST: ANRUFEN (Ibo, 26.10.2026: "immer wenn's ausgebucht
+// ist, immer telefonisch"). Statt der Warteliste bekommt der Gast die
+// Nummer des Restaurants als Knopf. Hat das Restaurant keine Nummer
+// hinterlegt, bleibt die Warteliste -- sonst stuende der Gast vor einem
+// leeren Kasten ohne jeden Weg (Regel 6: nie still ins Leere).
+function ausgebuchtTelefon(restaurant) {
+    var tel = restaurant && restaurant.phone ? String(restaurant.phone).replace(/[^0-9+]/g, '') : '';
+    return tel.length >= 6 ? tel : '';
+}
+function ausgebuchtAusweg(restaurant) {
+    return ausgebuchtTelefon(restaurant) ? ' – oder ruf direkt an.' : ' – oder setz dich auf die Warteliste.';
+}
+function ausgebuchtAngebotSetzen(box, restaurant, ueberschrift) {
+    if (!box) return;
+    var tel = ausgebuchtTelefon(restaurant);
+    if (tel) {
+        box.innerHTML = '<p style="color: var(--ink-strong); margin-bottom: 12px; font-family: Epilogue, sans-serif; font-weight: 700;">Online ausgebucht. Freie Plätze gibt es nur noch telefonisch.</p>' +
+            '<a class="kmi-ausgebucht-anrufen" href="tel:' + tel + '" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 24px;border-radius:9999px;font-family:Epilogue,sans-serif;font-weight:700;font-size:15px;text-decoration:none;">' +
+            '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:18px;">call</span>Anrufen: ' + escapeHtml(String(restaurant.phone)) + '</a>';
+    } else {
+        box.innerHTML = '<p style="color: var(--ink-strong); margin-bottom: 12px; font-family: Epilogue, sans-serif; font-weight: 700;">' + (ueberschrift || 'Wird ein Tisch frei, meldet sich das Restaurant.') + '</p>' +
+            '<button type="button" onclick="showWaitlistForm()" class="btn" style="background: #003d33; color: white; border-radius: 9999px; font-family: Epilogue, sans-serif; font-weight: 700;">Auf Warteliste setzen</button>';
+    }
+    box.style.display = 'block';
+}
+window.ausgebuchtTelefon = ausgebuchtTelefon; window.ausgebuchtAngebotSetzen = ausgebuchtAngebotSetzen;
+
+// ==================== NEUERÖFFNUNG ====================
+//
+// Ibo, 26.10.2026: "Neueröffnung-Balken, dass man sieht, dass es eine
+// Neueröffnung gibt, wie am 30.10." -- Entwurf in Claude Design abgenommen.
+// Gespeichert wie "ausgebucht" im features-Array: "eroeffnung:JJJJ-MM-TT".
+// Kein SQL noetig.
+//
+//   bald   (vor dem Tag)      Kasten auf der Startseite, Balken auf der
+//                             Lokalseite, Abzeichen in der Liste, Zaehler
+//   heute  (der Tag selbst)   dasselbe, "Heute Neueröffnung"
+//   neu    (30 Tage danach)   nur noch das Abzeichen "Neu eröffnet"
+//   danach                    nichts mehr -- ein Lokal ist nicht ewig neu
+var EROEFFNUNG_NEU_TAGE = 30;
+function eroeffnungInfo(restaurant, heute) {
+    var feats = (restaurant && restaurant.features) || [];
+    if (!Array.isArray(feats)) return null;
+    var datum = null;
+    feats.forEach(function (f) {
+        var m = String(f).match(/^eroeffnung:(\d{4}-\d{2}-\d{2})$/);
+        if (m) datum = m[1];
+    });
+    if (!datum) return null;
+    heute = heute || new Date().toLocaleDateString('sv-SE');
+    var tage = Math.round((new Date(datum + 'T12:00:00') - new Date(heute + 'T12:00:00')) / 86400000);
+    if (isNaN(tage)) return null;
+    var phase = tage > 0 ? 'bald' : (tage === 0 ? 'heute' : (tage >= -EROEFFNUNG_NEU_TAGE ? 'neu' : null));
+    if (!phase) return null;
+    var d = new Date(datum + 'T12:00:00');
+    return {
+        datum: datum, tage: tage, phase: phase,
+        lang: d.toLocaleDateString('de-DE', { day: 'numeric', month: 'long' }),
+        // Von Hand: toLocaleDateString liefert "30.10." schon MIT Punkt --
+        // ein angehaengter ergab "30.10.." (vom Test gefunden).
+        kurz: datum.slice(8, 10) + '.' + datum.slice(5, 7) + '.',
+        wochentag: d.toLocaleDateString('de-DE', { weekday: 'long' })
+    };
+}
+function eroeffnungZaehler(info) {
+    if (!info || info.phase === 'neu') return '';
+    if (info.phase === 'heute') return 'Heute';
+    return 'noch ' + info.tage + (info.tage === 1 ? ' Tag' : ' Tage');
+}
+// Abzeichen auf der Karte in der Liste.
+function eroeffnungAbzeichen(restaurant) {
+    var e = eroeffnungInfo(restaurant);
+    if (!e) return '';
+    if (e.phase === 'neu') {
+        return '<div class="kmi-eroeffnung-abzeichen kmi-neu-eroeffnet" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:4px 12px;border-radius:9999px;font-family:Inter,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.06em;">'
+            + '<span aria-hidden="true" style="width:7px;height:7px;border-radius:9999px;background:#ffd54f;"></span>NEU ERÖFFNET</div>';
+    }
+    return '<div class="kmi-eroeffnung-abzeichen kmi-eroeffnung-gold" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:4px 12px;border-radius:9999px;font-family:Inter,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.06em;">'
+        + '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;font-variation-settings:\'FILL\' 1;">star</span>'
+        + (e.phase === 'heute' ? 'HEUTE NEUERÖFFNUNG' : 'ERÖFFNUNG ' + e.kurz) + '</div>';
+}
+// Goldener Balken oben auf der Lokalseite -- nur vor und am Eröffnungstag.
+function eroeffnungBalkenHtml(restaurant) {
+    var e = eroeffnungInfo(restaurant);
+    if (!e || e.phase === 'neu') return '';
+    return '<div class="kmi-eroeffnung-balken kmi-eroeffnung-gold" role="note" style="display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:10px;padding:12px 16px;">'
+        + '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:18px;font-variation-settings:\'FILL\' 1;">star</span>'
+        + '<span style="font-family:Epilogue,sans-serif;font-weight:800;font-size:15px;letter-spacing:0.04em;">' + (e.phase === 'heute' ? 'HEUTE NEUERÖFFNUNG' : 'NEUERÖFFNUNG AM ' + e.lang.toUpperCase()) + '</span>'
+        + (e.phase === 'bald' ? '<span class="kmi-eroeffnung-zaehlpille" style="font-family:Inter,sans-serif;font-size:13px;font-weight:700;border-radius:9999px;padding:3px 10px;">' + eroeffnungZaehler(e) + '</span>' : '')
+        + '</div>';
+}
+// Der grosse Kasten auf der Startseite: die naechste Eroeffnung.
+function eroeffnungBannerHtml(restaurants) {
+    var kandidaten = (restaurants || []).filter(function (r) {
+        if (!r || r.is_active === false) return false;
+        var e = eroeffnungInfo(r);
+        return e && e.phase !== 'neu';
+    }).sort(function (a, b) { return eroeffnungInfo(a).tage - eroeffnungInfo(b).tage; });
+    if (!kandidaten.length) return '';
+    var r = kandidaten[0], e = eroeffnungInfo(r);
+    var slug = String(r.slug || r.id).replace(/[^a-zA-Z0-9_-]/g, '');
+    var feats = r.features || [];
+    var kannRes = feats.indexOf('no_reservations') < 0 && !(typeof zahlsperreReservierenAus === 'function' && zahlsperreReservierenAus(r));
+    var voll = kannRes && ausgebuchtAm(r, e.datum);
+    var tel = ausgebuchtTelefon(r);
+    var knopf = '';
+    if (voll && tel) {
+        knopf = '<p style="margin:0;font-family:Inter,sans-serif;font-size:14px;line-height:1.45;color:rgba(255,255,255,0.92);">Online ausgebucht. Freie Plätze gibt es nur noch telefonisch.</p>'
+            + '<a class="kmi-ausgebucht-anrufen kmi-eroeffnung-knopf" href="tel:' + tel + '" style="display:flex;align-items:center;justify-content:center;gap:8px;min-height:50px;border-radius:9999px;text-decoration:none;font-family:Epilogue,sans-serif;font-weight:700;font-size:15px;"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:18px;">call</span>Anrufen: ' + escapeHtml(String(r.phone)) + '</a>';
+    } else if (kannRes && !voll) {
+        knopf = '<button type="button" onclick="openReservation(\'' + String(r.id).replace(/[^a-zA-Z0-9_-]/g, '') + '\')" class="kmi-eroeffnung-knopf" style="display:flex;align-items:center;justify-content:center;gap:8px;min-height:50px;border:none;border-radius:9999px;font-family:Epilogue,sans-serif;font-weight:700;font-size:15px;cursor:pointer;"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:18px;">calendar_today</span>Tisch zur Eröffnung reservieren</button>';
+    }
+    return '<section class="kmi-eroeffnung-kasten" aria-label="Neueröffnung" style="position:relative;border-radius:28px;padding:24px 20px 20px;overflow:hidden;display:flex;flex-direction:column;gap:14px;margin-bottom:16px;">'
+        + '<div aria-hidden="true" style="position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:9999px;border:2px solid rgba(255,213,79,0.35);"></div>'
+        + '<div class="kmi-eroeffnung-gold" style="display:inline-flex;align-self:flex-start;align-items:center;gap:8px;border-radius:9999px;padding:7px 14px;font-family:Inter,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.15em;"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;font-variation-settings:\'FILL\' 1;">star</span>NEUERÖFFNUNG</div>'
+        + '<div style="position:relative;display:flex;flex-direction:column;gap:6px;">'
+        +   '<div style="font-family:Epilogue,sans-serif;font-weight:900;font-size:36px;line-height:1;letter-spacing:-0.04em;text-transform:uppercase;overflow-wrap:anywhere;">' + escapeHtml(r.name || '') + '</div>'
+        +   (r.city ? '<div style="font-family:Inter,sans-serif;font-size:15px;color:rgba(255,255,255,0.86);">' + (e.phase === 'heute' ? 'öffnet heute in ' : 'öffnet in ') + escapeHtml(r.city) + '</div>' : '')
+        + '</div>'
+        + '<div style="display:flex;align-items:stretch;gap:10px;">'
+        +   '<div style="flex:1 1 0;background:rgba(255,255,255,0.10);border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:2px;">'
+        +     '<span style="font-family:Inter,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.15em;color:#ffd54f;">AM</span>'
+        +     '<span style="font-family:Epilogue,sans-serif;font-weight:800;font-size:24px;line-height:1.1;">' + e.lang + '</span>'
+        +     '<span style="font-family:Inter,sans-serif;font-size:13px;color:rgba(255,255,255,0.86);">' + e.wochentag + '</span>'
+        +   '</div>'
+        +   '<div class="kmi-eroeffnung-gold" style="width:96px;border-radius:16px;padding:12px 10px;display:flex;flex-direction:column;align-items:center;justify-content:center;">'
+        +     (e.phase === 'heute'
+                ? '<span style="font-family:Epilogue,sans-serif;font-weight:900;font-size:24px;line-height:1;">HEUTE</span>'
+                : '<span style="font-family:Inter,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.1em;">NOCH</span><span style="font-family:Epilogue,sans-serif;font-weight:900;font-size:40px;line-height:1;">' + e.tage + '</span><span style="font-family:Inter,sans-serif;font-size:13px;font-weight:700;">' + (e.tage === 1 ? 'Tag' : 'Tage') + '</span>')
+        +   '</div>'
+        + '</div>'
+        + knopf
+        + '<button type="button" onclick="openRestaurantBySlug(\'' + slug + '\')" style="align-self:center;min-height:44px;padding:0 12px;border:none;background:transparent;color:#ffffff;font-family:Inter,sans-serif;font-size:14px;font-weight:600;text-decoration:underline;cursor:pointer;">Zum Restaurant</button>'
+        + '</section>';
+}
+function eroeffnungBannerZeichnen() {
+    var box = document.getElementById('eroeffnungBanner');
+    if (!box) return;
+    var html = eroeffnungBannerHtml((typeof APP_DATA !== 'undefined' && APP_DATA.restaurants) || []);
+    box.innerHTML = html;
+    box.style.display = html ? 'block' : 'none';
+}
+window.eroeffnungInfo = eroeffnungInfo; window.eroeffnungAbzeichen = eroeffnungAbzeichen;
+window.eroeffnungBalkenHtml = eroeffnungBalkenHtml; window.eroeffnungBannerHtml = eroeffnungBannerHtml;
+window.eroeffnungBannerZeichnen = eroeffnungBannerZeichnen;
+
 /* ZAHLSPERRE -- wenn eine Rechnung offen bleibt.
 
    Vier Stufen, von Hand vom Verwalter gesetzt (Function zahlsperre):
@@ -31157,6 +31338,7 @@ function renderRestaurants(filter) {
                         <span style="width:3px;height:3px;border-radius:50%;background:#c0c8c4;"></span>
                         <span>${r.city || 'Ostfriesland'}${r._distKm && r._distKm < 100 ? ' · ' + r._distKm.toFixed(1) + ' km' : ''}</span>
                     </div>
+                    ${typeof eroeffnungAbzeichen === 'function' ? eroeffnungAbzeichen(r) : ''}
                     <!-- Tagesangebot. Wird von angebotAbzeichenSetzen() gefuellt,
                          sobald die Angebote geladen sind, und bleibt leer, wenn
                          das Haus heute keines hat. -->
@@ -31197,6 +31379,9 @@ function renderRestaurants(filter) {
     });
 
     container.innerHTML = html;
+
+    // Neueröffnung: der grosse Kasten ueber der Liste.
+    if (typeof eroeffnungBannerZeichnen === 'function') eroeffnungBannerZeichnen();
 
     // Tagesangebote auf die frisch gezeichneten Karten. Die Angebote koennen
     // schon da sein oder erst gleich kommen -- loadDailySpecials ruft
@@ -32686,7 +32871,7 @@ function resCalRender() {
         if (isClosed && _resRest && sonderzeitenAm(_resRest, ds).length) isClosed = false;
         var _voll = !isPast && !isClosed && _resRest && typeof ausgebuchtAm === 'function' && ausgebuchtAm(_resRest, ds);
         if (_voll && !isSel) {
-            html += '<button type="button" class="kmi-cal-voll" onclick="resCalSelectDate(\'' + ds + '\')" title="ausgebucht – Warteliste möglich" aria-label="' + d + '. ausgebucht" style="width:100%;aspect-ratio:1;border-radius:16px;border:none;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;background:transparent;color:#b45309;text-decoration:line-through;cursor:pointer;">' + d + '</button>';
+            html += '<button type="button" class="kmi-cal-voll" onclick="resCalSelectDate(\'' + ds + '\')" title="' + (ausgebuchtTelefon(_resRest) ? 'ausgebucht – nur telefonisch' : 'ausgebucht – Warteliste möglich') + '" aria-label="' + d + '. ausgebucht" style="width:100%;aspect-ratio:1;border-radius:16px;border:none;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;background:transparent;color:#b45309;text-decoration:line-through;cursor:pointer;">' + d + '</button>';
             continue;
         }
         if (isPast || isClosed) {
@@ -33329,6 +33514,16 @@ async function loadAvailableSlots() {
     document.getElementById('reservationTime').value = '';
     resSchritt(1);
 
+    // DIE SPERRE GING WEG, WENN MAN AUF MITTAG/ABEND TIPPTE (Ibo, 26.10.2026).
+    // Ferien, "ausgebucht" und Ganztags-Sperre steigen unten frueh aus --
+    // vorher blieben dabei der Mittag/Abend-Schalter und die Uhrzeiten des
+    // ZULETZT gewaehlten Tages stehen. Ein Tipp auf "Mittag" zeichnete diese
+    // alten Uhrzeiten neu, und der gesperrte Tag sah buchbar aus. Darum
+    // beides hier weg, bevor irgendein Zweig etwas zeichnet.
+    window._resSlots = null;
+    window._resSlotsDatum = date;
+    resTeilSchalterZeigen(false, false);
+
     // Betriebsferien: Fällt das gewählte Datum in die Ferien, gibt es weder
     // Slots noch Warteliste -- klarer Hinweis mit Ende-Datum.
     try {
@@ -33351,13 +33546,9 @@ async function loadAvailableSlots() {
             container.innerHTML = '<div class="kmi-res-ausgebucht" style="text-align:center;padding:20px;">' +
                 '<span class="material-symbols-outlined" style="font-size:32px;color:#b45309;">event_busy</span>' +
                 '<p style="color:var(--text-primary);font-size:14px;margin:8px 0 0;"><strong>Ausgebucht</strong> – ' + escapeHtml(_abRest.name || 'das Restaurant') + ' ist ' + ausgebuchtText(_ab) + '.</p>' +
-                '<p style="color:var(--text-secondary);font-size:13px;margin:4px 0 0;">Wähle gern ein anderes Datum – oder setz dich auf die Warteliste.</p></div>';
-            var _abWl = document.getElementById('waitlistOption');
-            if (_abWl) {
-                _abWl.innerHTML = '<p style="color: var(--ink-strong); margin-bottom: 12px; font-family: Epilogue, sans-serif; font-weight: 700;">Wird ein Tisch frei, meldet sich das Restaurant.</p>' +
-                    '<button type="button" onclick="showWaitlistForm()" class="btn" style="background: #003d33; color: white; border-radius: 9999px; font-family: Epilogue, sans-serif; font-weight: 700;">Auf Warteliste setzen</button>';
-                _abWl.style.display = 'block';
-            }
+                '<p style="color:var(--text-secondary);font-size:13px;margin:4px 0 0;">Wähle gern ein anderes Datum' + ausgebuchtAusweg(_abRest) + '</p></div>';
+            // Ausgebucht = anrufen (Ibo, 26.10.2026); ohne Nummer Warteliste.
+            ausgebuchtAngebotSetzen(document.getElementById('waitlistOption'), _abRest);
             return;
         }
     } catch (e) {}
@@ -33365,6 +33556,10 @@ async function loadAvailableSlots() {
     try {
         // Bestehende Reservierungen + Sperren für diesen Tag laden
         var _bel = await belegungHolen(restaurantId, date);
+        // Hat der Gast waehrenddessen einen anderen Tag gewaehlt, gehoert
+        // diese Antwort nicht mehr dazu -- sonst zeichnet sie die Uhrzeiten
+        // des alten Tages ueber einen gesperrten neuen.
+        if (((document.getElementById('reservationDate') || {}).value || '') !== date) return;
 
         // Kommt die Belegung nicht an, ist die ehrliche Antwort "weiss ich
         // gerade nicht" -- NICHT "alles frei". Sonst waehlt der Gast eine
@@ -33395,14 +33590,14 @@ async function loadAvailableSlots() {
                 return r.status === 'blocked' && !r.table_id && r.reservation_time && r.reservation_time.substring(0,5) === '00:00';
             });
             var _gt = sperrGastText(_ganz && _ganz.hinweis);
+            var _spRest = (APP_DATA.restaurants && APP_DATA.restaurants.find(function (r) { return r.id === restaurantId; })) || window._resCurrentRestaurantData;
             var container2 = document.getElementById('availableSlotsContainer');
-            container2.innerHTML = '<div class="kmi-res-ausgebucht" style="text-align:center;padding:20px;"><span class="material-symbols-outlined" style="font-size:32px;color:#b45309;">event_busy</span><p style="color:var(--text-primary);font-size:14px;margin:8px 0 0;"><strong>' + _gt.titel + '</strong> – ' + _gt.tag + '</p><p style="color:var(--text-secondary);font-size:13px;margin:4px 0 0;">Wähle gern ein anderes Datum' + (_gt.warteliste ? ' – oder setz dich auf die Warteliste.' : '.') + '</p></div>';
+            container2.innerHTML = '<div class="kmi-res-ausgebucht" style="text-align:center;padding:20px;"><span class="material-symbols-outlined" style="font-size:32px;color:#b45309;">event_busy</span><p style="color:var(--text-primary);font-size:14px;margin:8px 0 0;"><strong>' + _gt.titel + '</strong> – ' + _gt.tag + '</p><p style="color:var(--text-secondary);font-size:13px;margin:4px 0 0;">Wähle gern ein anderes Datum' + (_gt.warteliste ? ausgebuchtAusweg(_spRest) : '.') + '</p></div>';
             var _spWl = document.getElementById('waitlistOption');
             if (_spWl) {
                 if (_gt.warteliste) {
-                    _spWl.innerHTML = '<p style="color: var(--ink-strong); margin-bottom: 12px; font-family: Epilogue, sans-serif; font-weight: 700;">Wird ein Tisch frei, meldet sich das Restaurant.</p>' +
-                        '<button type="button" onclick="showWaitlistForm()" class="btn" style="background: #003d33; color: white; border-radius: 9999px; font-family: Epilogue, sans-serif; font-weight: 700;">Auf Warteliste setzen</button>';
-                    _spWl.style.display = 'block';
+                    // Ausgebucht = anrufen (Ibo, 26.10.2026); ohne Nummer Warteliste.
+                    ausgebuchtAngebotSetzen(_spWl, _spRest);
                 } else {
                     _spWl.innerHTML = '';
                     _spWl.style.display = 'none';
@@ -33505,15 +33700,10 @@ function renderSlotsWithSuggestions(slotData, date) {
         container.innerHTML = _vorbei
             ? '<div style="color:var(--text-secondary);font-size:13px;">Für heute sind keine Uhrzeiten mehr frei – wähle gern einen anderen Tag.</div>'
             : '<div class="kmi-res-ausgebucht" style="color:var(--text-primary);font-size:14px;"><strong>Ausgebucht</strong> – an diesem Tag ist leider alles voll.</div>';
-        var _wlBox = document.getElementById('waitlistOption');
-        if (_wlBox) {
-            // Immer mit dem Ausgangs-Knopf starten (nicht mit altem Formular/Erfolg
-            // von einem vorher gewählten Datum)
-            _wlBox.innerHTML =
-                '<p style="color: var(--ink-strong); margin-bottom: 12px; font-family: Epilogue, sans-serif; font-weight: 700;">Keine Tische verfügbar zu dieser Zeit</p>' +
-                '<button type="button" onclick="showWaitlistForm()" class="btn" style="background: #003d33; color: white; border-radius: 9999px; font-family: Epilogue, sans-serif; font-weight: 700;">Auf Warteliste setzen</button>';
-            _wlBox.style.display = 'block';
-        }
+        // Ausgebucht = anrufen (Ibo, 26.10.2026). Immer frisch gesetzt --
+        // nie ein altes Formular von einem vorher gewaehlten Datum. Ohne
+        // Nummer bleibt die Warteliste. Am vergangenen Tag gibt es keins von beiden.
+        if (!_vorbei) ausgebuchtAngebotSetzen(document.getElementById('waitlistOption'), window._resCurrentRestaurantData, 'Keine Tische verfügbar zu dieser Zeit');
         return;
     }
 
@@ -33526,6 +33716,7 @@ function renderSlotsWithSuggestions(slotData, date) {
     // war "< 15:00", Abend ">= 17:00". Wer um 15:30 aufmacht, hatte online
     // gar keine Zeit. Jetzt ist Abend alles ab 15:00.
     window._resSlots = slotData;
+    window._resSlotsDatum = date || ((document.getElementById('reservationDate') || {}).value || '');
     var mittag = slotData.filter(function (s) { return s.time < '15:00'; });
     var abend = slotData.filter(function (s) { return s.time >= '15:00'; });
     var mFrei = mittag.some(function (s) { return !s.voll; }), aFrei = abend.some(function (s) { return !s.voll; });
@@ -33574,7 +33765,10 @@ function resTeilSchalterZeigen(beide, teil) {
 
 function resTeilWaehlen(teil) {
     window._resTeil = teil;
-    if (window._resSlots) renderSlotsWithSuggestions(window._resSlots, (document.getElementById('reservationDate') || {}).value || '');
+    // Nur die Uhrzeiten DES gewaehlten Tages neu zeichnen -- nie die eines
+    // anderen (siehe loadAvailableSlots: "Die Sperre ging weg ...").
+    var tag = (document.getElementById('reservationDate') || {}).value || '';
+    if (window._resSlots && window._resSlotsDatum === tag) renderSlotsWithSuggestions(window._resSlots, tag);
 }
 
 function resWahlMarkieren(t) {
@@ -38719,7 +38913,7 @@ function ausgebuchtUI(features) {
             + '<span style="flex:1;">' + (x.von === x.bis ? ausgebuchtDatum(x.von) : ausgebuchtDatum(x.von) + ' – ' + ausgebuchtDatum(x.bis)) + '</span>'
             + '<button type="button" data-ausgebucht-weg="' + x.von + ':' + x.bis + '" aria-label="Zeitraum löschen" style="padding:4px 10px;min-height:32px;border:1px solid rgba(255,255,255,0.3);border-radius:9999px;background:transparent;color:#ffffff;font-size:12px;cursor:pointer;">Löschen</button></div>';
     }).join('');
-    if (stand) stand.textContent = z.length ? 'Gäste sehen an diesen Tagen „ausgebucht“ und können sich auf die Warteliste setzen. Bestellen geht weiter.' : 'Nichts eingetragen – Gäste können normal reservieren.';
+    if (stand) stand.textContent = z.length ? 'Gäste sehen an diesen Tagen „ausgebucht“ und bekommen eure Telefonnummer zum Anrufen. Bestellen geht weiter.' : 'Nichts eingetragen – Gäste können normal reservieren.';
 }
 window.ausgebuchtUI = ausgebuchtUI;
 // Letzter Tag des Monats von "tag" (YYYY-MM-DD), ohne Zeitzonen-Rechnerei.
@@ -38781,6 +38975,62 @@ document.addEventListener('click', function (e) {
         z = { von: von, bis: bis };
     } else z = ausgebuchtVorschlag(art);
     ausgebuchtSpeichern(z, null);
+});
+
+// Neueröffnung (Dashboard). Dieselbe Probe wie bei "ausgebucht": ohne
+// zurueckgegebene Zeile gilt es als NICHT gespeichert -- sonst saehe der
+// Wirt "gespeichert" und die Gaeste nichts.
+function eroeffnungUI(features) {
+    var stand = document.getElementById('eroeffnungStand'), feld = document.getElementById('eroeffnungDatum');
+    if (!stand) return;
+    var e = eroeffnungInfo({ features: features || [] });
+    var roh = (features || []).map(String).filter(function (f) { return /^eroeffnung:/.test(f); })[0];
+    if (feld && roh) feld.value = roh.slice(11);
+    if (!roh) { stand.textContent = 'Keine Neueröffnung eingetragen.'; return; }
+    if (!e) { stand.textContent = 'Die Eröffnung ist länger als ' + EROEFFNUNG_NEU_TAGE + ' Tage her – Gäste sehen nichts mehr davon.'; return; }
+    stand.textContent = e.phase === 'neu'
+        ? 'Eröffnet am ' + e.lang + '. Gäste sehen noch ' + (EROEFFNUNG_NEU_TAGE + e.tage) + ' Tage „Neu eröffnet“.'
+        : 'Gäste sehen: Neueröffnung am ' + e.lang + ' (' + eroeffnungZaehler(e) + ').';
+}
+window.eroeffnungUI = eroeffnungUI;
+async function eroeffnungSpeichern(datum) {
+    var restId = getControlRestaurantId(), stand = document.getElementById('eroeffnungStand');
+    if (!restId) { showToast('Kein Restaurant gefunden', 'error'); return false; }
+    try {
+        var res = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
+        });
+        var data = await res.json();
+        if (!data || !data[0]) throw new Error('Restaurant nicht lesbar');
+        var features = (data[0].features || []).filter(function (f) { return !/^eroeffnung:/.test(String(f)); });
+        if (datum) features.push('eroeffnung:' + datum);
+        var upd = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=id,features', {
+            method: 'PATCH',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+            body: JSON.stringify({ features: features })
+        });
+        if (!upd.ok) throw new Error('HTTP ' + upd.status);
+        var zeilen = await upd.json();
+        if (!Array.isArray(zeilen) || !zeilen.length) throw new Error('keine Berechtigung – nichts gespeichert');
+        var appR = APP_DATA.restaurants ? APP_DATA.restaurants.find(function (r) { return r.id === restId; }) : null;
+        if (appR) appR.features = zeilen[0].features || features;
+        eroeffnungUI(zeilen[0].features || features);
+        showToast(datum ? 'Neueröffnung eingetragen' : 'Neueröffnung gelöscht', 'success');
+        return true;
+    } catch (err) {
+        if (stand) stand.textContent = 'Nicht gespeichert: ' + (err && err.message || err) + '. Gäste sehen den alten Stand.';
+        showToast('Neueröffnung nicht gespeichert', 'error');
+        return false;
+    }
+}
+window.eroeffnungSpeichern = eroeffnungSpeichern;
+document.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest ? e.target.closest('[data-eroeffnung]') : null;
+    if (!b) return;
+    if (b.getAttribute('data-eroeffnung') === 'loeschen') { eroeffnungSpeichern(null); return; }
+    var d = (document.getElementById('eroeffnungDatum') || {}).value || '';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) { showToast('Bitte ein Datum wählen', 'error'); return; }
+    eroeffnungSpeichern(d);
 });
 
 async function _patchVacation(newEntry) {
@@ -39004,6 +39254,7 @@ function updateFeatureToggles(features) {
     if (typeof updateVacationUI === 'function') updateVacationUI(features);
     if (typeof andrangUI === 'function') andrangUI(features);
     if (typeof ausgebuchtUI === 'function') ausgebuchtUI(features);
+    if (typeof eroeffnungUI === 'function') eroeffnungUI(features);
 }
 
 /* DER ROTE BALKEN IM DASHBOARD DES WIRTS.
@@ -46830,6 +47081,7 @@ async function showRestaurantLanding(rest) {
             </div>
         </nav>
 
+        ${typeof eroeffnungBalkenHtml === 'function' ? eroeffnungBalkenHtml(rest) : ''}
         <!-- Immersive Hero Header -->
         <section style="position:relative;height:751px;width:100%;overflow:hidden;" id="lpHero">
             <div id="lpHeroBg1" class="${lpEchtesFoto ? '' : 'lp-ohne-foto'}" style="position:absolute;inset:0;${lpEchtesFoto ? "background:url('" + rest.image + "') center/cover no-repeat;" : ''}transition:opacity 2s ease-in-out;opacity:1;">${lpEchtesFoto ? '' : '<span aria-hidden="true">' + escapeHtml(lpInitial) + '</span>'}</div>

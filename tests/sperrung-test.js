@@ -154,8 +154,8 @@ t('Server lehnt mit Gast-Text ab -> Gast liest ihn ("Ruhetag – …", "Geschlos
   && /^Geschlossene Gesellschaft – zu dieser Uhrzeit/.test(vollText({ ausgebucht: true, gesperrt: 'zeit', hinweis: 'geschlossen' }))
   && /^Ausgebucht – diese Uhrzeit/.test(vollText({ ausgebucht: true, gesperrt: 'zeit', hinweis: 'ausgebucht' })), vollText({ ausgebucht: true, gesperrt: 'tag', hinweis: 'ruhetag' }));
 var las = fn('loadAvailableSlots');
-t('ganzer Tag gesperrt -> Gästeseite nimmt den Gast-Text der Sperre (Standard "Ausgebucht" + Warteliste)',
-  /if \(fullDayBlock\) \{[\s\S]{0,900}var _gt = sperrGastText\(_ganz && _ganz\.hinweis\);[\s\S]{0,900}if \(_gt\.warteliste\) \{[\s\S]{0,500}showWaitlistForm\(\)/.test(las)
+t('ganzer Tag gesperrt -> Gästeseite nimmt den Gast-Text der Sperre (Standard "Ausgebucht" + Anrufen, ohne Nummer Warteliste)',
+  /if \(fullDayBlock\) \{[\s\S]{0,900}var _gt = sperrGastText\(_ganz && _ganz\.hinweis\);[\s\S]{0,900}if \(_gt\.warteliste\) \{[\s\S]{0,500}ausgebuchtAngebotSetzen\(_spWl, _spRest\)/.test(las)
   && !/keine Reservierungen möglich/.test(las), 'anderer Text');
 var GT = new Function(fn('sperrGastCode') + fn('sperrGastText') + '; return sperrGastText;')();
 t('… ohne Gast-Text: "Ausgebucht – an diesem Tag ist leider alles voll." mit Warteliste; "Ruhetag" ohne',

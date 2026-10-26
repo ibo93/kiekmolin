@@ -39,7 +39,7 @@ t('"noch N Tische" bleibt', /noch 1<\/span>/.test(h), '');
 t('Kurve ist nur Bild (aria-hidden), Höhe aus echter Belegung', /<div class="res-kurve" aria-hidden="true">/.test(h) && /data-time="18:00" style="height:15px;"/.test(h) && /data-time="19:30" style="height:64px;"/.test(h), h.match(/height:\d+px/g));
 var R = fn('renderSlotsWithSuggestions');
 t('Abend beginnt um 15:00 (vorher fielen 15:00–16:59 still heraus)', /s\.time >= '15:00'/.test(R) && R.indexOf("'17:00'") === -1, '');
-t('keine freie Zeit -> weiterhin "Ausgebucht" + Warteliste', /if \(!frei\.length\) \{/.test(R) && /kmi-res-ausgebucht/.test(R) && /showWaitlistForm\(\)/.test(R), '');
+t('keine freie Zeit -> "Ausgebucht" + Anruf-Knopf (ohne Nummer Warteliste)', /if \(!frei\.length\) \{/.test(R) && /kmi-res-ausgebucht/.test(R) && /ausgebuchtAngebotSetzen\(/.test(R), '');
 var L = fn('loadAvailableSlots');
 t('volle Zeiten bleiben in der Liste (voll: !available), vergangene fliegen raus', /voll: !available/.test(L) && /\.filter\(function\(s\) \{ return s !== null; \}\)/.test(L) && /slotM <= currentMin\)\) return null;/.test(L), '');
 t('neuer Tag: alte Uhrzeit wird gelöscht und Schritt 1 gezeigt', /document\.getElementById\('reservationTime'\)\.value = '';\s*resSchritt\(1\);/.test(L), '');
