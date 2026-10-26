@@ -14775,7 +14775,29 @@
 .kmi-stempel-punkt.ziel { border-color: #fed65b; color: #fed65b; }
 .dark-mode .kmi-stempel-moment { background: #0b3a31; }
 .dark-mode .kmi-stempel-punkt.voll { background: #fed65b; } /* Gold bleibt Gold: es ist der Stempel */
+/* Haken im vollen Punkt: im Dunkelmodus faerbte eine allgemeine Regel ihn gold -- Gold auf Gold, unsichtbar (26.10.2026 im Browser gemessen) */
+.dark-mode .kmi-stempel-punkt.voll, .dark-mode .kmi-stempel-punkt.voll svg { color: #00251e !important; stroke: #00251e !important; }
 .kmi-stempel-checkout { margin-bottom: 16px; text-align: left; }
+/* Stempelkarte sichtbar VOR dem Bestellen (Ibo, 26.10.2026, Entwurf abgenommen) */
+.kmi-stempel-abzeichen { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; padding: 4px 12px; border-radius: 9999px; background: #ffd54f; color: #00251e; font-family: Inter, sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; }
+.kmi-stempel-abzeichen svg { width: 14px; height: 14px; }
+.kmi-stempel-zeile { margin-top: 6px; font-family: Inter, sans-serif; font-size: 13px; font-weight: 600; color: #735c00; }
+.dark-mode .kmi-stempel-zeile { color: #fed65b; }
+.kmi-stempel-lp { max-width: 1200px; margin: 0 auto; padding: 24px 24px 0; box-sizing: border-box; }
+.kmi-stempel-lp .kmi-stempel-moment { text-align: left; }
+.kmi-stempel-kopf em.kmi-stempel-frei { background: #ffd54f; color: #00251e; border-radius: 9999px; padding: 4px 10px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.kmi-stempel-ziel { font-family: Epilogue, sans-serif; font-size: 22px; font-weight: 800; line-height: 1.15; color: #ffffff; }
+.kmi-stempel-lp .kmi-stempel-reihe { grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 6px; max-width: 520px; }
+.kmi-stempel-lp .kmi-stempel-reihe.viele { grid-template-columns: repeat(10, minmax(0, 1fr)); }
+.kmi-stempel-lp .kmi-stempel-punkt b { font-size: 11px; }
+.kmi-stempel-verdient { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 20px; background: #fed65b; color: #00251e; font-size: 14px; line-height: 1.45; }
+.kmi-stempel-verdient svg { width: 22px; height: 22px; flex: 0 0 22px; }
+.kmi-stempel-leiste { display: flex; align-items: center; gap: 10px; margin: 8px 20px 0; padding: 10px 14px; border-radius: 9999px; background: #003d33; color: #ffffff; font-family: Inter, sans-serif; font-size: 13px; line-height: 1.35; }
+.kmi-stempel-leiste svg { width: 18px; height: 18px; flex: 0 0 18px; color: #fed65b; }
+.kmi-stempel-leiste b { color: #fed65b; }
+.dark-mode .kmi-stempel-leiste { background: #0b3a31; }
+/* Gold bleibt Gold, auch dunkel -- mit dunkler Schrift (Kontrast 11:1) */
+.dark-mode .kmi-stempel-abzeichen, .dark-mode .kmi-stempel-kopf em.kmi-stempel-frei, .dark-mode .kmi-stempel-verdient { background: #ffd54f; color: #00251e; }
 .stv { max-width: 520px; width: 100%; max-height: 88vh; overflow-y: auto; border-radius: 24px; background: var(--bg-card); display: block; padding: 0 20px 20px; box-sizing: border-box; }
 .stv-kopf { display: flex; align-items: center; justify-content: space-between; padding: 16px 0 8px; position: sticky; top: 0; background: var(--bg-card); z-index: 1; }
 .stv-kopf b { font-family: Epilogue, sans-serif; font-size: 20px; font-weight: 800; color: var(--ink-strong); }
@@ -30029,7 +30051,13 @@ function mapRestaurant(r) {
         // zahlsperreStufe() macht daraus "keine". Im Zweifel offen.
         zahlsperre: r.zahlsperre,
         zahlsperre_seit: r.zahlsperre_seit || null,
-        zahlsperre_notiz: r.zahlsperre_notiz || null
+        zahlsperre_notiz: r.zahlsperre_notiz || null,
+        // STEMPELKARTE: Ziel und Belohnung, die der Wirt einstellt. Fehlten
+        // bis 26.10.2026 in dieser Liste -- nach jedem Laden stand im
+        // Dashboard "Stempel sammeln, Belohnung bekommen" statt "10 Stempel =
+        // Pizza gratis", und die Gaeste-Anzeige haette immer 10 gezeigt.
+        stempel_ziel: r.stempel_ziel != null ? Number(r.stempel_ziel) : null,
+        stempel_belohnung: r.stempel_belohnung || null
     };
 }
 
@@ -31346,6 +31374,7 @@ function renderRestaurants(filter) {
                         <span>${r.city || 'Ostfriesland'}${r._distKm && r._distKm < 100 ? ' · ' + r._distKm.toFixed(1) + ' km' : ''}</span>
                     </div>
                     ${typeof eroeffnungAbzeichen === 'function' ? eroeffnungAbzeichen(r) : ''}
+                    ${typeof stempelAbzeichenHtml === 'function' ? stempelAbzeichenHtml(r) : ''}
                     <!-- Tagesangebot. Wird von angebotAbzeichenSetzen() gefuellt,
                          sobald die Angebote geladen sind, und bleibt leer, wenn
                          das Haus heute keines hat. -->
@@ -47299,6 +47328,9 @@ async function showRestaurantLanding(rest) {
             </div>
         </section>
 
+        <!-- Stempelkarte vor der Speisekarte; stempelLokalNachladen() setzt den
+             eigenen Stand ein, wenn die Telefonnummer schon bekannt ist. -->
+        ${typeof stempelLokalHtml === 'function' ? stempelLokalHtml(rest) : ''}
         <!-- Speisekarte Highlights -->
         ${(function(){
             var menuItems = [];
@@ -53851,6 +53883,8 @@ document.addEventListener('error', function(e) {
         <!-- Vorbestell-Hinweis. Steht ueber der Karte, damit der Gast es
              sieht, BEVOR er den Warenkorb fuellt -- nicht erst beim Bezahlen. -->
         <div id="vorbestellBanner" style="display:none;"></div>
+        <!-- Stempelkarte beim Bestellen (gefuellt von stempelMenuLeiste) -->
+        <div id="stempelMenuLeiste"></div>
 
         <!-- Produkte Liste (Stitch Grid) -->
         <div style="flex: 1; overflow-y: auto; padding: 16px 24px;" id="menuItemsList">
@@ -55859,6 +55893,8 @@ async function openMenuModal(restaurantId) {
     // anrufen, der Betrieb verliert nicht den Gast, nur den Online-Weg.
     if (typeof zahlsperreBestellenAus === 'function' && zahlsperreBestellenAus(appRest)) _nurKarte = true;
     window._nurKarte = _nurKarte;
+    // Stempelkarte als Leiste ueber den Gerichten -- nur wenn bestellt werden kann.
+    try { if (typeof stempelMenuLeiste === 'function') stempelMenuLeiste(_nurKarte ? null : appRest); } catch (e) { console.warn('Stempel-Leiste:', e && e.message); }
     // Betriebsferien: keine Online-Bestellungen annehmen
     // Betriebsferien: keine Online-Bestellungen annehmen.
     // Im Kartenmodus wird ohnehin nicht bestellt -- da ist die Karte kein
@@ -82694,6 +82730,95 @@ function stempelPunkteHtml(s, opt) {
     return '<div class="kmi-stempel-reihe' + (ziel > 10 ? ' viele' : '') + '" aria-label="' + voll + ' von ' + ziel + ' Stempeln">' + o + '</div>';
 }
 function _stempelNoch(s) { var n = Math.max(1, (+s.ziel || 10) - (+s.stempel || 0)); return 'Noch ' + n + (n === 1 ? ' Bestellung' : ' Bestellungen') + ', dann gibt es ' + _stempelEsc(s.belohnung || 'eine Belohnung') + '.'; }
+
+// ---------- Vor dem Bestellen: Liste, Lokalseite, Bestellkarte ----------
+// Ibo, 26.10.2026: "beim bestellen, dass man sieht, dieser Betrieb hat
+// Stempelkarte". Vorher erfuhr der Gast es erst im Warenkorb -- da hatte er
+// sich schon entschieden. Entwurf in Claude Design abgenommen.
+//
+// Bedingung ist DIESELBE wie beim Server (kmi_stempel_stand: aktiv =
+// features enthaelt loyalty_points). Ein Abzeichen ohne echte Karte waere
+// ein Versprechen, das der Warenkorb dann nicht haelt.
+function stempelAngebot(r) {
+    if (!stempelHausAktiv(r)) return null;
+    // Stempel gibt es nur fuer Online-Bestellungen. "Nur Speisekarte" oder
+    // eine Zahlsperre -> keine Bestellung -> kein Versprechen.
+    if ((r.features || []).indexOf('no_ordering') !== -1) return null;
+    if (typeof zahlsperreBestellenAus === 'function' && zahlsperreBestellenAus(r)) return null;
+    return {
+        ziel: Math.max(3, Math.min(30, +r.stempel_ziel || 10)),
+        belohnung: String(r.stempel_belohnung || 'ein Gratis-Gericht')
+    };
+}
+window.stempelAngebot = stempelAngebot;
+function _stempelZielSatz(a) { return a.ziel + ' Bestellungen = ' + _stempelEsc(a.belohnung); }
+function _stempelGastTel() {
+    var t = '';
+    try { t = localStorage.getItem('kmi_customer_phone') || ''; } catch (e) {}
+    return stempelTelOk(t) ? t : '';
+}
+function stempelAbzeichenHtml(r) {
+    var a = stempelAngebot(r);
+    if (!a) return '';
+    return '<div class="kmi-stempel-abzeichen">' + _STEMPEL_GESCHENK + 'STEMPELKARTE</div>'
+        + '<div class="kmi-stempel-zeile">' + _stempelZielSatz(a) + '</div>';
+}
+window.stempelAbzeichenHtml = stempelAbzeichenHtml;
+function _stempelLokalInnen(r, a, s) {
+    var kopf, mitte, unten;
+    if (s && !s.fehler && s.aktiv !== false && (+s.gesamt > 0 || +s.stempel > 0 || +s.guthaben > 0)) {
+        a = { ziel: Math.max(3, Math.min(30, +s.ziel || a.ziel)), belohnung: String(s.belohnung || a.belohnung) };
+        kopf = '<div class="kmi-stempel-kopf"><span>' + _STEMPEL_GESCHENK + 'Deine Stempelkarte</span><em>' + (+s.stempel || 0) + ' von ' + a.ziel + '</em></div>';
+        mitte = stempelPunkteHtml({ ziel: a.ziel, stempel: s.stempel });
+        unten = s.guthaben > 0
+            ? '<div class="kmi-stempel-verdient">' + _STEMPEL_GESCHENK + '<span><b>Belohnung verdient!</b> Du kannst ' + _stempelEsc(a.belohnung) + ' beim Bezahlen einlösen.</span></div>'
+            : '<strong style="font-size:18px;line-height:1.2;">' + _stempelNoch({ ziel: a.ziel, stempel: s.stempel, belohnung: a.belohnung }) + '</strong>';
+        return kopf + mitte + unten;
+    }
+    kopf = '<div class="kmi-stempel-kopf"><span>' + _STEMPEL_GESCHENK + 'Stempelkarte</span><em class="kmi-stempel-frei">kostenlos</em></div>';
+    mitte = '<div class="kmi-stempel-ziel">' + _stempelZielSatz(a) + '</div>' + stempelPunkteHtml({ ziel: a.ziel, stempel: 0 });
+    unten = '<span class="kmi-stempel-unter" style="margin:0;font-size:13px;line-height:1.5;">Bei jeder Bestellung ein Stempel – automatisch über deine Telefonnummer. Keine App, keine Anmeldung.</span>';
+    return kopf + mitte + unten;
+}
+function stempelLokalHtml(r) {
+    var a = stempelAngebot(r);
+    if (!a) return '';
+    var tel = _stempelGastTel();
+    var s = tel ? _stempelStaende[_stempelSchluessel(r.id, tel)] : null;
+    if (tel) setTimeout(function () { stempelLokalNachladen(r); }, 0);
+    return '<section class="kmi-stempel-lp" aria-label="Stempelkarte"><div class="kmi-stempel-moment" id="lpStempel" data-restaurant-id="'
+        + _stempelEsc(r.id) + '">' + _stempelLokalInnen(r, a, s) + '</div></section>';
+}
+window.stempelLokalHtml = stempelLokalHtml;
+// Eigener Stand: nur wenn die Nummer schon bekannt ist. Fehler -> der
+// allgemeine Kasten bleibt stehen (er stimmt ja), nie "0 von 10".
+async function stempelLokalNachladen(r) {
+    var tel = _stempelGastTel(), a = stempelAngebot(r);
+    if (!tel || !a) return;
+    var s = await stempelStand(r.id, tel);
+    var el = document.getElementById('lpStempel');
+    if (!el || el.getAttribute('data-restaurant-id') !== String(r.id)) return;
+    if (s && !s.fehler) el.innerHTML = _stempelLokalInnen(r, a, s);
+}
+window.stempelLokalNachladen = stempelLokalNachladen;
+function stempelMenuLeiste(r) {
+    var el = document.getElementById('stempelMenuLeiste');
+    if (!el) return;
+    var a = stempelAngebot(r);
+    if (!a) { el.innerHTML = ''; return; }
+    function zeichnen(s) {
+        var stand = (s && !s.fehler && (+s.gesamt > 0 || +s.stempel > 0 || +s.guthaben > 0))
+            ? (s.guthaben > 0 ? ' · <b>Belohnung verdient!</b>' : ' · du hast <b>' + (+s.stempel || 0) + ' von ' + a.ziel + '</b>') : '';
+        el.innerHTML = '<div class="kmi-stempel-leiste">' + _STEMPEL_GESCHENK + '<span>Stempelkarte: ' + _stempelZielSatz(a) + stand + '</span></div>';
+    }
+    var tel = _stempelGastTel();
+    zeichnen(tel ? _stempelStaende[_stempelSchluessel(r.id, tel)] : null);
+    if (tel) stempelStand(r.id, tel).then(function (s) {
+        if (typeof currentOrderRestaurant !== 'undefined' && currentOrderRestaurant && currentOrderRestaurant.id !== r.id) return;
+        zeichnen(s);
+    });
+}
+window.stempelMenuLeiste = stempelMenuLeiste;
 
 // ---------- Im Warenkorb ----------
 async function stempelCheckout() {
