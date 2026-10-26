@@ -67,13 +67,13 @@ t('zeigt die NÄCHSTE Eröffnung', k.indexOf('Neu &lt;Haus&gt;') >= 0 && k.index
 t('inaktives Haus nie', k.indexOf('Inaktiv') < 0);
 t('Name wird escaped (kein HTML aus der Datenbank)', k.indexOf('<Haus>') < 0);
 var _erw = A.eroeffnungRest(A.eroeffnungZiel(r4, A.eroeffnungInfo(r4)).ms, Date.now()).t;
-t('Timer zeigt die Tage bis zur Öffnung und Reservieren-Knopf', new RegExp('data-teil="t"[^>]*>' + _erw + '<').test(k) && _erw >= 3 && /Tisch zur Eröffnung reservieren/.test(k), k.slice(0, 300));
+t('Timer zeigt die Tage bis zur Öffnung und Reservieren-Knopf', new RegExp('data-teil="t"[^>]*>' + _erw + '<').test(k) && _erw >= 3 && /Tisch reservieren/.test(k), k.slice(0, 300));
 t('nur eröffnete (neu) -> kein Kasten', A.eroeffnungBannerHtml([rNeu]) === '');
 var r4voll = JSON.parse(JSON.stringify(r4)); r4voll.features.push('ausgebucht:' + tag(4) + ':' + tag(4));
 var kv = A.eroeffnungBannerHtml([r4voll]);
-t('Eröffnungstag ausgebucht -> Anrufen statt Reservieren', /href="tel:0493112345"/.test(kv) && kv.indexOf('Tisch zur Eröffnung reservieren') < 0, kv.slice(0, 200));
+t('Eröffnungstag ausgebucht -> Anrufen statt Reservieren', /href="tel:0493112345"/.test(kv) && kv.indexOf('Tisch reservieren') < 0, kv.slice(0, 200));
 var r4ohneRes = JSON.parse(JSON.stringify(r4)); r4ohneRes.features.push('no_reservations');
-t('Haus ohne Reservierung -> kein Reservieren-Knopf', A.eroeffnungBannerHtml([r4ohneRes]).indexOf('Tisch zur Eröffnung reservieren') < 0);
+t('Haus ohne Reservierung -> kein Reservieren-Knopf', A.eroeffnungBannerHtml([r4ohneRes]).indexOf('Tisch reservieren') < 0);
 
 console.log('\n-- 4. AUSGEBUCHT = ANRUFEN --');
 var box = { innerHTML: '', style: {} };
@@ -142,7 +142,7 @@ t('Handy: kurzes Datum, damit der Balken nicht umbricht', /kmi-bk-kurz">NEUERÖF
 t('Lokalseite: der grosse grüne Kasten aus dem Entwurf', /eroeffnungKastenHtml\(rest, false\)/.test(lp));
 var kL = A.eroeffnungKastenHtml(r4, false), kS = A.eroeffnungKastenHtml(r4, true);
 t('Kasten auf der Lokalseite ohne "Zum Restaurant" (man ist schon da)', /kmi-eroeffnung-kasten/.test(kL) && !/Zum Restaurant/.test(kL) && /Zum Restaurant/.test(kS));
-t('Kasten mit Datum, Timer und Reservieren', /class="kmi-countdown" data-ziel="\d+" role="timer"/.test(kL) && /Tisch zur Eröffnung reservieren/.test(kL));
+t('Kasten mit Datum, Timer und Reservieren', /class="kmi-countdown" data-ziel="\d+" role="timer"/.test(kL) && /Tisch reservieren/.test(kL));
 // "es muss wie ein Timer": Tage, Std, Min, Sek -- bis zur Oeffnungszeit des Tages
 var zr = A.eroeffnungRest(new Date(2026, 9, 30, 17, 0, 0).getTime(), new Date(2026, 9, 26, 15, 38, 50).getTime());
 t('Timer rechnet richtig: 4 Tage 01:21:10', zr.t === 4 && zr.s === 1 && zr.m === 21 && zr.sek === 10, JSON.stringify(zr));
