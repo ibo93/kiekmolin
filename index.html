@@ -17314,6 +17314,16 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
 
         <!-- DASHBOARD SECTION -->
         <div id="sectionDashboard" class="dash-section active">
+            <!-- RESTAURANT WAEHLEN (nur Admin, Ibo 26.10.2026: "beim dashboard kann ich
+                 doch kein restaurant waehlen"). Vorher schrieben die Schalter der
+                 Restaurant-Steuerung unsichtbar auf das Lokal, das unter "Bestellungen"
+                 gewaehlt war -- oder aufs erste in der Liste. Der Wirt sieht das
+                 Feld nicht, er hat nur sein eigenes. -->
+            <div id="dashRestaurantWahl" style="display:none;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:20px;color:var(--ink-deep);">storefront</span>
+                <label for="dashRestaurantSelect" style="font-family:Inter,sans-serif;font-size:14px;font-weight:600;color:var(--ink-deep);">Restaurant</label>
+                <select id="dashRestaurantSelect" onchange="dashRestaurantWaehlen(this.value)" style="flex:1;min-width:180px;padding:12px 16px;border:1px solid rgba(192,200,196,0.3);border-radius:9999px;font-size:14px;font-family:Inter,sans-serif;font-weight:600;background:rgba(255,255,255,0.8);color:var(--ink-deep);cursor:pointer;appearance:auto;"></select>
+            </div>
             <!-- ZAHLSPERRE. Bleibt leer, solange nichts offen ist, und
                  steht deshalb GANZ OBEN: wer eine offene Rechnung hat,
                  soll sie vor den Bestellungen sehen und nicht darunter.
@@ -38185,6 +38195,8 @@ function updateDashboard() {
     // Update restaurant status
     updateRestaurantStatus();
 
+    // Restaurant-Auswahl (Admin) VOR den Schaltern -- die lesen, was dort steht
+    try { dashRestaurantWahlFuellen(); } catch (e) { console.warn('Restaurant-Auswahl:', e && e.message); }
     // Feature Toggles initialisieren
     initFeatureToggles();
     // Der rote Balken haengt an derselben Zeile aus restaurants wie die
@@ -39316,6 +39328,35 @@ function zahlsperreBalkenPflegen() {
         + '</div></div>';
 }
 window.zahlsperreBalkenPflegen = zahlsperreBalkenPflegen;
+
+// Restaurant-Auswahl oben im Dashboard (nur Admin). Setzt
+// window.currentRestaurantId -- das liest getControlRestaurantId() VOR der
+// Bestellungen-Auswahl und vor dem ersten Restaurant. Danach zeigen alle
+// Schalter der Restaurant-Steuerung den Stand des gewaehlten Lokals.
+function dashRestaurantWahlFuellen() {
+    var box = document.getElementById('dashRestaurantWahl'), sel = document.getElementById('dashRestaurantSelect');
+    if (!box || !sel) return;
+    var istWirt = !!window._gastroOnlyRestaurantId
+        || (typeof currentAdmin !== 'undefined' && currentAdmin && !currentAdmin.isAdmin);
+    var liste = (APP_DATA.restaurants || []).slice().sort(function (a, b) { return String(a.name || '').localeCompare(String(b.name || ''), 'de'); });
+    if (istWirt || liste.length < 2) { box.style.display = 'none'; return; }
+    var aktiv = getControlRestaurantId();
+    sel.innerHTML = liste.map(function (r) {
+        return '<option value="' + escapeHtml(String(r.id)) + '"' + (r.id === aktiv ? ' selected' : '') + '>'
+            + escapeHtml(String(r.name || 'Ohne Namen')) + (r.city ? ' – ' + escapeHtml(String(r.city)) : '') + '</option>';
+    }).join('');
+    box.style.display = 'flex';
+}
+window.dashRestaurantWahlFuellen = dashRestaurantWahlFuellen;
+function dashRestaurantWaehlen(id) {
+    if (!id) return;
+    window.currentRestaurantId = id;
+    initFeatureToggles();
+    try { zahlsperreBalkenPflegen(); } catch (e) {}
+    var r = (APP_DATA.restaurants || []).find(function (x) { return x.id === id; });
+    showToast('Steuerung für ' + (r && r.name || 'Restaurant'), 'info');
+}
+window.dashRestaurantWaehlen = dashRestaurantWaehlen;
 
 function initFeatureToggles() {
     var restId = getControlRestaurantId();
