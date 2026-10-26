@@ -153,6 +153,7 @@ var th = A.eroeffnungTimerHtml(Date.now() + 90061000);
 t('Timer-Kacheln TAG/STD/MIN/SEK mit führender Null', /data-teil="t"[^>]*>1</.test(th) && /data-teil="s"[^>]*>01</.test(th) && /data-teil="m"[^>]*>01</.test(th) && />SEK</.test(th), th.slice(0, 200));
 t('abgelaufen: "JETZT GEÖFFNET" statt 0:00:00', /JETZT GEÖFFNET/.test(A.eroeffnungTimerHtml(Date.now() - 1000)));
 t('tickt jede Sekunde', /setInterval\(function \(\) \{ try \{ eroeffnungTicken\(\); \} catch \(e\) \{\} \}, 1000\)/.test(H));
+t('Kasten am Computer nicht über die ganze Breite (max. Kartenbreite)', /\.kmi-eroeffnung-kasten \{ background: #003d33; color: #ffffff; max-width: 924px;/.test(H));
 t('nach der Eröffnung kein Kasten mehr', A.eroeffnungKastenHtml(rNeu, false) === '');
 var sw = fs.readFileSync(KMI + '/sw.js', 'utf8'), w = fs.readFileSync(KMI + '/netlify/functions/gastweg-wache.js', 'utf8');
 var vSw = +(/kmi-shell-v(\d+)/.exec(sw) || [])[1], vW = +(/CACHE_MINDESTENS = (\d+)/.exec(w) || [])[1];
