@@ -65,7 +65,12 @@ function grundErklaeren(text) {
   return null;
 }
 
-const OUT_FILE = path.join(__dirname, 'prospects.json');
+const OUT_FILE = process.env.OSM_OUT_FILE || path.join(__dirname, 'prospects.json');
+// Gespeicherte Liste in Supabase -- Ersatz, wenn OSM beim Bau nicht liefert.
+const SPEICHER = require('./osm-speicher.js');
+// Unter so vielen Betrieben gilt eine Liste als unvollstaendig -- dieselbe
+// Grenze wie im Seitenbau (build-seo-pages.js, SEO_MIN_VERZEICHNIS).
+const MIN_BETRIEBE = parseInt(process.env.SEO_MIN_VERZEICHNIS || '900', 10) || 900;
 // Mehrere Overpass-Server. Der Hauptserver ist ein kostenloses Gemeinschafts-
 // projekt und regelmaessig ueberlastet (HTTP 429/504) - dann uebernimmt der
 // naechste. Mit nur einem Server scheiterte der ganze Import an schlechtem Timing.
@@ -81,6 +86,10 @@ const OVERPASS_SERVER = [
 // und wartet, bevor er den funktionierenden nimmt - das summiert sich auf
 // Minuten reiner Wartezeit fuer nichts.
 let bevorzugterServer = 0;
+
+// Wartezeiten (ms). Nur der Test setzt sie auf 0 -- sonst Overpass-Etikette.
+const PAUSE_GEBIET = process.env.OSM_PAUSE_MS != null ? +process.env.OSM_PAUSE_MS : 1500;
+const PAUSE_SERVER = process.env.OSM_PAUSE_MS != null ? +process.env.OSM_PAUSE_MS : 2000;
 
 function serverReihenfolge() {
   const liste = OVERPASS_SERVER.slice();
@@ -233,7 +242,7 @@ async function fetchCity(city) {
     } catch (e) {
       letzterFehler = e;
       // Kurz warten, dann naechster Server
-      await new Promise(function(r) { setTimeout(r, 2000); });
+      await new Promise(function(r) { setTimeout(r, PAUSE_SERVER); });
     }
   }
   throw new Error(letzterFehler ? fehlerGrund(letzterFehler) : 'Unbekannter Fehler');
@@ -328,10 +337,31 @@ async function erreichbarkeitPruefen() {
   return false;
 }
 
+// OSM hat nichts geliefert: gespeicherte Liste nehmen, wenn sie taugt.
+// Gibt true zurueck, wenn prospects.json jetzt brauchbar ist.
+async function ersatzAusSpeicher(gespeichert) {
+  const g = gespeichert || await SPEICHER.holen();
+  if (g.fehler) {
+    console.log('[osm] Gespeicherte Liste nicht verfuegbar: ' + g.fehler);
+    return false;
+  }
+  if (g.betriebe.length < MIN_BETRIEBE) {
+    console.log('[osm] Gespeicherte Liste hat nur ' + g.betriebe.length + ' Betriebe (mindestens ' + MIN_BETRIEBE + ') - nicht verwendet.');
+    return false;
+  }
+  fs.writeFileSync(OUT_FILE, JSON.stringify(g.betriebe, null, 2) + '\n', 'utf8');
+  console.log('[osm] ERSATZ: OpenStreetMap hat nicht geliefert - gespeicherte Liste verwendet: '
+    + g.betriebe.length + ' Betriebe' + (g.stand ? ', Stand ' + g.stand.slice(0, 16).replace('T', ' ') + ' UTC' : '') + '.');
+  return true;
+}
+
 async function main() {
   console.log('[osm] OSM-Importer fuer', CITIES.length, 'Staedte');
 
-  if (!(await erreichbarkeitPruefen())) { process.exitCode = 2; return; }
+  if (!(await erreichbarkeitPruefen())) {
+    process.exitCode = (await ersatzAusSpeicher()) ? 0 : 2;
+    return;
+  }
 
   const existing = loadExisting();
   // Manuell gepflegte Eintraege (nicht aus OSM) bleiben erhalten; OSM-Daten
@@ -386,7 +416,7 @@ async function main() {
       gescheitert.push(city.name + ': ' + e.message);
     }
     // Overpass-Etikette: kurze Pause zwischen Anfragen
-    await new Promise(function(r) { setTimeout(r, 1500); });
+    await new Promise(function(r) { setTimeout(r, PAUSE_GEBIET); });
   }
 
   // WICHTIG: Ist gar nichts angekommen, wird prospects.json NICHT angefasst.
@@ -401,7 +431,7 @@ async function main() {
       console.log('[osm] Haeufigste Ursachen: keine Internetverbindung, Overpass ueberlastet ' +
         '(dann spaeter nochmal), oder eine Firewall blockt overpass-api.de.');
     }
-    process.exitCode = 2;
+    process.exitCode = (await ersatzAusSpeicher()) ? 0 : 2;
     return;
   }
 
@@ -413,12 +443,21 @@ async function main() {
      Also: alles behalten, was vorher schon dastand und diesmal nicht
      wiedergekommen ist. Die Meldung "bleiben beim letzten Stand" soll auch
      stimmen. */
-  if (abgebrochen) {
+  /* Seit 26.10.2026 auch, wenn einzelne Gebiete gescheitert sind: sonst
+     fehlten deren Betriebe, und der Seitenbau stoppte wegen zu weniger.
+     Auf Netlify gibt es keine alte prospects.json (sie steht nicht im
+     Repo) -- dann kommt der letzte Stand aus dem Supabase-Speicher. */
+  if (abgebrochen || gescheitert.length) {
     let vorher = [];
     try {
       vorher = JSON.parse(fs.readFileSync(OUT_FILE, 'utf8'));
       if (!Array.isArray(vorher)) vorher = [];
     } catch (_e) { vorher = []; }
+    if (!vorher.length) {
+      const g = await SPEICHER.holen();
+      if (g.fehler) console.log('[osm] Letzter Stand nicht verfuegbar: ' + g.fehler);
+      else vorher = g.betriebe;
+    }
 
     const bekannt = new Set(out.map(function (p) { return slugFor(p.name, p.city); }));
     let uebernommen = 0;
@@ -436,6 +475,17 @@ async function main() {
   }
 
   fs.writeFileSync(OUT_FILE, JSON.stringify(out, null, 2) + '\n', 'utf8');
+
+  // Fuer den naechsten Bau ablegen -- aber nur eine vollstaendige Liste.
+  // Eine halbe wuerde beim naechsten OSM-Ausfall den Bau trotzdem stoppen.
+  if (out.length >= MIN_BETRIEBE) {
+    const fehler = await SPEICHER.ablegen(out);
+    console.log(fehler
+      ? '[osm] WARNUNG: Liste nicht gespeichert (' + fehler + ') - beim naechsten OSM-Ausfall gibt es keinen Ersatz.'
+      : '[osm] Liste gespeichert (' + out.length + ' Betriebe) - Ersatz fuer den naechsten OSM-Ausfall.');
+  } else {
+    console.log('[osm] Liste NICHT gespeichert: nur ' + out.length + ' Betriebe (mindestens ' + MIN_BETRIEBE + ').');
+  }
   if (gescheitert.length) {
     console.log('[osm] WARNUNG: ' + gescheitert.length + ' von ' + CITIES.length +
       ' Gebieten sind gescheitert - diese Betriebe fehlen. Import spaeter wiederholen.');
