@@ -25,7 +25,7 @@ t('Text für Gäste: "vom 12. Oktober bis 31. Oktober ausgebucht"', /^vom 12\. O
 
 // Gästeseite
 var las = fn('loadAvailableSlots');
-t('Datum gewählt + ausgebucht: keine Uhrzeiten, Hinweis, Warteliste sichtbar', /var _ab = _abRest \? ausgebuchtAm\(_abRest, date\) : null;/.test(las) && /_abWl\.style\.display = 'block';/.test(las) && /return;\s*\}\s*\} catch \(e\) \{\}\s*try \{\s*\/\/ Bestehende Reservierungen/.test(las), '');
+t('Datum gewählt + ausgebucht: keine Uhrzeiten, Hinweis, Anruf-Knopf (ohne Nummer Warteliste)', /var _ab = _abRest \? ausgebuchtAm\(_abRest, date\) : null;/.test(las) && /ausgebuchtAngebotSetzen\(document\.getElementById\('waitlistOption'\), _abRest\);/.test(las) && /return;\s*\}\s*\} catch \(e\) \{\}\s*try \{\s*\/\/ Bestehende Reservierungen/.test(las), '');
 t('Kalender: ausgebuchte Tage durchgestrichen, aber wählbar (Warteliste)', /class="kmi-cal-voll" onclick="resCalSelectDate/.test(fn('resCalRender')) && /text-decoration:line-through/.test(fn('resCalRender')), '');
 var vollText = new Function(fn('reservierungVollText') + '; return reservierungVollText;')();
 t('Server lehnt ab -> Gast liest "Ausgebucht", nicht "HTTP 409"', /if \(antwort && antwort\.ausgebucht\) \{\s*_resFehler\.gastText = reservierungVollText\(antwort\);/.test(fn('saveReservationToSupabase'))
