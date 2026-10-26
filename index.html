@@ -16208,6 +16208,18 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         <input type="date" class="form-input" id="newRestaurantContractStart">
                     </div>
                 </div>
+                <!-- Neueröffnung (Ibo, 26.10.2026): nur der Admin trägt sie ein, nicht der Wirt.
+                     Gäste sehen dann den Kasten auf der Startseite, den Balken auf der
+                     Lokalseite und einen Tage-Zähler; 30 Tage danach "Neu eröffnet". -->
+                <div class="form-group" id="eroeffnungBlock">
+                    <label class="form-label" for="eroeffnungDatum">Neueröffnung</label>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <input type="date" class="form-input" id="eroeffnungDatum" style="flex:1;min-width:150px;">
+                        <button type="button" data-eroeffnung="speichern" style="padding:10px 16px;border:none;border-radius:9999px;background:var(--primary);color:#ffffff;font-size:13px;font-weight:700;cursor:pointer;">Speichern</button>
+                        <button type="button" data-eroeffnung="loeschen" style="padding:10px 16px;border:1px solid var(--primary);border-radius:9999px;background:transparent;color:var(--primary);font-size:13px;font-weight:700;cursor:pointer;">Löschen</button>
+                    </div>
+                    <div id="eroeffnungStand" role="status" aria-live="polite" style="font-size:12px;line-height:1.4;margin-top:6px;color:var(--slate);">Keine Neueröffnung eingetragen.</div>
+                </div>
                 <div class="form-group">
                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                         <input type="checkbox" id="newRestaurantAGBAccepted" required>
@@ -17501,21 +17513,6 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             </div>
                             <div id="ausgebuchtListe" style="margin-top:8px;display:flex;flex-direction:column;gap:6px;"></div>
                             <div id="ausgebuchtStand" role="status" aria-live="polite" style="font-family:Inter,sans-serif;font-size:12px;line-height:1.4;margin-top:6px;color:#ffffff;">Nichts eingetragen – Gäste können normal reservieren.</div>
-                        </div>
-                        <!-- Neueröffnung (Ibo, 26.10.2026): Datum eintragen, dann sehen Gäste
-                             den Kasten auf der Startseite, den Balken auf eurer Seite und
-                             einen Tage-Zähler. 30 Tage danach steht "Neu eröffnet" dran. -->
-                        <div id="eroeffnungBlock" style="padding-top:12px;margin-top:12px;border-top:1px solid rgba(255,255,255,0.15);">
-                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                                <span class="material-symbols-outlined" style="font-size:18px;">event_upcoming</span>
-                                <span style="font-family:Inter,sans-serif;font-size:13px;font-weight:600;">Neueröffnung</span>
-                            </div>
-                            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                                <input type="date" id="eroeffnungDatum" style="flex:1;min-width:140px;padding:8px 10px;border-radius:12px;border:none;background:rgba(255,255,255,0.12);color:white;font-family:Inter,sans-serif;font-size:12px;color-scheme:dark;" aria-label="Datum der Neueröffnung">
-                                <button type="button" data-eroeffnung="speichern" style="padding:8px 14px;border:none;border-radius:9999px;background:#FFD54F;color:#00251e;font-family:Inter,sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Speichern</button>
-                                <button type="button" data-eroeffnung="loeschen" style="padding:8px 14px;border:1px solid rgba(255,255,255,0.35);border-radius:9999px;background:transparent;color:#ffffff;font-family:Inter,sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Löschen</button>
-                            </div>
-                            <div id="eroeffnungStand" role="status" aria-live="polite" style="font-family:Inter,sans-serif;font-size:12px;line-height:1.4;margin-top:6px;color:#ffffff;">Keine Neueröffnung eingetragen.</div>
                         </div>
                     </div>
                 </div>
@@ -36338,6 +36335,7 @@ function editRestaurant(restaurantId) {
     setVal('newRestaurantAccountHolder', restaurant.account_holder || '');
     setVal('newRestaurantIBAN', restaurant.iban || '');
     setVal('newRestaurantContractStart', restaurant.contract_start || '');
+    eroeffnungUI(restaurant.features || []);
 
     // Logo-Vorschau wenn vorhanden
     uploadedLogoBase64 = null; // Reset
@@ -36406,6 +36404,7 @@ function openNewRestaurantModal() {
         form.reset();
         delete form.dataset.editId;
     }
+    eroeffnungUI([]);
 
     // Cuisine-Checkboxen zurücksetzen
     document.querySelectorAll('.cuisineTypeCheck').forEach(function(cb) { cb.checked = false; });
@@ -38977,7 +38976,7 @@ document.addEventListener('click', function (e) {
     ausgebuchtSpeichern(z, null);
 });
 
-// Neueröffnung (Dashboard). Dieselbe Probe wie bei "ausgebucht": ohne
+// Neueröffnung (Admin, "Restaurant bearbeiten"). Dieselbe Probe wie bei "ausgebucht": ohne
 // zurueckgegebene Zeile gilt es als NICHT gespeichert -- sonst saehe der
 // Wirt "gespeichert" und die Gaeste nichts.
 function eroeffnungUI(features) {
@@ -38985,7 +38984,9 @@ function eroeffnungUI(features) {
     if (!stand) return;
     var e = eroeffnungInfo({ features: features || [] });
     var roh = (features || []).map(String).filter(function (f) { return /^eroeffnung:/.test(f); })[0];
-    if (feld && roh) feld.value = roh.slice(11);
+    // Das Formular wird fuer jedes Restaurant wiederverwendet: ohne das Leeren
+    // stuende beim naechsten noch das Datum des vorigen drin.
+    if (feld) feld.value = roh ? roh.slice(11) : '';
     if (!roh) { stand.textContent = 'Keine Neueröffnung eingetragen.'; return; }
     if (!e) { stand.textContent = 'Die Eröffnung ist länger als ' + EROEFFNUNG_NEU_TAGE + ' Tage her – Gäste sehen nichts mehr davon.'; return; }
     stand.textContent = e.phase === 'neu'
@@ -38994,8 +38995,9 @@ function eroeffnungUI(features) {
 }
 window.eroeffnungUI = eroeffnungUI;
 async function eroeffnungSpeichern(datum) {
-    var restId = getControlRestaurantId(), stand = document.getElementById('eroeffnungStand');
-    if (!restId) { showToast('Kein Restaurant gefunden', 'error'); return false; }
+    var form = document.getElementById('addRestaurantForm');
+    var restId = form && form.dataset.editId, stand = document.getElementById('eroeffnungStand');
+    if (!restId) { if (stand) stand.textContent = 'Erst das Restaurant anlegen, dann die Neueröffnung eintragen.'; showToast('Erst das Restaurant anlegen', 'error'); return false; }
     try {
         var res = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
@@ -39254,7 +39256,6 @@ function updateFeatureToggles(features) {
     if (typeof updateVacationUI === 'function') updateVacationUI(features);
     if (typeof andrangUI === 'function') andrangUI(features);
     if (typeof ausgebuchtUI === 'function') ausgebuchtUI(features);
-    if (typeof eroeffnungUI === 'function') eroeffnungUI(features);
 }
 
 /* DER ROTE BALKEN IM DASHBOARD DES WIRTS.
