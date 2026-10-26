@@ -59698,6 +59698,12 @@ async function saveOptionGroup(editId) {
     if (!name) { showToast('Bitte Gruppenname eingeben', 'error'); return; }
 
     var internalName = scope ? 'cats:' + scope : null;
+    // Dieselbe Grenze wie beim PDF-Weg (internal_name ist varchar(100)). Ohne
+    // diese Prüfung kam nur "Nicht gespeichert: value too long ..." zurück.
+    if (internalName && internalName.length > EXTRAS_SCOPE_MAX) {
+        showToast('Zu viele Kategorien für eine Gruppe (' + internalName.length + ' von ' + EXTRAS_SCOPE_MAX + ' Zeichen). Bitte auf zwei Gruppen mit gleichem Namen aufteilen.', 'error');
+        return;
+    }
     var groupData = {
         restaurant_id: restId,
         name: name,
@@ -80905,7 +80911,11 @@ async function extrasPdfUebernehmen() {
     if (kn) { kn.disabled = false; kn.textContent = 'Diese Extras anlegen'; }
 
     if ((erg.angelegt || erg.uebersprungen) && !erg.rechte) {
-        _extrasPdfSage(erg.angelegt + ' angelegt' + (erg.uebersprungen ? ', ' + erg.uebersprungen + ' gab es schon' : '') + '.');
+        // Auch einen TEIL-Fehler sagen -- vorher stand nur "9 angelegt", und
+        // dass die zehnte Gruppe fehlte, erfuhr niemand (Regel 6).
+        var _nicht = (erg.fehler && erg.fehler.length) ? ' ' + erg.fehler.length + ' nicht angelegt: ' + erg.fehler[0] : '';
+        _extrasPdfSage(erg.angelegt + ' angelegt' + (erg.uebersprungen ? ', ' + erg.uebersprungen + ' gab es schon' : '') + '.' + _nicht, _nicht ? 'fehler' : '');
+        if (_nicht) { showToast(erg.angelegt + ' angelegt,' + _nicht, 'error'); if (typeof loadOptionGroups === 'function') loadOptionGroups(); return; }
         showToast(erg.angelegt + ' Extra-Gruppe' + (erg.angelegt === 1 ? '' : 'n') + ' angelegt', 'success');
         closeModal('extrasPdfModal');
         if (typeof loadOptionGroups === 'function') loadOptionGroups();
@@ -80924,6 +80934,35 @@ async function extrasPdfUebernehmen() {
     _extrasPdfSage('Nichts angelegt. ' + (ausnahme || (erg.fehler && erg.fehler[0]) || 'Kein Grund gemeldet.'), 'fehler');
 }
 
+// ZU VIELE KATEGORIEN FÜR EINE ZEILE (gemessen 26.10.2026, 20:39 Uhr, von
+// Ibos iPhone): 9 Gruppen kamen an, die zehnte nicht -- Postgres: "value too
+// long for type character varying(100)". internal_name ("cats:Pizza,Pasta,...")
+// darf höchstens 100 Zeichen lang sein, und "Extra Zutaten" galt für so viele
+// Kategorien, dass die Liste länger wurde.
+// Darum: dieselbe Gruppe in mehrere Teile mit je einem Teil der Kategorien.
+// Für den Gast ändert sich nichts -- ein Gericht liegt in GENAU einer
+// Kategorie und sieht deshalb genau einen Teil.
+var EXTRAS_SCOPE_MAX = 100;
+function extrasAufteilen(extras) {
+    var out = [];
+    (extras || []).forEach(function (g) {
+        var kats = g && g.kategorie ? String(g.kategorie).split(',').map(function (k) { return k.trim(); }).filter(Boolean) : [];
+        if (!kats.length || ('cats:' + kats.join(',')).length <= EXTRAS_SCOPE_MAX) { out.push(g); return; }
+        var teil = [];
+        kats.forEach(function (k) {
+            k = k.slice(0, EXTRAS_SCOPE_MAX - 5);
+            if (teil.length && ('cats:' + teil.concat(k).join(',')).length > EXTRAS_SCOPE_MAX) {
+                out.push(Object.assign({}, g, { kategorie: teil.join(',') }));
+                teil = [];
+            }
+            teil.push(k);
+        });
+        if (teil.length) out.push(Object.assign({}, g, { kategorie: teil.join(',') }));
+    });
+    return out;
+}
+window.extrasAufteilen = extrasAufteilen;
+
 async function legeExtrasAn(restaurantId, SUPA_H) {
     // EIGENE KOPFZEILEN. Der Aufrufer schickt teils "Prefer: return=minimal"
     // mit -- dann antwortet die Datenbank ohne Inhalt, die neu angelegte
@@ -80941,7 +80980,7 @@ async function legeExtrasAn(restaurantId, SUPA_H) {
         if (istRechteFehler(roh)) _rechteFehlt = true;
         _extraFehler.push(text + ': ' + fehlerKlartext(roh));
     }
-    var extras = window._scanExtras || [];
+    var extras = extrasAufteilen(window._scanExtras || []);
 
     // VORHANDENE GRUPPEN ERST HOLEN.
     //

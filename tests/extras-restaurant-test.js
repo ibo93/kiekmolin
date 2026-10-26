@@ -32,5 +32,22 @@ var ueb = fn('extrasPdfUebernehmen');
 t('Anlegen nutzt die Extras-Wahl', /var rid = extrasRestaurantWahl\(\);/.test(ueb) && !/var rid = menuRestaurantWahl/.test(ueb));
 t('Hinweis sagt, wo man wählt', /bitte oben bei „Restaurant" eins wählen/.test(ueb));
 t('Öffnen fragt zuerst nach dem Restaurant', /if \(!extrasRestaurantWahl\(\)\) \{ showToast\('Bitte zuerst oben ein Restaurant wählen'/.test(fn('oeffneExtrasAusPdf')));
+
+// GEMESSEN 26.10.2026 20:39 (Ibos iPhone): 9 Gruppen angelegt, die zehnte
+// abgelehnt -- "value too long for type character varying(100)".
+var auf = new Function('window', 'var EXTRAS_SCOPE_MAX = 100;' + fn('extrasAufteilen') + '; return extrasAufteilen;')({});
+var viele = []; for (var i = 1; i <= 14; i++) viele.push('Pizza Spezial Nummer ' + i);
+var lang = { name: 'Extra Zutaten', kategorie: viele.join(','), optionen: [{ name: 'Käse', price: 1 }] };
+var teile = auf([lang]);
+t('zu lange Kategorie-Liste wird in mehrere Gruppen geteilt', teile.length > 1, teile.length);
+t('jeder Teil passt in die Spalte (max. 100 Zeichen)', teile.every(function (g) { return ('cats:' + g.kategorie).length <= 100; }), teile.map(function (g) { return ('cats:' + g.kategorie).length; }).join(','));
+t('keine Kategorie geht verloren', teile.map(function (g) { return g.kategorie; }).join(',') === viele.join(','));
+t('Name und Optionen bleiben gleich', teile.every(function (g) { return g.name === 'Extra Zutaten' && g.optionen === lang.optionen; }));
+var kurz = { name: 'Größe', kategorie: 'Pizza,Pasta' };
+t('kurze Liste bleibt eine Gruppe', auf([kurz]).length === 1 && auf([kurz])[0] === kurz);
+t('ohne Kategorie (alle Gerichte) bleibt eine Gruppe', auf([{ name: 'X' }]).length === 1);
+t('legeExtrasAn teilt vor dem Schreiben', /var extras = extrasAufteilen\(window\._scanExtras \|\| \[\]\);/.test(fn('legeExtrasAn')));
+t('Teil-Fehler wird gesagt, nicht nur "9 angelegt"', / nicht angelegt: ' \+ erg\.fehler\[0\]/.test(fn('extrasPdfUebernehmen')));
+t('Neue Gruppe von Hand: klare Meldung statt "value too long"', /internalName\.length > EXTRAS_SCOPE_MAX/.test(fn('saveOptionGroup')));
 console.log('\n' + ok + '/' + n + ' bestanden');
 if (ok !== n) process.exit(1);
