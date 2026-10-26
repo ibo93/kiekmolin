@@ -80769,7 +80769,15 @@ function _kopiereRechteSQL(btn) {
 // bleibt daneben bestehen.
 var _extrasPdfGefunden = null;
 
+function extrasRestaurantWahl() {
+    var sel = document.getElementById('optionsRestaurantSelect');
+    return (sel && sel.value) || window._gastroOnlyRestaurantId || null;
+}
+window.extrasRestaurantWahl = extrasRestaurantWahl;
+
 function oeffneExtrasAusPdf() {
+    // Erst fragen, wohin -- nicht erst nach dem Lesen der ganzen Karte.
+    if (!extrasRestaurantWahl()) { showToast('Bitte zuerst oben ein Restaurant wählen', 'error'); return; }
     _extrasPdfGefunden = null;
     var v = document.getElementById('extrasPdfVorschau');
     var st = document.getElementById('extrasPdfStatus');
@@ -80867,8 +80875,15 @@ async function extrasPdfUebernehmen() {
     });
     if (!gewaehlt.length) { showToast('Keine Gruppe ausgewählt', 'error'); return; }
 
-    var rid = menuRestaurantWahl();
-    if (!rid) { _extrasPdfSage('Kein Restaurant ausgewählt.', 'fehler'); return; }
+    // DAS RESTAURANT AUS "OPTIONEN & EXTRAS", nicht aus der Speisekarte.
+    // Bis 26.10.2026 stand hier nur menuRestaurantWahl() -- das ist die Wahl
+    // im Bereich SPEISEKARTE. Ibo (Admin) wählte oben in "Optionen & Extras"
+    // ein Restaurant und bekam "Kein Restaurant ausgewählt"; hätte er vorher
+    // die Speisekarte eines ANDEREN Hauses offen gehabt, wären die Extras
+    // still dort gelandet. Gemessen: am 26.10. kein einziges Schreiben auf
+    // menu_option_groups -- es kam nie bis zur Datenbank.
+    var rid = extrasRestaurantWahl();
+    if (!rid) { _extrasPdfSage('Kein Restaurant ausgewählt — bitte oben bei „Restaurant" eins wählen.', 'fehler'); return; }
 
     var kn = document.getElementById('extrasPdfKnopf');
     if (kn) { kn.disabled = true; kn.textContent = 'Wird angelegt…'; }
