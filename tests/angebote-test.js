@@ -286,8 +286,10 @@ t('und noch einmal, wenn die Angebote geladen sind -- die Reihenfolge ist offen'
 t('abgelaufene Angebote werden beim Eintragen nochmal aussortiert',
   /liste\.filter\(function \(s\) \{ return angebotLaeuftNoch\(s\); \}\)/.test(stempel));
 t('bei null Angeboten wird die Zuordnung trotzdem neu gesetzt -- sonst bliebe eine alte Zeile stehen',
-  !/if \(specials\.length === 0\) \{ container\.style\.display = 'none'; return; \}[\s\S]{0,200}window\._angeboteHeute = nachHaus/.test(CODE)
-  && CODE.indexOf('window._angeboteHeute = nachHaus') < CODE.indexOf("if (specials.length === 0) { container.style.display = 'none'; return; }"));
+  CODE.indexOf('window._angeboteHeute = nachHaus') > 0
+  // Seit 26.10.2026 zaehlt auch der "Laeuft gerade"-Kasten mit -- die Leiste
+  // bleibt nur weg, wenn es weder Angebote noch eine laufende Aktion gibt.
+  && CODE.indexOf('window._angeboteHeute = nachHaus') < CODE.indexOf("if (specials.length === 0 && !_kasten) { container.style.display = 'none'; return; }"));
 
 var zeile = new Function(schneide('angebotZeileHtml') + schneide('angebotPreis')
     + schneide('angebotErsparnis') + 'var escapeHtml = function (x) { return String(x); };'

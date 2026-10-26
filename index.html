@@ -427,6 +427,22 @@
         /* max-width: am Computer lief er ueber die ganze Breite (Ibo, Bildschirmfoto 26.10.2026) -- so breit wie die Restaurantkarten */
         .kmi-eroeffnung-kasten { background: #003d33; color: #ffffff; max-width: 924px; box-sizing: border-box; }
         .kmi-eroeffnung-gold { background: #ffd54f; color: #00251e; }
+        /* LÄUFT GERADE: Orange = jetzt, schnell sein. Weiß auf #c2410c: 5,2 : 1 */
+        .kmi-lauf-balken, .kmi-lauf-kasten { background: linear-gradient(140deg, #ea580c 0%, #c2410c 100%); color: #ffffff; }
+        .kmi-lauf-pille, .kmi-lauf-zeit { background: rgba(0,0,0,0.22); color: #ffffff; }
+        .kmi-lauf-etikett, .kmi-lauf-knopf { background: #ffffff; color: #9a3412; }
+        .kmi-lauf-eyebrow { color: #735c00; }
+        .kmi-akt-block { background: #003d33; color: #ffffff; }
+        .kmi-akt-block span:first-child { color: #ffd54f; }
+        .kmi-akt-block-gold { background: #ffd54f; color: #00251e; }
+        .dark-mode .kmi-lauf-balken, .dark-mode .kmi-lauf-kasten { background: linear-gradient(140deg, #ea580c 0%, #c2410c 100%); color: #ffffff; }
+        .dark-mode .kmi-lauf-etikett, .dark-mode .kmi-lauf-knopf { background: #ffffff; color: #9a3412; }
+        .dark-mode .kmi-lauf-eyebrow { color: #fed65b; }
+        .dark-mode .kmi-akt-block { background: #0b3a31; color: #ffffff; }
+        /* Die Lokalseite färbt im Dunkelmodus Text hell -- im Goldblock wäre das Gold auf Gold (im Browser gesehen 26.10.2026) */
+        .dark-mode .kmi-akt-block-gold, .dark-mode .kmi-akt-block-gold span { background: #ffd54f; color: #00251e !important; }
+        .dark-mode .kmi-akt-block span:last-child { color: #ffffff !important; }
+        .dark-mode .kmi-akt-block span:first-child { color: #ffd54f !important; }
         /* Balken am Handy einzeilig: kurzes Datum (30.10.) statt "30. OKTOBER" */
         .kmi-bk-kurz { display: none; }
         @media (max-width: 520px) { .kmi-bk-lang { display: none; } .kmi-bk-kurz { display: inline; } }
@@ -47559,6 +47575,7 @@ async function showRestaurantLanding(rest) {
     // #lpSpecials noch nicht.
     if (typeof renderRestaurantSpecials === 'function') renderRestaurantSpecials(rest.id);
     if (typeof renderRestaurantAktionen === 'function') renderRestaurantAktionen(rest.id);
+    if (typeof laufBalkenLokal === 'function') laufBalkenLokal(rest.id);
     if (typeof renderRestaurantAbend === 'function') renderRestaurantAbend(rest.id);
 
     // Sticky Bottom Bar entfernt (Liquid Glass Redesign - Action Bar ist oben sticky)
@@ -72813,16 +72830,26 @@ async function loadDailySpecials() {
         window._angeboteHeute = nachHaus;
         if (typeof angebotAbzeichenSetzen === 'function') angebotAbzeichenSetzen();
 
-        if (specials.length === 0) { container.style.display = 'none'; return; }
+        // LÄUFT GERADE (Entwurf 26.10.2026): Aktionen aller Häuser dazu.
+        var _alleAkt = (typeof aktionenAlleLaden === 'function') ? await aktionenAlleLaden() : [];
+        var _lauf = (typeof laufendesFinden === 'function') ? laufendesFinden(_alleAkt, specials)[0] : null;
+        var _laufRest = _lauf && _lauf.rid ? (APP_DATA.restaurants || []).find(function (r) { return r.id === _lauf.rid; }) : null;
+        var _kasten = (_lauf && _laufRest) ? laufKastenHtml(_lauf, _laufRest) : '';
+
+        if (specials.length === 0 && !_kasten) { container.style.display = 'none'; return; }
 
         container.style.display = 'block';
         container.innerHTML =
             '<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px;">' +
-              '<div style="font-family:Epilogue,sans-serif;font-size:16px;font-weight:700;color:var(--text-primary);">Tagesangebote</div>' +
-              '<div style="font-size:12px;color:var(--text-secondary);">' +
-                specials.length + (specials.length === 1 ? ' Angebot heute' : ' Angebote heute') +
+              '<div style="display:flex;flex-direction:column;gap:2px;">' +
+                '<span class="kmi-lauf-eyebrow" style="font-family:Inter,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.15em;">HEUTE IN DEINER NÄHE</span>' +
+                '<span style="font-family:Epilogue,sans-serif;font-size:22px;font-weight:900;letter-spacing:-0.03em;color:var(--text-primary);">Angebote &amp; Aktionen</span>' +
               '</div>' +
+              (specials.length ? '<div style="font-size:12px;color:var(--text-secondary);">' +
+                specials.length + (specials.length === 1 ? ' Angebot heute' : ' Angebote heute') +
+              '</div>' : '') +
             '</div>' +
+            _kasten +
             '<div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch;scrollbar-width:none;">' +
             specials.map(function(s) {
                 // Die Karte selbst kommt aus angebotKarteHtml -- dieselbe wie in
@@ -84360,14 +84387,152 @@ function aktionKarteHtml(a, laeuft) {
     var vorteil = a.vorteil ? '<div style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:9999px;background:var(--lp-akzent-hell,#fff4cc);color:var(--lp-akzent-text,#5c4600);font-size:13px;font-weight:700;">'
         + '<span class="material-symbols-outlined" style="font-size:16px;">redeem</span>' + escapeHtml(a.vorteil)
         + (a.gilt_fuer === 'reservierung' ? ' · bei Online-Reservierung' : '') + '</div>' : '';
-    return '<div style="background:var(--lp-karte,#ffffff);border:1px solid var(--lp-rand,rgba(0,0,0,0.06));border-radius:24px;padding:22px 22px 20px;box-shadow:0 4px 18px rgba(0,0,0,0.05);">'
+    // DATUMSBLOCK links (Entwurf 26.10.2026): "JEDEN DO" grün, ein festes
+    // Datum gold ("SA 8.11."). Der Gast sieht auf einen Blick, wann.
+    var blockOben, blockUnten, gold = false;
+    if (a.datum) {
+        var _t = String(a.datum).slice(0, 10).split('-'), _wt = aktionWochentag(a.datum);
+        blockOben = _wt != null ? AKTION_TAGE_KURZ[_wt].toUpperCase() : ''; blockUnten = Number(_t[2]) + '.' + Number(_t[1]) + '.'; gold = true;
+    } else {
+        var _tage = (Array.isArray(a.wochentage) ? a.wochentage.map(Number) : []).filter(function (x, i, l) { return x >= 0 && x <= 6 && l.indexOf(x) === i; });
+        if (_tage.length === 7) { blockOben = 'JEDEN'; blockUnten = 'TAG'; }
+        else if (_tage.length === 1) { blockOben = 'JEDEN'; blockUnten = AKTION_TAGE_KURZ[_tage[0]].toUpperCase(); }
+        else { blockOben = 'AN'; blockUnten = _tage.length + ' TAGEN'; }
+    }
+    var block = '<div class="' + (gold ? 'kmi-akt-block-gold' : 'kmi-akt-block') + '" aria-hidden="true" style="width:64px;flex:0 0 64px;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 0;align-self:flex-start;">'
+        + '<span style="font-size:11px;font-weight:800;letter-spacing:0.1em;">' + escapeHtml(blockOben) + '</span>'
+        + '<span style="font-family:Epilogue,sans-serif;font-weight:900;font-size:' + (blockUnten.length > 5 ? 15 : 21) + 'px;line-height:1.1;">' + escapeHtml(blockUnten) + '</span></div>';
+    return '<div style="background:var(--lp-karte,#ffffff);border:1px solid var(--lp-rand,rgba(0,0,0,0.06));border-radius:28px;padding:18px;box-shadow:0 8px 24px -4px rgba(0,37,30,0.06);">'
         + jetzt
-        + '<div style="font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--lp-gedaempft,#6b7280);margin-bottom:8px;">'
+        + '<div style="display:flex;gap:14px;align-items:flex-start;">' + block
+        + '<div style="flex:1 1 auto;min-width:0;">'
+        + '<div style="font-family:Epilogue,sans-serif;font-size:20px;font-weight:800;color:var(--lp-tinte,var(--ink-deep));line-height:1.2;">' + escapeHtml(a.titel || '') + '</div>'
+        + '<div style="margin-top:4px;font-size:13px;font-weight:600;color:var(--lp-gedaempft,#6b7280);">'
         + '<span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px;margin-right:4px;">' + (a.art === 'vorteil' ? 'local_offer' : 'event_upcoming') + '</span>'
         + escapeHtml(aktionZeitplanText(a)) + '</div>'
-        + '<div style="font-family:Epilogue,sans-serif;font-size:22px;font-weight:800;color:var(--lp-tinte,var(--ink-deep));line-height:1.2;">' + escapeHtml(a.titel || '') + '</div>'
         + (a.beschreibung ? '<div style="margin-top:6px;font-size:14px;line-height:1.55;color:var(--lp-text,var(--text-secondary));">' + escapeHtml(a.beschreibung) + '</div>' : '')
-        + vorteil + '</div>';
+        + vorteil + '</div></div></div>';
+}
+
+// ---- LÄUFT GERADE: Balken, großer Kasten, Timer ---------------------------
+// Ibo, 26.10.2026: "Angebote, Aktion ... wie sehen deren Balken aus?" --
+// Entwurf in Claude Design abgenommen ("so ist gut der Design").
+// Orange heißt "läuft JETZT, schnell sein" (Happy Hour, Aktion mit Uhrzeit),
+// Grün/Gold bleibt für Tagesangebote und Events.
+//
+// Was zählt als "läuft gerade":
+//   - eine Aktion für ALLE (aktionenJetztFuerTisch -- "nur bei Online-
+//     Reservierung" geht jemanden, der jetzt hingeht, nichts an),
+//   - ein Tagesangebot mit Zeitfenster [HH:MM-HH:MM], das gerade offen ist.
+// Ein Angebot ohne Uhrzeit "läuft" den ganzen Tag -- das ist kein Grund zur
+// Eile und bekommt keinen Timer.
+function laufEndeMs(bis, jetzt) {
+    var m = /^(\d{1,2}):(\d{2})/.exec(String(bis || ''));
+    if (!m) return null;
+    jetzt = jetzt || new Date();
+    var e = new Date(jetzt.getFullYear(), jetzt.getMonth(), jetzt.getDate(), +m[1], +m[2], 0).getTime();
+    if (e <= jetzt.getTime()) e += 86400000;   // über Mitternacht (Party 22–02 Uhr)
+    return e;
+}
+function _laufZwei(n) { return (n < 10 ? '0' : '') + n; }
+function laufRestText(endeMs, jetztMs) {
+    var d = Math.max(0, Math.floor((endeMs - jetztMs) / 1000));
+    return _laufZwei(Math.floor(d / 3600)) + ':' + _laufZwei(Math.floor(d % 3600 / 60)) + ':' + _laufZwei(d % 60);
+}
+function laufBisHtml(endeMs) {
+    return '<span class="kmi-bis" data-ende="' + endeMs + '" style="font-variant-numeric:tabular-nums;">' + laufRestText(endeMs, Date.now()) + '</span>';
+}
+// Abgelaufen: der ganze Balken/Kasten geht weg -- "noch 00:00:00" wäre eine Lüge.
+function laufTicken() {
+    var alle = document.querySelectorAll('.kmi-bis[data-ende]');
+    for (var i = 0; i < alle.length; i++) {
+        var el = alle[i], ende = +el.getAttribute('data-ende');
+        if (ende <= Date.now()) { var weg = el.closest('.kmi-lauf-weg'); if (weg) weg.remove(); else el.textContent = '00:00:00'; continue; }
+        el.textContent = laufRestText(ende, Date.now());
+    }
+}
+window.laufTicken = laufTicken;
+setInterval(function () { try { laufTicken(); } catch (e) {} }, 1000);
+
+// Was läuft gerade? Aktionen (für alle) und Angebote mit offenem Zeitfenster.
+// Rückgabe: [{ titel, unter, ende (ms oder null), rid }], die mit Ende zuerst.
+function laufendesFinden(aktionen, angebote, jetzt) {
+    jetzt = jetzt || new Date();
+    var out = [];
+    aktionenJetztFuerTisch(aktionen || [], jetzt).forEach(function (a) {
+        out.push({ titel: String(a.titel || 'Aktion'), unter: String(a.vorteil || a.beschreibung || ''), ende: a.bis ? laufEndeMs(a.bis, jetzt) : null, rid: a.restaurant_id || null });
+    });
+    (angebote || []).forEach(function (sp) {
+        var f = String((sp && sp.description) || '').match(/^\[(\d{2}:\d{2})-(\d{2}:\d{2})\]/);
+        if (!f || !angebotLaeuftNoch(sp, jetzt)) return;
+        var preis = angebotPreis(sp.price), alt = angebotPreis(sp.old_price);
+        out.push({ titel: String(sp.title || 'Angebot'), unter: (angebotText(sp) || '') + (preis ? (angebotText(sp) ? ' · ' : '') + preis + (alt ? ' statt ' + alt : '') : ''), ende: laufEndeMs(f[2], jetzt), rid: sp.restaurant_id || null });
+    });
+    return out.sort(function (x, y) { return (x.ende == null) - (y.ende == null) || (x.ende || 0) - (y.ende || 0); });
+}
+window.laufendesFinden = laufendesFinden;
+
+// Lokalseite: der orange Balken oben, unter der Navigation (wie bei der
+// Neueröffnung). Steht der Neueröffnungs-Balken schon da, kommt er darunter.
+function laufBalkenHtml(x, top) {
+    return '<a href="#lpAktionen" class="kmi-lauf-balken kmi-lauf-weg" role="status" style="position:absolute;top:' + top + 'px;left:16px;right:16px;z-index:5;max-width:900px;margin:0 auto;'
+        + 'display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-radius:20px;text-decoration:none;box-shadow:0 12px 32px -8px rgba(0,0,0,0.35);">'
+        + '<span style="display:flex;align-items:center;gap:8px;min-width:0;font-family:Epilogue,sans-serif;font-weight:900;font-size:16px;letter-spacing:0.03em;">'
+        + '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:20px;">local_fire_department</span>'
+        + '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(x.titel.toUpperCase()) + ' LÄUFT</span></span>'
+        + (x.ende ? '<span class="kmi-lauf-pille" style="flex-shrink:0;border-radius:9999px;padding:4px 10px;font-size:13px;font-weight:800;">noch ' + laufBisHtml(x.ende) + '</span>' : '')
+        + '</a>';
+}
+function laufBalkenLokal(restaurantId) {
+    return Promise.all([
+        typeof tagesangeboteHolen === 'function' ? tagesangeboteHolen(restaurantId) : Promise.resolve([]),
+        aktionenLaden(restaurantId, false)
+    ]).then(function (r) {
+        var held = document.getElementById('lpHero');
+        if (!held) return 0;
+        var alt = held.querySelector('.kmi-lauf-balken'); if (alt) alt.remove();
+        var x = laufendesFinden(r[1], r[0])[0];
+        if (!x) return 0;
+        var eb = held.querySelector('.kmi-eroeffnung-balken');
+        var top = eb ? 92 + eb.offsetHeight + 8 : 92;
+        held.insertAdjacentHTML('afterbegin', laufBalkenHtml(x, top));
+        return 1;
+    }).catch(function () { return 0; });
+}
+window.laufBalkenLokal = laufBalkenLokal;
+
+// Startseite: der große orange Kasten -- das erste, was gerade irgendwo läuft.
+function laufKastenHtml(x, rest) {
+    var slug = rest ? String(rest.slug || rest.id).replace(/[^a-zA-Z0-9_-]/g, '') : '';
+    var zeit = '';
+    if (x.ende) {
+        zeit = '<div style="position:relative;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+            + '<span style="font-family:Inter,sans-serif;font-size:12px;font-weight:800;letter-spacing:0.12em;">ENDET IN</span>'
+            + '<span class="kmi-lauf-zeit" style="font-family:Epilogue,sans-serif;font-weight:900;font-size:24px;border-radius:12px;padding:4px 12px;">' + laufBisHtml(x.ende) + '</span></div>';
+    }
+    return '<section class="kmi-lauf-kasten kmi-lauf-weg" aria-label="Läuft gerade" style="position:relative;border-radius:28px;padding:22px 20px 20px;overflow:hidden;display:flex;flex-direction:column;gap:12px;margin-bottom:16px;max-width:924px;box-sizing:border-box;">'
+        + '<div aria-hidden="true" style="position:absolute;right:-40px;top:-40px;width:170px;height:170px;border-radius:9999px;background:rgba(255,255,255,0.12);"></div>'
+        + '<div style="position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px;">'
+        +   '<span class="kmi-lauf-etikett" style="display:inline-flex;align-items:center;gap:6px;border-radius:9999px;padding:6px 12px;font-family:Inter,sans-serif;font-size:12px;font-weight:800;letter-spacing:0.12em;"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:15px;">local_fire_department</span>LÄUFT GERADE</span>'
+        +   (rest ? '<span style="font-family:Inter,sans-serif;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(rest.name || '') + '</span>' : '')
+        + '</div>'
+        + '<div style="position:relative;display:flex;flex-direction:column;gap:4px;">'
+        +   '<span style="font-family:Epilogue,sans-serif;font-weight:900;font-size:36px;line-height:1;letter-spacing:-0.04em;text-transform:uppercase;overflow-wrap:anywhere;">' + escapeHtml(x.titel) + '</span>'
+        +   (x.unter ? '<span style="font-family:Inter,sans-serif;font-size:15px;line-height:1.4;">' + escapeHtml(x.unter) + '</span>' : '')
+        + '</div>'
+        + zeit
+        + (slug ? '<button type="button" onclick="openRestaurantBySlug(\'' + slug + '\')" class="kmi-lauf-knopf" style="position:relative;display:flex;align-items:center;justify-content:center;gap:8px;min-height:50px;border:none;border-radius:9999px;font-family:Epilogue,sans-serif;font-weight:800;font-size:15px;cursor:pointer;">Jetzt hingehen oder bestellen</button>' : '')
+        + '</section>';
+}
+// Alle aktiven Aktionen für ALLE, einmal geholt (5 Minuten gemerkt).
+var _aktionenAlle = null, _aktionenAlleZeit = 0;
+function aktionenAlleLaden() {
+    if (_aktionenAlle && Date.now() - _aktionenAlleZeit < 300000) return _aktionenAlle;
+    _aktionenAlleZeit = Date.now();
+    _aktionenAlle = fetch(SUPABASE_URL + '/rest/v1/aktionen?aktiv=eq.true&gilt_fuer=eq.alle&select=id,restaurant_id,titel,beschreibung,art,gilt_fuer,vorteil,wochentage,datum,von,bis,gueltig_ab,gueltig_bis,aktiv', {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
+    }).then(function (r) { return r.ok ? r.json() : []; }).then(function (l) { return Array.isArray(l) ? l : []; }).catch(function () { return []; });
+    return _aktionenAlle;
 }
 
 // Fuellt #lpAktionen auf der Lokalseite. Ohne Aktionen bleibt der Platz leer.
