@@ -27230,16 +27230,21 @@ function eroeffnungRest(zielMs, jetzt) {
     return { t: Math.floor(d / 86400), s: Math.floor(d % 86400 / 3600), m: Math.floor(d % 3600 / 60), sek: d % 60, vorbei: d === 0 };
 }
 function _eroeffnungZwei(n) { return (n < 10 ? '0' : '') + n; }
-function eroeffnungTimerHtml(zielMs) {
+function eroeffnungTimerHtml(zielMs, rid) {
     var z = eroeffnungRest(zielMs, Date.now());
-    if (z.vorbei) return '<div class="kmi-countdown kmi-countdown-offen" style="text-align:center;font-family:Epilogue,sans-serif;font-weight:900;font-size:22px;color:#ffd54f;">JETZT GEÖFFNET</div>';
+    // Timer bei 0: "JETZT GEÖFFNET" + Glückwunsch, und eroeffnungTicken zündet
+    // das Feuerwerk (Ibo, 26.10.2026: "wie Feuerwerk ... alles Gute zur
+    // Neueröffnung").
+    if (z.vorbei) return '<div class="kmi-countdown-offen" data-rid="' + String(rid || '').replace(/[^a-zA-Z0-9_-]/g, '') + '" style="text-align:center;display:flex;flex-direction:column;gap:4px;">'
+        + '<span style="font-family:Epilogue,sans-serif;font-weight:900;font-size:26px;color:#ffd54f;letter-spacing:0.02em;">JETZT GEÖFFNET</span>'
+        + '<span style="font-family:Inter,sans-serif;font-size:16px;font-weight:700;color:#ffffff;">Alles Gute zur Neueröffnung!</span></div>';
     function kachel(wert, wort, gold, teil) {
         return '<div class="' + (gold ? 'kmi-eroeffnung-gold' : '') + '" style="flex:1 1 0;min-width:0;border-radius:16px;padding:10px 4px;display:flex;flex-direction:column;align-items:center;'
             + (gold ? '' : 'background:rgba(255,255,255,0.10);') + '">'
             + '<span data-teil="' + teil + '" style="font-family:Epilogue,sans-serif;font-weight:900;font-size:34px;line-height:1;font-variant-numeric:tabular-nums;">' + wert + '</span>'
             + '<span style="font-family:Inter,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.12em;margin-top:4px;' + (gold ? '' : 'color:#ffd54f;') + '">' + wort + '</span></div>';
     }
-    return '<div class="kmi-countdown" data-ziel="' + zielMs + '" role="timer" aria-label="Zeit bis zur Eröffnung" style="display:flex;gap:8px;">'
+    return '<div class="kmi-countdown" data-ziel="' + zielMs + '" data-rid="' + String(rid || '').replace(/[^a-zA-Z0-9_-]/g, '') + '" role="timer" aria-label="Zeit bis zur Eröffnung" style="display:flex;gap:8px;">'
         + kachel(z.t, z.t === 1 ? 'TAG' : 'TAGE', true, 't')
         + kachel(_eroeffnungZwei(z.s), 'STD', false, 's')
         + kachel(_eroeffnungZwei(z.m), 'MIN', false, 'm')
@@ -27250,7 +27255,7 @@ function eroeffnungTicken() {
     var alle = document.querySelectorAll('.kmi-countdown[data-ziel]');
     for (var i = 0; i < alle.length; i++) {
         var el = alle[i], z = eroeffnungRest(+el.getAttribute('data-ziel'), Date.now());
-        if (z.vorbei) { el.outerHTML = eroeffnungTimerHtml(0); continue; }
+        if (z.vorbei) { el.outerHTML = eroeffnungTimerHtml(0, el.getAttribute('data-rid')); continue; }
         ['t', 's', 'm', 'sek'].forEach(function (k) {
             var f = el.querySelector('[data-teil="' + k + '"]');
             if (f) f.textContent = k === 't' ? z.t : _eroeffnungZwei(z[k]);
@@ -27258,7 +27263,61 @@ function eroeffnungTicken() {
     }
 }
 window.eroeffnungTicken = eroeffnungTicken;
-setInterval(function () { try { eroeffnungTicken(); } catch (e) {} }, 1000);
+
+// FEUERWERK zur Eröffnung. Goldene und weiße Funken im grünen Kasten, gut
+// 3 Sekunden, kein Ton. Einmal pro Gerät, Haus und Tag -- wer die Seite
+// fünfmal öffnet, bekommt es nicht fünfmal. Wer am Gerät "Bewegung
+// reduzieren" eingestellt hat, sieht nur "JETZT GEÖFFNET". Ohne Bibliothek.
+function eroeffnungFeuerwerkPruefen() {
+    var alle = document.querySelectorAll('.kmi-countdown-offen:not([data-fw])');
+    for (var i = 0; i < alle.length; i++) {
+        var el = alle[i];
+        el.setAttribute('data-fw', '1');
+        var kasten = el.closest('.kmi-eroeffnung-kasten');
+        if (!kasten || !eroeffnungFeuerwerkErlaubt(el.getAttribute('data-rid'), new Date())) continue;
+        eroeffnungFeuerwerk(kasten);
+    }
+}
+function eroeffnungFeuerwerkErlaubt(rid, jetzt) {
+    try { if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false; } catch (e) {}
+    var schl = 'kmi_feuerwerk_' + (rid || 'x') + '_' + jetzt.getFullYear() + '-' + (jetzt.getMonth() + 1) + '-' + jetzt.getDate();
+    try { if (localStorage.getItem(schl)) return false; localStorage.setItem(schl, '1'); } catch (e) {}
+    return true;
+}
+function eroeffnungFeuerwerk(kasten) {
+    var c = document.createElement('canvas');
+    c.setAttribute('aria-hidden', 'true');
+    c.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:3;';
+    kasten.appendChild(c);
+    var dpr = Math.min(2, window.devicePixelRatio || 1), w = kasten.clientWidth, h = kasten.clientHeight, x = c.getContext('2d');
+    if (!x) { c.remove(); return; }
+    c.width = w * dpr; c.height = h * dpr; x.scale(dpr, dpr);   // scharf auf dem Handy
+    var farben = ['#ffd54f', '#fff4cc', '#ffffff', '#fed65b'], teile = [], start = performance.now(), salven = 0;
+    function salve() {
+        var cx = w * (0.2 + Math.random() * 0.6), cy = h * (0.15 + Math.random() * 0.35);
+        for (var i = 0; i < 64; i++) {
+            var wi = Math.PI * 2 * i / 64, v = 1.8 + Math.random() * 3;
+            teile.push({ x: cx, y: cy, vx: Math.cos(wi) * v, vy: Math.sin(wi) * v, l: 1, f: farben[i % farben.length] });
+        }
+        salven++;
+    }
+    salve();
+    (function bild(t) {
+        var lauf = t - start;
+        if (salven < 5 && lauf > salven * 550) salve();
+        x.clearRect(0, 0, w, h);
+        teile.forEach(function (p) {
+            p.x += p.vx; p.y += p.vy; p.vy += 0.045; p.vx *= 0.985; p.l -= 0.012;
+            if (p.l <= 0) return;
+            x.globalAlpha = Math.max(0, p.l); x.fillStyle = p.f;
+            x.beginPath(); x.arc(p.x, p.y, 3, 0, Math.PI * 2); x.fill();
+        });
+        teile = teile.filter(function (p) { return p.l > 0; });
+        if (lauf < 3600 || teile.length) requestAnimationFrame(bild); else c.remove();
+    })(start);
+}
+window.eroeffnungFeuerwerk = eroeffnungFeuerwerk;
+setInterval(function () { try { eroeffnungTicken(); eroeffnungFeuerwerkPruefen(); } catch (e) {} }, 1000);
 // Der grosse Kasten auf der Startseite: die naechste Eroeffnung.
 function eroeffnungBannerHtml(restaurants) {
     var kandidaten = (restaurants || []).filter(function (r) {
@@ -27303,7 +27362,7 @@ function eroeffnungKastenHtml(r, mitLink) {
         +     '<span style="font-family:Inter,sans-serif;font-size:13px;color:rgba(255,255,255,0.86);">' + e.wochentag + (_ziel.uhr ? ' · ab ' + _ziel.uhr + ' Uhr' : '') + '</span>'
         +   '</div>'
         + '</div>'
-        + eroeffnungTimerHtml(_ziel.ms)
+        + eroeffnungTimerHtml(_ziel.ms, r.id)
         + knopf
         + (mitLink === false ? '' : '<button type="button" onclick="openRestaurantBySlug(\'' + slug + '\')" style="align-self:center;min-height:44px;padding:0 12px;border:none;background:transparent;color:#ffffff;font-family:Inter,sans-serif;font-size:14px;font-weight:600;text-decoration:underline;cursor:pointer;">Zum Restaurant</button>')
         + '</section>';

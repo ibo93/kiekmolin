@@ -142,7 +142,7 @@ t('Handy: kurzes Datum, damit der Balken nicht umbricht', /kmi-bk-kurz">NEUERÖF
 t('Lokalseite: der grosse grüne Kasten aus dem Entwurf', /eroeffnungKastenHtml\(rest, false\)/.test(lp));
 var kL = A.eroeffnungKastenHtml(r4, false), kS = A.eroeffnungKastenHtml(r4, true);
 t('Kasten auf der Lokalseite ohne "Zum Restaurant" (man ist schon da)', /kmi-eroeffnung-kasten/.test(kL) && !/Zum Restaurant/.test(kL) && /Zum Restaurant/.test(kS));
-t('Kasten mit Datum, Timer und Reservieren', /class="kmi-countdown" data-ziel="\d+" role="timer"/.test(kL) && /Tisch reservieren/.test(kL));
+t('Kasten mit Datum, Timer und Reservieren', /class="kmi-countdown" data-ziel="\d+" data-rid="a1" role="timer"/.test(kL) && /Tisch reservieren/.test(kL));
 // "es muss wie ein Timer": Tage, Std, Min, Sek -- bis zur Oeffnungszeit des Tages
 var zr = A.eroeffnungRest(new Date(2026, 9, 30, 17, 0, 0).getTime(), new Date(2026, 9, 26, 15, 38, 50).getTime());
 t('Timer rechnet richtig: 4 Tage 01:21:10', zr.t === 4 && zr.s === 1 && zr.m === 21 && zr.sek === 10, JSON.stringify(zr));
@@ -152,7 +152,21 @@ t('ohne Öffnungszeit: Mitternacht, kein "ab"', A.eroeffnungZiel({}, { datum: '2
 var th = A.eroeffnungTimerHtml(Date.now() + 90061000);
 t('Timer-Kacheln TAG/STD/MIN/SEK mit führender Null', /data-teil="t"[^>]*>1</.test(th) && /data-teil="s"[^>]*>01</.test(th) && /data-teil="m"[^>]*>01</.test(th) && />SEK</.test(th), th.slice(0, 200));
 t('abgelaufen: "JETZT GEÖFFNET" statt 0:00:00', /JETZT GEÖFFNET/.test(A.eroeffnungTimerHtml(Date.now() - 1000)));
-t('tickt jede Sekunde', /setInterval\(function \(\) \{ try \{ eroeffnungTicken\(\); \} catch \(e\) \{\} \}, 1000\)/.test(H));
+t('tickt jede Sekunde und prüft das Feuerwerk', /setInterval\(function \(\) \{ try \{ eroeffnungTicken\(\); eroeffnungFeuerwerkPruefen\(\); \} catch \(e\) \{\} \}, 1000\)/.test(H));
+// "wie Feuerwerk ... alles Gute zur Neueroeffnung"
+var offen = A.eroeffnungTimerHtml(Date.now() - 1000, 'a1');
+t('bei 0: "Alles Gute zur Neueröffnung!" mit Haus-ID fürs Feuerwerk', /Alles Gute zur Neueröffnung!/.test(offen) && /class="kmi-countdown-offen" data-rid="a1"/.test(offen), offen.slice(0, 160));
+t('Tick bei 0 behält das Haus (sonst Feuerwerk für "x")', /eroeffnungTimerHtml\(0, el\.getAttribute\('data-rid'\)\)/.test(fn('eroeffnungTicken')));
+var fwOk = new Function('window', 'localStorage', fn('eroeffnungFeuerwerkErlaubt') + '; return eroeffnungFeuerwerkErlaubt;');
+var speicher = {}, ls = { getItem: function (k) { return speicher[k] || null; }, setItem: function (k, v) { speicher[k] = v; } };
+var erlaubt = fwOk({ matchMedia: function () { return { matches: false }; } }, ls);
+var tag = new Date(2026, 9, 30, 17, 0);
+t('Feuerwerk beim ersten Mal', erlaubt('a1', tag) === true);
+t('am selben Tag kein zweites Mal', erlaubt('a1', tag) === false);
+t('anderes Haus: wieder', erlaubt('a2', tag) === true);
+t('"Bewegung reduzieren" am Gerät: kein Feuerwerk', fwOk({ matchMedia: function () { return { matches: true }; } }, ls)('a3', tag) === false);
+t('ohne Speicher (privates Fenster): trotzdem kein Absturz', fwOk({}, { getItem: function () { throw new Error('x'); } })('a4', tag) === true);
+t('Feuerwerk ohne Ton und Bibliothek: Canvas im Kasten, klickt nicht im Weg', /pointer-events:none/.test(fn('eroeffnungFeuerwerk')) && /createElement\('canvas'\)/.test(fn('eroeffnungFeuerwerk')) && !/Audio|<script/.test(fn('eroeffnungFeuerwerk')));
 t('Kasten am Computer nicht über die ganze Breite (max. Kartenbreite)', /\.kmi-eroeffnung-kasten \{ background: #003d33; color: #ffffff; max-width: 924px;/.test(H));
 t('nach der Eröffnung kein Kasten mehr', A.eroeffnungKastenHtml(rNeu, false) === '');
 var sw = fs.readFileSync(KMI + '/sw.js', 'utf8'), w = fs.readFileSync(KMI + '/netlify/functions/gastweg-wache.js', 'utf8');
