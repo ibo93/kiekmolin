@@ -31,12 +31,12 @@ function fn(name) {
 function tag(plus) { var d = new Date(); d.setDate(d.getDate() + plus); return d.toLocaleDateString('sv-SE'); }
 
 var quelle = ['ausgebuchtZeitraeume', 'ausgebuchtAm', 'ausgebuchtTelefon', 'ausgebuchtAusweg', 'ausgebuchtAngebotSetzen',
-    'eroeffnungInfo', 'eroeffnungZaehler', 'eroeffnungAbzeichen', 'eroeffnungBalkenHtml', 'eroeffnungBannerHtml']
+    'eroeffnungInfo', 'eroeffnungZaehler', 'eroeffnungAbzeichen', 'eroeffnungBalkenHtml', 'eroeffnungBannerHtml', 'eroeffnungKastenHtml', 'eroeffnungZiel', 'eroeffnungRest', '_eroeffnungZwei', 'eroeffnungTimerHtml']
     .map(fn).join('\n');
 var A = new Function('window', 'escapeHtml', 'zahlsperreReservierenAus',
     'var EROEFFNUNG_NEU_TAGE = 30;\n' + quelle +
     '\nreturn { ausgebuchtAm: ausgebuchtAm, ausgebuchtAngebotSetzen: ausgebuchtAngebotSetzen, ausgebuchtAusweg: ausgebuchtAusweg,' +
-    ' eroeffnungInfo: eroeffnungInfo, eroeffnungAbzeichen: eroeffnungAbzeichen, eroeffnungBalkenHtml: eroeffnungBalkenHtml, eroeffnungBannerHtml: eroeffnungBannerHtml };'
+    ' eroeffnungInfo: eroeffnungInfo, eroeffnungAbzeichen: eroeffnungAbzeichen, eroeffnungBalkenHtml: eroeffnungBalkenHtml, eroeffnungBannerHtml: eroeffnungBannerHtml, eroeffnungKastenHtml: eroeffnungKastenHtml, eroeffnungZiel: eroeffnungZiel, eroeffnungRest: eroeffnungRest, eroeffnungTimerHtml: eroeffnungTimerHtml };'
 )({}, function (s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }, function () { return false; });
 
 console.log('\n-- 1. WANN IST WAS --');
@@ -66,13 +66,14 @@ var k = A.eroeffnungBannerHtml([r9, aus, r4, rNeu]);
 t('zeigt die NÄCHSTE Eröffnung', k.indexOf('Neu &lt;Haus&gt;') >= 0 && k.indexOf('Später') < 0, k.slice(0, 120));
 t('inaktives Haus nie', k.indexOf('Inaktiv') < 0);
 t('Name wird escaped (kein HTML aus der Datenbank)', k.indexOf('<Haus>') < 0);
-t('Zähler 4 Tage und Reservieren-Knopf', /NOCH<\/span><span[^>]*>4<\/span>/.test(k) && /Tisch zur Eröffnung reservieren/.test(k));
+var _erw = A.eroeffnungRest(A.eroeffnungZiel(r4, A.eroeffnungInfo(r4)).ms, Date.now()).t;
+t('Timer zeigt die Tage bis zur Öffnung und Reservieren-Knopf', new RegExp('data-teil="t"[^>]*>' + _erw + '<').test(k) && _erw >= 3 && /Tisch reservieren/.test(k), k.slice(0, 300));
 t('nur eröffnete (neu) -> kein Kasten', A.eroeffnungBannerHtml([rNeu]) === '');
 var r4voll = JSON.parse(JSON.stringify(r4)); r4voll.features.push('ausgebucht:' + tag(4) + ':' + tag(4));
 var kv = A.eroeffnungBannerHtml([r4voll]);
-t('Eröffnungstag ausgebucht -> Anrufen statt Reservieren', /href="tel:0493112345"/.test(kv) && kv.indexOf('Tisch zur Eröffnung reservieren') < 0, kv.slice(0, 200));
+t('Eröffnungstag ausgebucht -> Anrufen statt Reservieren', /href="tel:0493112345"/.test(kv) && kv.indexOf('Tisch reservieren') < 0, kv.slice(0, 200));
 var r4ohneRes = JSON.parse(JSON.stringify(r4)); r4ohneRes.features.push('no_reservations');
-t('Haus ohne Reservierung -> kein Reservieren-Knopf', A.eroeffnungBannerHtml([r4ohneRes]).indexOf('Tisch zur Eröffnung reservieren') < 0);
+t('Haus ohne Reservierung -> kein Reservieren-Knopf', A.eroeffnungBannerHtml([r4ohneRes]).indexOf('Tisch reservieren') < 0);
 
 console.log('\n-- 4. AUSGEBUCHT = ANRUFEN --');
 var box = { innerHTML: '', style: {} };
@@ -130,7 +131,44 @@ t('Speichern prüft die zurückgegebene Zeile (sonst "nicht gespeichert")', /Pre
 t('Speichern ersetzt den alten Eintrag statt zu stapeln', /filter\(function \(f\) \{ return !\/\^eroeffnung:\/\.test\(String\(f\)\); \}\)/.test(spe));
 t('Startseite: Kasten über der Liste', /id="eroeffnungBanner"/.test(H) && /eroeffnungBannerZeichnen\(\);/.test(fn('renderRestaurants')));
 t('Liste: Abzeichen auf der Karte', /eroeffnungAbzeichen\(r\)/.test(fn('renderRestaurants')));
-t('Lokalseite: Balken vor dem Kopf', /eroeffnungBalkenHtml\(rest\)/.test(fn('showRestaurantLanding')));
+// 26.10.2026, Ibo mit Bildschirmfoto: "man sieht den Balken nicht". Er stand
+// VOR dem Kopf -- genau hinter der schwebenden Navigation (position:fixed,
+// 0..80px). Im Browser gemessen: Balken top 0, Navigation 0..56 sichtbar davor.
+var lp = fn('showRestaurantLanding');
+t('Lokalseite: Balken IM Kopf (nicht davor, hinter der Navigation)', lp.indexOf('eroeffnungBalkenHtml(rest)') > lp.indexOf('id="lpHero"') && lp.indexOf('id="lpHero"') > 0, lp.indexOf('eroeffnungBalkenHtml(rest)') + ' / ' + lp.indexOf('id="lpHero"'));
+t('Balken liegt unter der Navigation (top 92px, über dem Foto)', /class="kmi-eroeffnung-balken[^"]*" role="note" style="position:absolute;top:92px;[^"]*z-index:5/.test(fn('eroeffnungBalkenHtml')));
+t('Handy: kurzes Datum, damit der Balken nicht umbricht', /kmi-bk-kurz">NEUERÖFFNUNG ' \+ e\.kurz/.test(fn('eroeffnungBalkenHtml')) && /@media \(max-width: 520px\) \{ \.kmi-bk-lang \{ display: none; \}/.test(H));
+// "es muss was richtig Grosses sein, wie du es mir gezeigt hast"
+t('Lokalseite: der grosse grüne Kasten aus dem Entwurf', /eroeffnungKastenHtml\(rest, false\)/.test(lp));
+var kL = A.eroeffnungKastenHtml(r4, false), kS = A.eroeffnungKastenHtml(r4, true);
+t('Kasten auf der Lokalseite ohne "Zum Restaurant" (man ist schon da)', /kmi-eroeffnung-kasten/.test(kL) && !/Zum Restaurant/.test(kL) && /Zum Restaurant/.test(kS));
+t('Kasten mit Datum, Timer und Reservieren', /class="kmi-countdown" data-ziel="\d+" data-rid="a1" role="timer"/.test(kL) && /Tisch reservieren/.test(kL));
+// "es muss wie ein Timer": Tage, Std, Min, Sek -- bis zur Oeffnungszeit des Tages
+var zr = A.eroeffnungRest(new Date(2026, 9, 30, 17, 0, 0).getTime(), new Date(2026, 9, 26, 15, 38, 50).getTime());
+t('Timer rechnet richtig: 4 Tage 01:21:10', zr.t === 4 && zr.s === 1 && zr.m === 21 && zr.sek === 10, JSON.stringify(zr));
+var zz = A.eroeffnungZiel({ opening_hours: { fr_start: '17:00' } }, { datum: '2026-10-30' });
+t('Ziel = Öffnungszeit dieses Wochentags (Fr 30.10. ab 17:00)', zz.uhr === '17:00' && zz.ms === new Date(2026, 9, 30, 17, 0, 0).getTime(), JSON.stringify(zz));
+t('ohne Öffnungszeit: Mitternacht, kein "ab"', A.eroeffnungZiel({}, { datum: '2026-10-30' }).uhr === '');
+var th = A.eroeffnungTimerHtml(Date.now() + 90061000);
+t('Timer-Kacheln TAG/STD/MIN/SEK mit führender Null', /data-teil="t"[^>]*>1</.test(th) && /data-teil="s"[^>]*>01</.test(th) && /data-teil="m"[^>]*>01</.test(th) && />SEK</.test(th), th.slice(0, 200));
+t('abgelaufen: "JETZT GEÖFFNET" statt 0:00:00', /JETZT GEÖFFNET/.test(A.eroeffnungTimerHtml(Date.now() - 1000)));
+t('tickt jede Sekunde und prüft das Feuerwerk', /setInterval\(function \(\) \{ try \{ eroeffnungTicken\(\); eroeffnungFeuerwerkPruefen\(\); \} catch \(e\) \{\} \}, 1000\)/.test(H));
+// "wie Feuerwerk ... alles Gute zur Neueroeffnung"
+var offen = A.eroeffnungTimerHtml(Date.now() - 1000, 'a1');
+t('bei 0: "Alles Gute zur Neueröffnung!" mit Haus-ID fürs Feuerwerk', /Alles Gute zur Neueröffnung!/.test(offen) && /class="kmi-countdown-offen" data-rid="a1"/.test(offen), offen.slice(0, 160));
+t('Tick bei 0 behält das Haus (sonst Feuerwerk für "x")', /eroeffnungTimerHtml\(0, el\.getAttribute\('data-rid'\)\)/.test(fn('eroeffnungTicken')));
+var fwOk = new Function('window', 'localStorage', fn('eroeffnungFeuerwerkErlaubt') + '; return eroeffnungFeuerwerkErlaubt;');
+var speicher = {}, ls = { getItem: function (k) { return speicher[k] || null; }, setItem: function (k, v) { speicher[k] = v; } };
+var erlaubt = fwOk({ matchMedia: function () { return { matches: false }; } }, ls);
+var tag = new Date(2026, 9, 30, 17, 0);
+t('Feuerwerk beim ersten Mal', erlaubt('a1', tag) === true);
+t('am selben Tag kein zweites Mal', erlaubt('a1', tag) === false);
+t('anderes Haus: wieder', erlaubt('a2', tag) === true);
+t('"Bewegung reduzieren" am Gerät: kein Feuerwerk', fwOk({ matchMedia: function () { return { matches: true }; } }, ls)('a3', tag) === false);
+t('ohne Speicher (privates Fenster): trotzdem kein Absturz', fwOk({}, { getItem: function () { throw new Error('x'); } })('a4', tag) === true);
+t('Feuerwerk ohne Ton und Bibliothek: Canvas im Kasten, klickt nicht im Weg', /pointer-events:none/.test(fn('eroeffnungFeuerwerk')) && /createElement\('canvas'\)/.test(fn('eroeffnungFeuerwerk')) && !/Audio|<script/.test(fn('eroeffnungFeuerwerk')));
+t('Kasten am Computer nicht über die ganze Breite (max. Kartenbreite)', /\.kmi-eroeffnung-kasten \{ background: #003d33; color: #ffffff; max-width: 924px;/.test(H));
+t('nach der Eröffnung kein Kasten mehr', A.eroeffnungKastenHtml(rNeu, false) === '');
 var sw = fs.readFileSync(KMI + '/sw.js', 'utf8'), w = fs.readFileSync(KMI + '/netlify/functions/gastweg-wache.js', 'utf8');
 var vSw = +(/kmi-shell-v(\d+)/.exec(sw) || [])[1], vW = +(/CACHE_MINDESTENS = (\d+)/.exec(w) || [])[1];
 t('neue Fassung für die Geräte (sw v103+, Wache gleich)', vSw >= 103 && vW === vSw, vSw + ' / ' + vW);
