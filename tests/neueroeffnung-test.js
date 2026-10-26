@@ -107,17 +107,33 @@ resTeilWaehlen('abend');
 t('Uhrzeiten desselben Tages schon', gezeichnet === 1, gezeichnet);
 
 console.log('\n-- 6. EINGEBAUT UND AUSGELIEFERT --');
-t('Dashboard: Datum, Speichern, Löschen, Stand', /id="eroeffnungDatum"/.test(H) && /data-eroeffnung="speichern"/.test(H) && /data-eroeffnung="loeschen"/.test(H) && /id="eroeffnungStand"/.test(H));
+// Ibo, 26.10.2026: "mach lieber wo anders die neueröffnung damit ich als admin
+// es bearbeiten kann" -- das Feld sitzt im Admin-Fenster "Restaurant bearbeiten",
+// NICHT mehr in der Restaurant-Steuerung des Wirts.
+var modal = H.slice(H.indexOf('<form id="addRestaurantForm"'), H.indexOf('</form>', H.indexOf('<form id="addRestaurantForm"')));
+var steuerung = H.slice(H.indexOf('<div id="sectionDashboard"'), H.indexOf('<div id="sectionReservations"'));
+t('Admin-Fenster: Datum, Speichern, Löschen, Stand', /id="eroeffnungDatum"/.test(modal) && /data-eroeffnung="speichern"/.test(modal) && /data-eroeffnung="loeschen"/.test(modal) && /id="eroeffnungStand"/.test(modal));
+t('Wirt-Dashboard hat kein Neueröffnungs-Feld mehr', steuerung.length > 1000 && !/eroeffnung/i.test(steuerung));
+t('genau ein Feld (keine doppelten IDs)', (H.match(/id="eroeffnungDatum"/g) || []).length === 1);
 var spe = fn('eroeffnungSpeichern');
+t('Speichern nimmt das Restaurant aus dem Bearbeiten-Fenster, nicht das des Wirts', /form\.dataset\.editId/.test(spe) && !/getControlRestaurantId/.test(spe));
+t('neues Restaurant ohne ID: Hinweis statt stillem Nichts', /Erst das Restaurant anlegen/.test(spe));
+t('Bearbeiten lädt das Datum des gewählten Restaurants', /eroeffnungUI\(restaurant\.features \|\| \[\]\)/.test(fn('editRestaurant')));
+t('Neu anlegen leert das Feld', /eroeffnungUI\(\[\]\)/.test(fn('openNewRestaurantModal')));
+// Verhalten: Formular wird wiederverwendet -- Datum des vorigen Restaurants darf nicht stehen bleiben
+var feldE = { value: '2026-10-30' }, standE = { textContent: '' };
+var uiE = new Function('document', 'eroeffnungInfo', 'EROEFFNUNG_NEU_TAGE', 'eroeffnungZaehler', fn('eroeffnungUI') + '; return eroeffnungUI;')(
+    { getElementById: function (id) { return id === 'eroeffnungDatum' ? feldE : standE; } }, function () { return null; }, 30, function () { return ''; });
+uiE([]);
+t('Wechsel auf Restaurant ohne Eröffnung leert das Datum', feldE.value === '' && /Keine Neueröffnung/.test(standE.textContent), feldE.value);
 t('Speichern prüft die zurückgegebene Zeile (sonst "nicht gespeichert")', /Prefer': 'return=representation'/.test(spe) && /if \(!Array\.isArray\(zeilen\) \|\| !zeilen\.length\) throw/.test(spe));
 t('Speichern ersetzt den alten Eintrag statt zu stapeln', /filter\(function \(f\) \{ return !\/\^eroeffnung:\/\.test\(String\(f\)\); \}\)/.test(spe));
-t('Dashboard zeigt den Stand beim Laden', /if \(typeof eroeffnungUI === 'function'\) eroeffnungUI\(features\);/.test(H));
 t('Startseite: Kasten über der Liste', /id="eroeffnungBanner"/.test(H) && /eroeffnungBannerZeichnen\(\);/.test(fn('renderRestaurants')));
 t('Liste: Abzeichen auf der Karte', /eroeffnungAbzeichen\(r\)/.test(fn('renderRestaurants')));
 t('Lokalseite: Balken vor dem Kopf', /eroeffnungBalkenHtml\(rest\)/.test(fn('showRestaurantLanding')));
 var sw = fs.readFileSync(KMI + '/sw.js', 'utf8'), w = fs.readFileSync(KMI + '/netlify/functions/gastweg-wache.js', 'utf8');
 var vSw = +(/kmi-shell-v(\d+)/.exec(sw) || [])[1], vW = +(/CACHE_MINDESTENS = (\d+)/.exec(w) || [])[1];
-t('neue Fassung für die Geräte (sw v102+, Wache gleich)', vSw >= 102 && vW === vSw, vSw + ' / ' + vW);
+t('neue Fassung für die Geräte (sw v103+, Wache gleich)', vSw >= 103 && vW === vSw, vSw + ' / ' + vW);
 
 console.log('\n' + ok + '/' + n + ' bestanden');
 if (ok !== n) process.exit(1);
