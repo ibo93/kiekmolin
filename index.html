@@ -426,6 +426,9 @@
            sind Marke und bleiben in beiden Themen gleich (wie die Hauptknoepfe). */
         .kmi-eroeffnung-kasten { background: #003d33; color: #ffffff; }
         .kmi-eroeffnung-gold { background: #ffd54f; color: #00251e; }
+        /* Balken am Handy einzeilig: kurzes Datum (30.10.) statt "30. OKTOBER" */
+        .kmi-bk-kurz { display: none; }
+        @media (max-width: 520px) { .kmi-bk-lang { display: none; } .kmi-bk-kurz { display: inline; } }
         .kmi-eroeffnung-zaehlpille { background: #00251e; color: #ffd54f; }
         .kmi-eroeffnung-knopf { background: #ffffff; color: #00251e; }
         .kmi-neu-eroeffnet { background: #003d33; color: #ffffff; }
@@ -27184,12 +27187,61 @@ function eroeffnungAbzeichen(restaurant) {
 function eroeffnungBalkenHtml(restaurant) {
     var e = eroeffnungInfo(restaurant);
     if (!e || e.phase === 'neu') return '';
-    return '<div class="kmi-eroeffnung-balken kmi-eroeffnung-gold" role="note" style="display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:10px;padding:12px 16px;">'
-        + '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:18px;font-variation-settings:\'FILL\' 1;">star</span>'
-        + '<span style="font-family:Epilogue,sans-serif;font-weight:800;font-size:15px;letter-spacing:0.04em;">' + (e.phase === 'heute' ? 'HEUTE NEUERÖFFNUNG' : 'NEUERÖFFNUNG AM ' + e.lang.toUpperCase()) + '</span>'
+    return '<div class="kmi-eroeffnung-balken kmi-eroeffnung-gold" role="note" style="position:absolute;top:92px;left:16px;right:16px;z-index:5;max-width:900px;margin:0 auto;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:10px;padding:14px 18px;border-radius:20px;box-shadow:0 12px 32px -8px rgba(0,0,0,0.35);">'
+        + '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:22px;font-variation-settings:\'FILL\' 1;">star</span>'
+        + '<span style="font-family:Epilogue,sans-serif;font-weight:900;font-size:18px;letter-spacing:0.04em;">' + (e.phase === 'heute' ? 'HEUTE NEUERÖFFNUNG' : '<span class="kmi-bk-lang">NEUERÖFFNUNG AM ' + e.lang.toUpperCase() + '</span><span class="kmi-bk-kurz">NEUERÖFFNUNG ' + e.kurz + '</span>') + '</span>'
         + (e.phase === 'bald' ? '<span class="kmi-eroeffnung-zaehlpille" style="font-family:Inter,sans-serif;font-size:13px;font-weight:700;border-radius:9999px;padding:3px 10px;">' + eroeffnungZaehler(e) + '</span>' : '')
         + '</div>';
 }
+// Wann genau oeffnet es? Datum + Oeffnungszeit dieses Wochentags aus den
+// Oeffnungszeiten (z. B. 17:00). Ohne Eintrag: Mitternacht, ohne Uhrzeit-Text.
+function eroeffnungZiel(r, e) {
+    var t = String(e.datum).split('-').map(Number);
+    var tagSchl = ['so', 'mo', 'di', 'mi', 'do', 'fr', 'sa'][new Date(t[0], t[1] - 1, t[2]).getDay()];
+    var oh = (r && r.opening_hours) || {};
+    var roh = String(oh[tagSchl + '_start'] || (r && r.opening_time) || '');
+    var m = /^(\d{1,2}):(\d{2})/.exec(roh);
+    var std = m ? Math.min(23, +m[1]) : 0, min = m ? Math.min(59, +m[2]) : 0;
+    return { ms: new Date(t[0], t[1] - 1, t[2], std, min, 0).getTime(), uhr: m ? (std < 10 ? '0' : '') + std + ':' + m[2] : '' };
+}
+// DER TIMER (Ibo, 26.10.2026: "es muss wie ein Timer"). Tage, Stunden,
+// Minuten, Sekunden bis zur Oeffnung; tickt jede Sekunde (eroeffnungTicken).
+// Die Zahlen stehen schon beim Zeichnen drin -- ohne JavaScript-Tick zeigt
+// er den Stand beim Laden, nie leere Kaesten.
+function eroeffnungRest(zielMs, jetzt) {
+    var d = Math.max(0, Math.floor((zielMs - jetzt) / 1000));
+    return { t: Math.floor(d / 86400), s: Math.floor(d % 86400 / 3600), m: Math.floor(d % 3600 / 60), sek: d % 60, vorbei: d === 0 };
+}
+function _eroeffnungZwei(n) { return (n < 10 ? '0' : '') + n; }
+function eroeffnungTimerHtml(zielMs) {
+    var z = eroeffnungRest(zielMs, Date.now());
+    if (z.vorbei) return '<div class="kmi-countdown kmi-countdown-offen" style="text-align:center;font-family:Epilogue,sans-serif;font-weight:900;font-size:22px;color:#ffd54f;">JETZT GEÖFFNET</div>';
+    function kachel(wert, wort, gold, teil) {
+        return '<div class="' + (gold ? 'kmi-eroeffnung-gold' : '') + '" style="flex:1 1 0;min-width:0;border-radius:16px;padding:10px 4px;display:flex;flex-direction:column;align-items:center;'
+            + (gold ? '' : 'background:rgba(255,255,255,0.10);') + '">'
+            + '<span data-teil="' + teil + '" style="font-family:Epilogue,sans-serif;font-weight:900;font-size:34px;line-height:1;font-variant-numeric:tabular-nums;">' + wert + '</span>'
+            + '<span style="font-family:Inter,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.12em;margin-top:4px;' + (gold ? '' : 'color:#ffd54f;') + '">' + wort + '</span></div>';
+    }
+    return '<div class="kmi-countdown" data-ziel="' + zielMs + '" role="timer" aria-label="Zeit bis zur Eröffnung" style="display:flex;gap:8px;">'
+        + kachel(z.t, z.t === 1 ? 'TAG' : 'TAGE', true, 't')
+        + kachel(_eroeffnungZwei(z.s), 'STD', false, 's')
+        + kachel(_eroeffnungZwei(z.m), 'MIN', false, 'm')
+        + kachel(_eroeffnungZwei(z.sek), 'SEK', false, 'sek')
+        + '</div>';
+}
+function eroeffnungTicken() {
+    var alle = document.querySelectorAll('.kmi-countdown[data-ziel]');
+    for (var i = 0; i < alle.length; i++) {
+        var el = alle[i], z = eroeffnungRest(+el.getAttribute('data-ziel'), Date.now());
+        if (z.vorbei) { el.outerHTML = eroeffnungTimerHtml(0); continue; }
+        ['t', 's', 'm', 'sek'].forEach(function (k) {
+            var f = el.querySelector('[data-teil="' + k + '"]');
+            if (f) f.textContent = k === 't' ? z.t : _eroeffnungZwei(z[k]);
+        });
+    }
+}
+window.eroeffnungTicken = eroeffnungTicken;
+setInterval(function () { try { eroeffnungTicken(); } catch (e) {} }, 1000);
 // Der grosse Kasten auf der Startseite: die naechste Eroeffnung.
 function eroeffnungBannerHtml(restaurants) {
     var kandidaten = (restaurants || []).filter(function (r) {
@@ -27198,7 +27250,15 @@ function eroeffnungBannerHtml(restaurants) {
         return e && e.phase !== 'neu';
     }).sort(function (a, b) { return eroeffnungInfo(a).tage - eroeffnungInfo(b).tage; });
     if (!kandidaten.length) return '';
-    var r = kandidaten[0], e = eroeffnungInfo(r);
+    return eroeffnungKastenHtml(kandidaten[0], true);
+}
+// Derselbe grosse Kasten auf der Lokalseite (Ibo, 26.10.2026: "es muss was
+// richtig Grosses sein, wie du es mir gezeigt hast") -- dort ohne
+// "Zum Restaurant", man ist ja schon da.
+function eroeffnungKastenHtml(r, mitLink) {
+    var e = eroeffnungInfo(r);
+    if (!e || e.phase === 'neu') return '';
+    var _ziel = eroeffnungZiel(r, e);
     var slug = String(r.slug || r.id).replace(/[^a-zA-Z0-9_-]/g, '');
     var feats = r.features || [];
     var kannRes = feats.indexOf('no_reservations') < 0 && !(typeof zahlsperreReservierenAus === 'function' && zahlsperreReservierenAus(r));
@@ -27213,25 +27273,22 @@ function eroeffnungBannerHtml(restaurants) {
     }
     return '<section class="kmi-eroeffnung-kasten" aria-label="Neueröffnung" style="position:relative;border-radius:28px;padding:24px 20px 20px;overflow:hidden;display:flex;flex-direction:column;gap:14px;margin-bottom:16px;">'
         + '<div aria-hidden="true" style="position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:9999px;border:2px solid rgba(255,213,79,0.35);"></div>'
+        + '<div aria-hidden="true" style="position:absolute;right:-20px;top:-20px;width:140px;height:140px;border-radius:9999px;border:2px solid rgba(255,213,79,0.5);"></div>'
         + '<div class="kmi-eroeffnung-gold" style="display:inline-flex;align-self:flex-start;align-items:center;gap:8px;border-radius:9999px;padding:7px 14px;font-family:Inter,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.15em;"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;font-variation-settings:\'FILL\' 1;">star</span>NEUERÖFFNUNG</div>'
         + '<div style="position:relative;display:flex;flex-direction:column;gap:6px;">'
-        +   '<div style="font-family:Epilogue,sans-serif;font-weight:900;font-size:36px;line-height:1;letter-spacing:-0.04em;text-transform:uppercase;overflow-wrap:anywhere;">' + escapeHtml(r.name || '') + '</div>'
+        +   '<div style="font-family:Epilogue,sans-serif;font-weight:900;font-size:40px;line-height:1;letter-spacing:-0.04em;text-transform:uppercase;overflow-wrap:anywhere;">' + escapeHtml(r.name || '') + '</div>'
         +   (r.city ? '<div style="font-family:Inter,sans-serif;font-size:15px;color:rgba(255,255,255,0.86);">' + (e.phase === 'heute' ? 'öffnet heute in ' : 'öffnet in ') + escapeHtml(r.city) + '</div>' : '')
         + '</div>'
         + '<div style="display:flex;align-items:stretch;gap:10px;">'
         +   '<div style="flex:1 1 0;background:rgba(255,255,255,0.10);border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:2px;">'
         +     '<span style="font-family:Inter,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.15em;color:#ffd54f;">AM</span>'
         +     '<span style="font-family:Epilogue,sans-serif;font-weight:800;font-size:24px;line-height:1.1;">' + e.lang + '</span>'
-        +     '<span style="font-family:Inter,sans-serif;font-size:13px;color:rgba(255,255,255,0.86);">' + e.wochentag + '</span>'
-        +   '</div>'
-        +   '<div class="kmi-eroeffnung-gold" style="width:96px;border-radius:16px;padding:12px 10px;display:flex;flex-direction:column;align-items:center;justify-content:center;">'
-        +     (e.phase === 'heute'
-                ? '<span style="font-family:Epilogue,sans-serif;font-weight:900;font-size:24px;line-height:1;">HEUTE</span>'
-                : '<span style="font-family:Inter,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.1em;">NOCH</span><span style="font-family:Epilogue,sans-serif;font-weight:900;font-size:40px;line-height:1;">' + e.tage + '</span><span style="font-family:Inter,sans-serif;font-size:13px;font-weight:700;">' + (e.tage === 1 ? 'Tag' : 'Tage') + '</span>')
+        +     '<span style="font-family:Inter,sans-serif;font-size:13px;color:rgba(255,255,255,0.86);">' + e.wochentag + (_ziel.uhr ? ' · ab ' + _ziel.uhr + ' Uhr' : '') + '</span>'
         +   '</div>'
         + '</div>'
+        + eroeffnungTimerHtml(_ziel.ms)
         + knopf
-        + '<button type="button" onclick="openRestaurantBySlug(\'' + slug + '\')" style="align-self:center;min-height:44px;padding:0 12px;border:none;background:transparent;color:#ffffff;font-family:Inter,sans-serif;font-size:14px;font-weight:600;text-decoration:underline;cursor:pointer;">Zum Restaurant</button>'
+        + (mitLink === false ? '' : '<button type="button" onclick="openRestaurantBySlug(\'' + slug + '\')" style="align-self:center;min-height:44px;padding:0 12px;border:none;background:transparent;color:#ffffff;font-family:Inter,sans-serif;font-size:14px;font-weight:600;text-decoration:underline;cursor:pointer;">Zum Restaurant</button>')
         + '</section>';
 }
 function eroeffnungBannerZeichnen() {
@@ -47152,9 +47209,12 @@ async function showRestaurantLanding(rest) {
             </div>
         </nav>
 
-        ${typeof eroeffnungBalkenHtml === 'function' ? eroeffnungBalkenHtml(rest) : ''}
         <!-- Immersive Hero Header -->
         <section style="position:relative;height:751px;width:100%;overflow:hidden;" id="lpHero">
+            <!-- Goldener Neueroeffnungs-Balken. Stand bis 26.10.2026 VOR dem Kopf
+                 und damit genau hinter der schwebenden Navigation (fixed, 0-80px):
+                 Ibo sah nur einen gelben Streifen. Jetzt im Kopf, darunter. -->
+            ${typeof eroeffnungBalkenHtml === 'function' ? eroeffnungBalkenHtml(rest) : ''}
             <div id="lpHeroBg1" class="${lpEchtesFoto ? '' : 'lp-ohne-foto'}" style="position:absolute;inset:0;${lpEchtesFoto ? "background:url('" + rest.image + "') center/cover no-repeat;" : ''}transition:opacity 2s ease-in-out;opacity:1;">${lpEchtesFoto ? '' : '<span aria-hidden="true">' + escapeHtml(lpInitial) + '</span>'}</div>
             <div id="lpHeroBg2" style="position:absolute;inset:0;background:center/cover no-repeat;transition:opacity 2s ease-in-out;opacity:0;"></div>
             <div style="position:absolute;inset:0;background:linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 30%, #ffffff 100%);"></div>
@@ -47256,6 +47316,8 @@ async function showRestaurantLanding(rest) {
             })()}
         </div>
 
+        <!-- Neueroeffnung: der grosse Kasten aus dem Entwurf (nur vor und am Tag) -->
+        ${(function () { var _k = typeof eroeffnungKastenHtml === 'function' ? eroeffnungKastenHtml(rest, false) : ''; return _k ? '<div class="lp-eroeffnung" style="max-width:720px;margin:0 auto;padding:0 24px 48px;">' + _k + '</div>' : ''; })()}
         <!-- Besonderer Abend (Silvester ...) GANZ OBEN, vor allem anderen:
              der QR-Code auf der gedruckten Karte fuehrt hierher. -->
         <div id="lpAbend"></div>
