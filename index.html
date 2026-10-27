@@ -23267,7 +23267,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         <div id="adminMeldungenStand" style="font-family:Inter,sans-serif;font-size:13px;margin-top:6px;"></div>
                     </div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                        <button class="dash-btn" onclick="pushHierAktivieren(); setTimeout(adminMeldungenLaden, 3500);" style="background: var(--bg-secondary); color: var(--dark);">
+                        <button class="dash-btn" id="adminHandyKnopf" onclick="adminHandyAnmelden()" style="background: var(--bg-secondary); color: var(--dark);">
                             <span class="material-symbols-outlined" style="font-size:18px;">notifications_active</span>Auf diesem Handy
                         </button>
                         <button class="dash-btn" id="adminMeldungenKnopf" onclick="adminMeldungenTest()">
@@ -48990,6 +48990,44 @@ async function adminMeldungenLaden() {
             : '✓ E-Mail an. ⚠ Push: auf keinem Gerät angemeldet – „Auf diesem Handy“ tippen.';
         el.style.color = j.geraete ? 'var(--text-primary)' : '#b45309';
     } catch (e) { el.textContent = 'Stand nicht abrufbar (keine Verbindung).'; el.style.color = '#b91c1c'; }
+}
+// DIESES HANDY DEM BETREIBER ZUORDNEN -- jeder Schritt sichtbar.
+// "Es ging nie wegen Browser blockt": wo es haengt, steht es hier rot,
+// mit dem echten Grund -- nicht still.
+async function adminHandyAnmelden() {
+    var el = document.getElementById('adminMeldungenStand'), knopf = document.getElementById('adminHandyKnopf');
+    function zeig(t, farbe) { if (el) { el.textContent = t; el.style.color = farbe || 'var(--text-secondary)'; } }
+    try {
+        if (typeof istIPhone === 'function' && istIPhone() && typeof laeuftAlsApp === 'function' && !laeuftAlsApp()) {
+            zeig('⚠ Auf dem iPhone geht Push nur in der App: in Safari „Teilen“ → „Zum Home-Bildschirm“, dann dort öffnen und hier nochmal tippen.', '#b91c1c');
+            try { pushHinweisIPhone(); } catch (e) {}
+            return;
+        }
+        if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) { zeig('⚠ Dieser Browser kann keine Benachrichtigungen.', '#b91c1c'); return; }
+        if (Notification.permission === 'denied') { zeig('⚠ Benachrichtigungen sind blockiert. iPhone: Einstellungen → Mitteilungen → Kiek mol in → Erlauben. Android: Einstellungen → Apps → Chrome/Kiek mol in → Benachrichtigungen.', '#b91c1c'); return; }
+        if (knopf) knopf.disabled = true;
+        if (Notification.permission !== 'granted') {
+            zeig('Bitte „Erlauben“ tippen …');
+            var erlaubt = await Notification.requestPermission();
+            if (erlaubt !== 'granted') { zeig('⚠ Nicht erlaubt – ohne Erlaubnis kein Push. Die E-Mails kommen trotzdem.', '#b91c1c'); return; }
+        }
+        zeig('Melde dieses Handy an …');
+        var sub = await subscribeWebPush();
+        if (!sub) { zeig('⚠ Anmeldung beim Push-Dienst fehlgeschlagen.', '#b91c1c'); return; }
+        var r = await fetch('/.netlify/functions/admin-meldungen', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + kmiToken() },
+            body: JSON.stringify({ geraet: sub.toJSON ? sub.toJSON() : sub })
+        });
+        var j = await r.json().catch(function () { return {}; });
+        if (!j.ok) { zeig('⚠ Handy nicht gespeichert: ' + (j.error || 'HTTP ' + r.status), '#b91c1c'); return; }
+        zeig('✓ Handy angemeldet – sende Test …', 'var(--text-primary)');
+        await adminMeldungenTest();
+    } catch (e) {
+        zeig('⚠ Fehler: ' + (e && e.message), '#b91c1c');
+    } finally {
+        if (knopf) knopf.disabled = false;
+    }
 }
 async function adminMeldungenTest() {
     var el = document.getElementById('adminMeldungenStand'), knopf = document.getElementById('adminMeldungenKnopf');

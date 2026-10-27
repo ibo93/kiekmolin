@@ -113,6 +113,37 @@ function laden(name) {
     j = JSON.parse(r.body);
     t('mit Gerät: Test geht raus, 1 von 1', j.ok === true && j.gesendet === 1 && pushes.length === 1 && pushes[0].an === IBO.endpoint, r.body);
 
+    // ---- 5. Handy zuordnen: E-Mail aus der Sitzung, nicht aus dem Browser ----
+    var gespeichert = null;
+    netz([[/customers\?role=eq\.superadmin/, [{ email: 'ibo@kiekmolin.de' }]], [/push_subscriptions\?or=/, [IBO]]], true);
+    var netz5 = global.fetch;
+    global.fetch = async function (url, opt) {
+        if (/push_subscriptions\?on_conflict=endpoint/.test(String(url))) {
+            gespeichert = { url: String(url), opt: opt, body: JSON.parse(opt.body) };
+            return { ok: true, status: 201, json: async function () { return [gespeichert.body]; }, text: async function () { return ''; } };
+        }
+        return netz5(url, opt);
+    };
+    F = laden('admin-meldungen');
+    var geraet = { endpoint: 'https://web.push.apple.com/abc', keys: { p256dh: 'P', auth: 'A' }, customer_email: 'faelscher@x.de' };
+    r = await F.handler({ httpMethod: 'POST', headers: { authorization: 'Bearer echt' }, body: JSON.stringify({ geraet: geraet }) });
+    j = JSON.parse(r.body);
+    t('Handy zuordnen: gespeichert, mit SEINER E-Mail aus der Sitzung', j.ok === true && gespeichert && gespeichert.body.customer_email === 'ibo@kiekmolin.de' && gespeichert.body.endpoint === geraet.endpoint, r.body + ' ' + JSON.stringify(gespeichert && gespeichert.body));
+    t('… mit dem Dienstschlüssel und Rückmeldung (return=representation)', gespeichert && gespeichert.opt.headers.Authorization === 'Bearer dienst' && /return=representation/.test(gespeichert.opt.headers.Prefer), '');
+    gespeichert = null;
+    r = await F.handler({ httpMethod: 'POST', headers: {}, body: JSON.stringify({ geraet: geraet }) });
+    t('… ohne Anmeldung: 403 und nichts gespeichert', r.statusCode === 403 && gespeichert === null, r.statusCode);
+    r = await F.handler({ httpMethod: 'POST', headers: { authorization: 'Bearer echt' }, body: JSON.stringify({ geraet: { endpoint: 'http://x', keys: {} } }) });
+    t('… unvollständiges Gerät: 400', r.statusCode === 400 && gespeichert === null, r.statusCode);
+
+    // ---- 6. App: jeder Schritt sichtbar ----
+    var H = require('fs').readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    var a = H.slice(H.indexOf('async function adminHandyAnmelden()'), H.indexOf('async function adminMeldungenTest()'));
+    t('App: iPhone ohne Home-Bildschirm bekommt den Hinweis statt Stille', /laeuftAlsApp\(\)/.test(a) && /Zum Home-Bildschirm/.test(a), '');
+    t('App: blockiert -> sagt, wo man es erlaubt', /permission === 'denied'/.test(a) && /Einstellungen → Mitteilungen/.test(a), '');
+    t('App: schickt das Gerät an den Server und testet danach', /admin-meldungen/.test(a) && /geraet:/.test(a) && /await adminMeldungenTest\(\)/.test(a), '');
+    t('Knopf im Kasten ruft das auf', /id="adminHandyKnopf" onclick="adminHandyAnmelden\(\)"/.test(H), '');
+
     console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' Tests FEHLGESCHLAGEN.'));
     process.exit(ok === n ? 0 : 1);
 })().catch(function (e) { console.error(e); process.exit(1); });

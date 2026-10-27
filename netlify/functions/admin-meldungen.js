@@ -7,8 +7,16 @@
 // Schalter ("ich will kein schalter ich will das ich benachrichtigungen
 // bekomme"). Hier nur der Beweis, dass sein Handy sie auch bekommt:
 //
-// GET                 -> { ok, geraete }
-// POST { test: true } -> { ok, gesendet, von }   (Test an SEINE Geraete)
+// GET                   -> { ok, geraete }
+// POST { geraet: sub }  -> { ok, geraete }         (DIESES Handy ihm zuordnen)
+// POST { test: true }   -> { ok, gesendet, von }   (Test an SEINE Geraete)
+//
+// WARUM DIE ZUORDNUNG HIER PASSIERT UND NICHT IM BROWSER
+// Die App schickte seine E-Mail bisher selbst mit, aus currentUser /
+// currentAdmin (index.html, subscribeWebPush). Am 21.08.2026 war genau
+// diese Abfrage immer leer -- sein Handy stand ohne E-Mail in der Liste,
+// und kein Melder fand es je. Hier kommt die E-Mail aus der ECHTEN
+// Sitzung (/auth/v1/user), nachdem feststeht, dass er Superadmin ist.
 //
 // "0 Geraete" ist die wahrscheinlichste Antwort und sagt genau, was
 // fehlt: das Handy hat sich als Admin nie fuer Push angemeldet.
@@ -37,6 +45,15 @@ var CORS = {
 };
 function json(code, obj) { return { statusCode: code, headers: CORS, body: JSON.stringify(obj) }; }
 
+async function sitzungsMail(event) {
+    var tok = VERWALTER.token(event);
+    if (!tok) return '';
+    var u = await fetch(SUPABASE_URL + '/auth/v1/user', { headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + tok } });
+    if (!u.ok) return '';
+    var n = await u.json();
+    return n && n.email ? String(n.email).trim().toLowerCase() : '';
+}
+
 async function seineGeraete() {
     return ADMIN.geraete(SUPABASE_URL, SUPABASE_KEY, await WIRT.adminMails(SUPABASE_URL, SUPABASE_KEY));
 }
@@ -53,6 +70,24 @@ exports.handler = async function (event) {
         }
         var b; try { b = JSON.parse(event.body || '{}'); } catch (e) { b = {}; }
 
+        if (b.geraet) {
+            var g = b.geraet, keys = g.keys || {};
+            if (!/^https:\/\//.test(String(g.endpoint || '')) || !keys.p256dh || !keys.auth) return json(400, { ok: false, error: 'Gerät unvollständig' });
+            var mail = await sitzungsMail(event);
+            if (!mail) return json(403, { ok: false, error: 'Sitzung ohne E-Mail' });
+            var h = { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json',
+                      Prefer: 'resolution=merge-duplicates,return=representation' };
+            var z = await fetch(SUPABASE_URL + '/rest/v1/push_subscriptions?on_conflict=endpoint', {
+                method: 'POST', headers: h,
+                body: JSON.stringify({ endpoint: String(g.endpoint), p256dh_key: String(keys.p256dh), auth_key: String(keys.auth),
+                                       customer_email: mail, user_agent: String((event.headers || {})['user-agent'] || '').slice(0, 300) || null })
+            });
+            if (!z.ok) return json(502, { ok: false, error: 'Gerät nicht gespeichert (' + z.status + ': ' + (await z.text()).slice(0, 120) + ')' });
+            var gespeichert = (await z.json()) || [];
+            if (!gespeichert.length) return json(502, { ok: false, error: 'Gerät nicht gespeichert (leere Antwort)' });
+            console.log('[admin-meldungen] Gerät zugeordnet');
+            return json(200, { ok: true, geraete: (await seineGeraete()).length });
+        }
         if (b.test !== true) return json(400, { ok: false, error: 'test fehlt' });
 
         var liste = await seineGeraete();
