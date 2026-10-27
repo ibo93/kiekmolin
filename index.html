@@ -11015,6 +11015,212 @@
             border: none;
         }
 
+        /* ===== BESTELLSEITE 27.10.2026: schnell bedienbar =====
+           Entwurf "Bestellseite Wirt" (Claude Design), abgenommen von Ibo.
+           Grosse Nummer, Art oben, Minuten-Tasten, Ablehnen klein, drei
+           Spalten ab 1000 px. Die Knopf-Stile oben stehen inline -- daher
+           !important. */
+        /* Kopf (Entwurf "Bestellseite Wirt") */
+        .kin-bk { display: flex; flex-direction: column; gap: 10px; background: #ffffff; border-radius: 24px; padding: 14px 18px; margin-bottom: 16px; box-shadow: 0 8px 24px -10px rgba(0,37,30,0.10); }
+        .kin-bk-zeile { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+        .kin-bk-titel { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .kin-bk-titel h2 { margin: 0; font-family: 'Epilogue', sans-serif; font-weight: 900; font-size: 26px; letter-spacing: -0.03em; color: #00251e; line-height: 1.1; }
+        .kin-bk-live { display: inline-flex; align-items: center; gap: 6px; background: #dcfce7; color: #14532d; border-radius: 9999px; padding: 6px 12px; font-size: 13px; font-weight: 700; }
+        .kin-bk-punkt { width: 8px; height: 8px; border-radius: 9999px; background: #16a34a; flex-shrink: 0; display: inline-block; }
+        .kin-bk-zahl { font-size: 14px; font-weight: 700; color: #404946; }
+        .kin-bk-werkzeuge, .kin-bk-schalterreihe { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .kin-bk-werkzeug {
+            display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border: none; border-radius: 9999px;
+            background: #f3f4f5; color: #00251e; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap;
+        }
+        .kin-bk-rund { width: 44px; padding: 0; justify-content: center; }
+        .kin-bk-wahl {
+            min-height: 44px; padding: 0 14px; border-radius: 9999px; border: 2px solid rgba(0,37,30,0.15); background: #ffffff;
+            color: #00251e; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 700; max-width: 220px;
+        }
+        .kin-schalter {
+            display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 14px 0 12px; border-radius: 9999px;
+            border: 2px solid rgba(0,37,30,0.15); background: #ffffff; color: #404946; font-family: 'Inter', sans-serif;
+            font-size: 14px; font-weight: 700; cursor: pointer; white-space: nowrap;
+        }
+        .kin-schalter[aria-pressed="true"] { background: #003d33; color: #ffffff; border-color: #003d33; }
+        .kin-sym-platz { display: inline-flex; }
+        .kin-schalter-zustand { font-size: 11px; font-weight: 800; letter-spacing: 0.08em; color: #6b7471; }
+        .kin-schalter[aria-pressed="true"] .kin-schalter-zustand { color: #ffd54f; }
+        .kin-bk-status {
+            display: inline-flex; align-items: center; gap: 6px; min-height: 48px; padding: 0 14px 0 12px; border-radius: 9999px;
+            border: 2px solid rgba(0,37,30,0.15); background: #ffffff; color: #00251e; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap;
+        }
+        .kin-bk-meldung {
+            align-items: center; gap: 8px; padding: 10px 14px; border-radius: 16px; background: rgba(220,38,38,0.10);
+            border: 1px solid rgba(220,38,38,0.35); color: #991b1b; font-size: 13px; font-weight: 700; cursor: pointer;
+        }
+        #ordersGrid .kin-order-actions { align-items: center; }
+        .kin-bk-mehrknopf { display: none; font-size: 22px; font-weight: 900; line-height: 1; }
+        /* Handy wie im Entwurf: vier grosse Kacheln, Werkzeuge hinter "⋯". */
+        @media (max-width: 699px) {
+            .kin-bk { padding: 12px; border-radius: 20px; }
+            .kin-bk-titel h2 { font-size: 22px; }
+            .kin-bk-werkzeuge { width: 100%; }
+            .kin-bk-werkzeug:not(.kin-bk-rund) { display: none; }
+            .kin-bk.kin-bk-offen .kin-bk-werkzeug { display: inline-flex; }
+            .kin-bk-mehrknopf { display: inline-flex; }
+            .kin-bk-wahl { flex: 1 1 40%; max-width: none; }
+            .kin-bk-schalterreihe { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; width: 100%; }
+            #sectionOrders .kin-schalter { flex-direction: column; justify-content: center; gap: 2px; min-height: 64px; padding: 6px 4px; border-radius: 18px !important; font-size: 12px; }
+            .kin-schalter .kin-schalter-zustand { font-size: 10px; }
+            .kin-bk-status { grid-column: span 2; min-height: 44px; justify-content: center; font-size: 12px; }
+        }
+        .kin-reiter { display: flex; gap: 4px; background: #ffffff; border-radius: 9999px; padding: 4px; margin-bottom: 14px; overflow-x: auto; }
+        .kin-reiter .kin-filter-tab { flex: 1 1 auto; justify-content: center; min-height: 44px; padding: 0 10px; gap: 6px; white-space: nowrap; }
+        .kin-reiter .kin-filter-tab.active { background: #003d33; color: #ffffff; }
+        .kin-reiter .kin-filter-tab.active .kin-filter-count { background: #ffd54f; color: #00251e; }
+        #sectionOrders.kin-brett-an .kin-reiter { display: none; }
+        .kin-mehr { margin-top: 24px; background: #ffffff; border-radius: 24px; padding: 6px 18px; }
+        .kin-mehr > summary { min-height: 52px; display: flex; align-items: center; font-family: 'Epilogue', sans-serif; font-weight: 800; font-size: 16px; color: #00251e; cursor: pointer; }
+        .kin-mehr-inhalt { padding: 8px 0 16px; }
+        .kin-links { order: 5; flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; column-gap: 14px; row-gap: 0; }
+        .kin-links .kin-text-btn { font-size: 13px; padding: 0 2px; }
+        .kin-links .kin-ablehnen { margin-left: auto; }
+        #ordersGrid .kin-order-actions > .kin-order-btn.kin-bon-btn {
+            order: 1; flex: 0 0 auto !important; min-height: 52px; padding: 0 16px; background: #ffffff; color: #00251e;
+            border: 2px solid rgba(0,37,30,0.15); font-weight: 800; font-size: 14px;
+        }
+        #ordersGrid .kin-order-card.status-received .kin-links { flex: 1 1 0; order: 2; justify-content: flex-end; }
+        #ordersGrid .kin-order-actions > .kin-order-btn.kin-bon-btn.gedruckt { border-color: rgba(21,128,61,0.45); }
+        .dark-mode .kin-bk, .dark-mode .kin-reiter, .dark-mode .kin-mehr { background: var(--bg-card, #1a2e27); }
+        .dark-mode .kin-bk-titel h2, .dark-mode .kin-mehr > summary, .dark-mode .kin-bk-status { color: var(--text-primary, #e8eeec); }
+        .dark-mode .kin-bk-zahl { color: var(--text-secondary, #9ca8a4); }
+        .dark-mode .kin-bk-werkzeug { background: rgba(255,255,255,0.08); color: var(--text-primary, #e8eeec); }
+        .dark-mode .kin-bk-wahl, .dark-mode .kin-schalter, .dark-mode .kin-bk-status { background: transparent; color: var(--text-primary, #e8eeec); border-color: rgba(255,255,255,0.18); }
+        .dark-mode #sectionOrders .kin-schalter[aria-pressed="true"] { background: #ffd54f !important; border-color: #ffd54f !important; }
+        .dark-mode #sectionOrders .kin-schalter[aria-pressed="true"],
+        .dark-mode #sectionOrders .kin-schalter[aria-pressed="true"] * { color: #00251e !important; }
+        .dark-mode #ordersGrid .kin-order-card.status-received { box-shadow: 0 0 0 3px #f97316, 0 12px 28px -8px rgba(0,0,0,0.5) !important; }
+        .dark-mode #ordersGrid .kin-order-card.kin-zu-spaet { box-shadow: 0 0 0 3px #ef4444, 0 12px 28px -8px rgba(0,0,0,0.5) !important; }
+        .dark-mode .kin-reiter .kin-filter-tab { background: transparent !important; color: var(--text-primary, #e8eeec) !important; }
+        .dark-mode .kin-reiter .kin-filter-tab.active { background: #ffd54f !important; color: #00251e !important; }
+        .dark-mode .kin-schalter-zustand { color: #b7c2be; }
+        .dark-mode .kin-bk-live { background: rgba(22,163,74,0.2); color: #86efac; }
+        .dark-mode #ordersGrid .kin-order-actions > .kin-order-btn.kin-bon-btn { background: transparent; border-color: rgba(255,255,255,0.18); }
+        .dark-mode .kin-reiter .kin-filter-tab.active .kin-filter-count { background: #00251e; color: #ffd54f; }
+        .dark-mode .kin-text-btn { color: #ffd54f; }
+
+        #ordersGrid .kin-order-card {
+            background: #ffffff; border: none; border-radius: 24px !important; padding: 18px !important;
+            gap: 14px !important; box-shadow: 0 8px 24px -6px rgba(0,37,30,0.10);
+        }
+        #ordersGrid .kin-order-card:hover { transform: none; }
+        #ordersGrid .kin-order-card.status-received { border: none; box-shadow: 0 0 0 3px #ea580c, 0 12px 28px -8px rgba(234,88,12,0.35); }
+        #ordersGrid .kin-order-card.kin-zu-spaet { box-shadow: 0 0 0 3px #b91c1c, 0 12px 28px -8px rgba(185,28,28,0.25); }
+        #ordersGrid .kin-new-badge { display: none; }
+        #ordersGrid .kin-order-header { gap: 10px; }
+        #ordersGrid .kin-order-number {
+            font-family: 'Epilogue', sans-serif; font-size: 30px; font-weight: 900; line-height: 1;
+            letter-spacing: -0.02em; text-transform: none; color: #00251e;
+        }
+        #ordersGrid .kin-order-customer-name { font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 600; color: #404946; margin-top: 6px; }
+        .kin-order-kopf-rechts { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+        .kin-art {
+            display: inline-flex; align-items: center; border-radius: 9999px; padding: 5px 11px;
+            font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+            background: #edeeef; color: #00251e; white-space: nowrap;
+        }
+        .kin-art-liefer { background: #003d33; color: #ffffff; }
+        .kin-art-tisch { background: #ffd54f; color: #00251e; }
+        .kin-order-alter { font-size: 13px; font-weight: 700; color: #404946; }
+        .kin-order-alter.neu { color: #c2410c; }
+        .kin-bon-gedruckt { font-size: 12px; font-weight: 700; color: #15803d; white-space: nowrap; }
+        .kin-hinweis { background: #fff8e1; color: #4a3b00; border-radius: 14px; padding: 10px 12px; font-size: 14px; font-weight: 600; }
+        .kin-rest { display: flex; align-items: center; gap: 10px; }
+        .kin-rest-balken { flex: 1 1 auto; height: 8px; border-radius: 9999px; background: #edeeef; overflow: hidden; }
+        .kin-rest-balken > div { height: 100%; background: #003d33; }
+        .kin-rest > span { font-family: 'Epilogue', sans-serif; font-weight: 900; font-size: 16px; color: #00251e; white-space: nowrap; }
+        .kin-rest.drueber .kin-rest-balken { background: #fee2e2; }
+        .kin-rest.drueber .kin-rest-balken > div { background: #b91c1c; }
+        .kin-rest.drueber > span { color: #b91c1c; }
+
+        .kin-schnell-titel { width: 100%; font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #404946; }
+        .kin-schnell { width: 100%; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
+        .kin-schnell-btn {
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+            min-height: 56px; border: none; border-radius: 18px; background: #ffd54f; color: #00251e;
+            font-family: 'Epilogue', sans-serif; cursor: pointer; touch-action: manipulation;
+        }
+        .kin-schnell-btn b { font-size: 20px; font-weight: 900; line-height: 1; }
+        .kin-schnell-btn small { font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+        .kin-schnell-btn:active { transform: scale(0.97); }
+        .kin-schnell-btn:disabled { opacity: 0.5; cursor: wait; }
+        .kin-schnell-zeile { width: 100%; display: flex; justify-content: space-between; align-items: center; }
+        .kin-text-btn {
+            min-height: 44px; padding: 0 6px; border: none; background: transparent; color: #003d33;
+            font-size: 14px; font-weight: 700; text-decoration: underline; cursor: pointer;
+        }
+        .kin-text-btn.kin-ablehnen { color: #6b7471; font-size: 13px; }
+        #ordersGrid .kin-order-actions > .kin-schnell-titel,
+        #ordersGrid .kin-order-actions > .kin-schnell,
+        #ordersGrid .kin-order-actions > .kin-schnell-zeile { flex: 1 1 100% !important; }
+        /* Knopfreihe: der naechste Schritt gross und zuerst, der Rest klein
+           darunter. Vorher fuenf gleich grosse Knoepfe im 2er-Raster. */
+        #ordersGrid .kin-order-actions { display: flex !important; flex-wrap: wrap; gap: 8px; }
+        #ordersGrid .kin-order-actions > .kin-order-btn { flex: 1 1 auto !important; min-height: 44px; padding: 8px 12px; font-size: 13px; }
+        #ordersGrid .kin-order-actions > .kin-order-btn.reject { flex: 0 0 48px !important; padding: 0; }
+        /* Wie im Entwurf: [Bon] [ grosser naechster Schritt ] in einer Reihe. */
+        #ordersGrid .kin-order-actions .kin-order-btn.next {
+            order: 2; flex: 1 1 0 !important; min-height: 52px; font-size: 16px;
+            background: #ffd54f; color: #00251e; font-family: 'Epilogue', sans-serif; font-weight: 800;
+        }
+        #ordersGrid .kin-order-items { gap: 8px !important; }
+        #ordersGrid .kin-order-items > div { padding-bottom: 8px !important; }
+        #ordersGrid .kin-order-body { gap: 10px !important; }
+        /* In den Spalten sagt die Ueberschrift schon "Neu" / "In Arbeit". */
+        #ordersGrid.kin-brett .kin-order-status.received,
+        #ordersGrid.kin-brett .kin-order-status.accepted,
+        #ordersGrid.kin-brett .kin-order-status.confirmed,
+        #ordersGrid.kin-brett .kin-order-status.preparing { display: none; }
+
+        /* Drei Spalten (bestellBrettHtml). Das Raster steht inline am
+           #ordersGrid -- daher !important. */
+        #ordersGrid.kin-brett { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 16px !important; align-items: start; }
+        .kin-spalte { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+        .kin-spalte-kopf { display: flex; align-items: center; justify-content: space-between; padding: 0 4px; }
+        .kin-spalte-kopf span { font-family: 'Epilogue', sans-serif; font-weight: 900; font-size: 18px; color: #00251e; }
+        .kin-spalte-zahl { min-width: 28px; text-align: center; border-radius: 9999px; padding: 3px 10px; font-size: 13px; font-weight: 800; background: #003d33; color: #ffffff; }
+        .kin-spalte-neu .kin-spalte-zahl { background: #ea580c; }
+        .kin-spalte-fertig .kin-spalte-zahl { background: #15803d; }
+        .kin-spalte-leer { border: 2px dashed rgba(0,37,30,0.12); border-radius: 20px; padding: 18px; text-align: center; font-size: 14px; color: #6b7471; }
+        .kin-erledigt { grid-column: 1 / -1; background: rgba(255,255,255,0.7); border-radius: 20px; padding: 12px 16px; }
+        .kin-erledigt summary { min-height: 44px; display: flex; align-items: center; font-weight: 800; color: #00251e; cursor: pointer; }
+        .kin-erledigt-liste { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; padding-top: 8px; }
+
+        /* Dunkelmodus: ".dark-mode .kin-order-card *" faerbt alles hell --
+           auf Gold und Hellgelb waere das unlesbar. */
+        .dark-mode #ordersGrid .kin-order-card .kin-schnell-btn,
+        .dark-mode #ordersGrid .kin-order-card .kin-schnell-btn *,
+        .dark-mode #ordersGrid .kin-order-card .kin-art-tisch,
+        .dark-mode #ordersGrid .kin-order-card .kin-order-btn.next,
+        .dark-mode #ordersGrid .kin-order-card .kin-order-btn.next * { color: #00251e !important; }
+        .dark-mode #ordersGrid .kin-order-card .kin-hinweis,
+        .dark-mode #ordersGrid .kin-order-card .kin-hinweis * { color: #4a3b00 !important; }
+        .dark-mode #ordersGrid .kin-order-card .kin-art { background: rgba(255,255,255,0.12); }
+        .dark-mode #ordersGrid .kin-order-card .kin-art.kin-art-liefer,
+        .dark-mode #ordersGrid .kin-order-card .kin-art.kin-art-tisch { background: #ffd54f; color: #00251e !important; }
+        .dark-mode #ordersGrid .kin-order-card .kin-order-alter.neu { color: #fdba74 !important; }
+        .dark-mode #ordersGrid .kin-order-card .kin-bon-gedruckt { color: #86efac !important; }
+        .dark-mode #ordersGrid .kin-order-card .kin-rest.drueber > span { color: #fca5a5 !important; }
+        .dark-mode #ordersGrid .kin-order-card .kin-text-btn.kin-ablehnen { color: #9ca8a4 !important; }
+        .dark-mode .kin-spalte-kopf span, .dark-mode .kin-erledigt summary { color: var(--text-primary, #e8eeec); }
+        .dark-mode .kin-erledigt { background: rgba(255,255,255,0.04); }
+        .dark-mode #ordersGrid .kin-order-card { background: var(--bg-card, #1a2e27) !important; box-shadow: 0 8px 24px -6px rgba(0,0,0,0.4); }
+        .dark-mode .kin-art { background: rgba(255,255,255,0.12); color: var(--text-primary, #e8eeec); }
+        .dark-mode .kin-art-tisch { background: #ffd54f; color: #00251e; }
+        .dark-mode .kin-hinweis { background: #fff3c4; color: #4a3b00; }
+        .dark-mode .kin-rest-balken { background: rgba(255,255,255,0.14); }
+        .dark-mode .kin-rest-balken > div { background: #ffd54f; }
+        .dark-mode .kin-rest.drueber .kin-rest-balken { background: rgba(185,28,28,0.3); }
+        .dark-mode .kin-schnell-btn { background: #ffd54f; color: #00251e; }
+        .dark-mode #ordersGrid .kin-order-actions .kin-order-btn.next { background: #ffd54f; color: #00251e; }
+
         .kin-order-header {
             display: flex;
             align-items: flex-start;
@@ -23224,90 +23430,134 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
         <!-- BESTELLUNGEN DASHBOARD SECTION -->
         <!-- BESTELLUNGEN DASHBOARD SECTION - KIN DESIGN -->
         <div id="sectionOrders" class="dash-section">
-            <!-- Stitch: Hero Header -->
-            <section style="padding:0 0 24px;">
-                <div style="display:flex;flex-direction:column;gap:24px;">
-                    <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:24px;">
-                        <div>
-                            <h2 style="font-family:Epilogue,sans-serif;font-size:clamp(32px,5vw,48px);font-weight:900;color:var(--ink-deep);letter-spacing:-0.04em;margin:0;line-height:1.05;">Bestellungen</h2>
-                            <p style="font-family:Inter,sans-serif;font-size:14px;color:var(--text-secondary);margin:8px 0 0;font-weight:500;max-width:480px;">Echtzeit-Bestellverwaltung — Deine Küche ist das Herz, das Dashboard der Rhythmus.</p>
-                        </div>
-                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                            <span id="ordersConnectionStatus" style="display:inline-flex;align-items:center;gap:6px;background:#fed65b;color:#00251e;padding:8px 24px;border-radius:9999px;font-family:Inter,sans-serif;font-size:13px;font-weight:700;box-shadow:0 4px 12px rgba(254,214,91,0.2);">
-                                <span style="width:6px;height:6px;background:#00251e;border-radius:50%;"></span>
-                                Live
-                            </span>
-                            <span id="ordersActiveCount" style="display:inline-flex;align-items:center;gap:6px;background:#e7e8e9;color:var(--text-secondary);padding:8px 24px;border-radius:9999px;font-family:Inter,sans-serif;font-size:13px;font-weight:700;">0 Aktiv</span>
-                        </div>
+            <!-- KOPF DER BESTELLSEITE -- eins zu eins nach dem Entwurf "Bestellseite Wirt"
+                 (Claude Design, abgenommen 27.10.2026). Zwei Zeilen: oben Titel, Werkzeuge,
+                 Restaurant und Zeitraum; darunter die Schalter mit AN/AUS und der Zustand von
+                 Drucker und Kasse. Alle Kennungen von vorher bleiben -- an ihnen haengt die Logik. -->
+            <header class="kin-bk">
+                <div class="kin-bk-zeile">
+                    <div class="kin-bk-titel">
+                        <h2>Bestellungen</h2>
+                        <span id="ordersConnectionStatus" class="kin-bk-live"><span class="kin-bk-punkt"></span>Live</span>
+                        <span id="ordersActiveCount" class="kin-bk-zahl">0 Aktiv</span>
                     </div>
-                    <!-- Compact Action Row (Stitch: fewer buttons, glass pills) -->
-                    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-                        <button onclick="toggleOrderSound()" id="orderSoundBtn" class="order-action-btn" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:9999px;background:rgba(255,255,255,0.7);-webkit-backdrop-filter: blur(12px);backdrop-filter:blur(12px);border:none;font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:var(--ink-deep);cursor:pointer;">
-                            <span class="material-symbols-outlined" style="font-size:16px;" id="orderSoundIcon">volume_up</span>
-                            <span id="orderSoundText">Ton</span>
-                        </button>
-                        <button onclick="openSoundSettings()" class="order-action-btn" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:9999px;background:rgba(255,255,255,0.7);-webkit-backdrop-filter: blur(12px);backdrop-filter:blur(12px);border:none;font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:var(--ink-deep);cursor:pointer;">
-                            <span class="material-symbols-outlined" style="font-size:16px;">tune</span>
-                            Klang
-                        </button>
-                        <button onclick="toggleFullscreenAlarm()" id="fsAlarmBtn" class="order-action-btn" title="Vollbild-Alarm bei neuer Bestellung/Reservierung an- oder ausschalten" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:9999px;background:rgba(255,255,255,0.7);-webkit-backdrop-filter: blur(12px);backdrop-filter:blur(12px);border:none;font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:var(--ink-deep);cursor:pointer;">
-                            <span class="material-symbols-outlined" style="font-size:16px;" id="fsAlarmIcon">fullscreen</span>
-                            <span id="fsAlarmText">Alarm</span>
-                        </button>
-                        <button onclick="toggleAutoPrint()" id="autoPrintBtn" class="order-action-btn" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:9999px;background:rgba(255,255,255,0.7);-webkit-backdrop-filter: blur(12px);backdrop-filter:blur(12px);border:none;font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:var(--ink-deep);cursor:pointer;">
-                            <span class="material-symbols-outlined" style="font-size:16px;" id="autoPrintIcon">print</span>
-                            <span id="autoPrintText">Auto-Druck</span>
-                        </button>
-                        <button onclick="openPrinterSettings()" class="order-action-btn" title="Bondrucker einrichten" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:9999px;background:rgba(255,255,255,0.7);-webkit-backdrop-filter: blur(12px);backdrop-filter:blur(12px);border:none;font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:var(--ink-deep);cursor:pointer;">
-                            <span class="material-symbols-outlined" style="font-size:16px;">settings</span>
-                            Drucker
-                        </button>
-                        <div id="printerStatusBadge" onclick="openPrinterSettings()" title="Drucker-Verbindungsstatus (klicken: Einstellungen)" style="display:none;align-items:center;gap:6px;padding:8px 12px;border-radius:9999px;background:rgba(255,255,255,0.7);-webkit-backdrop-filter: blur(12px);backdrop-filter:blur(12px);border:1px solid transparent;font-family:Inter,sans-serif;font-size:12px;font-weight:600;cursor:pointer;">
-                            <span id="printerStatusDot" style="width:8px;height:8px;border-radius:50%;background:#9ca3af;display:inline-block;"></span>
-                            <span id="printerStatusText" style="color:var(--ink-deep);">Drucker prüfen…</span>
-                        </div>
-                        <div id="druckerMeldungZeile" onclick="openPrinterSettings()" style="display:none;align-items:center;gap:6px;padding:8px 12px;border-radius:9999px;background:rgba(220,38,38,0.10);border:1px solid rgba(220,38,38,0.35);font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:#b91c1c;cursor:pointer;max-width:520px;">
-                            <span class="material-symbols-outlined" style="font-size:16px;flex-shrink:0;">warning</span>
-                            <span id="druckerMeldungText" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
-                        </div>
-                        <div id="kasseStatusBadge" onclick="openPOSSettings()" title="Kassen-Verbindungsstatus (WinOrder-Abruf, klicken: Einstellungen)" style="display:none;align-items:center;gap:6px;padding:8px 12px;border-radius:9999px;background:rgba(255,255,255,0.7);-webkit-backdrop-filter: blur(12px);backdrop-filter:blur(12px);border:1px solid transparent;font-family:Inter,sans-serif;font-size:12px;font-weight:600;cursor:pointer;">
-                            <span id="kasseStatusDot" style="width:8px;height:8px;border-radius:50%;background:#9ca3af;display:inline-block;"></span>
-                            <span id="kasseStatusText" style="color:var(--ink-deep);">Kasse prüfen…</span>
-                        </div>
-                        <button onclick="openPOSSettings()" class="order-action-btn" title="Kassensystem verbinden" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:9999px;background:rgba(255,255,255,0.7);-webkit-backdrop-filter: blur(12px);backdrop-filter:blur(12px);border:none;font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:var(--ink-deep);cursor:pointer;">
-                            <span class="material-symbols-outlined" style="font-size:16px;">point_of_sale</span>
-                            Kasse
-                        </button>
-                        <button onclick="exportOrdersCSV()" class="order-action-btn" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:9999px;background:rgba(255,255,255,0.7);-webkit-backdrop-filter: blur(12px);backdrop-filter:blur(12px);border:none;font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:var(--ink-deep);cursor:pointer;">
-                            <span class="material-symbols-outlined" style="font-size:16px;">download</span>
-                            CSV
-                        </button>
-                        <button onclick="togglePushNotifications()" class="order-action-btn" id="pushNotifBtn" title="Push-Benachrichtigungen" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:9999px;background:rgba(255,255,255,0.7);-webkit-backdrop-filter: blur(12px);backdrop-filter:blur(12px);border:none;font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:var(--ink-deep);cursor:pointer;">
-                            <span class="material-symbols-outlined" style="font-size:16px;">notifications</span>
-                            Push
-                        </button>
-                        <button onclick="refreshOrders()" class="order-action-btn" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:9999px;background:rgba(255,255,255,0.7);-webkit-backdrop-filter: blur(12px);backdrop-filter:blur(12px);border:none;font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:var(--ink-deep);cursor:pointer;">
-                            <span class="material-symbols-outlined" style="font-size:16px;">refresh</span>
-                            Aktualisieren
-                        </button>
+                    <div class="kin-bk-werkzeuge">
+                        <button type="button" onclick="openSoundSettings()" class="kin-bk-werkzeug" title="Klang einstellen"><svg class="kin-sym" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>Klang</button>
+                        <button type="button" onclick="openPrinterSettings()" class="kin-bk-werkzeug" title="Bondrucker einrichten"><svg class="kin-sym" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>Drucker</button>
+                        <button type="button" onclick="openPOSSettings()" class="kin-bk-werkzeug" title="Kassensystem verbinden"><svg class="kin-sym" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="10" width="18" height="11" rx="2"/><path d="M7 10V4h10v6M7 15h2M11 15h2M15 15h2"/></svg>Kasse</button>
+                        <button type="button" onclick="exportOrdersCSV()" class="kin-bk-werkzeug" title="Bestellungen als CSV herunterladen"><svg class="kin-sym" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>CSV</button>
+                        <button type="button" class="kin-bk-werkzeug kin-bk-rund kin-bk-mehrknopf" aria-label="Weitere Werkzeuge" aria-expanded="false" onclick="var k=this.closest('.kin-bk'); this.setAttribute('aria-expanded', k.classList.toggle('kin-bk-offen') ? 'true' : 'false');">⋯</button>
+                        <button type="button" onclick="refreshOrders()" class="kin-bk-werkzeug kin-bk-rund" title="Aktualisieren" aria-label="Aktualisieren"><svg class="kin-sym" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></button>
+                        <select id="ordersRestaurantSelect" class="kin-bk-wahl" aria-label="Restaurant" onchange="loadOrdersForRestaurant(this.value)">
+                            <option value="">Alle Restaurants</option>
+                        </select>
+                        <select id="ordersTimeFilter" class="kin-bk-wahl" aria-label="Zeitraum" onchange="changeOrdersTimeFilter(this.value)">
+                            <option value="today" selected>Heute</option>
+                            <option value="yesterday">Gestern</option>
+                            <option value="week">Diese Woche</option>
+                            <option value="month">Dieser Monat</option>
+                            <option value="year">Dieses Jahr</option>
+                        </select>
                     </div>
                 </div>
-            </section>
+                <div class="kin-bk-zeile">
+                    <div class="kin-bk-schalterreihe">
+                        <button type="button" onclick="toggleOrderSound()" id="orderSoundBtn" class="order-action-btn kin-schalter" aria-pressed="true" title="Ton bei neuer Bestellung">
+                            <span id="orderSoundIcon" class="kin-sym-platz"><svg class="kin-sym" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg></span><span id="orderSoundText">Ton</span><span class="kin-schalter-zustand">AN</span>
+                        </button>
+                        <button type="button" onclick="toggleFullscreenAlarm()" id="fsAlarmBtn" class="order-action-btn kin-schalter" aria-pressed="true" title="Vollbild-Alarm bei neuer Bestellung/Reservierung an- oder ausschalten">
+                            <span id="fsAlarmIcon" class="kin-sym-platz"><svg class="kin-sym" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg></span><span id="fsAlarmText">Alarm</span><span class="kin-schalter-zustand">AN</span>
+                        </button>
+                        <button type="button" onclick="toggleAutoPrint()" id="autoPrintBtn" class="order-action-btn kin-schalter" aria-pressed="true" title="Bon beim Annehmen automatisch drucken">
+                            <span id="autoPrintIcon" class="kin-sym-platz"><svg class="kin-sym" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 9V4h10v5"/><rect x="4" y="9" width="16" height="7" rx="2"/><path d="M7 14h10v6H7z"/></svg></span><span id="autoPrintText">Auto-Druck</span><span class="kin-schalter-zustand">AN</span>
+                        </button>
+                        <button type="button" onclick="togglePushNotifications()" id="pushNotifBtn" class="order-action-btn kin-schalter" aria-pressed="false" title="Push-Benachrichtigungen">
+                            <span class="kin-sym-platz"><svg class="kin-sym" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></span><span>Push</span><span class="kin-schalter-zustand">AUS</span>
+                        </button>
+                        <div id="printerStatusBadge" class="kin-bk-status" onclick="openPrinterSettings()" title="Drucker-Verbindungsstatus (klicken: Einstellungen)" style="display:none;">
+                            <svg class="kin-sym" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 9V4h10v5"/><rect x="4" y="9" width="16" height="7" rx="2"/><path d="M7 14h10v6H7z"/></svg><span id="printerStatusDot" class="kin-bk-punkt"></span><span id="printerStatusText">Drucker prüfen…</span>
+                        </div>
+                        <div id="kasseStatusBadge" class="kin-bk-status" onclick="openPOSSettings()" title="Kassen-Verbindungsstatus (WinOrder-Abruf, klicken: Einstellungen)" style="display:none;">
+                            <svg class="kin-sym" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="10" width="18" height="11" rx="2"/><path d="M7 10V4h10v6M7 15h2M11 15h2M15 15h2"/></svg><span id="kasseStatusDot" class="kin-bk-punkt"></span><span id="kasseStatusText">Kasse prüfen…</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="druckerMeldungZeile" class="kin-bk-meldung" onclick="openPrinterSettings()" style="display:none;">
+                    <svg class="kin-sym" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg><span id="druckerMeldungText"></span>
+                </div>
+            </header>
 
-            <!-- Restaurant Auswahl + Zeitraum-Filter (Stitch Glass) -->
-            <div style="background:rgba(255,255,255,0.7);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-radius:48px;padding:16px 24px;margin-bottom:20px;border:1px solid rgba(255,255,255,0.3);">
-                <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-                    <span class="material-symbols-outlined" style="font-size:20px;color:var(--ink-deep);">restaurant</span>
-                    <select id="ordersRestaurantSelect" onchange="loadOrdersForRestaurant(this.value)" style="flex:1;min-width:140px;padding:12px 16px;border:1px solid rgba(192,200,196,0.3);border-radius:9999px;font-size:14px;font-family:Inter,sans-serif;font-weight:600;background:rgba(255,255,255,0.8);color:var(--ink-deep);cursor:pointer;appearance:auto;" aria-label="Restaurant auswählen">
-                        <option value="">Alle Restaurants</option>
-                    </select>
-                    <select id="ordersTimeFilter" onchange="changeOrdersTimeFilter(this.value)" style="padding:12px 16px;border:1px solid rgba(192,200,196,0.3);border-radius:9999px;font-size:14px;font-family:Inter,sans-serif;font-weight:600;background:rgba(255,255,255,0.8);color:var(--ink-deep);cursor:pointer;appearance:auto;" aria-label="Zeitraum filtern">
-                        <option value="today" selected>Heute</option>
-                        <option value="yesterday">Gestern</option>
-                        <option value="week">Diese Woche</option>
-                        <option value="month">Dieser Monat</option>
-                        <option value="year">Dieses Jahr</option>
-                    </select>
+            <!-- Reiter wie im Entwurf: Alle / Neu / In Arbeit / Fertig. Auf dem Tablet stehen
+                 dafuer die drei Spalten da -- dort sind die Reiter ausgeblendet (.kin-brett-an).
+                 "Fertig" umfasst auch "Unterwegs": beides wartet nur noch auf den Gast. -->
+            <div class="kin-reiter" role="tablist">
+                <button type="button" class="kin-filter-tab active" onclick="filterOrders('all', this)" data-status="all">Alle <span class="kin-filter-count" id="ordersCountAll">0</span></button>
+                <button type="button" class="kin-filter-tab" onclick="filterOrders('received', this)" data-status="received">Neu <span class="kin-filter-count new" id="ordersCountNew">0</span></button>
+                <button type="button" class="kin-filter-tab" onclick="filterOrders('preparing', this)" data-status="preparing">In Arbeit <span class="kin-filter-count" id="ordersCountPreparing">0</span></button>
+                <button type="button" class="kin-filter-tab" onclick="filterOrders('ready', this)" data-status="ready">Fertig <span class="kin-filter-count" id="ordersCountReady">0</span></button>
+            </div>
+
+            <!-- Fahrer: wer ist wann zurueck (Ibo, 12.10.2026). Fuellt fahrerLeisteZeichnen. -->
+            <div id="fahrerLeiste" class="fahrer-leiste" hidden></div>
+
+            <div data-ladestand="bestellungen"></div>
+            <!-- Bestellungen Grid -->
+            <div id="ordersGrid" data-ladestand-ziel="bestellungen" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 32px;">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
+
+            <!-- Leerer Zustand -->
+            <div id="ordersEmptyState" style="text-align: center; padding: 60px 20px; display: none;">
+                <span class="material-symbols-outlined" style="font-size:80px;color:var(--slate);opacity:0.3;margin-bottom:20px;">assignment</span>
+                <h3 id="ordersEmptyTitel" style="font-family: 'Epilogue', sans-serif; font-size: 20px; font-weight: 600; color: var(--dark); margin-bottom: 8px;">Keine Bestellungen</h3>
+                <p id="ordersEmptyText" style="color: var(--slate); font-size: 14px;">Neue Bestellungen erscheinen hier automatisch</p>
+            </div>
+
+            <!-- Was der Wirt im Service selten braucht, steht UNTER den Bestellungen und
+                 ist zugeklappt (Ibo, 27.10.2026: "das alte muss weg was wir nicht brauchen").
+                 Geloescht ist nichts: Zahlen, Bestseller, Stosszeiten und die Bestelloptionen
+                 (Abholung/Lieferung/Liefergebuehr/Stempelkarte) sind einen Tipp entfernt. -->
+            <details class="kin-mehr" id="ordersMehr">
+                <summary>Zahlen, Bestseller &amp; Bestelloptionen</summary>
+                <div class="kin-mehr-inhalt">
+            <!-- Stats Cards -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 24px;">
+                <div style="background: rgba(255,255,255,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 48px; padding: 24px; border: 1px solid rgba(255,255,255,0.3);">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <span class="material-symbols-outlined" style="font-size:20px;color:#f59e0b;">assignment</span>
+                        <span style="font-size: 12px; color: var(--slate);">Heute</span>
+                    </div>
+                    <div style="font-size: 28px; font-weight: 700; color: var(--dark);" id="statOrdersToday">0</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 48px; padding: 24px; border: 1px solid rgba(255,255,255,0.3);">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <span class="material-symbols-outlined" style="font-size:20px;color:#10b981;">euro</span>
+                        <span style="font-size: 12px; color: var(--slate);">Umsatz</span>
+                    </div>
+                    <div style="font-size: 28px; font-weight: 700; color: #10b981;" id="statRevenueToday">0 €</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 48px; padding: 24px; border: 1px solid rgba(255,255,255,0.3);">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <span class="material-symbols-outlined" style="font-size:20px;color:#3b82f6;">schedule</span>
+                        <span style="font-size: 12px; color: var(--slate);">Ø Zeit</span>
+                    </div>
+                    <div style="font-size: 28px; font-weight: 700; color: #3b82f6;" id="statAvgTime">--</div>
+                </div>
+                <!-- Tisch-QR: zeigt, ob die gedruckten Aufsteller Bestellungen bringen -->
+                <div style="background: rgba(255,255,255,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 48px; padding: 20px; border: 1px solid rgba(255,255,255,0.2);">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <span class="material-symbols-outlined" style="font-size:20px;color:#735c00;">qr_code_2</span>
+                        <span style="font-size: 12px; color: var(--slate);">Per Tisch-QR</span>
+                    </div>
+                    <div style="font-size: 28px; font-weight: 700; color: #735c00;" id="statQrOrders">--</div>
+                    <div style="font-size: 11px; color: var(--slate); margin-top: 2px;">Umsatz: <span id="statQrRevenue">--</span></div>
+                </div>
+                <div style="background: rgba(255,255,255,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 48px; padding: 24px; border: 1px solid rgba(255,255,255,0.3);">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <span class="material-symbols-outlined" style="font-size:20px;color:#8b5cf6;">shopping_bag</span>
+                        <span style="font-size: 12px; color: var(--slate);">Ø Wert</span>
+                    </div>
+                    <div style="font-size: 28px; font-weight: 700; color: #8b5cf6;" id="statAvgOrder">0 €</div>
                 </div>
             </div>
 
@@ -23740,90 +23990,8 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     </div>
                 </div>
 
-            <!-- Status Filter Tabs -->
-            <div style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 16px; margin-bottom: 16px; -webkit-overflow-scrolling: touch;">
-                <button class="kin-filter-tab active" onclick="filterOrders('all', this)" data-status="all">
-                    Alle
-                    <span class="kin-filter-count" id="ordersCountAll">0</span>
-                </button>
-                <button class="kin-filter-tab" onclick="filterOrders('received', this)" data-status="received">
-                    <span class="material-symbols-outlined" style="font-size:14px;color:#f59e0b;">fiber_new</span>
-                    Neu
-                    <span class="kin-filter-count new" id="ordersCountNew">0</span>
-                </button>
-                <button class="kin-filter-tab" onclick="filterOrders('preparing', this)" data-status="preparing">
-                    <span class="material-symbols-outlined" style="font-size:14px;color:#8b5cf6;">skillet</span>
-                    Zubereitung
-                    <span class="kin-filter-count" id="ordersCountPreparing">0</span>
-                </button>
-                <button class="kin-filter-tab" onclick="filterOrders('ready', this)" data-status="ready">
-                    <span class="material-symbols-outlined" style="font-size:14px;color:#10b981;">check_circle</span>
-                    Fertig
-                    <span class="kin-filter-count" id="ordersCountReady">0</span>
-                </button>
-                <button class="kin-filter-tab" onclick="filterOrders('out_for_delivery', this)" data-status="out_for_delivery">
-                    <span class="material-symbols-outlined" style="font-size:14px;color:#06b6d4;">local_shipping</span>
-                    Unterwegs
-                    <span class="kin-filter-count" id="ordersCountDelivery">0</span>
-                </button>
-            </div>
-
-            <!-- Stats Cards -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 24px;">
-                <div style="background: rgba(255,255,255,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 48px; padding: 24px; border: 1px solid rgba(255,255,255,0.3);">
-                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-                        <span class="material-symbols-outlined" style="font-size:20px;color:#f59e0b;">assignment</span>
-                        <span style="font-size: 12px; color: var(--slate);">Heute</span>
-                    </div>
-                    <div style="font-size: 28px; font-weight: 700; color: var(--dark);" id="statOrdersToday">0</div>
                 </div>
-                <div style="background: rgba(255,255,255,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 48px; padding: 24px; border: 1px solid rgba(255,255,255,0.3);">
-                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-                        <span class="material-symbols-outlined" style="font-size:20px;color:#10b981;">euro</span>
-                        <span style="font-size: 12px; color: var(--slate);">Umsatz</span>
-                    </div>
-                    <div style="font-size: 28px; font-weight: 700; color: #10b981;" id="statRevenueToday">0 €</div>
-                </div>
-                <div style="background: rgba(255,255,255,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 48px; padding: 24px; border: 1px solid rgba(255,255,255,0.3);">
-                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-                        <span class="material-symbols-outlined" style="font-size:20px;color:#3b82f6;">schedule</span>
-                        <span style="font-size: 12px; color: var(--slate);">Ø Zeit</span>
-                    </div>
-                    <div style="font-size: 28px; font-weight: 700; color: #3b82f6;" id="statAvgTime">--</div>
-                </div>
-                <!-- Tisch-QR: zeigt, ob die gedruckten Aufsteller Bestellungen bringen -->
-                <div style="background: rgba(255,255,255,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 48px; padding: 20px; border: 1px solid rgba(255,255,255,0.2);">
-                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-                        <span class="material-symbols-outlined" style="font-size:20px;color:#735c00;">qr_code_2</span>
-                        <span style="font-size: 12px; color: var(--slate);">Per Tisch-QR</span>
-                    </div>
-                    <div style="font-size: 28px; font-weight: 700; color: #735c00;" id="statQrOrders">--</div>
-                    <div style="font-size: 11px; color: var(--slate); margin-top: 2px;">Umsatz: <span id="statQrRevenue">--</span></div>
-                </div>
-                <div style="background: rgba(255,255,255,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 48px; padding: 24px; border: 1px solid rgba(255,255,255,0.3);">
-                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-                        <span class="material-symbols-outlined" style="font-size:20px;color:#8b5cf6;">shopping_bag</span>
-                        <span style="font-size: 12px; color: var(--slate);">Ø Wert</span>
-                    </div>
-                    <div style="font-size: 28px; font-weight: 700; color: #8b5cf6;" id="statAvgOrder">0 €</div>
-                </div>
-            </div>
-
-            <!-- Fahrer: wer ist wann zurueck (Ibo, 12.10.2026). Fuellt fahrerLeisteZeichnen. -->
-            <div id="fahrerLeiste" class="fahrer-leiste" hidden></div>
-
-            <div data-ladestand="bestellungen"></div>
-            <!-- Bestellungen Grid -->
-            <div id="ordersGrid" data-ladestand-ziel="bestellungen" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 32px;">
-                <!-- Wird dynamisch gefüllt -->
-            </div>
-
-            <!-- Leerer Zustand -->
-            <div id="ordersEmptyState" style="text-align: center; padding: 60px 20px; display: none;">
-                <span class="material-symbols-outlined" style="font-size:80px;color:var(--slate);opacity:0.3;margin-bottom:20px;">assignment</span>
-                <h3 id="ordersEmptyTitel" style="font-family: 'Epilogue', sans-serif; font-size: 20px; font-weight: 600; color: var(--dark); margin-bottom: 8px;">Keine Bestellungen</h3>
-                <p id="ordersEmptyText" style="color: var(--slate); font-size: 14px;">Neue Bestellungen erscheinen hier automatisch</p>
-            </div>
+            </details>
         </div>
 
         <!-- SPEISEKARTE SECTION - KIN DESIGN -->
@@ -28485,14 +28653,10 @@ function _fsAlarmOff() {
 
 function updateFsAlarmBtn() {
     var btn = document.getElementById('fsAlarmBtn');
-    var icon = document.getElementById('fsAlarmIcon');
     var txt = document.getElementById('fsAlarmText');
     if (!btn) return;
-    var off = _fsAlarmOff();
-    if (icon) icon.textContent = off ? 'fullscreen_exit' : 'fullscreen';
-    if (txt) txt.textContent = off ? 'Alarm aus' : 'Alarm an';
-    btn.style.opacity = off ? '0.55' : '1';
-    btn.style.textDecoration = off ? 'line-through' : 'none';
+    if (txt) txt.textContent = 'Alarm';
+    try { bestellSchalterZeigen(); } catch (e) {}
 }
 
 function toggleFullscreenAlarm() {
@@ -63730,6 +63894,16 @@ async function loadDashboardOrders() {
                 table_number: order.table_number || null,
                 pos_log: Array.isArray(order.pos_log) ? order.pos_log : [],
                 printed_at: order.printed_at || null,
+                // Diese Felder fielen hier weg (gemessen 27.10.2026). Folge:
+                // "Vorbestellung" und "Stempelkarte eingeloest" erschienen auf
+                // keiner Karte und keinem Bon, und annahmeStatus() sah nie ein
+                // scheduled_at -- eine Vorbestellung fuer morgen sprang beim
+                // Annehmen auf "wird zubereitet". Der Countdown braucht die Zeit.
+                scheduled_at: order.scheduled_at || null,
+                stempel_einloesen: order.stempel_einloesen || false,
+                stempel_ergebnis: order.stempel_ergebnis || null,
+                estimated_time: order.estimated_time || null,
+                accepted_at: order.accepted_at || null,
                 // Ohne dieses Feld erschien "Erneut an Kasse" nie und die
                 // Storno-Warnung ("bitte auch in WinOrder stornieren") blieb
                 // aus -- beides prüfte winorder_sent_at, das hier wegfiel.
@@ -64215,6 +64389,7 @@ function renderDashboardOrders() {
     // Die Fahrer-Leiste zaehlt die wartenden Lieferungen -- mit jeder neuen
     // Liste neu zeichnen, nicht erst beim naechsten Fahrer-Abruf.
     try { fahrerLeisteZeichnen(); } catch (e) {}
+    try { bestellSchalterZeigen(); } catch (e) {}
     const grid = document.getElementById('ordersGrid');
     const emptyState = document.getElementById('ordersEmptyState');
 
@@ -64232,7 +64407,10 @@ function renderDashboardOrders() {
         // "Zubereitung" umfasst auch "angenommen" -- seit den drei Schritten
         // ist das derselbe Schritt (12.10.2026).
         var _inArbeit = ['accepted', 'confirmed', 'preparing'];
-        filtered = filtered.filter(o => orderFilterStatus === 'preparing' ? _inArbeit.indexOf(o.status) >= 0 : o.status === orderFilterStatus);
+        // "Fertig" umfasst seit 27.10.2026 auch "Unterwegs" (ein Reiter weniger).
+        filtered = filtered.filter(o => orderFilterStatus === 'preparing' ? _inArbeit.indexOf(o.status) >= 0
+            : orderFilterStatus === 'ready' ? (o.status === 'ready' || o.status === 'out_for_delivery')
+            : o.status === orderFilterStatus);
     }
 
     // Sortieren: Neueste zuerst, aber "received" ganz oben
@@ -64244,6 +64422,7 @@ function renderDashboardOrders() {
 
     if (filtered.length === 0) {
         grid.innerHTML = '';
+        grid.classList.remove('kin-brett');
         if (emptyState) emptyState.style.display = 'block';
         // Leer ODER nicht geladen -- das muss man unterscheiden koennen.
         var _et = document.getElementById('ordersEmptyTitel'), _ex = document.getElementById('ordersEmptyText');
@@ -64264,7 +64443,10 @@ function renderDashboardOrders() {
     // POS-Konfig einmalig pro Render lesen — Re-Send-Button nur wenn konfiguriert.
     var _posCfgAll = (typeof getPOSConfig === 'function') ? getPOSConfig() : {};
 
-    grid.innerHTML = filtered.map(order => {
+    var _brett = bestellBrettAn();
+    var _spalten = { neu: '', arbeit: '', fertig: '', erledigt: '' };
+    var _anzahl = { neu: 0, arbeit: 0, fertig: 0, erledigt: 0 };
+    var _alleKarten = filtered.map(order => {
         const statusLabels = {
             'received': 'Neu',
             'accepted': 'Angenommen',
@@ -64351,25 +64533,34 @@ function renderDashboardOrders() {
 
         // Storniert: nichts zu drucken. Sonst immer beide.
         var druckBtns = order.status === 'cancelled' ? '' : (
-            '<button class="kin-order-btn secondary" onclick="printKitchenBon(\'' + order.id + '\')"'
-          + ' title="' + escapeHtml(bonTitel) + '" aria-label="Bon drucken" style="' + bonFarbe + '">'
-          + '<span class="material-symbols-outlined" style="font-size:18px;">receipt_long</span> Bon</button>'
+            // Wie im Entwurf: weisser Knopf mit Drucker-Symbol. Ob gedruckt,
+            // steht oben auf der Karte ("✓ Bon gedruckt 18:42") -- die
+            // Farbe bleibt als zweites Zeichen am Rand.
+            '<button class="kin-order-btn kin-bon-btn' + (order.printed_at ? ' gedruckt' : '') + '" onclick="printKitchenBon(\'' + order.id + '\')"'
+          + ' title="' + escapeHtml(bonTitel) + '" aria-label="Bon drucken">'
+          + '<span class="kin-sym-platz">' + kinSym('druck') + '</span> Bon</button>'
         );
 
         // Action Buttons je nach Status
         let actionsHtml = '';
+        // Selten gebrauchte Wege stehen als kleine Links UNTER den Knoepfen
+        // (Entwurf: ein grosser Knopf + Bon, sonst nichts in Fingerhoehe).
+        var linksHtml = '';
         switch(order.status) {
             case 'received':
-                actionsHtml = `
-                    <button class="kin-order-btn reject" onclick="rejectOrder('${order.id}')">
-                        <span class="material-symbols-outlined" style="font-size:18px">close</span>
-                        Ablehnen
-                    </button>
-                    <button class="kin-order-btn accept" onclick="acceptOrder('${order.id}')">
-                        <span class="material-symbols-outlined" style="font-size:24px;">check</span>
-                        Annehmen
-                    </button>
-                `;
+                // EIN Tipp auf die Minuten = angenommen. "Andere Zeit" oeffnet
+                // den bekannten Dialog. Ablehnen steht klein daneben und fragt
+                // nach (kinConfirm in rejectOrder) -- ein falscher Tipp kostet
+                // sonst einen Kunden.
+                var _haus = ((window.APP_DATA && APP_DATA.restaurants) || []).find(function (r) { return r.id === order.restaurant_id; });
+                var _std = typeof vorbereitungsMinuten === 'function' ? vorbereitungsMinuten(_haus, order.order_type) : 0;
+                actionsHtml = '<div class="kin-schnell-titel">Ein Tipp = angenommen · fertig in</div><div class="kin-schnell">'
+                    + schnellZeiten(_std, order.order_type).map(function (m) {
+                        return '<button type="button" class="kin-schnell-btn" data-schnell="' + order.id + '" onclick="schnellAnnehmen(\'' + order.id + '\', ' + m + ')" aria-label="Annehmen, fertig in ' + m + ' Minuten"><b>' + m + '</b><small>Min</small></button>';
+                    }).join('')
+                    + '</div>';
+                linksHtml = '<button type="button" class="kin-text-btn" onclick="acceptOrder(\'' + order.id + '\')">Andere Zeit …</button>'
+                    + '<button type="button" class="kin-text-btn kin-ablehnen" onclick="rejectOrder(\'' + order.id + '\')">Ablehnen …</button>';
                 break;
             case 'accepted':
             case 'confirmed':
@@ -64379,18 +64570,13 @@ function renderDashboardOrders() {
                 // Drei Schritte (12.10.2026): nach "Annehmen" EIN Knopf fuer
                 // den naechsten Schritt -- siehe naechsterSchritt().
                 var _ns = naechsterSchritt(order), _laeuft = order.status !== 'ready' && order.status !== 'out_for_delivery';
-                actionsHtml = `
-                    <button class="kin-order-btn reject" onclick="openCancelOrderDialog('${order.id}')" title="Bestellung stornieren" aria-label="Stornieren" style="background:rgba(239,68,68,0.08);color:#dc2626;border-color:rgba(239,68,68,0.25);">
-                        <span class="material-symbols-outlined" style="font-size:18px;">cancel</span>
-                    </button>` + (_laeuft ? `
-                    <button class="kin-order-btn" onclick="zeitAendern('${order.id}')" title="Dem Gast eine neue Zeit sagen" style="background:rgba(217,119,6,0.08);color:#b45309;border-color:rgba(217,119,6,0.25);">
-                        <span class="material-symbols-outlined" style="font-size:18px;">schedule</span>
-                        Zeit ändern
-                    </button>` : '') + (_ns ? `
+                actionsHtml = _ns ? `
                     <button class="kin-order-btn next" data-schritt="${_ns.status}" onclick="updateOrderStatus('${order.id}', '${_ns.status}')">
                         <span class="material-symbols-outlined" style="font-size:18px;">${_ns.icon}</span>
                         ${_ns.text}
-                    </button>` : '');
+                    </button>` : '';
+                linksHtml = (_laeuft ? `<button type="button" class="kin-text-btn" onclick="zeitAendern('${order.id}')" title="Dem Gast eine neue Zeit sagen">Zeit ändern</button>` : '')
+                    + `<button type="button" class="kin-text-btn kin-ablehnen" onclick="openCancelOrderDialog('${order.id}')" title="Bestellung stornieren">Stornieren …</button>`;
                 break;
         }
 
@@ -64398,15 +64584,16 @@ function renderDashboardOrders() {
         // schnellen Eintippen in die Kasse. Markiert die Bestellung danach als
         // "in Kasse übertragen" (über pos_log → posBadgeHtml zeigt es an).
         var copyForKasseBtn = '';
-        if (order.status !== 'cancelled') {
+        // Vor dem Annehmen gibt es nichts abzutippen -- erst danach.
+        if (order.status !== 'cancelled' && order.status !== 'received') {
             var alreadyCopied = posLastEntry && (posLastEntry.type === 'manual_copied' || posLastEntry.status === 'success');
             var copyTitle = alreadyCopied
                 ? 'Schon kopiert — nochmal kopieren?'
                 : 'Bestellung als sauberen Text in Zwischenablage kopieren — dann in Kasse einfügen.';
-            copyForKasseBtn = '<button class="kin-order-btn secondary" onclick="copyOrderForKasse(\'' + order.id + '\')" title="' + copyTitle + '" style="background:' + (alreadyCopied ? 'rgba(34,197,94,0.10);color:#15803d;border-color:rgba(34,197,94,0.3)' : 'rgba(99,102,241,0.10);color:#4338ca;border-color:rgba(99,102,241,0.3)') + ';">' +
-                '<span class="material-symbols-outlined" style="font-size:14px;">' + (alreadyCopied ? 'check' : 'content_copy') + '</span>' +
-                (alreadyCopied ? 'Kopiert' : 'Für Kasse') +
-            '</button>';
+            // Nur fuer Betriebe ohne angebundene Kasse (zum Abtippen) -- daher
+            // als kleiner Link, nicht als Knopf in Fingerhoehe.
+            copyForKasseBtn = '<button type="button" class="kin-text-btn" onclick="copyOrderForKasse(\'' + order.id + '\')" title="' + copyTitle + '">'
+                + (alreadyCopied ? '✓ Für Kasse kopiert' : 'Für Kasse kopieren') + '</button>';
         }
 
         // VORBESTELLUNG deutlich sichtbar. Ohne diesen Streifen sieht eine
@@ -64443,20 +64630,25 @@ function renderDashboardOrders() {
                 + '</span></div>';
         }
 
-        return `
-            <div class="kin-order-card status-${order.status}" style="position:relative;overflow:hidden;">
+        var _html = `
+            <div class="kin-order-card status-${order.status}${(bestellRestHtml(order) && bestellRest(order) < 0) ? ' kin-zu-spaet' : ''}" style="position:relative;overflow:hidden;">
                 ${_vbHtml}
                 ${_stHtml}
                 ${order.status === 'received' ? '<div class="kin-new-badge">NEU</div>' : ''}
                 ${order.status === 'received' ? '<div style="position:absolute;top:-32px;right:-32px;width:128px;height:128px;background:rgba(254,214,91,0.10);border-radius:0 0 0 100%;pointer-events:none;"></div>' : ''}
                 <!-- Stitch Header: Order # + Customer Name left, Status right -->
                 <div class="kin-order-header">
-                    <div style="display:flex;flex-direction:column;">
+                    <div style="display:flex;flex-direction:column;min-width:0;">
                         <div class="kin-order-number">#${order.order_number}</div>
                         <div class="kin-order-customer-name">${escapeHtml(order.customer_name)}</div>
                         ${posBadgeHtml}
                     </div>
-                    <div class="kin-order-status ${order.status}">${statusLabels[order.status]}</div>
+                    <div class="kin-order-kopf-rechts">
+                        ${bestellArtChip(order)}
+                        <div class="kin-order-status ${order.status}">${statusLabels[order.status]}</div>
+                        <span class="kin-order-alter${order.status === 'received' ? ' neu' : ''}">${timeAgo}</span>
+                        ${order.printed_at ? '<span class="kin-bon-gedruckt">✓ Bon gedruckt ' + new Date(order.printed_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + '</span>' : ''}
+                    </div>
                 </div>
                 <!-- Stitch Body: Items with prices -->
                 <div class="kin-order-body" style="display:flex;flex-direction:column;gap:16px;">
@@ -64473,14 +64665,13 @@ function renderDashboardOrders() {
                         <span style="font-family:Inter,sans-serif;font-size:12px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;">Gesamt</span>
                         <span style="font-family:Epilogue,sans-serif;font-size:20px;font-weight:900;color:var(--ink-deep);">${formatPrice(order.total)}</span>
                     </div>
+                    ${bestellHinweis(order) ? '<div class="kin-hinweis"><b>Hinweis:</b> „' + escapeHtml(bestellHinweis(order)) + '“</div>' : ''}
+                    ${bestellRestHtml(order)}
                 </div>
                 <!-- Stitch Footer: Order type + Contact + Actions -->
                 <div class="kin-order-footer" style="display:flex;flex-direction:column;gap:16px;">
                     <div style="display:flex;align-items:center;justify-content:space-between;">
-                        <div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:rgba(64,73,70,0.8);">
-                            ${order.order_type === 'delivery' ? '<span class="material-symbols-outlined" style="font-size:14px;">delivery_dining</span> Lieferung' : order.order_type === 'dine_in' ? '<span class="material-symbols-outlined" style="font-size:14px;">restaurant</span> Hier essen' + (order.table_number ? ' · Tisch ' + order.table_number : '') : '<span class="material-symbols-outlined" style="font-size:14px;">takeout_dining</span> Abholung'}
-                            <span style="opacity:0.5;">•</span> ${timeAgo}
-                        </div>
+                        <div style="font-size:12px;font-weight:700;color:rgba(64,73,70,0.8);">Zahlung</div>
                         ${(function () {
                             // Geld gehoert nicht in 11-Pixel-Grau.
                             var st = zahlartStand(order);
@@ -64493,15 +64684,23 @@ function renderDashboardOrders() {
                     ${order.delivery_address ? '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(64,73,70,0.7);"><span class="material-symbols-outlined" style="font-size:14px;">location_on</span>' + adresseHtml(order.delivery_address) + '</div>' : ''}
                     <div class="kin-order-actions">
                         ${actionsHtml}
+                        ${druckBtns}
                         ${posResendBtn}
                         ${woResendBtn}
-                        ${copyForKasseBtn}
-                        ${druckBtns}
+                        <div class="kin-links">${linksHtml}${copyForKasseBtn}</div>
                     </div>
                 </div>
             </div>
         `;
+        var _sp = bestellSpalte(order.status);
+        _spalten[_sp] += _html;
+        _anzahl[_sp]++;
+        return _html;
     }).join('');
+    grid.classList.toggle('kin-brett', _brett);
+    var _sek = document.getElementById('sectionOrders');
+    if (_sek) _sek.classList.toggle('kin-brett-an', _brett);
+    grid.innerHTML = _brett ? bestellBrettHtml(_spalten, _anzahl) : _alleKarten;
 }
 
 // Zeit-Formatierung
@@ -64548,7 +64747,7 @@ function updateOrderStats() {
     el = document.getElementById('ordersCountAll'); if (el) el.textContent = dashboardOrders.length;
     el = document.getElementById('ordersCountNew'); if (el) el.textContent = dashboardOrders.filter(o => o.status === 'received').length;
     el = document.getElementById('ordersCountPreparing'); if (el) el.textContent = dashboardOrders.filter(o => ['accepted', 'confirmed', 'preparing'].indexOf(o.status) >= 0).length;
-    el = document.getElementById('ordersCountReady'); if (el) el.textContent = dashboardOrders.filter(o => o.status === 'ready').length;
+    el = document.getElementById('ordersCountReady'); if (el) el.textContent = dashboardOrders.filter(o => o.status === 'ready' || o.status === 'out_for_delivery').length;
     el = document.getElementById('ordersCountDelivery'); if (el) el.textContent = dashboardOrders.filter(o => o.status === 'out_for_delivery').length;
 
     // Aufleuchtender On-Screen-Alarm für NEU eingegangene Bestellungen.
@@ -64892,6 +65091,183 @@ function naechsterSchritt(order) {
     if (s === 'out_for_delivery') return { status: 'delivered', text: 'Zugestellt', icon: 'check_circle' };
     return null;
 }
+
+// ===== BESTELLSEITE: EIN TIPP, DREI SPALTEN (Ibo, 27.10.2026) =====
+// "der wirt muss schnell sich bedienen koennen". Entwurf in Claude Design
+// abgenommen: Annehmen mit EINEM Tipp auf die Minuten, auf dem Tablet drei
+// Spalten Neu / In Arbeit / Fertig, Ablehnen klein und mit Rueckfrage.
+
+// Die Minuten-Tasten auf einer neuen Bestellung. Die Voreinstellung des
+// Hauses ist immer dabei, damit der gewohnte Wert einen Tipp entfernt ist.
+function schnellZeiten(standard, typ) {
+    var liste = typ === 'delivery' ? [30, 45, 60] : [15, 20, 30];
+    var s = parseInt(standard, 10);
+    if (s >= 5 && s <= 180 && liste.indexOf(s) < 0) liste.push(s);
+    liste.sort(function (a, b) { return a - b; });
+    return liste.slice(0, 4);
+}
+
+// Ein Tipp = angenommen. Laeuft ueber confirmAcceptOrder, damit es EINEN
+// Weg in die Datenbank gibt (return=representation, Mail, Auto-Druck) und
+// nicht zwei, die auseinanderlaufen. Doppelt tippen nimmt nicht doppelt an:
+// sonst liefe der Bon zweimal durch und die Kueche kocht doppelt.
+var _schnellLaeuft = {};
+async function schnellAnnehmen(orderId, minuten) {
+    if (_schnellLaeuft[orderId]) return;
+    var feld = document.getElementById('customTimeInput');
+    if (!feld) { acceptOrder(orderId); return; }
+    _schnellLaeuft[orderId] = true;
+    document.querySelectorAll('[data-schnell="' + orderId + '"]').forEach(function (b) { b.disabled = true; });
+    try {
+        currentAcceptOrderId = orderId;
+        currentAcceptModus = 'annehmen';
+        document.querySelectorAll('.time-option-btn').forEach(function (b) { b.classList.remove('selected'); });
+        feld.value = String(minuten);
+        await confirmAcceptOrder();
+    } finally {
+        feld.value = '';
+        delete _schnellLaeuft[orderId];
+        // Hat es nicht geklappt, steht die Karte noch da -- dann wieder antippbar.
+        document.querySelectorAll('[data-schnell="' + orderId + '"]').forEach(function (b) { b.disabled = false; });
+    }
+}
+window.schnellAnnehmen = schnellAnnehmen;
+
+// In welche Spalte gehoert eine Bestellung?
+function bestellSpalte(status) {
+    if (status === 'received') return 'neu';
+    if (status === 'accepted' || status === 'confirmed' || status === 'preparing') return 'arbeit';
+    if (status === 'ready' || status === 'out_for_delivery') return 'fertig';
+    return 'erledigt';
+}
+
+// Minuten bis zur zugesagten Zeit. Negativ = drueber, null = unbekannt.
+// Unbekannt heisst: KEIN Balken. Ein erfundener Countdown waere schlimmer
+// als keiner.
+function bestellRest(order, jetzt) {
+    if (!order) return null;
+    var ziel = order.estimated_time ? new Date(order.estimated_time).getTime() : NaN;
+    if (isNaN(ziel) && order.accepted_at && order.estimated_minutes) {
+        ziel = new Date(order.accepted_at).getTime() + parseInt(order.estimated_minutes, 10) * 60000;
+    }
+    if (isNaN(ziel)) return null;
+    return Math.round((ziel - (jetzt || Date.now())) / 60000);
+}
+
+function bestellRestHtml(order, jetzt) {
+    var s = order && order.status;
+    // Eine Vorbestellung fuer spaeter (accepted mit scheduled_at) zaehlt nicht runter.
+    if (!(s === 'preparing' || s === 'confirmed' || (s === 'accepted' && !order.scheduled_at))) return '';
+    var r = bestellRest(order, jetzt);
+    if (r === null) return '';
+    var gesamt = parseInt(order.estimated_minutes, 10) || 0;
+    var drueber = r < 0;
+    var pct = drueber ? 100 : (gesamt > 0 ? Math.max(0, Math.min(100, Math.round((gesamt - r) / gesamt * 100))) : 0);
+    return '<div class="kin-rest' + (drueber ? ' drueber' : '') + '" data-rest-id="' + order.id + '">'
+        + '<div class="kin-rest-balken"><div style="width:' + pct + '%;"></div></div>'
+        + '<span>' + (drueber ? (-r) + ' Min drüber' : 'noch ' + r + ' Min') + '</span></div>';
+}
+
+function bestellArtChip(order) {
+    if (order.order_type === 'delivery') return '<span class="kin-art kin-art-liefer">Lieferung</span>';
+    if (order.order_type === 'dine_in') return '<span class="kin-art kin-art-tisch">' + (order.table_number ? 'Tisch ' + escapeHtml(String(order.table_number)) : 'Hier essen') + '</span>';
+    return '<span class="kin-art">Abholung</span>';
+}
+
+// Der Hinweis des Gastes zur GANZEN Bestellung ("Bitte klingeln").
+// Er stand auf dem Bon, aber auf keiner Karte im Dashboard.
+function bestellHinweis(order) {
+    var teile = [];
+    [order && order.notes, order && order.delivery_notes].forEach(function (t) {
+        t = String(t || '').replace(/^\s*\[Tisch [^\]]*\]\s*/, '').trim();
+        if (t && teile.indexOf(t) < 0) teile.push(t);
+    });
+    return teile.join(' · ');
+}
+
+// Countdown alle 30 Sekunden nachziehen, ohne die Karten neu zu bauen
+// (sonst springt die Liste unter dem Finger weg).
+setInterval(function () {
+    try {
+        var el = document.querySelectorAll('#ordersGrid [data-rest-id]');
+        for (var i = 0; i < el.length; i++) {
+            var id = el[i].getAttribute('data-rest-id');
+            var o = (dashboardOrders || []).find(function (x) { return x.id === id; });
+            if (!o) continue;
+            var html = bestellRestHtml(o);
+            var karte = el[i].closest('.kin-order-card');
+            if (karte) karte.classList.toggle('kin-zu-spaet', (bestellRest(o) || 0) < 0);
+            if (html) el[i].outerHTML = html;
+        }
+    } catch (e) {}
+}, 30000);
+
+// Die Symbole aus dem Entwurf (Strichzeichnungen, Farbe = Schriftfarbe).
+// AUS = dasselbe Symbol, durchgestrichen.
+var KIN_SYM = {
+    ton: '<path d="M11 5L6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/>',
+    alarm: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
+    druck: '<path d="M7 9V4h10v5"/><rect x="4" y="9" width="16" height="7" rx="2"/><path d="M7 14h10v6H7z"/>',
+    push: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>'
+};
+function kinSym(name, aus, w) {
+    w = w || 18;
+    return '<svg class="kin-sym" width="' + w + '" height="' + w + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+        + (KIN_SYM[name] || '') + (aus ? '<path d="M3 3l18 18"/>' : '') + '</svg>';
+}
+
+// Die Schalter oben zeigen ihren Zustand als AN / AUS -- vorher stand nur
+// "Ton" da, und ob er an war, sah man nicht.
+function bestellSchalterZeigen() {
+    var push = false;
+    try { push = typeof Notification !== 'undefined' && Notification.permission === 'granted'; } catch (e) {}
+    var stand = {
+        orderSoundBtn: !!orderSoundEnabled,
+        fsAlarmBtn: !_fsAlarmOff(),
+        autoPrintBtn: !!autoPrintKitchenBon,
+        pushNotifBtn: push
+    };
+    Object.keys(stand).forEach(function (id) {
+        var b = document.getElementById(id);
+        if (!b) return;
+        b.classList.add('kin-schalter');
+        b.setAttribute('aria-pressed', stand[id] ? 'true' : 'false');
+        // Auch das Symbol nachziehen -- beim Laden stand sonst "an" da,
+        // obwohl Auto-Druck aus dem letzten Besuch noch aus war.
+        var sym = { orderSoundBtn: 'ton', fsAlarmBtn: 'alarm', autoPrintBtn: 'druck', pushNotifBtn: 'push' }[id];
+        var platz = b.querySelector('.kin-sym-platz');
+        if (platz && sym) platz.innerHTML = kinSym(sym, !stand[id]);
+        var z = b.querySelector('.kin-schalter-zustand');
+        if (!z) { z = document.createElement('span'); z.className = 'kin-schalter-zustand'; b.appendChild(z); }
+        z.textContent = stand[id] ? 'AN' : 'AUS';
+    });
+}
+
+// Drei Spalten auf dem Tablet, die gewohnte Liste auf dem Handy.
+function bestellBrettHtml(spalten, anzahl) {
+    var kopf = { neu: 'Neu', arbeit: 'In Arbeit', fertig: 'Fertig' };
+    var leer = { neu: 'Keine neuen Bestellungen', arbeit: 'Nichts in Arbeit', fertig: 'Nichts wartet' };
+    var html = ['neu', 'arbeit', 'fertig'].map(function (k) {
+        return '<section class="kin-spalte kin-spalte-' + k + '" aria-label="' + kopf[k] + '">'
+            + '<div class="kin-spalte-kopf"><span>' + kopf[k] + '</span><b class="kin-spalte-zahl">' + anzahl[k] + '</b></div>'
+            + (spalten[k] || '<div class="kin-spalte-leer">' + leer[k] + '</div>')
+            + '</section>';
+    }).join('');
+    if (anzahl.erledigt) {
+        html += '<details class="kin-erledigt"' + (window._erledigtOffen ? ' open' : '')
+            + ' ontoggle="window._erledigtOffen = this.open"><summary>Erledigt &amp; storniert (' + anzahl.erledigt + ')</summary>'
+            + '<div class="kin-erledigt-liste">' + spalten.erledigt + '</div></details>';
+    }
+    return html;
+}
+function bestellBrettAn() {
+    try { return orderFilterStatus === 'all' && window.matchMedia('(min-width: 1000px)').matches; } catch (e) { return false; }
+}
+try {
+    window.matchMedia('(min-width: 1000px)').addEventListener('change', function () {
+        try { renderDashboardOrders(); } catch (e) {}
+    });
+} catch (e) {}
 
 async function confirmAcceptOrder() {
     try {
@@ -69840,30 +70216,23 @@ var autoPrintKitchenBon = localStorage.getItem('autoPrintKitchenBon') !== 'false
 function toggleAutoPrint() {
     autoPrintKitchenBon = !autoPrintKitchenBon;
     localStorage.setItem('autoPrintKitchenBon', autoPrintKitchenBon ? 'true' : 'false');
-    var icon = document.getElementById('autoPrintIcon');
+    // Vorher wurde hier SVG-Inhalt in einen Material-<span> geschrieben --
+    // nach dem ersten Tipp war das Symbol weg.
     var text = document.getElementById('autoPrintText');
-    if (icon) {
-        icon.innerHTML = autoPrintKitchenBon
-            ? '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>'
-            : '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/><line x1="2" y1="2" x2="22" y2="22" stroke-width="2"/>';
-    }
-    if (text) text.textContent = autoPrintKitchenBon ? 'Auto-Druck' : 'Auto-Druck Aus';
+    // Symbol und AN/AUS setzt bestellSchalterZeigen -- an EINER Stelle.
+    if (text) text.textContent = 'Auto-Druck';
+    try { bestellSchalterZeigen(); } catch (e) {}
     showToast(autoPrintKitchenBon ? 'Auto-Druck aktiviert' : 'Auto-Druck deaktiviert', autoPrintKitchenBon ? 'success' : 'info');
 }
 
 // Sound Toggle
 function toggleOrderSound() {
     orderSoundEnabled = !orderSoundEnabled;
-    const icon = document.getElementById('orderSoundIcon');
     const text = document.getElementById('orderSoundText');
 
-    if (orderSoundEnabled) {
-        icon.innerHTML = '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>';
-        text.textContent = 'Ton an';
-    } else {
-        icon.innerHTML = '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>';
-        text.textContent = 'Ton aus';
-    }
+    // Symbol und AN/AUS setzt bestellSchalterZeigen (siehe toggleAutoPrint).
+    if (text) text.textContent = 'Ton';
+    try { bestellSchalterZeigen(); } catch (e) {}
 }
 
 // Refresh Orders
