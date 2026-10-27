@@ -138,8 +138,9 @@ Fehler zu melden.
 
 Zeitpläne stehen in `netlify.toml`. Die Wache (`gastweg-wache`) läuft alle
 15 Minuten und prüft in dieser Reihenfolge: ausgelieferte Seite, Reservieren,
-Bestellen, Preis-Schutz, Mindestbestellwert. Schlägt sie an, klingelt Ibos
-Handy.
+Bestellen, Preis-Schutz, Mindestbestellwert, Vorbestellung, Mail, Tisch und
+(seit 27.10.2026) ob jedes Lokal mit Betrieb ein Wirte-Handy für Meldungen
+hat. Schlägt sie an, klingelt Ibos Handy.
 
 **Wie oft sie stören darf** — am 27.08.2026 gemessen: 96 E-Mails in einer
 Nacht, alle 15 Minuten, alle mit demselben Satz. Seitdem gilt:
