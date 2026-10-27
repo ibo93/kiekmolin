@@ -11393,6 +11393,155 @@
         .dark-mode .kin-res-dauer-btn.aktiv { background: #ffd54f; color: #00251e; border-color: #ffd54f; }
         .dark-mode .kin-res-detail-knoepfe .kin-text-btn.kin-ablehnen { background: transparent; color: #fca5a5 !important; border-color: rgba(252,165,165,0.55); }
 
+        /* ===== DASHBOARD (Entwurf "Dashboard – Version 3") ===== */
+        #sectionDashboard [data-kin-alt="1"] { display: none !important; }
+        .kin-dash { display: flex; flex-direction: column; gap: 14px; margin-bottom: 24px; }
+        .kin-dash-leiste { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+        .kin-dash-titel { font-family: 'Epilogue', sans-serif; font-weight: 900; font-size: 22px; color: #00251e; }
+        .kin-dash-tabknopf { min-height: 44px; padding: 0 16px; border-radius: 9999px; border: 2px solid rgba(0,37,30,0.12); background: #ffffff; color: #00251e; font-weight: 800; font-size: 13px; cursor: pointer; }
+        .kin-dash-tabknopf[aria-pressed="true"] { background: #003d33; color: #ffffff; border-color: #003d33; }
+        .kin-dash-reihe { display: grid; gap: 14px; }
+        .kin-dash-reihe.oben { grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); }
+        .kin-dash-reihe.drei { grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(0,340px); }
+        .kin-dash-reihe.breit { grid-template-columns: minmax(0,1.55fr) minmax(0,1fr); }
+        .kin-dash-reihe.zwei { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+        .kin-dash-hero { position: relative; overflow: hidden; border-radius: 28px; padding: 24px; color: #ffffff; display: flex; flex-direction: column; gap: 16px;
+            background: radial-gradient(120% 140% at 100% 0%, #0b5a4a 0%, #003d33 45%, #00251e 100%); }
+        .kin-dash-hero::after { content: ''; position: absolute; right: -60px; top: -60px; width: 220px; height: 220px; border-radius: 9999px; border: 2px solid rgba(255,213,79,0.25); pointer-events: none; }
+        .kin-dash-hero-oben { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+        .kin-dash-hero h2 { margin: 4px 0 0; font-family: 'Epilogue', sans-serif; font-weight: 900; font-size: 30px; letter-spacing: -0.03em; color: #ffffff; }
+        .kin-dash-klein { font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.8); }
+        .kin-dash-live { display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.12); border-radius: 9999px; padding: 6px 12px; font-size: 13px; font-weight: 800; }
+        .kin-dash-live i { width: 8px; height: 8px; border-radius: 9999px; background: #4ade80; }
+        .kin-dash-hero-mitte { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+        .kin-dash-label { font-size: 12px; font-weight: 800; letter-spacing: 0.12em; color: #735c00; }
+        .kin-dash-label.gold { color: #ffd54f; }
+        .kin-dash-riesig { font-family: 'Epilogue', sans-serif; font-weight: 900; font-size: 56px; line-height: 1; white-space: nowrap; }
+        .kin-dash-hero-unter { font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.88); }
+        .kin-dash-hero-unter b.gut { color: #4ade80; } .kin-dash-hero-unter b.schlecht { color: #fca5a5; }
+        .kin-dash-chips { display: flex; gap: 8px; flex-wrap: wrap; position: relative; z-index: 1; }
+        .kin-dash-chip { display: inline-flex; align-items: center; min-height: 32px; border-radius: 9999px; padding: 0 12px; font-size: 13px; font-weight: 700; background: rgba(255,255,255,0.12); color: #ffffff; border: none; }
+        .kin-dash-chip.schlecht { background: rgba(252,165,165,0.22); color: #fecaca; }
+        .kin-dash-chip.warn { background: rgba(255,213,79,0.18); color: #ffd54f; }
+        .kin-dash-chip.hell { background: #ffd54f; color: #00251e; font-weight: 800; cursor: pointer; min-height: 36px; }
+        .kin-dash-jetztspalte { display: flex; flex-direction: column; gap: 14px; }
+        .kin-dash-jetzt { flex: 1 1 0; background: #ffd54f; border-radius: 28px; padding: 18px 20px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; box-shadow: 0 12px 32px -16px rgba(115,92,0,0.5); }
+        .kin-dash-jetzt > div { display: flex; align-items: baseline; gap: 10px; }
+        .kin-dash-jetzt b { font-family: 'Epilogue', sans-serif; font-weight: 900; font-size: 52px; line-height: 0.9; color: #00251e; }
+        .kin-dash-jetzt span { font-size: 17px; font-weight: 800; color: #00251e; }
+        .kin-dash-jetzt button { min-height: 50px; border: none; border-radius: 9999px; background: #00251e; color: #ffffff; font-family: 'Epilogue', sans-serif; font-weight: 800; font-size: 16px; cursor: pointer; }
+        .kin-dash-jetzt.ruhig { background: #ffffff; box-shadow: 0 12px 32px -16px rgba(0,37,30,0.18); }
+        .kin-dash-jetzt.ruhig b { color: #9aa19e; }
+        .kin-dash-jetzt.ruhig button { background: #f3f4f5; color: #00251e; }
+        .kin-dash-kpis { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 14px; }
+        .kin-dash-kpi, .kin-dash-karte { background: #ffffff; border-radius: 28px; padding: 20px; box-shadow: 0 1px 0 rgba(0,37,30,0.04), 0 12px 32px -16px rgba(0,37,30,0.18); min-width: 0; }
+        .kin-dash-kpi { display: flex; flex-direction: column; gap: 6px; }
+        .kin-dash-kpi-oben, .kin-dash-kpi-unten { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+        .kin-dash-kpi-oben { flex-wrap: wrap; row-gap: 4px; }
+        .kin-dash-kpi-unten { align-items: flex-end; }
+        .kin-dash-kpi-unten > span { font-size: 13px; font-weight: 600; color: #52514e; }
+        .kin-dash-gross { font-family: 'Epilogue', sans-serif; font-weight: 900; font-size: 34px; line-height: 1.05; color: #00251e; white-space: nowrap; }
+        .kin-dash-trend { font-size: 12px; font-weight: 800; border-radius: 9999px; padding: 3px 8px; white-space: nowrap; }
+        .kin-dash-trend.gut { color: #0b6b56; background: #e6f4ef; } .kin-dash-trend.schlecht { color: #b91c1c; background: #fdecec; }
+        .kin-dash-karte { display: flex; flex-direction: column; gap: 12px; }
+        .kin-dash-kartenkopf { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+        .kin-dash-kartenkopf h3 { margin: 0; font-family: 'Epilogue', sans-serif; font-weight: 900; font-size: 18px; color: #00251e; }
+        .kin-dash-kartenkopf p { margin: 2px 0 0; font-size: 13px; font-weight: 600; color: #52514e; }
+        .kin-dash-kartenkopf b.gut, .kin-dash-artzahl em.gut { color: #0b6b56; font-style: normal; } .kin-dash-kartenkopf b.schlecht, .kin-dash-artzahl em.schlecht { color: #b91c1c; font-style: normal; }
+        .kin-dash-link { min-height: 32px; border: none; background: transparent; color: #003d33; font-size: 13px; font-weight: 800; text-decoration: underline; cursor: pointer; padding: 0; }
+        .kin-dash-zeile { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid #edeeef; }
+        .kin-dash-zeile > b { font-family: 'Epilogue', sans-serif; font-weight: 900; font-size: 16px; color: #00251e; min-width: 50px; }
+        .kin-dash-n { display: inline-flex; align-items: center; justify-content: center; min-width: 32px; height: 32px; border-radius: 10px; background: #f3f4f5; font-family: 'Epilogue', sans-serif; font-weight: 900; color: #00251e; }
+        .kin-dash-name { flex: 1 1 auto; min-width: 0; font-size: 14px; font-weight: 800; color: #191c1d; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .kin-dash-leer { font-size: 14px; color: #52514e; padding: 6px 0; }
+        .kin-dash-schnell { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .kin-dash-schnell button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 64px; padding: 10px 12px; border-radius: 18px; border: none; background: #f3f4f5; text-align: left; cursor: pointer; }
+        .kin-dash-schnell b { font-size: 14px; color: #00251e; } .kin-dash-schnell span { font-size: 12px; color: #52514e; font-weight: 600; }
+        .kin-dash-svg { display: block; width: 100%; height: auto; overflow: visible; }
+        .kin-dash-achse { font-size: 11px; fill: #52514e; } .kin-dash-achse.stark { font-weight: 800; fill: #00251e; }
+        .kin-dash-wert { font-size: 11px; font-weight: 800; fill: #191c1d; }
+        .kin-dash-gitter { stroke: #e7e8e6; stroke-width: 1; }
+        .kin-dash-vormonat { stroke: #9aa19e; }
+        .kin-dash-kreuz { stroke: #00251e; stroke-width: 1; stroke-dasharray: 3 3; }
+        .kin-dash-hover line, .kin-dash-hover circle { opacity: 0; }
+        .kin-dash-hover:hover line, .kin-dash-hover:hover circle { opacity: 1; }
+        .kin-dash-hover:hover rect[rx] { filter: brightness(0.92); }
+        .kin-dash-legende { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; font-weight: 700; color: #52514e; }
+        .kin-dash-legende span { display: inline-flex; align-items: center; gap: 6px; } .kin-dash-legende i { width: 12px; height: 12px; border-radius: 3px; }
+        .kin-dash-proTag { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+        .kin-dash-proTag b { font-family: 'Epilogue', sans-serif; font-weight: 900; font-size: 28px; color: #00251e; }
+        .kin-dash-proTag span { font-size: 12px; font-weight: 700; color: #52514e; } .kin-dash-proTag .gold { color: #b97a00; font-size: 24px; }
+        .kin-dash-anteil { display: flex; gap: 3px; } .kin-dash-anteil i { height: 18px; border-radius: 6px; }
+        .kin-dash-artzeile { display: grid; grid-template-columns: 14px 1fr auto 110px; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid #edeeef; font-size: 14px; font-weight: 800; color: #191c1d; }
+        .kin-dash-artzeile > i { width: 12px; height: 12px; border-radius: 4px; }
+        .kin-dash-artzahl { white-space: nowrap; font-weight: 700; } .kin-dash-artzahl b { font-family: 'Epilogue', sans-serif; font-size: 18px; } .kin-dash-artzahl em { font-size: 12px; font-weight: 800; }
+        .kin-dash-tage { display: flex; gap: 4px; flex-wrap: wrap; }
+        .kin-dash-tage button { min-width: 44px; min-height: 36px; padding: 0 10px; border: none; border-radius: 9999px; background: #f3f4f5; color: #00251e; font-size: 13px; font-weight: 800; cursor: pointer; }
+        .kin-dash-tage button.aktiv { background: #003d33; color: #ffffff; }
+        .kin-dash-satz { font-family: 'Epilogue', sans-serif; font-weight: 900; font-size: 20px; color: #00251e; margin: 4px 0; }
+        .kin-dash-top { display: flex; flex-direction: column; gap: 3px; font-size: 13px; font-weight: 800; color: #191c1d; }
+        .kin-dash-top > div { display: flex; align-items: center; gap: 8px; } .kin-dash-top i { height: 10px; border-radius: 4px; background: #0b8a6f; }
+        .kin-dash-top b { font-size: 12px; }
+        .kin-dash-quoten { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; }
+        .kin-dash-quoten > div { background: #f3f4f5; border-radius: 14px; padding: 8px 10px; display: flex; flex-direction: column; }
+        .kin-dash-quoten b { font-family: 'Epilogue', sans-serif; font-weight: 900; font-size: 20px; color: #00251e; } .kin-dash-quoten small { font-size: 11px; color: #52514e; font-weight: 600; }
+        .kin-dash-stern { display: grid; grid-template-columns: 34px 1fr 30px; align-items: center; gap: 8px; font-size: 13px; color: #191c1d; }
+        .kin-dash-stern i { display: block; height: 12px; border-radius: 4px; background: #b97a00; }
+        .kin-dash-stern span { font-weight: 700; color: #52514e; }
+        .kin-dash-hinweis { margin: 4px 0 0; font-size: 13px; font-weight: 700; color: #735c00; }
+        .kin-dash-wenig { background: #f3f4f5; border-radius: 16px; padding: 14px; font-size: 14px; font-weight: 600; color: #52514e; }
+        .kin-dash-tabelle { display: none; overflow-x: auto; }
+        .kin-dash.tabellen .kin-dash-tabelle { display: block; }
+        .kin-dash-tabelle table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .kin-dash-tabelle th, .kin-dash-tabelle td { text-align: left; padding: 6px 8px; border-top: 1px solid #edeeef; color: #191c1d; }
+        .kin-dash-tabelle th { font-weight: 800; color: #52514e; }
+        #kinDashSteuerSlot #dashSteuerung, #kinDashSteuerSlot #dashSteuerung > div { background: transparent !important; box-shadow: none !important; border: none !important; padding: 0 !important; margin: 0 !important; color: #00251e !important; }
+        #kinDashSteuerSlot #dashSteuerung h3 { display: none; }
+        #kinDashSteuerSlot #dashSteuerung .availability-control { display: none !important; }
+        #kinDashSteuerSlot #dashSteuerung span:not(.material-symbols-outlined), #kinDashSteuerSlot #dashSteuerung div { color: #00251e; }
+        #kinDashSteuerSlot .kin-dash-mehrblock { display: none !important; }
+        #kinDashSteuerSlot .andrang-wahl { display: grid !important; grid-template-columns: repeat(4, 1fr); gap: 4px; background: #f3f4f5 !important; border-radius: 9999px; padding: 4px !important; }
+        #kinDashSteuerSlot .andrang-wahl button { min-height: 40px; border: none !important; border-radius: 9999px !important; background: transparent !important; color: #00251e !important; font-size: 13px !important; font-weight: 800 !important; }
+        #kinDashSteuerSlot .andrang-wahl button.aktiv, #kinDashSteuerSlot .andrang-wahl button[aria-pressed="true"] { background: #003d33 !important; color: #ffffff !important; }
+        .dark-mode #kinDashSteuerSlot .andrang-wahl { background: rgba(255,255,255,0.08) !important; }
+        .dark-mode #kinDashSteuerSlot .andrang-wahl button { color: var(--text-primary, #e8eeec) !important; }
+        .dark-mode #kinDashSteuerSlot .andrang-wahl button.aktiv, .dark-mode #kinDashSteuerSlot .andrang-wahl button[aria-pressed="true"] { background: #ffd54f !important; color: #00251e !important; }
+        #kinDashSteuerSlot .kin-dash-mehr-offen .kin-dash-mehrblock { display: block !important; }
+        .kin-dash-gericht { display: flex; justify-content: space-between; align-items: center; width: 100%; min-height: 48px; padding: 0 14px; margin-bottom: 6px; border-radius: 14px; border: 2px solid rgba(0,37,30,0.12); background: #ffffff; color: #00251e; font-size: 14px; font-weight: 700; cursor: pointer; }
+        .kin-dash-gericht b { font-size: 12px; color: #0b6b56; } .kin-dash-gericht.aus { background: #fdecec; border-color: rgba(185,28,28,0.4); } .kin-dash-gericht.aus b { color: #b91c1c; }
+        @media (max-width: 1099px) {
+            .kin-dash-reihe.drei { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+            .kin-dash-kpis { grid-template-columns: repeat(2, minmax(0,1fr)); }
+        }
+        @media (max-width: 760px) {
+            .kin-dash-reihe.oben, .kin-dash-reihe.drei, .kin-dash-reihe.breit, .kin-dash-reihe.zwei { grid-template-columns: minmax(0,1fr); }
+            .kin-dash-riesig { font-size: 42px; } .kin-dash-hero h2 { font-size: 24px; }
+            .kin-dash-gross { font-size: 26px; } .kin-dash-spark { width: 80px; }
+            .kin-dash-artzeile { grid-template-columns: 14px 1fr auto; } .kin-dash-artzeile svg { display: none; }
+        }
+        .dark-mode .kin-dash-titel, .dark-mode .kin-dash-kartenkopf h3, .dark-mode .kin-dash-gross, .dark-mode .kin-dash-zeile > b, .dark-mode .kin-dash-satz, .dark-mode .kin-dash-proTag b, .dark-mode .kin-dash-quoten b, .dark-mode .kin-dash-schnell b { color: var(--text-primary, #e8eeec); }
+        .dark-mode .kin-dash-kartenkopf p, .dark-mode .kin-dash-kpi-unten > span, .dark-mode .kin-dash-legende, .dark-mode .kin-dash-leer, .dark-mode .kin-dash-schnell span, .dark-mode .kin-dash-quoten small, .dark-mode .kin-dash-stern span, .dark-mode .kin-dash-proTag span, .dark-mode .kin-dash-tabelle th { color: #b7c2be; }
+        .dark-mode .kin-dash-kpi, .dark-mode .kin-dash-karte, .dark-mode .kin-dash-jetzt.ruhig, .dark-mode .kin-dash-tabknopf, .dark-mode .kin-dash-gericht { background: var(--bg-card, #1a2e27); color: var(--text-primary, #e8eeec); border-color: rgba(255,255,255,0.12); }
+        .dark-mode .kin-dash-n, .dark-mode .kin-dash-schnell button, .dark-mode .kin-dash-tage button, .dark-mode .kin-dash-quoten > div, .dark-mode .kin-dash-wenig, .dark-mode .kin-dash-jetzt.ruhig button { background: rgba(255,255,255,0.08); color: var(--text-primary, #e8eeec); }
+        .dark-mode .kin-dash-tage button.aktiv, .dark-mode .kin-dash-tabknopf[aria-pressed="true"] { background: #ffd54f; color: #00251e; }
+        .dark-mode .kin-dash-name, .dark-mode .kin-dash-artzeile, .dark-mode .kin-dash-top, .dark-mode .kin-dash-stern, .dark-mode .kin-dash-tabelle td { color: var(--text-primary, #e8eeec); }
+        .dark-mode .kin-dash-zeile, .dark-mode .kin-dash-artzeile, .dark-mode .kin-dash-tabelle th, .dark-mode .kin-dash-tabelle td { border-color: rgba(255,255,255,0.08); }
+        .dark-mode .kin-dash-achse { fill: #b7c2be; } .dark-mode .kin-dash-achse.stark, .dark-mode .kin-dash-wert { fill: #e8eeec; }
+        .dark-mode .kin-dash-gitter { stroke: rgba(255,255,255,0.1); } .dark-mode .kin-dash-kreuz { stroke: #e8eeec; }
+        .dark-mode .kin-dash-trend.gut { color: #86efac; background: rgba(22,163,74,0.2); } .dark-mode .kin-dash-trend.schlecht { color: #fca5a5; background: rgba(185,28,28,0.25); }
+        .dark-mode .kin-dash-kartenkopf b.gut, .dark-mode .kin-dash-artzahl em.gut { color: #86efac; } .dark-mode .kin-dash-kartenkopf b.schlecht, .dark-mode .kin-dash-artzahl em.schlecht { color: #fca5a5; }
+        .dark-mode .kin-dash-link { color: #ffd54f; } .dark-mode .kin-dash-hinweis, .dark-mode .kin-dash-label { color: #ffd54f; }
+        .dark-mode .kin-dash-jetzt { background: #ffd54f; }
+        .dark-mode .kin-dash-jetzt:not(.ruhig) b, .dark-mode .kin-dash-jetzt:not(.ruhig) span { color: #00251e !important; }
+        .dark-mode .kin-dash-jetzt.ruhig b { color: #9aa19e; } .dark-mode .kin-dash-jetzt.ruhig span { color: var(--text-primary, #e8eeec); }
+        #kinDashSteuerSlot #andrangStand { color: #404946 !important; font-size: 13px; margin-top: 6px; }
+        .dark-mode #kinDashSteuerSlot #andrangStand { color: #b7c2be !important; }
+        .dark-mode .kin-dash-chip.hell { background: #ffd54f; color: #00251e; }
+        .dark-mode .kin-dash-chip.warn { background: rgba(255,213,79,0.18); color: #ffd54f; }
+        .dark-mode .kin-dash-gericht.aus { background: rgba(185,28,28,0.25); } .dark-mode .kin-dash-gericht b { color: #86efac; } .dark-mode .kin-dash-gericht.aus b { color: #fca5a5; }
+        .dark-mode #kinDashSteuerSlot #dashSteuerung span:not(.material-symbols-outlined), .dark-mode #kinDashSteuerSlot #dashSteuerung div { color: var(--text-primary, #e8eeec); }
+        .dark-mode #kinDashSteuerSlot #dashSteuerung, .dark-mode #kinDashSteuerSlot #dashSteuerung > div { color: var(--text-primary, #e8eeec) !important; }
+
         /* Drei Spalten (bestellBrettHtml). Das Raster steht inline am
            #ordersGrid -- daher !important. */
         #ordersGrid.kin-brett { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 16px !important; align-items: start; }
@@ -17791,8 +17940,12 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                  soll sie vor den Bestellungen sehen und nicht darunter.
                  Gefuellt von zahlsperreBalkenPflegen(). -->
             <div id="zahlsperreBalken"></div>
+            <!-- DASHBOARD NEU (Claude Design "Dashboard – Version 3", Ibo 27.10.2026).
+                 Fuellt dashLaden(). Die alte Ansicht darunter bleibt im DOM (an ihren
+                 Kennungen haengt updateDashboard), ist aber ausgeblendet. -->
+            <div id="kinDash" class="kin-dash"><div class="kin-dash-wenig">Dashboard lädt …</div></div>
             <!-- Connection Status Banner -->
-            <div id="dashboardConnectionBanner" style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:rgba(255,255,255,0.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:48px;margin-bottom:24px;">
+            <div id="dashboardConnectionBanner" data-kin-alt="1" style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:rgba(255,255,255,0.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:48px;margin-bottom:24px;">
                 <div style="display:flex;align-items:center;gap:10px;">
                     <div id="dbStatusDot" style="width:10px;height:10px;border-radius:50%;background:#f59e0b;"></div>
                     <span id="dbStatusText" style="font-family:Inter,sans-serif;font-size:14px;color:var(--text-secondary);">Verbinde mit Supabase...</span>
@@ -17804,7 +17957,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
             </div>
 
             <!-- Hero Welcome Card (Stitch) -->
-            <section style="margin-bottom:48px;">
+            <section data-kin-alt="1" style="margin-bottom:48px;">
                 <div class="glass-card" style="border-radius:48px;padding:32px 32px;display:flex;flex-direction:column;gap:32px;position:relative;overflow:hidden;">
                     <div style="position:absolute;right:-80px;top:-80px;width:256px;height:256px;background:rgba(184,237,223,0.2);border-radius:50%;filter:blur(48px);pointer-events:none;transition:background 0.5s;"></div>
                     <div style="position:relative;z-index:1;">
@@ -17834,7 +17987,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
             </section>
 
             <!-- Grid: Links Reservierungen + Bento, Rechts Tisch-Status -->
-            <div class="grid grid-cols-1 lg:grid-cols-12" style="gap:32px;">
+            <div class="grid grid-cols-1 lg:grid-cols-12" data-kin-alt="1" style="gap:32px;">
 
             <!-- Left Column: Reservierungen + Bento -->
             <div class="lg:col-span-5" style="display:flex;flex-direction:column;gap:24px;">
@@ -17893,8 +18046,8 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 </div>
             </div>
 
-            <!-- Restaurant-Steuerung Card -->
-            <div style="background:#003d33;border-radius:48px;padding:32px;color:white;display:flex;flex-direction:column;gap:16px;position:relative;overflow:hidden;">
+            <!-- Restaurant-Steuerung Card (zieht beim Zeichnen ins neue Dashboard um) -->
+            <div id="dashSteuerung" style="background:#003d33;border-radius:48px;padding:32px;color:white;display:flex;flex-direction:column;gap:16px;position:relative;overflow:hidden;">
                 <div style="position:relative;z-index:1;">
                     <h3 style="font-family:Epilogue,sans-serif;font-size:22px;font-weight:700;margin:0 0 8px;">Restaurant-Steuerung</h3>
                     <div class="availability-control" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
@@ -38635,6 +38788,8 @@ function updateDashboard() {
 
     // Lade Echtzeit-Statistiken aus Supabase
     loadDashboardStats();
+    // Das neue Dashboard (echte Daten, Diagramme)
+    try { dashLaden(); } catch (e) { console.error('Dashboard:', e); }
 }
 
 // Echtzeit Statistiken aus Supabase laden
@@ -39782,8 +39937,9 @@ function dashRestaurantWaehlen(id) {
     window.currentRestaurantId = id;
     initFeatureToggles();
     try { zahlsperreBalkenPflegen(); } catch (e) {}
+    try { dashLaden(); } catch (e) {}
     var r = (APP_DATA.restaurants || []).find(function (x) { return x.id === id; });
-    showToast('Steuerung für ' + (r && r.name || 'Restaurant'), 'info');
+    showToast('Dashboard für ' + (r && r.name || 'Restaurant'), 'info');
 }
 window.dashRestaurantWaehlen = dashRestaurantWaehlen;
 
@@ -65586,6 +65742,459 @@ function resHeuteZeichnen() {
     try { var rid = window.resCurrentRestaurant; if (rid && typeof gastProfileLaden === 'function') gastProfileLaden(rid); } catch (e) {}
 }
 window.resHeuteZeichnen = resHeuteZeichnen;
+
+// ===== DASHBOARD (Entwurf "Dashboard – Version 3", Ibo 27.10.2026: "ja einbauen") =====
+// Alles aus echten Daten: Bestellungen (63 Tage), Reservierungen (8 Wochen
+// zurueck, 14 Tage voraus), Kasse, Bewertungen. Was es (noch) nicht gibt,
+// steht als "–" bzw. "noch zu wenig Daten" da -- nie eine erfundene Zahl.
+// Farben fuer die Bestellart sind mit dem Datenviz-Pruefer getestet
+// (Farbsehschwaeche, Kontrast; hell und dunkel): Abholung gruen, Lieferung
+// gold-braun, Tisch violett. Rot nur fuer "zu spaet".
+var DASH_ART = { pickup: { name: 'Abholung', farbe: '#0b8a6f' }, delivery: { name: 'Lieferung', farbe: '#b97a00' }, dine_in: { name: 'Tisch (QR)', farbe: '#6250d6' } };
+var DASH_WT = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+var DASH_STD = [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
+
+function dashTag(d) { return umsatzTag(d); }
+function dashPlusTage(tag, n) { var d = new Date(tag + 'T12:00:00'); d.setDate(d.getDate() + n); return localDayStr(d); }
+function dashMin(t) { var m = String(t || '').match(/^(\d{1,2}):(\d{2})/); return m ? (+m[1]) * 60 + (+m[2]) : null; }
+function dashSchnitt(a) { a = a.filter(function (x) { return x !== null && !isNaN(x); }); return a.length ? a.reduce(function (s, x) { return s + x; }, 0) / a.length : null; }
+function dashProzent(neu, alt) { if (!alt) return null; return Math.round((neu - alt) / alt * 100); }
+function dashFertigMin(o) {
+    var a = new Date(o.created_at).getTime(), b = new Date(o.ready_at || o.out_for_delivery_at).getTime();
+    return (b > a && b - a < 6 * 3600000) ? (b - a) / 60000 : null;
+}
+
+// Die ganze Auswertung als reine Funktion (wird im Test ausgefuehrt).
+function dashAuswerten(d, jetzt) {
+    jetzt = jetzt || new Date();
+    var heute = dashTag(jetzt), wt = jetzt.getDay(), minJetzt = jetzt.getHours() * 60 + jetzt.getMinutes();
+    var vorwoche = dashPlusTage(heute, -7);
+    var orders = (d.orders || []).filter(function (o) { return o && o.created_at; });
+    var ok = orders.filter(function (o) { return o.status !== 'cancelled'; });
+    var res = (d.res || []).filter(function (r) { return r && r.reservation_date; });
+    var resOk = res.filter(function (r) { return r.status !== 'cancelled' && r.status !== 'no_show' && r.status !== 'rejected'; });
+    var kasse = d.kasse || {};
+    var bisJetzt = function (o) { var t = new Date(o.created_at); return t.getHours() * 60 + t.getMinutes() <= minJetzt; };
+    var amTag = function (liste, tag) { return liste.filter(function (o) { return dashTag(o.created_at) === tag; }); };
+    var summe = function (liste) { return liste.reduce(function (s, o) { return s + (parseFloat(o.total) || 0); }, 0); };
+    var M = { heute: heute, wt: wt };
+
+    // Heute
+    var okHeute = amTag(ok, heute), okVw = amTag(ok, vorwoche).filter(bisJetzt);
+    M.umsatzApp = summe(okHeute);
+    M.kasseHeute = kasse[heute] ? kasse[heute].betrag : null;
+    M.umsatzTrend = dashProzent(M.umsatzApp, summe(okVw));
+    var kum = [], s0 = 0;
+    for (var h = 0; h <= jetzt.getHours(); h++) {
+        s0 += summe(okHeute.filter(function (o) { return new Date(o.created_at).getHours() === h; }));
+        if (h >= 10) kum.push(s0);
+    }
+    M.umsatzKurve = kum;
+    M.bestellHeute = amTag(orders, heute).length;
+    M.bestellOffen = orders.filter(function (o) { return ['received', 'accepted', 'confirmed', 'preparing', 'ready', 'out_for_delivery'].indexOf(o.status) >= 0; }).length;
+    M.bestellTrend = M.bestellHeute - amTag(orders, vorwoche).filter(bisJetzt).length;
+    var resHeute = resOk.filter(function (r) { return r.reservation_date === heute; });
+    var gaeste = function (l) { return l.reduce(function (s, r) { return s + (parseInt(r.party_size, 10) || 0); }, 0); };
+    M.gaesteHeute = gaeste(resHeute); M.tischeHeute = resHeute.length;
+    M.gaesteTrend = M.gaesteHeute - gaeste(resOk.filter(function (r) { return r.reservation_date === vorwoche; }));
+    M.fertigHeute = dashSchnitt(okHeute.map(dashFertigMin));
+    var frueher = ok.filter(function (o) { var t = dashTag(o.created_at); return t < heute && t >= dashPlusTage(heute, -28); });
+    M.fertigSonst = dashSchnitt(frueher.map(dashFertigMin));
+
+    // Letzte 7 Tage fuer die kleinen Linien
+    M.spark = { bestell: [], gaeste: [], fertig: [] };
+    for (var i = 6; i >= 0; i--) {
+        var t7 = dashPlusTage(heute, -i);
+        M.spark.bestell.push(amTag(orders, t7).length);
+        M.spark.gaeste.push(gaeste(resOk.filter(function (r) { return r.reservation_date === t7; })));
+        M.spark.fertig.push(dashSchnitt(amTag(ok, t7).map(dashFertigMin)) || 0);
+    }
+
+    // Umsatz 30 Tage (App + Kasse) und Vormonat
+    M.umsatz30 = []; M.umsatzVor30 = []; M.tage30 = [];
+    for (var j = 29; j >= 0; j--) {
+        var tj = dashPlusTage(heute, -j), tv = dashPlusTage(heute, -j - 30);
+        M.tage30.push(tj);
+        M.umsatz30.push(summe(amTag(ok, tj)) + (kasse[tj] ? kasse[tj].betrag : 0));
+        M.umsatzVor30.push(summe(amTag(ok, tv)) + (kasse[tv] ? kasse[tv].betrag : 0));
+    }
+    M.umsatz30Summe = M.umsatz30.reduce(function (a, b) { return a + b; }, 0);
+    M.umsatz30Trend = dashProzent(M.umsatz30Summe, M.umsatzVor30.reduce(function (a, b) { return a + b; }, 0));
+    M.umsatz30Tage = M.umsatz30.filter(function (v) { return v > 0; }).length;
+
+    // Bestellart 14 Tage + die 14 davor
+    M.art = {};
+    Object.keys(DASH_ART).forEach(function (k) {
+        var art = function (o) { return (o.order_type || 'pickup') === k || (k === 'pickup' && ['delivery', 'dine_in'].indexOf(o.order_type) < 0); };
+        var jetzt14 = ok.filter(function (o) { var t = dashTag(o.created_at); return t > dashPlusTage(heute, -14) && art(o); });
+        var vor14 = ok.filter(function (o) { var t = dashTag(o.created_at); return t <= dashPlusTage(heute, -14) && t > dashPlusTage(heute, -28) && art(o); });
+        var tagl = []; for (var q = 13; q >= 0; q--) { var tq = dashPlusTage(heute, -q); tagl.push(jetzt14.filter(function (o) { return dashTag(o.created_at) === tq; }).length); }
+        M.art[k] = { anzahl: jetzt14.length, trend: dashProzent(jetzt14.length, vor14.length), tage: tagl };
+    });
+    M.artGesamt = Object.keys(M.art).reduce(function (s, k) { return s + M.art[k].anzahl; }, 0);
+
+    // Beliebte Zeiten: je Wochentag und Stunde, Bestellungen + reservierte Gaeste, Schnitt ueber 8 Wochen
+    M.zeiten = {};
+    for (var w = 0; w < 7; w++) M.zeiten[w] = DASH_STD.map(function () { return 0; });
+    var ab = dashPlusTage(heute, -56);
+    ok.forEach(function (o) {
+        var t = new Date(o.created_at), tg = dashTag(o.created_at); if (tg < ab || tg >= heute) return;
+        var ix = DASH_STD.indexOf(t.getHours()); if (ix >= 0) M.zeiten[t.getDay()][ix] += 1 / 8;
+    });
+    resOk.forEach(function (r) {
+        if (r.reservation_date < ab || r.reservation_date >= heute) return;
+        var m = dashMin(r.reservation_time); if (m === null) return;
+        var ix = DASH_STD.indexOf(Math.floor(m / 60)); if (ix < 0) return;
+        M.zeiten[new Date(r.reservation_date + 'T12:00:00').getDay()][ix] += (parseInt(r.party_size, 10) || 0) / 8;
+    });
+    M.zeitenGenug = Object.keys(M.zeiten).some(function (k) { return M.zeiten[k].some(function (v) { return v > 0; }); });
+
+    // Top 5 Gerichte (30 Tage)
+    var g = {}, hatPos = false;
+    ok.forEach(function (o) {
+        if (dashTag(o.created_at) <= dashPlusTage(heute, -30)) return;
+        (o.order_items || []).forEach(function (p) { hatPos = true; var n = p.item_name || 'Gericht'; g[n] = (g[n] || 0) + (parseInt(p.quantity, 10) || 1); });
+    });
+    M.top = Object.keys(g).map(function (n) { return [n, g[n]]; }).sort(function (a, b) { return b[1] - a[1]; }).slice(0, 5);
+    M.topGeladen = hatPos || !ok.length;
+
+    // Reservierungen: naechste 14 Tage, Quoten der letzten 30 Tage, wiederkehrende Gaeste
+    M.res14 = [];
+    for (var r14 = 0; r14 < 14; r14++) { var tr = dashPlusTage(heute, r14); M.res14.push({ tag: tr, gaeste: gaeste(resOk.filter(function (r) { return r.reservation_date === tr; })) }); }
+    var vor30 = res.filter(function (r) { return r.reservation_date < heute && r.reservation_date >= dashPlusTage(heute, -30); });
+    M.noShow = vor30.length ? Math.round(vor30.filter(function (r) { return r.status === 'no_show'; }).length / vor30.length * 100) : null;
+    M.abgesagt = vor30.length ? Math.round(vor30.filter(function (r) { return r.status === 'cancelled' || r.status === 'rejected'; }).length / vor30.length * 100) : null;
+    var tel = {}; resOk.forEach(function (r) { var z = String(r.guest_phone || '').replace(/\D/g, ''); if (z) tel[z] = (tel[z] || 0) + 1; });
+    var mitTel = resOk.filter(function (r) { return String(r.guest_phone || '').replace(/\D/g, ''); });
+    M.wiederkehrend = mitTel.length >= 10 ? Math.round(mitTel.filter(function (r) { return tel[String(r.guest_phone).replace(/\D/g, '')] > 1; }).length / mitTel.length * 100) : null;
+
+    // Bewertungen
+    var rev = (d.reviews || []).filter(function (r) { return r && r.rating; });
+    M.bewAnzahl = rev.length;
+    M.bewSchnitt = rev.length ? rev.reduce(function (s, r) { return s + (+r.rating); }, 0) / rev.length : null;
+    var alt = rev.filter(function (r) { return dashTag(r.created_at) < dashPlusTage(heute, -30); });
+    M.bewTrend = (alt.length >= 3 && M.bewSchnitt !== null) ? M.bewSchnitt - alt.reduce(function (s, r) { return s + (+r.rating); }, 0) / alt.length : null;
+    // Unter 0,05 Sterne ist keine Veraenderung -- sonst steht "▼ 0,0" da.
+    if (M.bewTrend !== null && Math.abs(M.bewTrend) < 0.05) M.bewTrend = null;
+    M.bewVert = [5, 4, 3, 2, 1].map(function (st) { return [st, rev.filter(function (r) { return Math.round(+r.rating) === st; }).length]; });
+    M.bewOhneAntwort = rev.filter(function (r) { return !r.owner_reply; }).length;
+
+    // Jetzt wichtig, als Naechstes, in der Kueche
+    M.neueBestellungen = orders.filter(function (o) { return o.status === 'received'; }).length;
+    M.offeneRes = res.filter(function (r) { return r.status === 'pending' && r.reservation_date >= heute; }).length;
+    M.naechste = resOk.filter(function (r) {
+        var m = dashMin(r.reservation_time);
+        return r.reservation_date === heute && r.status !== 'finished' && m !== null && m >= minJetzt - 30;
+    }).sort(function (a, b) { return String(a.reservation_time).localeCompare(String(b.reservation_time)); }).slice(0, 4);
+    M.kueche = orders.filter(function (o) { return ['accepted', 'confirmed', 'preparing'].indexOf(o.status) >= 0; }).slice(0, 4);
+    return M;
+}
+
+// ---- kleine Zeichen-Bausteine ----
+function dashEuro(v) { return (Math.round(v * 100) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ' €'; }
+function dashEuroRund(v) { return Math.round(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ' €'; }
+function dashTrendHtml(wert, text, gutWennPlus, lang) {
+    if (wert === null || wert === undefined || isNaN(wert)) return '';
+    var gut = gutWennPlus === false ? wert <= 0 : wert >= 0;
+    // Kurz im Schild, ausfuehrlich als Hinweis -- sonst ragt es am Handy hinaus.
+    return '<span class="kin-dash-trend ' + (gut ? 'gut' : 'schlecht') + '"' + (lang ? ' title="' + escapeHtml(lang) + '"' : '') + '>' + (wert >= 0 ? '▲' : '▼') + ' ' + text + '</span>';
+}
+function dashSpark(werte, farbe, w, h) {
+    w = w || 120; h = h || 36;
+    if (!werte || werte.length < 2 || !werte.some(function (v) { return v > 0; })) return '';
+    var mn = Math.min.apply(null, werte), mx = Math.max.apply(null, werte), r = (mx - mn) || 1;
+    var p = werte.map(function (v, i) { return (i * w / (werte.length - 1)).toFixed(1) + ',' + (h - 4 - (v - mn) / r * (h - 8)).toFixed(1); });
+    var l = p[p.length - 1].split(',');
+    return '<svg class="kin-dash-spark" width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '" aria-hidden="true">'
+        + '<polygon points="0,' + h + ' ' + p.join(' ') + ' ' + w + ',' + h + '" fill="' + farbe + '" fill-opacity="0.14"/>'
+        + '<polyline points="' + p.join(' ') + '" fill="none" stroke="' + farbe + '" stroke-width="2" stroke-linejoin="round"/>'
+        + '<circle cx="' + l[0] + '" cy="' + l[1] + '" r="3.5" fill="' + farbe + '" stroke="#fff" stroke-width="1.5"/></svg>';
+}
+function dashKarte(titel, unter, inhalt, rechts, tabelle, klasse) {
+    return '<section class="kin-dash-karte' + (klasse ? ' ' + klasse : '') + '"><div class="kin-dash-kartenkopf"><div><h3>' + titel + '</h3>' + (unter ? '<p>' + unter + '</p>' : '') + '</div>' + (rechts || '') + '</div>'
+        + inhalt + (tabelle ? '<div class="kin-dash-tabelle">' + tabelle + '</div>' : '') + '</section>';
+}
+function dashTabelle(kopf, zeilen) {
+    return '<table><thead><tr>' + kopf.map(function (k) { return '<th>' + k + '</th>'; }).join('') + '</tr></thead><tbody>'
+        + zeilen.map(function (z) { return '<tr>' + z.map(function (x) { return '<td>' + x + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table>';
+}
+function dashWenig(text) { return '<div class="kin-dash-wenig">' + (text || 'Noch zu wenig Daten – das füllt sich mit den nächsten Bestellungen.') + '</div>'; }
+function dashTagKurz(tag) { var d = new Date(tag + 'T12:00:00'); return d.getDate() + '.' + (d.getMonth() + 1) + '.'; }
+
+function dashUmsatzSvg(M) {
+    var w = 640, h = 220, pl = 46, pb = 26, pt = 10, n = M.umsatz30.length;
+    var mx = Math.max.apply(null, M.umsatz30.concat(M.umsatzVor30).concat([10]));
+    var schritt = Math.pow(10, Math.floor(Math.log10(mx))) * (mx / Math.pow(10, Math.floor(Math.log10(mx))) > 5 ? 2 : 1);
+    var oben = Math.ceil(mx / schritt) * schritt;
+    var X = function (i) { return pl + (w - pl - 6) * i / (n - 1); }, Y = function (v) { return pt + (h - pt - pb) * (1 - v / oben); };
+    var s = '';
+    for (var g = 0; g <= oben; g += schritt) s += '<line x1="' + pl + '" x2="' + w + '" y1="' + Y(g).toFixed(1) + '" y2="' + Y(g).toFixed(1) + '" class="kin-dash-gitter"/><text x="' + (pl - 8) + '" y="' + (Y(g) + 4).toFixed(1) + '" text-anchor="end" class="kin-dash-achse">' + g + '</text>';
+    var pts = M.umsatz30.map(function (v, i) { return X(i).toFixed(1) + ',' + Y(v).toFixed(1); }).join(' ');
+    s += '<polygon points="' + X(0) + ',' + Y(0) + ' ' + pts + ' ' + X(n - 1) + ',' + Y(0) + '" fill="#0b8a6f" fill-opacity="0.12"/>';
+    s += '<polyline points="' + M.umsatzVor30.map(function (v, i) { return X(i).toFixed(1) + ',' + Y(v).toFixed(1); }).join(' ') + '" fill="none" class="kin-dash-vormonat" stroke-width="2" stroke-dasharray="5 5"/>';
+    s += '<polyline points="' + pts + '" fill="none" stroke="#0b8a6f" stroke-width="2.5" stroke-linejoin="round"/>';
+    [0, 7, 14, 21, n - 1].forEach(function (i) { s += '<text x="' + X(i).toFixed(1) + '" y="' + (h - 6) + '" text-anchor="middle" class="kin-dash-achse">' + dashTagKurz(M.tage30[i]) + '</text>'; });
+    // Hover: unsichtbare breite Streifen je Tag mit Titel (Tooltip), Punkt erscheint per CSS
+    M.umsatz30.forEach(function (v, i) {
+        var bw = (w - pl - 6) / (n - 1);
+        s += '<g class="kin-dash-hover"><rect x="' + (X(i) - bw / 2).toFixed(1) + '" y="' + pt + '" width="' + bw.toFixed(1) + '" height="' + (h - pt - pb) + '" fill="transparent"/>'
+            + '<line x1="' + X(i).toFixed(1) + '" x2="' + X(i).toFixed(1) + '" y1="' + pt + '" y2="' + Y(0).toFixed(1) + '" class="kin-dash-kreuz"/>'
+            + '<circle cx="' + X(i).toFixed(1) + '" cy="' + Y(v).toFixed(1) + '" r="5" fill="#0b8a6f" stroke="#fff" stroke-width="2"/>'
+            + '<title>' + dashTagKurz(M.tage30[i]) + ': ' + dashEuro(v) + ' · Vormonat ' + dashEuro(M.umsatzVor30[i]) + '</title></g>';
+    });
+    return '<svg class="kin-dash-svg" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Umsatz der letzten 30 Tage">' + s + '</svg>';
+}
+function dashBalken(werte, labels, farben, w, h, titel) {
+    var mx = Math.max.apply(null, werte.concat([1])), n = werte.length, bw = Math.min(26, (w - 20) / n - 8), s = '';
+    s += '<line x1="0" x2="' + w + '" y1="' + (h - 24) + '" y2="' + (h - 24) + '" class="kin-dash-gitter" stroke-width="2"/>';
+    var spitze = werte.slice().sort(function (a, b) { return b - a; })[Math.min(2, n - 1)];
+    werte.forEach(function (v, i) {
+        var bh = (h - 44) * v / mx, x = 10 + i * ((w - 20) / n) + ((w - 20) / n - bw) / 2;
+        s += '<g class="kin-dash-hover"><rect x="' + x.toFixed(1) + '" y="' + (h - 24 - bh).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + Math.max(bh, 0).toFixed(1) + '" rx="5" fill="' + farben[i] + '"/><title>' + titel(i) + '</title></g>';
+        if (v > 0 && v >= spitze) s += '<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (h - 30 - bh).toFixed(1) + '" text-anchor="middle" class="kin-dash-wert">' + Math.round(v) + '</text>';
+        if (labels[i]) s += '<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (h - 7) + '" text-anchor="middle" class="kin-dash-achse' + (labels[i] === 'heute' || labels[i] === 'jetzt' ? ' stark' : '') + '">' + labels[i] + '</text>';
+    });
+    return '<svg class="kin-dash-svg" viewBox="0 0 ' + w + ' ' + h + '" role="img">' + s + '</svg>';
+}
+function dashLegende(items) {
+    return '<div class="kin-dash-legende">' + items.map(function (x) { return '<span><i style="background:' + x[1] + '"></i>' + x[0] + '</span>'; }).join('') + '</div>';
+}
+
+function dashZeitenHtml(M, wt) {
+    var werte = M.zeiten[wt], mx = Math.max.apply(null, werte.concat([0.01]));
+    var heuteGewaehlt = wt === M.wt, jetztH = new Date().getHours();
+    var top = DASH_STD[werte.indexOf(Math.max.apply(null, werte))];
+    var reiter = '<div class="kin-dash-tage" role="tablist">' + [1, 2, 3, 4, 5, 6, 0].map(function (t) {
+        return '<button type="button" class="' + (t === wt ? 'aktiv' : '') + '" onclick="dashZeitenTag(' + t + ')">' + DASH_WT[t] + (t === M.wt ? ' (heute)' : '') + '</button>';
+    }).join('') + '</div>';
+    if (!M.zeitenGenug) return reiter + dashWenig();
+    var farben = werte.map(function (v, i) { return heuteGewaehlt && DASH_STD[i] === jetztH ? '#ffd54f' : (v >= 0.75 * mx ? '#0b8a6f' : '#9fd3c3'); });
+    var labels = DASH_STD.map(function (h) { return heuteGewaehlt && h === jetztH ? 'jetzt' : (h % 2 ? String(h) : ''); });
+    var tagName = ['Sonntags', 'Montags', 'Dienstags', 'Mittwochs', 'Donnerstags', 'Freitags', 'Samstags'][wt];
+    return reiter + '<div class="kin-dash-satz">' + (mx > 0.05 ? tagName + ' am vollsten um ' + top + ' Uhr' : tagName + ' ist bisher wenig los') + '</div>'
+        + dashLegende((heuteGewaehlt ? [['jetzt', '#ffd54f']] : []).concat([['viel los', '#0b8a6f'], ['normal', '#9fd3c3']]))
+        + dashBalken(werte, labels, farben, 440, 156, function (i) { return DASH_STD[i] + ' Uhr: im Schnitt ' + werte[i].toFixed(1) + ' (Bestellungen + Gäste)'; });
+}
+function dashZeitenTag(t) {
+    var el = document.getElementById('kinDashZeiten');
+    if (el && window._dashModell) el.innerHTML = dashZeitenHtml(window._dashModell, t);
+}
+window.dashZeitenTag = dashZeitenTag;
+
+function dashZeichnen(M, extra) {
+    var box = document.getElementById('kinDash');
+    if (!box) return;
+    extra = extra || {};
+    window._dashModell = M;
+    var r = extra.restaurant || {};
+    var offenText = '';
+    try {
+        if (r.id) offenText = checkIfOpen(r) ? 'geöffnet bis ' + getClosingTimeToday(r) : (getOpeningTimeToday(r) ? 'öffnet heute um ' + getOpeningTimeToday(r) : 'heute geschlossen');
+    } catch (e) {}
+    var datum = new Date().toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
+    var tech = (extra.technik || []).map(function (t) { return '<span class="kin-dash-chip ' + t[1] + '">' + t[0] + '</span>'; }).join('');
+    var kasseKnopf = '<button type="button" class="kin-dash-chip hell" onclick="dashKasse()">' + (M.kasseHeute === null ? 'Kasse heute eintragen' : 'Kasse ändern') + '</button>';
+    var hero = '<section class="kin-dash-hero">'
+        + '<div class="kin-dash-hero-oben"><div><span class="kin-dash-klein">' + escapeHtml(datum) + (offenText ? ' · ' + escapeHtml(offenText) : '') + '</span>'
+        + '<h2>Moin, ' + escapeHtml(r.name || 'Restaurant') + '</h2></div><span class="kin-dash-live"><i></i>Live</span></div>'
+        + '<div class="kin-dash-hero-mitte"><div><span class="kin-dash-label gold">UMSATZ HEUTE</span><div class="kin-dash-riesig">' + dashEuro(M.umsatzApp + (M.kasseHeute || 0)) + '</div>'
+        + '<span class="kin-dash-hero-unter">' + (M.umsatzTrend !== null ? '<b class="' + (M.umsatzTrend >= 0 ? 'gut' : 'schlecht') + '">' + (M.umsatzTrend >= 0 ? '▲ ' : '▼ ') + Math.abs(M.umsatzTrend) + ' %</b> App zu letztem ' + DASH_WT[M.wt] + ' (bis jetzt) · ' : '')
+        + 'App ' + dashEuroRund(M.umsatzApp) + ' · Kasse ' + (M.kasseHeute === null ? '–' : dashEuroRund(M.kasseHeute)) + '</span></div>'
+        + dashSpark(M.umsatzKurve, '#ffd54f', 300, 90) + '</div>'
+        + '<div class="kin-dash-chips">' + tech + kasseKnopf + '</div></section>';
+    var jetzt = function (zahl, text, knopf, ziel) {
+        return '<div class="kin-dash-jetzt' + (zahl ? '' : ' ruhig') + '"><div><b>' + zahl + '</b><span>' + text + '</span></div>'
+            + '<button type="button" onclick="showDashboardSection(\'' + ziel + '\')">' + knopf + ' →</button></div>';
+    };
+    var jetztHtml = '<div class="kin-dash-jetztspalte">'
+        + jetzt(M.neueBestellungen, M.neueBestellungen === 1 ? 'neue Bestellung' : 'neue Bestellungen', M.neueBestellungen ? 'Jetzt annehmen' : 'Bestellungen', 'orders')
+        + jetzt(M.offeneRes, M.offeneRes === 1 ? 'Reservierung wartet' : 'Reservierungen warten', M.offeneRes ? 'Bestätigen' : 'Reservierungen', 'reservations') + '</div>';
+    var kpi = function (label, wert, unter, trend, werte, farbe) {
+        return '<section class="kin-dash-kpi"><div class="kin-dash-kpi-oben"><span class="kin-dash-label">' + label + '</span>' + (trend || '') + '</div>'
+            + '<div class="kin-dash-gross">' + wert + '</div><div class="kin-dash-kpi-unten"><span>' + unter + '</span>' + dashSpark(werte, farbe || '#0b8a6f') + '</div></section>';
+    };
+    var fertigDiff = (M.fertigHeute !== null && M.fertigSonst !== null) ? Math.round(M.fertigHeute - M.fertigSonst) : null;
+    var kpis = '<div class="kin-dash-kpis">'
+        + kpi('BESTELLUNGEN', M.bestellHeute, M.bestellOffen + ' offen', dashTrendHtml(M.bestellTrend, String(Math.abs(M.bestellTrend)), true, 'zu letztem ' + DASH_WT[M.wt] + ' bis zur selben Uhrzeit'), M.spark.bestell)
+        + kpi('GÄSTE HEUTE', M.gaesteHeute, M.tischeHeute + (M.tischeHeute === 1 ? ' Tisch' : ' Tische'), dashTrendHtml(M.gaesteTrend, String(Math.abs(M.gaesteTrend)), true, 'zu letztem ' + DASH_WT[M.wt]), M.spark.gaeste)
+        + kpi('Ø BIS FERTIG', M.fertigHeute === null ? '–' : Math.round(M.fertigHeute) + ' Min', M.fertigSonst === null ? 'noch keine Messung' : 'sonst ' + Math.round(M.fertigSonst) + ' Min', dashTrendHtml(fertigDiff, Math.abs(fertigDiff || 0) + ' Min', false, 'zum Schnitt der letzten 4 Wochen'), M.spark.fertig, fertigDiff > 0 ? '#b91c1c' : '#0b8a6f')
+        + kpi('BEWERTUNG', M.bewSchnitt === null ? '–' : M.bewSchnitt.toFixed(1).replace('.', ',') + ' ★', M.bewAnzahl + ' Bewertungen', M.bewTrend === null ? '' : dashTrendHtml(M.bewTrend, Math.abs(M.bewTrend).toFixed(1).replace('.', ','), true, 'Veränderung in den letzten 30 Tagen'), [], '#b97a00')
+        + '</div>';
+    // Als Naechstes / In der Kueche / Schnell erledigt
+    var zeile = function (zeit, n, name, chip) { return '<div class="kin-dash-zeile"><b>' + zeit + '</b><span class="kin-dash-n">' + n + '</span><span class="kin-dash-name">' + name + '</span>' + chip + '</div>'; };
+    var naechste = M.naechste.length ? M.naechste.map(function (x) {
+        var sp = x.status === 'confirmed' && (new Date().getHours() * 60 + new Date().getMinutes()) - dashMin(x.reservation_time) >= 15;
+        var chip = x.status === 'pending' ? '<span class="kin-art kin-res-offen-chip">Offen</span>' : x.status === 'seated' ? '<span class="kin-art kin-res-da">Ist da</span>' : sp ? '<span class="kin-art kin-res-spaet">Zu spät</span>' : '<span class="kin-art kin-res-ok">Bestätigt</span>';
+        return zeile(escapeHtml(String(x.reservation_time).slice(0, 5)), parseInt(x.party_size, 10) || 0, escapeHtml(x.guest_name || 'Gast'), chip);
+    }).join('') : '<div class="kin-dash-leer">Heute keine weiteren Reservierungen</div>';
+    var kueche = M.kueche.length ? M.kueche.map(function (o) {
+        var rest = (typeof bestellRest === 'function') ? bestellRest(o) : null;
+        var chip = rest === null ? '' : rest < 0 ? '<span class="kin-art kin-res-spaet">' + (-rest) + ' Min drüber</span>' : '<span class="kin-art">noch ' + rest + ' Min</span>';
+        var pos = (o.order_items || []).map(function (p) { return (p.quantity || 1) + '× ' + (p.item_name || ''); }).join(', ');
+        return zeile('#' + escapeHtml(String(o.order_number || '')), (o.order_items || []).length || 1, escapeHtml(pos || (DASH_ART[o.order_type] || DASH_ART.pickup).name), chip);
+    }).join('') : '<div class="kin-dash-leer">Gerade nichts in Arbeit</div>';
+    var schnell = '<div class="kin-dash-schnell">'
+        + '<button type="button" onclick="dashAusverkauft()"><b>Gericht ausverkauft</b><span>für Gäste ausblenden</span></button>'
+        + '<button type="button" onclick="showDashboardSection(\'offers\')"><b>Tagesangebot</b><span>schnell online stellen</span></button>'
+        + '<button type="button" onclick="andrangSetzen(\'voll\')"><b>Gerade voll</b><span>Gäste sehen es 2 Std.</span></button>'
+        + '<button type="button" onclick="dashHeuteZu()"><b>Heute geschlossen …</b><span>fragt nach</span></button></div>';
+    var reihe1 = '<div class="kin-dash-reihe drei">'
+        + dashKarte('Als Nächstes', '', naechste, '<button type="button" class="kin-dash-link" onclick="showDashboardSection(\'reservations\')">Alle ›</button>')
+        + dashKarte('In der Küche', '', kueche, '<button type="button" class="kin-dash-link" onclick="showDashboardSection(\'orders\')">Alle ›</button>')
+        + dashKarte('Schnell erledigt', '', schnell) + '</div>';
+    // Diagramme
+    var umsatz = M.umsatz30Tage >= 3
+        ? dashLegende([['letzte 30 Tage', '#0b8a6f'], ['30 Tage davor (gestrichelt)', '#9aa19e']]) + dashUmsatzSvg(M)
+        : dashWenig();
+    var umsatzKarte = dashKarte('Umsatz – letzte 30 Tage',
+        dashEuro(M.umsatz30Summe) + (M.umsatz30Trend !== null ? ' · <b class="' + (M.umsatz30Trend >= 0 ? 'gut' : 'schlecht') + '">' + (M.umsatz30Trend >= 0 ? '▲' : '▼') + ' ' + Math.abs(M.umsatz30Trend) + ' %</b> zu den 30 Tagen davor' : '') + ' · App + Kasse',
+        umsatz, '<div class="kin-dash-proTag"><b>' + dashEuroRund(M.umsatz30Summe / 30) + '</b><span>pro Tag</span></div>',
+        dashTabelle(['Tag', 'Umsatz', '30 Tage davor'], M.tage30.map(function (t, i) { return [dashTagKurz(t), dashEuro(M.umsatz30[i]), dashEuro(M.umsatzVor30[i])]; })));
+    var artInhalt = M.artGesamt ? '<div class="kin-dash-anteil">' + Object.keys(DASH_ART).map(function (k) { return M.art[k].anzahl ? '<i style="flex:' + M.art[k].anzahl + ' 1 0;background:' + DASH_ART[k].farbe + '" title="' + DASH_ART[k].name + ': ' + M.art[k].anzahl + '"></i>' : ''; }).join('') + '</div>'
+        + Object.keys(DASH_ART).map(function (k) {
+            var a = M.art[k], p = Math.round(a.anzahl / M.artGesamt * 100);
+            var glatt = a.tage.map(function (v, i) { var x = a.tage.slice(Math.max(0, i - 2), i + 1); return x.reduce(function (s, y) { return s + y; }, 0) / x.length; });
+            return '<div class="kin-dash-artzeile"><i style="background:' + DASH_ART[k].farbe + '"></i><span>' + DASH_ART[k].name + '</span><span class="kin-dash-artzahl"><b>' + a.anzahl + '</b> · ' + p + ' %'
+                + (a.trend === null ? '' : ' <em class="' + (a.trend >= 0 ? 'gut' : 'schlecht') + '">' + (a.trend >= 0 ? '+' : '−') + Math.abs(a.trend) + ' %</em>') + '</span>' + dashSpark(glatt, DASH_ART[k].farbe, 110, 28) + '</div>';
+        }).join('') : dashWenig();
+    var artKarte = dashKarte('Bestellungen nach Art', 'letzte 14 Tage · ' + M.artGesamt + ' Bestellungen', artInhalt, '',
+        dashTabelle(['Art', 'Anzahl', 'Trend zu den 14 Tagen davor'], Object.keys(DASH_ART).map(function (k) { return [DASH_ART[k].name, M.art[k].anzahl, M.art[k].trend === null ? '–' : M.art[k].trend + ' %']; })));
+    var reihe2 = '<div class="kin-dash-reihe breit">' + umsatzKarte + artKarte + '</div>';
+    var zeitenKarte = dashKarte('Wann ist bei uns was los?', 'Bestellungen + reservierte Gäste je Stunde · Schnitt der letzten 8 Wochen', '<div id="kinDashZeiten">' + dashZeitenHtml(M, M.wt) + '</div>', '',
+        dashTabelle(['Stunde'].concat([1, 2, 3, 4, 5, 6, 0].map(function (t) { return DASH_WT[t]; })), DASH_STD.map(function (h, i) { return [h + ' Uhr'].concat([1, 2, 3, 4, 5, 6, 0].map(function (t) { return M.zeiten[t][i].toFixed(1); })); })));
+    var topMax = M.top.length ? M.top[0][1] : 1;
+    var topInhalt = !M.topGeladen ? dashWenig('Gerichte konnten nicht geladen werden.') : M.top.length ? M.top.map(function (x) {
+        return '<div class="kin-dash-top"><span>' + escapeHtml(x[0]) + '</span><div><i style="width:' + Math.round(x[1] / topMax * 100) + '%"></i><b>' + x[1] + '×</b></div></div>';
+    }).join('') : dashWenig();
+    var topKarte = dashKarte('Top 5 Gerichte', 'letzte 30 Tage', topInhalt, '', dashTabelle(['Gericht', 'Anzahl'], M.top));
+    var steuerSlot = '<section class="kin-dash-karte" id="kinDashSteuerSlot"><div class="kin-dash-kartenkopf"><div><h3>Steuerung</h3></div></div></section>';
+    var reihe3 = '<div class="kin-dash-reihe drei">' + zeitenKarte + topKarte + steuerSlot + '</div>';
+    var resWerte = M.res14.map(function (x) { return x.gaeste; });
+    var resFarben = M.res14.map(function (x, i) { var d = new Date(x.tag + 'T12:00:00').getDay(); return i === 0 ? '#ffd54f' : (d === 5 || d === 6 ? '#0b8a6f' : '#9fd3c3'); });
+    var resMax = Math.max.apply(null, resWerte.concat([0])), resSpitze = M.res14[resWerte.indexOf(resMax)];
+    var resInhalt = (resMax ? dashLegende([['heute', '#ffd54f'], ['Freitag/Samstag', '#0b8a6f'], ['andere Tage', '#9fd3c3']])
+        + dashBalken(resWerte, M.res14.map(function (x, i) { return i === 0 ? 'heute' : DASH_WT[new Date(x.tag + 'T12:00:00').getDay()]; }), resFarben, 430, 170, function (i) { return dashTagKurz(M.res14[i].tag) + ': ' + resWerte[i] + ' Gäste'; })
+        : dashWenig('In den nächsten 14 Tagen ist noch nichts reserviert.'))
+        + '<div class="kin-dash-quoten">'
+        + [['NICHT GEKOMMEN', M.noShow, 'letzte 30 Tage'], ['ABGESAGT', M.abgesagt, 'letzte 30 Tage'], ['WIEDERKEHRENDE', M.wiederkehrend, 'Gäste, letzte 8 Wochen']].map(function (q) {
+            return '<div><span class="kin-dash-label">' + q[0] + '</span><b>' + (q[1] === null ? '–' : q[1] + ' %') + '</b><small>' + q[2] + '</small></div>'; }).join('') + '</div>';
+    var resKarte = dashKarte('Reservierte Gäste – nächste 14 Tage', resMax ? 'Spitze: ' + DASH_WT[new Date(resSpitze.tag + 'T12:00:00').getDay()] + ' ' + dashTagKurz(resSpitze.tag) + ' mit ' + resMax + ' Gästen' : '', resInhalt, '',
+        dashTabelle(['Tag', 'Gäste'], M.res14.map(function (x) { return [dashTagKurz(x.tag), x.gaeste]; })));
+    var bewMax = Math.max.apply(null, M.bewVert.map(function (x) { return x[1]; }).concat([1]));
+    var bewInhalt = M.bewAnzahl ? M.bewVert.map(function (x) {
+        return '<div class="kin-dash-stern"><b>' + x[0] + ' ★</b><div><i style="width:' + Math.round(x[1] / bewMax * 100) + '%"></i></div><span>' + x[1] + '</span></div>';
+    }).join('') + (M.bewOhneAntwort ? '<p class="kin-dash-hinweis">' + M.bewOhneAntwort + ' Bewertungen ohne Antwort</p>' : '') : dashWenig('Noch keine Bewertungen.');
+    var bewKarte = dashKarte('Bewertungen', M.bewAnzahl + ' Bewertungen', bewInhalt,
+        M.bewSchnitt === null ? '' : '<div class="kin-dash-proTag"><b>' + M.bewSchnitt.toFixed(1).replace('.', ',') + ' <span class="gold">★</span></b></div>',
+        dashTabelle(['Sterne', 'Anzahl'], M.bewVert));
+    var reihe4 = '<div class="kin-dash-reihe zwei">' + resKarte + bewKarte + '</div>';
+    var kopf = '<div class="kin-dash-leiste"><span class="kin-dash-titel">Dashboard</span>'
+        + '<button type="button" class="kin-dash-tabknopf" aria-pressed="false" onclick="var d=document.getElementById(\'kinDash\'); this.setAttribute(\'aria-pressed\', d.classList.toggle(\'tabellen\') ? \'true\' : \'false\');">Als Tabelle</button></div>';
+    box.innerHTML = kopf + '<div class="kin-dash-reihe oben">' + hero + jetztHtml + '</div>' + kpis + reihe1 + reihe2 + reihe3 + reihe4;
+    // Die bestehende Steuerung (echte Schalter) in die Kachel umziehen.
+    var st = document.getElementById('dashSteuerung'), slot = document.getElementById('kinDashSteuerSlot');
+    if (st && slot) {
+        slot.appendChild(st);
+        // Betriebsferien und "Ausgebucht" werden selten gebraucht: zugeklappt
+        // hinter einem Link (Entwurf). Weg ist nichts.
+        var ferien = document.getElementById('vacationFrom'), ausg = document.getElementById('ausgebuchtBlock');
+        var fb = ferien && ferien.parentElement && ferien.parentElement.parentElement;
+        [fb, ausg].forEach(function (b) { if (b) b.classList.add('kin-dash-mehrblock'); });
+        if (!document.getElementById('kinDashMehrLink')) {
+            var l = document.createElement('button');
+            l.type = 'button'; l.id = 'kinDashMehrLink'; l.className = 'kin-dash-link';
+            l.textContent = 'Betriebsferien · Ausgebucht ›';
+            l.onclick = function () { var o = st.classList.toggle('kin-dash-mehr-offen'); l.textContent = o ? 'Weniger ‹' : 'Betriebsferien · Ausgebucht ›'; };
+            st.appendChild(l);
+        }
+    }
+}
+
+async function dashLaden() {
+    var box = document.getElementById('kinDash');
+    if (!box) return;
+    var rid = getControlRestaurantId();
+    if (!rid) { box.innerHTML = '<div class="kin-dash-wenig">Bitte oben ein Restaurant wählen.</div>'; return; }
+    var heute = todayStrLocal(), ab = dashPlusTage(heute, -63);
+    var q = 'restaurant_id=eq.' + encodeURIComponent(rid);
+    var felder = 'id,order_number,created_at,total,status,order_type,ready_at,out_for_delivery_at,estimated_time,estimated_minutes,accepted_at';
+    var holeOrders = supabaseGet('orders', q + '&created_at=gte.' + encodeURIComponent(tagesBeginnIso(new Date(ab + 'T12:00:00'))) + '&select=' + felder + ',order_items(item_name,quantity)&order=created_at.asc&limit=10000')
+        .catch(function () { return supabaseGet('orders', q + '&created_at=gte.' + encodeURIComponent(tagesBeginnIso(new Date(ab + 'T12:00:00'))) + '&select=' + felder + '&order=created_at.asc&limit=10000'); });
+    var holeRes = supabaseGet('reservations', q + '&reservation_date=gte.' + dashPlusTage(heute, -56) + '&reservation_date=lte.' + dashPlusTage(heute, 14) + '&select=id,reservation_date,reservation_time,party_size,status,guest_name,guest_phone,created_at&limit=10000');
+    var holeKasse = kasseLaden(rid, dashPlusTage(heute, -60), heute).catch(function () { return {}; });
+    var holeBew = supabaseGet('reviews', 'target_type=eq.restaurant&target_id=eq.' + encodeURIComponent(rid) + '&select=rating,created_at,owner_reply&limit=2000').catch(function () { return []; });
+    var holeTechnik = supabaseGet('restaurants', 'id=eq.' + encodeURIComponent(rid) + '&select=printer_last_poll_at,pos_last_poll_at')
+        .catch(function () { return supabaseGet('restaurants', 'id=eq.' + encodeURIComponent(rid) + '&select=printer_last_poll_at').catch(function () { return []; }); });
+    try {
+        var e = await Promise.all([holeOrders, holeRes, holeKasse, holeBew, holeTechnik]);
+        var M = dashAuswerten({ orders: e[0], res: e[1], kasse: e[2], reviews: e[3] }, new Date());
+        var t = (e[4] && e[4][0]) || {}, tech = [];
+        var alter = function (iso) { return iso ? (Date.now() - new Date(iso).getTime()) / 1000 : null; };
+        var dr = alter(t.printer_last_poll_at);
+        if (dr !== null) tech.push(dr < 300 ? ['● Drucker bereit', 'gut'] : ['● Drucker meldet sich nicht', 'schlecht']);
+        var ka = alter(t.pos_last_poll_at);
+        if (ka !== null) tech.push(ka < 600 ? ['● Kasse verbunden', 'gut'] : ['● Kasse meldet sich nicht', 'schlecht']);
+        var push = false; try { push = typeof Notification !== 'undefined' && Notification.permission === 'granted'; } catch (x) {}
+        tech.push(push ? ['● Push an', 'gut'] : ['● Push aus', 'warn']);
+        var r = ((window.APP_DATA && APP_DATA.restaurants) || []).find(function (x) { return x.id === rid; }) || { id: rid };
+        dashZeichnen(M, { restaurant: r, technik: tech });
+    } catch (err) {
+        // Nicht still leer (Regel 6): ein leeres Dashboard saehe aus wie "nichts los".
+        box.innerHTML = '<div class="kmi-stand fehler" role="alert"><span><b>Dashboard nicht geladen</b> (' + escapeHtml(String(err && err.message || err)) + '). Es kann etwas los sein.</span>'
+            + '<button type="button" onclick="dashLaden()">Nochmal versuchen</button></div>';
+    }
+}
+window.dashLaden = dashLaden;
+setInterval(function () {
+    try { var s = document.getElementById('sectionDashboard'); if (s && s.classList.contains('active') && !document.hidden) dashLaden(); } catch (e) {}
+}, 60000);
+
+function dashKasse() {
+    var rid = getControlRestaurantId(), tag = umsatzTag(new Date());
+    if (!rid) return;
+    kasseLaden(rid, tag, tag).then(function (k) { kasseDialog(rid, tag, k[tag] || null, dashLaden); })
+        .catch(function () { showToast('Kassen-Umsatz ist noch nicht eingerichtet.', 'error'); });
+}
+window.dashKasse = dashKasse;
+async function dashHeuteZu() {
+    var heute = todayStrLocal();
+    if (!await kinConfirm('Heute geschlossen?\n\nGäste sehen „heute geschlossen“ und können heute nicht bestellen oder reservieren. Morgen ist automatisch wieder offen.')) return;
+    await _patchVacation('vacation:' + heute + ':' + heute);
+    dashLaden();
+}
+window.dashHeuteZu = dashHeuteZu;
+async function dashAusverkauft() {
+    var rid = getControlRestaurantId();
+    if (!rid) return;
+    var liste;
+    try { liste = await supabaseGet('menu_items', 'restaurant_id=eq.' + encodeURIComponent(rid) + '&select=id,name,is_available&order=name.asc&limit=500'); }
+    catch (e) { showToast('Speisekarte nicht geladen – ' + (e && e.message || e), 'error'); return; }
+    showGenericModal('Gericht ausverkauft', '<p style="margin:0 0 12px;font-size:14px;color:var(--text-secondary);">Ausverkaufte Gerichte sehen die Gäste nicht mehr. Wieder antippen = wieder da.</p>'
+        + '<input type="search" placeholder="Gericht suchen …" oninput="var q=this.value.toLowerCase(); this.parentNode.querySelectorAll(\'.kin-dash-gericht\').forEach(function(z){z.style.display=z.textContent.toLowerCase().indexOf(q)>=0?\'\':\'none\';});" style="width:100%;min-height:44px;padding:0 14px;border-radius:9999px;border:2px solid rgba(0,37,30,0.15);box-sizing:border-box;margin-bottom:10px;">'
+        + (liste || []).map(function (m) {
+            return '<button type="button" class="kin-dash-gericht' + (m.is_available === false ? ' aus' : '') + '" data-id="' + escapeHtml(String(m.id)) + '" onclick="dashGerichtUmschalten(this)"><span>' + escapeHtml(m.name || '') + '</span><b>' + (m.is_available === false ? 'AUSVERKAUFT' : 'da') + '</b></button>';
+        }).join(''));
+}
+window.dashAusverkauft = dashAusverkauft;
+async function dashGerichtUmschalten(knopf) {
+    var aus = !knopf.classList.contains('aus');
+    knopf.disabled = true;
+    try {
+        var res = await fetch(SUPABASE_URL + '/rest/v1/menu_items?id=eq.' + encodeURIComponent(knopf.getAttribute('data-id')) + '&select=id,is_available', {
+            method: 'PATCH',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+            body: JSON.stringify({ is_available: !aus })
+        });
+        var z = res.ok ? await res.json() : null;
+        // Ein 200 mit leerer Liste heisst: die Datenbank hat nichts geaendert (RLS).
+        if (!Array.isArray(z) || !z.length) throw new Error(res.ok ? 'keine Berechtigung – nichts gespeichert' : 'HTTP ' + res.status);
+        knopf.classList.toggle('aus', aus);
+        knopf.querySelector('b').textContent = aus ? 'AUSVERKAUFT' : 'da';
+        showToast(aus ? 'Ausverkauft – Gäste sehen es nicht mehr' : 'Wieder bestellbar', 'success');
+    } catch (e) { showToast('Nicht gespeichert – ' + (e && e.message || e), 'error'); }
+    knopf.disabled = false;
+}
+window.dashGerichtUmschalten = dashGerichtUmschalten;
 
 function bestellBrettAn() {
     try { return orderFilterStatus === 'all' && window.matchMedia('(min-width: 1000px)').matches; } catch (e) { return false; }
