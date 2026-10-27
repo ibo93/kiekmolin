@@ -11330,6 +11330,19 @@
         .dark-mode .kin-text-btn.kin-ablehnen { color: #b7c2be; }
         .dark-mode .kin-res-neu, .dark-mode .kin-res-neu *, .dark-mode .kin-res-bestaetigen, .dark-mode .kin-res-btn.gold, .dark-mode .kin-res-btn:not(.hell) { color: #00251e !important; }
 
+        /* "Ablehnen …" / "Nicht gekommen …" als echter Knopf (Ibo, 27.10.2026:
+           "ja mach so"): weiss mit rotem Rand, kleiner als Annehmen. Die
+           Rueckfrage bleibt. Die Links hinter "⋯" bleiben Text. */
+        #ordersGrid .kin-order-actions > .kin-text-btn.kin-ablehnen,
+        .kin-res-knoepfe .kin-text-btn.kin-ablehnen,
+        .kin-res-aktionen .kin-text-btn.kin-ablehnen {
+            min-height: 44px; padding: 0 14px; border-radius: 9999px; border: 2px solid rgba(185,28,28,0.45);
+            background: #ffffff; color: #b91c1c; font-size: 13px; font-weight: 800; text-decoration: none; white-space: nowrap;
+        }
+        .dark-mode #ordersGrid .kin-order-actions > .kin-text-btn.kin-ablehnen,
+        .dark-mode .kin-res-knoepfe .kin-text-btn.kin-ablehnen,
+        .dark-mode .kin-res-aktionen .kin-text-btn.kin-ablehnen { background: transparent; color: #fca5a5 !important; border-color: rgba(252,165,165,0.55); }
+
         /* Drei Spalten (bestellBrettHtml). Das Raster steht inline am
            #ordersGrid -- daher !important. */
         #ordersGrid.kin-brett { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 16px !important; align-items: start; }
