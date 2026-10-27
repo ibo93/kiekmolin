@@ -4140,21 +4140,7 @@
             border-radius: 9999px;
         }
 
-        /* Neue Reservierung Modal (Dashboard) — Stitch runde Inputs */
-        #newReservationModal .form-input,
-        #newReservationModal .form-select {
-            border-radius: 9999px;
-            padding: 14px 20px;
-        }
-        #newReservationModal .form-input[type="date"] {
-            border-radius: 9999px;
-        }
-        #newReservationModal textarea.form-input {
-            border-radius: 20px;
-        }
-        #newReservationModal .modal {
-            border-radius: 40px;
-        }
+        /* Neue Reservierung: Stil steht bei .kin-res-formular (27.10.2026) */
 
         /* --- Slot buttons: glass + rounded --- */
         #reservationModal .slot-btn {
@@ -11468,6 +11454,45 @@
         .dark-mode .kin-alarm-quelle.online { background: #e0f2fe !important; color: #075985 !important; }
         .dark-mode .kin-alarm-quelle.telefon { background: #ede9fe !important; color: #5b21b6 !important; }
         .dark-mode .kin-alarm-haupt { background: #ffd54f !important; color: #00251e !important; }
+        /* NEUE RESERVIERUNG -- Stil des Entwurfs "Eine Reservierung (Fenster)" */
+        #newReservationModal .modal.kin-res-formular { max-width: 520px; width: 100%; padding: 0; border-radius: 28px; background: #ffffff !important; color: #00251e; overflow: hidden; display: flex; flex-direction: column; max-height: calc(100vh - 32px); backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: 0 30px 80px rgba(0,37,30,0.35); }
+        .kin-rf-kopf { display: flex; align-items: center; justify-content: space-between; padding: 22px 20px 6px; }
+        .kin-rf-kopf h2 { margin: 0; font-family: Epilogue, Inter, sans-serif; font-weight: 900; font-size: 24px; letter-spacing: -0.02em; color: #00251e; }
+        .kin-rf-zu { width: 44px; height: 44px; border-radius: 9999px; border: none; background: #f3f4f5; color: #00251e; font-size: 22px; line-height: 1; cursor: pointer; }
+        .kin-rf-inhalt { padding: 10px 20px 8px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
+        .kin-rf-zwei { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .kin-rf-feld { display: flex; flex-direction: column; gap: 6px; margin: 0; }
+        .kin-rf-feld > span { font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #404946; }
+        #newReservationModal .kin-res-formular .form-input, #newReservationModal .kin-res-formular .form-select { width: 100%; box-sizing: border-box; min-height: 52px; padding: 0 16px; border: 2px solid transparent !important; border-radius: 16px !important; background: #f3f4f5 !important; color: #00251e !important; box-shadow: none !important; font-family: Inter, sans-serif; font-size: 16px; font-weight: 700; }
+        #newReservationModal .kin-res-formular textarea.form-input { padding: 12px 16px; min-height: 72px; resize: vertical; font-weight: 600; }
+        #newReservationModal .kin-res-formular .form-input:focus, #newReservationModal .kin-res-formular .form-select:focus { outline: none; border-color: #003d33 !important; background: #ffffff !important; }
+        .kin-res-formular .form-input::placeholder { color: #6b7570; font-weight: 500; }
+        .kin-rf-pers { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .kin-rf-pers button { flex: 0 0 48px; width: 48px; height: 48px; border-radius: 14px; border: 2px solid #e1e5e3; background: #ffffff; color: #00251e; font-family: Epilogue, Inter, sans-serif; font-weight: 900; font-size: 18px; cursor: pointer; }
+        .kin-rf-pers button.aktiv { background: #003d33; border-color: #003d33; color: #ffffff; }
+        #newReservationModal .kin-rf-pers select.form-select { flex: 0 0 auto; width: 110px !important; min-width: 0; padding: 0 12px !important; }
+        .kin-rf-stand { font-size: 12px; color: #8a6100; font-weight: 600; }
+        .kin-rf-stand:empty { display: none; }
+        .kin-rf-fuss { display: flex; gap: 10px; padding: 12px 20px 20px; border-top: 1px solid #eef0ef; }
+        .kin-rf-ab { flex: 0 0 auto; min-height: 54px; padding: 0 20px; border: none; border-radius: 9999px; background: #f3f4f5; color: #00251e; font-size: 15px; font-weight: 800; cursor: pointer; }
+        .kin-rf-ok { flex: 1 1 auto; min-height: 54px; border: none; border-radius: 9999px; background: #003d33; color: #ffffff; font-family: Epilogue, Inter, sans-serif; font-weight: 900; font-size: 18px; cursor: pointer; }
+        .kin-rf-ok:disabled { opacity: 0.6; }
+        @media (max-width: 560px) {
+            #newReservationModal { align-items: flex-end !important; padding: 0 !important; }
+            #newReservationModal .modal.kin-res-formular { max-width: none; border-radius: 28px 28px 0 0; max-height: 94vh; }
+        }
+        .dark-mode #newReservationModal .modal.kin-res-formular { background: #12201d; color: #e8eeec; }
+        .dark-mode .kin-rf-kopf h2 { color: #ffffff; }
+        .dark-mode .kin-rf-zu, .dark-mode .kin-rf-ab { background: rgba(255,255,255,0.1); color: #e8eeec; }
+        .dark-mode .kin-rf-feld > span { color: #b9c4c0; }
+        .dark-mode #newReservationModal .kin-res-formular .form-input, .dark-mode #newReservationModal .kin-res-formular .form-select { background: rgba(255,255,255,0.08) !important; color: #ffffff !important; }
+        .dark-mode #newReservationModal .kin-res-formular .form-input:focus, .dark-mode #newReservationModal .kin-res-formular .form-select:focus { border-color: #ffd54f !important; background: rgba(255,255,255,0.12) !important; }
+        .dark-mode .kin-res-formular .form-input::placeholder { color: #9aa6a2; }
+        .dark-mode .kin-rf-pers button { background: transparent; border-color: rgba(255,255,255,0.2); color: #ffffff; }
+        .dark-mode .kin-rf-pers button.aktiv { background: #ffd54f; border-color: #ffd54f; color: #00251e; }
+        .dark-mode .kin-rf-stand { color: #ffd54f; }
+        .dark-mode .kin-rf-fuss { border-top-color: rgba(255,255,255,0.1); }
+        .dark-mode .kin-rf-ok { background: #ffd54f; color: #00251e; }
         .kin-dash-zeitwahl { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 4px 0 12px; }
         .kin-dash-zeitwahl span { font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #404946; margin-right: 6px; }
         .kin-dash-zeitwahl button { min-height: 40px; padding: 0 16px; border-radius: 9999px; border: 1px solid #d5dbd9; background: #ffffff; color: #00251e; font-weight: 700; font-size: 14px; cursor: pointer; }
@@ -18550,45 +18575,47 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
 
                 // Reservierung speichern
                 window.resSaveToDatabase = async function(reservation) {
+                    var payload = {
+                        restaurant_id: window.resCurrentRestaurant,
+                        reservation_date: reservation.date,
+                        reservation_time: reservation.time,
+                        guest_name: reservation.name,
+                        guest_phone: reservation.phone || null,
+                        party_size: reservation.persons,
+                        notes: reservation.notes || null,
+                        status: 'confirmed',
+                        source: 'dashboard'
+                    };
+                    // Nur eine echte Tisch-ID (restaurant_tables.id). Frueher ging hier
+                    // eine Zahl 1..9 aus einer fest eingetragenen Liste hin.
+                    if (reservation.table && /^[0-9a-f-]{20,}$/i.test(String(reservation.table))) payload.table_id = reservation.table;
+                    async function schreiben(d) {
+                        var response = await fetch(SUPABASE_URL + '/rest/v1/reservations', {
+                            method: 'POST',
+                            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                            body: JSON.stringify(d)
+                        });
+                        var text = await response.text();
+                        if (!response.ok) return { fehler: (response.status === 401 || response.status === 403) ? 'keine Berechtigung' : ('HTTP ' + response.status), roh: text };
+                        var data = []; try { data = JSON.parse(text); } catch (e) {}
+                        var z = Array.isArray(data) ? data[0] : data;
+                        return z && z.id ? z : { fehler: 'die Datenbank hat die Reservierung nicht angenommen' };
+                    }
                     try {
-                        var payload = {
-                            restaurant_id: window.resCurrentRestaurant,
-                            reservation_date: reservation.date,
-                            reservation_time: reservation.time,
-                            guest_name: reservation.name,
-                            guest_phone: reservation.phone || null,
-                            party_size: reservation.persons,
-                            table_id: reservation.table,
-                            notes: reservation.notes || null,
-                            status: 'confirmed',
-                            source: 'dashboard'
-                        };
-
-                        var response = await fetch(
-                            SUPABASE_URL + '/rest/v1/reservations',
-                            {
-                                method: 'POST',
-                                headers: {
-                                    'apikey': SUPABASE_KEY,
-                                    'Authorization': 'Bearer ' + kmiToken(),
-                                    'Content-Type': 'application/json',
-                                    'Prefer': 'return=representation'
-                                },
-                                body: JSON.stringify(payload)
-                            }
-                        );
-
-                        if (response.ok) {
-                            var data = await response.json();
-                            return data[0] || data;
-                        } else {
-                            var err = await response.text();
-                            console.error('Fehler beim Speichern:', err);
-                            return null;
+                        var z = await schreiben(payload);
+                        // Wie im Tischplan: verweist table_id noch auf die alte Tabelle,
+                        // ohne Tisch speichern und den Tisch in die Notiz schreiben.
+                        if (z.fehler && payload.table_id && /reservations_table_id_fkey|23503/.test(z.roh || '')) {
+                            var tName = ((document.getElementById('resTable') || {}).selectedOptions || [])[0];
+                            delete payload.table_id;
+                            payload.notes = (tName ? tName.textContent.replace(/ ·.*$/, '') : 'Tisch') + (payload.notes ? ' · ' + payload.notes : '');
+                            z = await schreiben(payload);
                         }
+                        if (z.fehler) console.error('Reservierung nicht gespeichert:', z.fehler, z.roh || '');
+                        return z;
                     } catch (e) {
-                        console.error('Fehler:', e);
-                        return null;
+                        console.error('Reservierung nicht gespeichert:', e);
+                        return { fehler: 'keine Verbindung' };
                     }
                 };
 
@@ -19031,7 +19058,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         var timeInput = document.getElementById('resTime');
                         if (dateInput) dateInput.value = date;
                         if (timeInput) timeInput.value = time;
-                        if (timeInput) timeInput.value = time;
+                        try { resFormTischeLaden(); } catch (e) {}
                     }
                 };
 
@@ -19042,7 +19069,9 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     var name = document.getElementById('resName').value.trim();
                     var persons = document.getElementById('resPartySize').value;
                     var phone = document.getElementById('resPhone').value.trim();
-                    var table = parseInt(document.getElementById('resTable').value) || 1;
+                    // "Automatisch" ist KEIN Tisch. Hier stand parseInt('') || 1 --
+                    // jede Reservierung ohne Wahl landete an Tisch 1 (27.10.2026).
+                    var table = document.getElementById('resTable').value || null;
                     var notes = document.getElementById('resNotes').value.trim();
 
                     if (!date || !time || !name) {
@@ -19051,16 +19080,16 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     }
 
                     // ===== VERFÜGBARKEITSPRÜFUNG =====
-                    if (typeof window.isTableAvailable === 'function' && !window.isTableAvailable(table, date, time)) {
+                    if (table && typeof window.isTableAvailable === 'function' && !window.isTableAvailable(table, date, time)) {
                         var blockingRes = window.getTableReservations(table, date, time);
                         if (blockingRes.length > 0) {
                             var res = blockingRes[0];
-                            showToast('Tisch ' + table + ' ist bereits reserviert für ' + res.name + ' um ' + res.time, 'error');
+                            var tName = (document.getElementById('resTable').selectedOptions[0] || {}).textContent || 'Der Tisch';
+                            showToast(tName.replace(/ ·.*$/, '') + ' ist bereits reserviert für ' + res.name + ' um ' + res.time, 'error');
                             return false;
                         }
                     }
 
-                    // Neue Reservierung erstellen
                     var newRes = {
                         date: date,
                         time: time,
@@ -19069,58 +19098,39 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         phone: phone,
                         table: table,
                         notes: notes,
-                        source: 'dashboard'
+                        source: 'dashboard',
+                        status: 'confirmed'
                     };
 
-                    // In Supabase speichern
-                    var savedRes = await window.resSaveToDatabase(newRes);
+                    var knopf = document.getElementById('saveReservationBtn');
+                    if (knopf) knopf.disabled = true;
+                    var savedRes = null;
+                    try { savedRes = await window.resSaveToDatabase(newRes); } finally { if (knopf) knopf.disabled = false; }
 
-                    if (savedRes) {
-                        // Mit echter ID aus Datenbank
+                    if (savedRes && savedRes.id) {
                         newRes.id = savedRes.id;
+                        if (!savedRes.table_id) newRes.table = null;
                         window.resAllReservations.push(newRes);
-
-                        // Modal schließen
                         document.getElementById('newReservationModal').style.display = 'none';
-
-                        // Formular leeren
                         document.getElementById('resName').value = '';
                         document.getElementById('resPhone').value = '';
                         document.getElementById('resNotes').value = '';
-
-                        // ALLE Ansichten aktualisieren (zentral)
                         if (typeof window.resRenderAll === 'function') {
                             window.resRenderAll();
                         } else {
                             window.resRenderCalendar();
                             window.resRenderDaySlots();
                         }
-
-                        // Bestätigung
-                        if (typeof showToast === 'function') {
-                            showToast('<span class="material-symbols-outlined" style="font-size:16px;color:#16a34a;vertical-align:middle;">check_circle</span> Reservierung für ' + name + ' gespeichert!', 'success');
-                        }
-
-                        return true;
-                    } else {
-                        // Fallback: lokal speichern wenn DB fehlschlägt
-                        newRes.id = Date.now();
-                        window.resAllReservations.push(newRes);
-
-                        document.getElementById('newReservationModal').style.display = 'none';
-                        document.getElementById('resName').value = '';
-                        document.getElementById('resPhone').value = '';
-                        document.getElementById('resNotes').value = '';
-
-                        if (typeof window.resRenderAll === 'function') {
-                            window.resRenderAll();
-                        }
-
-                        if (typeof showToast === 'function') {
-                            showToast('<span class="material-symbols-outlined" style="font-size:16px;color:#d97706;vertical-align:middle;">warning</span> Reservierung lokal gespeichert', 'warning');
-                        }
+                        try { if (typeof resHeuteZeichnen === 'function') resHeuteZeichnen(); } catch (e) {}
+                        showToast('Reservierung für ' + escapeHtml(name) + ' gespeichert', 'success');
                         return true;
                     }
+                    // NICHT GESPEICHERT -- und das muss da stehen. Hier stand ein
+                    // Rueckfall "lokal gespeichert": die Reservierung lebte nur im
+                    // Browser, nach dem Neuladen war sie weg, der Gast kam trotzdem.
+                    // Das Formular bleibt offen, nichts geht verloren.
+                    showToast('Nicht gespeichert' + (savedRes && savedRes.fehler ? ' – ' + escapeHtml(savedRes.fehler) : ' – keine Verbindung') + '. Bitte nochmal speichern.', 'error');
+                    return false;
                 };
 
                 // ===== EVENT LISTENERS =====
@@ -19140,6 +19150,9 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                                 modal.style.display = 'flex';
                                 var dateInput = document.getElementById('resDate');
                                 if (dateInput) dateInput.value = localDayStr(window.resSelectedDate);
+                                try { if (typeof populateResTimeSelect === 'function') populateResTimeSelect(); } catch (e) {}
+                                try { resFormTischeLaden(); } catch (e) {}
+                                try { resFormPersonen(document.getElementById('resPartySize').value); } catch (e) {}
                             }
                         });
                     }
@@ -21852,10 +21865,12 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     // Nutze das globale Speichersystem
                     if (typeof window.resSaveToDatabase === 'function') {
                         var savedRes = await window.resSaveToDatabase(res);
-                        if (savedRes) {
+                        if (savedRes && savedRes.id) {
                             res.id = savedRes.id;
                             // Zum Array hinzufügen - NUR HIER, nirgends sonst!
                             window.resAllReservations.push(res);
+                        } else {
+                            showToast('Nicht gespeichert – ' + escapeHtml((savedRes && savedRes.fehler) || 'keine Verbindung'), 'error');
                         }
                     }
 
@@ -23068,25 +23083,25 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
         </div>
 
         <!-- Neue Reservierung Modal -->
+        <!-- NEUE RESERVIERUNG (27.10.2026) im Stil des Entwurfs "Eine Reservierung
+             (Fenster)". Kennungen unveraendert: resDate, resTime, resName,
+             resPartySize, resPhone, resTable, resNotes, saveReservationBtn. -->
         <div class="modal-overlay" id="newReservationModal" style="z-index: 10010; display: none;">
-            <div class="modal" style="max-width: 500px;">
-                <div class="modal-header">
-                    <h2 class="modal-title" style="font-family: 'Epilogue', sans-serif;">Neue Reservierung</h2>
-                    <button class="modal-close" aria-label="Schließen" onclick="closeModal('newReservationModal')">×</button>
+            <div class="modal kin-res-formular" role="dialog" aria-labelledby="kinResFormTitel">
+                <div class="kin-rf-kopf">
+                    <h2 id="kinResFormTitel">Neue Reservierung</h2>
+                    <button type="button" class="kin-rf-zu" aria-label="Schließen" onclick="closeModal('newReservationModal')">×</button>
                 </div>
-                <div class="modal-body">
-                    <div id="newReservationForm">
-                        <div class="form-row">
-                            <div class="form-group" style="flex: 1;">
-                                <label class="form-label" for="resDate">Datum *</label>
-                                <input type="date" class="form-input" id="resDate" required>
-                            </div>
-                            <div class="form-group" style="flex: 1;">
-                                <label class="form-label" for="resTime">Uhrzeit *</label>
-                                <select class="form-select" id="resTime" required>
-                                    <option value="">Wählen...</option>
-                                </select>
-                                <script>
+                <div id="newReservationForm" class="kin-rf-inhalt">
+                    <div class="kin-rf-zwei">
+                        <label class="kin-rf-feld"><span>Datum</span>
+                            <input type="date" class="form-input" id="resDate" required>
+                        </label>
+                        <label class="kin-rf-feld"><span>Uhrzeit</span>
+                            <select class="form-select" id="resTime" required>
+                                <option value="">Wählen …</option>
+                            </select>
+                            <script>
                                 (function() {
                                     async function populateResTimeSelect() {
                                         var sel = document.getElementById('resTime');
@@ -23107,60 +23122,36 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                                     setTimeout(populateResTimeSelect, 2000);
                                 })();
                                 </script>
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group" style="flex: 2;">
-                                <label class="form-label">Name *</label>
-                                <input type="text" class="form-input" id="resName" required placeholder="Name des Gastes" aria-label="Name des Gastes">
-                            </div>
-                            <div class="form-group" style="flex: 1;">
-                                <label class="form-label" for="resPartySize">Personen *</label>
-                                <select class="form-select" id="resPartySize" required>
-                                    <option value="1">1</option>
-                                    <option value="2" selected>2</option>
-                                    <option value="3">3</option>
-                                    <option value="4">4</option>
-                                    <option value="5">5</option>
-                                    <option value="6">6</option>
-                                    <option value="7">7</option>
-                                    <option value="8">8</option>
-                                    <option value="9">9</option>
-                                    <option value="10">10+</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Telefon</label>
-                            <input type="tel" class="form-input" id="resPhone" placeholder="Für Rückfragen" aria-label="Für Rückfragen">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label" for="resTable">Tisch zuweisen</label>
-                            <select class="form-select" id="resTable">
-                                <option value="">Automatisch</option>
-                                <option value="1">Tisch 1 (2P)</option>
-                                <option value="2">Tisch 2 (2P)</option>
-                                <option value="3">Tisch 3 (4P)</option>
-                                <option value="4">Tisch 4 (6P)</option>
-                                <option value="5">Tisch 5 (6P)</option>
-                                <option value="6">Tisch 6 (4P)</option>
-                                <option value="7">Tisch 7 (4P)</option>
-                                <option value="8">Tisch 8 (8P)</option>
-                                <option value="9">Tisch 9 (2P)</option>
+                        </label>
+                    </div>
+                    <div class="kin-rf-feld"><span id="kinRfPersLabel">Personen</span>
+                        <div class="kin-rf-pers" role="group" aria-labelledby="kinRfPersLabel">
+                            <button type="button" data-p="1" onclick="resFormPersonen(1)">1</button><button type="button" data-p="2" onclick="resFormPersonen(2)">2</button><button type="button" data-p="3" onclick="resFormPersonen(3)">3</button><button type="button" data-p="4" onclick="resFormPersonen(4)">4</button><button type="button" data-p="5" onclick="resFormPersonen(5)">5</button><button type="button" data-p="6" onclick="resFormPersonen(6)">6</button><button type="button" data-p="7" onclick="resFormPersonen(7)">7</button><button type="button" data-p="8" onclick="resFormPersonen(8)">8</button>
+                            <input type="hidden" id="resPartySize" value="2">
+                            <select class="form-select" id="resPartyMehr" aria-label="Mehr als 8 Personen" onchange="if (this.value) resFormPersonen(this.value)">
+                                <option value="">mehr …</option><option value="9">9</option><option value="10">10</option><option value="12">12</option><option value="15">15</option><option value="20">20</option><option value="25">25</option><option value="30">30</option><option value="40">40</option>
                             </select>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label">Anmerkungen</label>
-                            <textarea class="form-input" id="resNotes" rows="2" placeholder="z.B. Kinderstuhl, Allergien, Geburtstag..." aria-label="z.B. Kinderstuhl, Allergien, Geburtstag..."></textarea>
-                        </div>
-                        <div style="display: flex; gap: 12px; margin-top: 20px;">
-                            <button type="button" onclick="document.getElementById('newReservationModal').style.display='none';" class="dash-btn" style="flex: 1;">Abbrechen</button>
-                            <button type="button" id="saveReservationBtn" class="dash-btn dash-btn-primary" style="flex: 2;">
-                                <span class="material-symbols-outlined" style="font-size:16px;">check</span>
-                                Reservierung speichern
-                            </button>
-                        </div>
                     </div>
+                    <label class="kin-rf-feld"><span>Name</span>
+                        <input type="text" class="form-input" id="resName" required placeholder="Name des Gastes" autocomplete="off">
+                    </label>
+                    <label class="kin-rf-feld"><span>Telefon</span>
+                        <input type="tel" class="form-input" id="resPhone" placeholder="für Rückfragen" autocomplete="off">
+                    </label>
+                    <label class="kin-rf-feld"><span>Tisch</span>
+                        <select class="form-select" id="resTable">
+                            <option value="">Automatisch – kein fester Tisch</option>
+                        </select>
+                        <small id="resTableStand" class="kin-rf-stand"></small>
+                    </label>
+                    <label class="kin-rf-feld"><span>Notiz</span>
+                        <textarea class="form-input" id="resNotes" rows="2" placeholder="z. B. Kinderstuhl, Allergie, Geburtstag"></textarea>
+                    </label>
+                </div>
+                <div class="kin-rf-fuss">
+                    <button type="button" class="kin-rf-ab" onclick="document.getElementById('newReservationModal').style.display='none';">Abbrechen</button>
+                    <button type="button" id="saveReservationBtn" class="kin-rf-ok">Reservierung speichern</button>
                 </div>
             </div>
         </div>
@@ -65915,6 +65906,47 @@ async function resStatusSetzen(id, status) {
     catch (e) { showToast('Status nicht gespeichert – keine Verbindung', 'error'); }
 }
 window.resStatusSetzen = resStatusSetzen;
+// Formular "Neue Reservierung": Personen als Knoepfe (schneller als die
+// Liste), die Liste bleibt fuer 9 und mehr.
+function resFormPersonen(n) {
+    n = String(parseInt(n, 10) || 2);
+    var feld = document.getElementById('resPartySize'), mehr = document.getElementById('resPartyMehr');
+    if (feld) feld.value = n;
+    if (mehr) mehr.value = (+n > 8 && Array.prototype.some.call(mehr.options, function (o) { return o.value === n; })) ? n : '';
+    document.querySelectorAll('.kin-rf-pers button').forEach(function (b) { b.classList.toggle('aktiv', b.getAttribute('data-p') === n); });
+}
+window.resFormPersonen = resFormPersonen;
+// Die ECHTEN Tische des Lokals (restaurant_tables). Bis 27.10.2026 standen
+// hier fest "Tisch 1 (2P)" bis "Tisch 9" -- in jedem Lokal dieselben.
+async function resFormTischeLaden() {
+    var sel = document.getElementById('resTable'), stand = document.getElementById('resTableStand');
+    var rid = window.resCurrentRestaurant;
+    if (!sel) return;
+    var vorher = sel.value;
+    while (sel.options.length > 1) sel.remove(1);
+    if (!rid) { if (stand) stand.textContent = 'Erst oben ein Restaurant wählen.'; return; }
+    if (stand) stand.textContent = 'Tische werden geladen …';
+    try {
+        var r = await sbRead(SUPABASE_URL + '/rest/v1/restaurant_tables?restaurant_id=eq.' + encodeURIComponent(rid)
+            + '&is_active=eq.true&select=id,table_number,table_name,max_capacity&order=table_number.asc', { headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + kmiToken() } });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        var liste = await r.json();
+        if (!Array.isArray(liste)) throw new Error('unerwartete Antwort');
+        liste.sort(function (a, b) { return (parseInt(a.table_number, 10) || 0) - (parseInt(b.table_number, 10) || 0); });
+        liste.forEach(function (t) {
+            var o = document.createElement('option');
+            o.value = t.id;
+            o.textContent = (t.table_name || ('Tisch ' + t.table_number)) + (t.max_capacity ? ' · ' + t.max_capacity + ' Plätze' : '');
+            sel.appendChild(o);
+        });
+        if (vorher) sel.value = vorher;
+        if (stand) stand.textContent = liste.length ? '' : 'Noch keine Tische angelegt (Tischplan → Bearbeiten).';
+    } catch (e) {
+        // Nicht still: ohne Liste sieht "Automatisch" aus wie die einzige Wahl.
+        if (stand) stand.textContent = 'Tische nicht geladen (' + (e && e.message || e) + ') – Reservierung geht trotzdem, ohne festen Tisch.';
+    }
+}
+window.resFormTischeLaden = resFormTischeLaden;
 function resNeueOeffnen() {
     var b = document.getElementById('openNewResBtn');
     if (b) b.click();
