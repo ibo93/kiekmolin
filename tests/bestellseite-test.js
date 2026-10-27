@@ -125,6 +125,28 @@ function weiter() {
     t('Auto-Druck ebenso', !/icon\.innerHTML = autoPrintKitchenBon/.test(fn('toggleAutoPrint')), '');
     t('AN/AUS kommt aus EINER Stelle', /bestellSchalterZeigen\(\)/.test(fn('toggleOrderSound')) && /bestellSchalterZeigen\(\)/.test(fn('toggleAutoPrint')) && /bestellSchalterZeigen\(\)/.test(fn('updateFsAlarmBtn')), '');
 
+    console.log('\n-- 9. Eins zu eins wie der Entwurf, aber nichts Erfundenes --');
+    t('payment_status bleibt beim Laden (sonst "PayPal · offen" auch wenn bezahlt)', /payment_status: order\.payment_status/.test(lade), 'faellt weg');
+    t('ready_at bleibt (fuer "ABHOLBEREIT · 6 MIN")', /ready_at: order\.ready_at/.test(lade), 'faellt weg');
+    var st = fn('updateOrderStats');
+    t('"Ø Zeit" ist gemessen, nicht fest "38 Min"', st.indexOf("textContent = '38 Min'") < 0 && /o\.ready_at \|\| o\.out_for_delivery_at/.test(st), 'erfundene Zahl');
+    t('der Kopf zeigt "N offen · Umsatz" (vorher setzte ihn niemand)', /getElementById\('ordersActiveCount'\)[\s\S]{0,400} offen<\/b> · ' \+ formatPrice\(revenue\)/.test(st), '');
+    t('"Fertig" verspricht keine Benachrichtigung, die es nicht gibt', rd.indexOf('Gast benachrichtigen') < 0 && /'Fertig – abholbereit'/.test(rd) && /'Fertig – Fahrer los'/.test(rd), '');
+    t('neue Bestellungen: die AELTESTE oben', /if \(a\.status === 'received'\) return new Date\(a\.created_at\) - new Date\(b\.created_at\);/.test(rd), '');
+    t('weitere neue Bestellungen kompakt in einer Zeile', /_kompakt = _brett && _sp0 === 'neu' && \(_neuGezeigt\+\+ > 0\)/.test(rd) && /bestellPosKurz\(order\.items\)/.test(rd), '');
+    t('Zeit aendern / Stornieren / Fuer Kasse hinter "⋯" (nicht weg)', /kin-links-offen/.test(rd) && /zeitAendern\(/.test(rd) && /openCancelOrderDialog\(/.test(rd) && /\.kin-links \{ display: none !important; \}/.test(H), '');
+    var P = new Function('escapeHtml', 'formatPrice', fn('bestellExtrasText') + fn('bestellPosHtml') + '; return bestellPosHtml;')(function (x) { return String(x); }, function (x) { return x + ' €'; });
+    var pos = P([{ quantity: 2, name: 'Pizza', options: 'Extra Käse, Peperoni', notes: 'ohne Zwiebeln', price: 23 }], false);
+    t('Extras gold darunter: "+ Extra Käse, + Peperoni"', /kin-pos-extra">\+ Extra Käse, \+ Peperoni/.test(pos), pos);
+    t('Sonderwunsch der Position steht da', /kin-pos-notiz">✎ ohne Zwiebeln/.test(pos), pos);
+    t('In Arbeit ohne Preise', pos.indexOf('23 €') < 0, pos);
+    t('Neu mit Preisen', P([{ quantity: 1, name: 'A', price: 4 }], true).indexOf('4 €') >= 0, '');
+    var F = new Function(fn('bestellFertigSchild') + '; return bestellFertigSchild;')();
+    var j2 = Date.parse('2026-10-27T18:00:00Z');
+    t('"Abholbereit · 6 Min"', F({ status: 'ready', order_type: 'pickup', ready_at: '2026-10-27T17:54:00Z' }, j2) === 'Abholbereit · 6 Min', F({ status: 'ready', order_type: 'pickup', ready_at: '2026-10-27T17:54:00Z' }, j2));
+    t('"Unterwegs · 3 Min"', F({ status: 'out_for_delivery', order_type: 'delivery', out_for_delivery_at: '2026-10-27T17:57:00Z' }, j2) === 'Unterwegs · 3 Min', '');
+    t('ohne Zeit keine erfundenen Minuten', F({ status: 'ready', order_type: 'pickup' }, j2) === 'Abholbereit', F({ status: 'ready', order_type: 'pickup' }, j2));
+
     console.log('\n' + ok + '/' + n + ' bestanden');
     if (ok !== n) process.exitCode = 1;
 }

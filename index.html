@@ -11167,17 +11167,63 @@
         #ordersGrid .kin-order-actions > .kin-order-btn.reject { flex: 0 0 48px !important; padding: 0; }
         /* Wie im Entwurf: [Bon] [ grosser naechster Schritt ] in einer Reihe. */
         #ordersGrid .kin-order-actions .kin-order-btn.next {
-            order: 2; flex: 1 1 0 !important; min-height: 52px; font-size: 16px;
+            order: 2; flex: 1 1 170px !important; min-height: 52px; font-size: 16px; white-space: nowrap;
             background: #ffd54f; color: #00251e; font-family: 'Epilogue', sans-serif; font-weight: 800;
         }
         #ordersGrid .kin-order-items { gap: 8px !important; }
-        #ordersGrid .kin-order-items > div { padding-bottom: 8px !important; }
+        #ordersGrid .kin-order-items > div { padding-bottom: 0 !important; }
         #ordersGrid .kin-order-body { gap: 10px !important; }
         /* In den Spalten sagt die Ueberschrift schon "Neu" / "In Arbeit". */
         #ordersGrid.kin-brett .kin-order-status.received,
         #ordersGrid.kin-brett .kin-order-status.accepted,
         #ordersGrid.kin-brett .kin-order-status.confirmed,
         #ordersGrid.kin-brett .kin-order-status.preparing { display: none; }
+
+        /* Karte wie im Entwurf */
+        .kin-pos { display: flex; justify-content: space-between; gap: 8px; font-size: 15px; color: #191c1d; }
+        .kin-pos b { font-weight: 800; }
+        .kin-pos > b { white-space: nowrap; }
+        .kin-pos-extra { font-size: 13px; color: #735c00; padding-left: 22px; margin-top: -2px; }
+        .kin-pos-notiz { font-size: 13px; color: #b45309; font-weight: 700; padding-left: 22px; }
+        .kin-pos-kurz { font-size: 14px; color: #191c1d; line-height: 1.45; }
+        .kin-pos-kurz b { font-weight: 800; }
+        #ordersGrid .kin-order-items { display: flex; flex-direction: column; gap: 4px !important; }
+        #ordersGrid .kin-pos { line-height: 1.4; }
+        #ordersGrid .kin-karte-arbeit .kin-pos { font-size: 14px; }
+        #ordersGrid .kin-order-actions > .kin-ablehnen { white-space: nowrap; }
+        .kin-summe-zeile { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 14px; color: #404946; }
+        .kin-summe { font-family: 'Epilogue', sans-serif; font-weight: 900; font-size: 22px; color: #00251e; white-space: nowrap; }
+        .kin-zahl-marke { border-radius: 9999px; padding: 2px 8px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+        .kin-art-fertig { background: #dcfce7; color: #14532d; }
+        .kin-stempel-klein { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; font-size: 13px; font-weight: 700; color: #735c00; }
+        #ordersGrid .kin-order-customer-name a { color: inherit; text-decoration: none; }
+        #ordersGrid .kin-order-actions > .kin-order-btn.kin-mehr-btn {
+            order: 1; flex: 0 0 52px !important; width: 52px; min-height: 52px; padding: 0; border-radius: 9999px;
+            background: #f3f4f5; color: #00251e; font-size: 20px; font-weight: 900; border: none;
+        }
+        #ordersGrid .kin-order-actions > .kin-ablehnen { order: 3; margin-left: auto; }
+        .kin-links { display: none !important; }
+        .kin-links-offen .kin-links { display: flex !important; }
+        #ordersGrid .kin-order-actions .kin-order-btn.next.dunkel { background: #003d33; color: #ffffff; }
+        #ordersGrid .kin-kompakt { gap: 8px !important; padding: 14px 16px !important; }
+        #ordersGrid .kin-kompakt .kin-order-number { font-size: 24px; }
+        #ordersGrid .kin-kompakt .kin-schnell-titel { display: none; }
+        #ordersGrid .kin-kompakt .kin-schnell-btn { min-height: 44px; }
+        #ordersGrid .kin-kompakt .kin-schnell-btn b { font-size: 16px; }
+        #ordersGrid .kin-kompakt .kin-order-actions { flex-wrap: nowrap; }
+        #ordersGrid .kin-kompakt .kin-schnell { flex: 1 1 auto !important; }
+        .kin-bk-wahl { border: 2px solid rgba(0,37,30,0.15) !important; border-radius: 9999px !important; background-color: #ffffff !important; }
+        .kin-bk-zahl b { color: #00251e; }
+        .dark-mode .kin-pos, .dark-mode .kin-pos-kurz { color: var(--text-primary, #e8eeec); }
+        .dark-mode #ordersGrid .kin-order-card .kin-pos-extra { color: #ffd54f !important; }
+        .dark-mode #ordersGrid .kin-order-card .kin-pos-notiz { color: #fdba74 !important; }
+        .dark-mode #ordersGrid .kin-order-card .kin-stempel-klein { color: #ffd54f !important; }
+        .dark-mode #ordersGrid .kin-order-card .kin-art.kin-art-fertig { background: rgba(22,163,74,0.25); color: #86efac !important; }
+        .dark-mode #ordersGrid .kin-order-card .kin-order-btn.next.dunkel { background: #ffd54f; color: #00251e !important; }
+        .dark-mode #ordersGrid .kin-order-actions > .kin-order-btn.kin-mehr-btn { background: rgba(255,255,255,0.1); }
+        .dark-mode .kin-art-fertig { background: rgba(22,163,74,0.25); color: #86efac; }
+        .dark-mode .kin-bk-wahl { background-color: transparent !important; border-color: rgba(255,255,255,0.18) !important; }
+        .dark-mode .kin-bk-zahl b { color: var(--text-primary, #e8eeec); }
 
         /* Drei Spalten (bestellBrettHtml). Das Raster steht inline am
            #ordersGrid -- daher !important. */
@@ -63904,6 +63950,11 @@ async function loadDashboardOrders() {
                 stempel_ergebnis: order.stempel_ergebnis || null,
                 estimated_time: order.estimated_time || null,
                 accepted_at: order.accepted_at || null,
+                ready_at: order.ready_at || null,
+                out_for_delivery_at: order.out_for_delivery_at || null,
+                // Ohne payment_status stand bei JEDER PayPal-Bestellung
+                // "PayPal · offen" -- auch wenn sie bezahlt war (zahlartStand).
+                payment_status: order.payment_status || null,
                 // Ohne dieses Feld erschien "Erneut an Kasse" nie und die
                 // Storno-Warnung ("bitte auch in WinOrder stornieren") blieb
                 // aus -- beides prüfte winorder_sent_at, das hier wegfiel.
@@ -64413,10 +64464,13 @@ function renderDashboardOrders() {
             : o.status === orderFilterStatus);
     }
 
-    // Sortieren: Neueste zuerst, aber "received" ganz oben
+    // Sortieren: "received" ganz oben, und dort die AELTESTE zuerst -- sie
+    // wartet am laengsten (Entwurf: die oberste neue Karte ist gross, die
+    // weiteren kompakt). Alles andere: neueste zuerst.
     filtered.sort((a, b) => {
         if (a.status === 'received' && b.status !== 'received') return -1;
         if (b.status === 'received' && a.status !== 'received') return 1;
+        if (a.status === 'received') return new Date(a.created_at) - new Date(b.created_at);
         return new Date(b.created_at) - new Date(a.created_at);
     });
 
@@ -64446,6 +64500,7 @@ function renderDashboardOrders() {
     var _brett = bestellBrettAn();
     var _spalten = { neu: '', arbeit: '', fertig: '', erledigt: '' };
     var _anzahl = { neu: 0, arbeit: 0, fertig: 0, erledigt: 0 };
+    var _neuGezeigt = 0;
     var _alleKarten = filtered.map(order => {
         const statusLabels = {
             'received': 'Neu',
@@ -64545,7 +64600,7 @@ function renderDashboardOrders() {
         let actionsHtml = '';
         // Selten gebrauchte Wege stehen als kleine Links UNTER den Knoepfen
         // (Entwurf: ein grosser Knopf + Bon, sonst nichts in Fingerhoehe).
-        var linksHtml = '';
+        var linksHtml = '', ablehnenHtml = '';
         switch(order.status) {
             case 'received':
                 // EIN Tipp auf die Minuten = angenommen. "Andere Zeit" oeffnet
@@ -64559,8 +64614,8 @@ function renderDashboardOrders() {
                         return '<button type="button" class="kin-schnell-btn" data-schnell="' + order.id + '" onclick="schnellAnnehmen(\'' + order.id + '\', ' + m + ')" aria-label="Annehmen, fertig in ' + m + ' Minuten"><b>' + m + '</b><small>Min</small></button>';
                     }).join('')
                     + '</div>';
-                linksHtml = '<button type="button" class="kin-text-btn" onclick="acceptOrder(\'' + order.id + '\')">Andere Zeit …</button>'
-                    + '<button type="button" class="kin-text-btn kin-ablehnen" onclick="rejectOrder(\'' + order.id + '\')">Ablehnen …</button>';
+                linksHtml = '<button type="button" class="kin-text-btn" onclick="acceptOrder(\'' + order.id + '\')">Andere Zeit …</button>';
+                ablehnenHtml = '<button type="button" class="kin-text-btn kin-ablehnen" onclick="rejectOrder(\'' + order.id + '\')">Ablehnen …</button>';
                 break;
             case 'accepted':
             case 'confirmed':
@@ -64570,13 +64625,13 @@ function renderDashboardOrders() {
                 // Drei Schritte (12.10.2026): nach "Annehmen" EIN Knopf fuer
                 // den naechsten Schritt -- siehe naechsterSchritt().
                 var _ns = naechsterSchritt(order), _laeuft = order.status !== 'ready' && order.status !== 'out_for_delivery';
-                actionsHtml = _ns ? `
-                    <button class="kin-order-btn next" data-schritt="${_ns.status}" onclick="updateOrderStatus('${order.id}', '${_ns.status}')">
-                        <span class="material-symbols-outlined" style="font-size:18px;">${_ns.icon}</span>
-                        ${_ns.text}
-                    </button>` : '';
                 linksHtml = (_laeuft ? `<button type="button" class="kin-text-btn" onclick="zeitAendern('${order.id}')" title="Dem Gast eine neue Zeit sagen">Zeit ändern</button>` : '')
                     + `<button type="button" class="kin-text-btn kin-ablehnen" onclick="openCancelOrderDialog('${order.id}')" title="Bestellung stornieren">Stornieren …</button>`;
+                // Nur was stimmt: "Fertig" benachrichtigt den Gast nicht (27.10.2026).
+                var _nsText = _ns ? (_laeuft && _ns.status === 'ready' ? (order.order_type === 'pickup' ? 'Fertig – abholbereit' : 'Fertig')
+                    : _laeuft && _ns.status === 'out_for_delivery' ? 'Fertig – Fahrer los' : _ns.text) : '';
+                actionsHtml = _ns ? `
+                    <button class="kin-order-btn next${_laeuft ? '' : ' dunkel'}" data-schritt="${_ns.status}" onclick="updateOrderStatus('${order.id}', '${_ns.status}')">${_nsText}</button>` : '';
                 break;
         }
 
@@ -64630,65 +64685,80 @@ function renderDashboardOrders() {
                 + '</span></div>';
         }
 
+        // KARTE WIE IM ENTWURF (Claude Design "Bestellseite Wirt"). Je Spalte
+        // zeigt sie, was dort gebraucht wird:
+        //   Neu       -- alles: Gerichte mit Preis, Hinweis, Zahlart, Adresse,
+        //                Summe, Minuten-Tasten. Weitere neue: kompakt in EINER Zeile.
+        //   In Arbeit -- nur was auf den Teller kommt, Countdown, [Bon] [Fertig].
+        //   Fertig    -- eine Zeile "Name · Zahlart · Summe", [Bon] [Abgeholt].
+        var _sp0 = bestellSpalte(order.status);
+        var _kompakt = _brett && _sp0 === 'neu' && (_neuGezeigt++ > 0);
+        var _zahl = zahlartStand(order);
+        // Bezahlt: schlicht "bezahlt mit PayPal" (Entwurf). OFFEN bleibt markiert --
+        // Geld, das noch fehlt, darf nicht im Grau verschwinden.
+        var _zahlHtml = _zahl.marke && !_zahl.bezahlt
+            ? '<span class="kin-zahl-marke" style="color:' + _zahl.farbe + ';background:' + _zahl.hintergrund + ';">' + escapeHtml(_zahl.text) + '</span>'
+            : _zahl.marke ? 'bezahlt mit ' + escapeHtml(zahlartKurz(order.payment_method))
+            : escapeHtml(_zahl.text || '');
+        var _tel = order.customer_phone ? ' · <a href="tel:' + escapeHtml(order.customer_phone) + '">' + escapeHtml(order.customer_phone) + '</a>' : '';
+        var _rechts;
+        if (_sp0 === 'neu') {
+            _rechts = bestellArtChip(order)
+                + `<span class="kin-order-alter neu">${timeAgo}</span>`
+                + (order.printed_at ? '<span class="kin-bon-gedruckt">✓ Bon gedruckt ' + new Date(order.printed_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + '</span>' : '');
+        } else if (_sp0 === 'fertig') {
+            _rechts = '<span class="kin-art kin-art-fertig">' + escapeHtml(bestellFertigSchild(order)) + '</span>';
+        } else if (_sp0 === 'arbeit') {
+            _rechts = bestellArtChip(order);
+        } else {
+            _rechts = '<div class="kin-order-status ' + order.status + '">' + (statusLabels[order.status] || order.status) + '</div>';
+        }
+        var _unterNummer = _sp0 === 'neu' ? escapeHtml(order.customer_name || '') + _tel
+            : (_sp0 === 'fertig' || _sp0 === 'erledigt') ? escapeHtml(order.customer_name || '') + ' · ' + _zahlHtml + ' · ' + formatPrice(order.total)
+            : '';
+        // Stempel: bei NEU der volle Hinweis (vor dem Annehmen wichtig), danach
+        // ein kleines Abzeichen wie im Entwurf.
+        var _stKlein = (order.stempel_einloesen && _sp0 !== 'neu')
+            ? '<span class="kin-stempel-klein" title="' + escapeHtml(_stHtml.replace(/<[^>]+>/g, '')) + '">' + kinSym('geschenk', false, 14) + ' Stempel einlösen</span>' : '';
+        var _koerper;
+        if (_sp0 === 'neu' && _kompakt) {
+            _koerper = '<div class="kin-pos-kurz">' + bestellPosKurz(order.items) + ' · ' + formatPrice(order.total) + ' · ' + _zahlHtml + '</div>'
+                + (bestellHinweis(order) ? '<div class="kin-hinweis">„' + escapeHtml(bestellHinweis(order)) + '“</div>' : '');
+        } else if (_sp0 === 'neu') {
+            _koerper = '<div class="kin-order-items">' + bestellPosHtml(order.items, true) + '</div>'
+                + (bestellHinweis(order) ? '<div class="kin-hinweis"><b>Hinweis:</b> „' + escapeHtml(bestellHinweis(order)) + '“</div>' : '')
+                + '<div class="kin-summe-zeile"><span>' + _zahlHtml + (order.delivery_address ? ' · ' + adresseHtml(order.delivery_address) : '') + '</span>'
+                + '<b class="kin-summe">' + formatPrice(order.total) + '</b></div>';
+        } else if (_sp0 === 'arbeit') {
+            _koerper = '<div class="kin-order-items">' + bestellPosHtml(order.items, false) + '</div>'
+                + (bestellHinweis(order) ? '<div class="kin-hinweis">„' + escapeHtml(bestellHinweis(order)) + '“</div>' : '')
+                + _stKlein + bestellRestHtml(order);
+        } else {
+            _koerper = _stKlein + (order.delivery_address && order.status === 'out_for_delivery' ? '<div class="kin-pos-kurz">' + adresseHtml(order.delivery_address) + '</div>' : '');
+        }
+        var _mehrKnopf = (linksHtml || copyForKasseBtn)
+            ? '<button type="button" class="kin-order-btn kin-mehr-btn" aria-label="Weitere Aktionen" onclick="this.closest(\'.kin-order-card\').classList.toggle(\'kin-links-offen\')">⋯</button>' : '';
         var _html = `
-            <div class="kin-order-card status-${order.status}${(bestellRestHtml(order) && bestellRest(order) < 0) ? ' kin-zu-spaet' : ''}" style="position:relative;overflow:hidden;">
+            <div class="kin-order-card status-${order.status} kin-karte-${_sp0}${_kompakt ? ' kin-kompakt' : ''}${(bestellRestHtml(order) && bestellRest(order) < 0) ? ' kin-zu-spaet' : ''}" style="position:relative;overflow:hidden;">
                 ${_vbHtml}
-                ${_stHtml}
-                ${order.status === 'received' ? '<div class="kin-new-badge">NEU</div>' : ''}
-                ${order.status === 'received' ? '<div style="position:absolute;top:-32px;right:-32px;width:128px;height:128px;background:rgba(254,214,91,0.10);border-radius:0 0 0 100%;pointer-events:none;"></div>' : ''}
-                <!-- Stitch Header: Order # + Customer Name left, Status right -->
+                ${_sp0 === 'neu' ? _stHtml : ''}
                 <div class="kin-order-header">
                     <div style="display:flex;flex-direction:column;min-width:0;">
                         <div class="kin-order-number">#${order.order_number}</div>
-                        <div class="kin-order-customer-name">${escapeHtml(order.customer_name)}</div>
+                        ${_unterNummer ? '<div class="kin-order-customer-name">' + _unterNummer + '</div>' : ''}
                         ${posBadgeHtml}
                     </div>
-                    <div class="kin-order-kopf-rechts">
-                        ${bestellArtChip(order)}
-                        <div class="kin-order-status ${order.status}">${statusLabels[order.status]}</div>
-                        <span class="kin-order-alter${order.status === 'received' ? ' neu' : ''}">${timeAgo}</span>
-                        ${order.printed_at ? '<span class="kin-bon-gedruckt">✓ Bon gedruckt ' + new Date(order.printed_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + '</span>' : ''}
-                    </div>
+                    <div class="kin-order-kopf-rechts">${_rechts}</div>
                 </div>
-                <!-- Stitch Body: Items with prices -->
-                <div class="kin-order-body" style="display:flex;flex-direction:column;gap:16px;">
-                    <div class="kin-order-items" style="display:flex;flex-direction:column;gap:16px;">
-                        ${order.items.map((item, idx) => `
-                            <div style="display:flex;justify-content:space-between;align-items:center;font-size:14px;${idx < order.items.length - 1 ? 'border-bottom:1px solid rgba(192,200,196,0.10);padding-bottom:16px;' : ''}">
-                                <span style="color:var(--text-secondary);font-weight:500;">${item.quantity}x ${escapeHtml(item.name)}${item.options ? ' <span style=&quot;font-size:12px;color:rgba(64,73,70,0.6);font-style:italic;&quot;>' + escapeHtml(item.options) + '</span>' : ''}${item.notes ? '<br><span style=&quot;font-size:12px;color:#b45309;font-weight:700;&quot;>&#9998; ' + escapeHtml(item.notes) + '</span>' : ''}</span>
-                                <span style="color:var(--ink-deep);font-weight:700;">${formatPrice(item.base_price || item.price)}</span>
-                            </div>
-                        `).join('')}
-                    </div>
-                    <!-- Total -->
-                    <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;">
-                        <span style="font-family:Inter,sans-serif;font-size:12px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;">Gesamt</span>
-                        <span style="font-family:Epilogue,sans-serif;font-size:20px;font-weight:900;color:var(--ink-deep);">${formatPrice(order.total)}</span>
-                    </div>
-                    ${bestellHinweis(order) ? '<div class="kin-hinweis"><b>Hinweis:</b> „' + escapeHtml(bestellHinweis(order)) + '“</div>' : ''}
-                    ${bestellRestHtml(order)}
-                </div>
-                <!-- Stitch Footer: Order type + Contact + Actions -->
-                <div class="kin-order-footer" style="display:flex;flex-direction:column;gap:16px;">
-                    <div style="display:flex;align-items:center;justify-content:space-between;">
-                        <div style="font-size:12px;font-weight:700;color:rgba(64,73,70,0.8);">Zahlung</div>
-                        ${(function () {
-                            // Geld gehoert nicht in 11-Pixel-Grau.
-                            var st = zahlartStand(order);
-                            if (!st.marke) return '<span style="font-size:11px;color:rgba(64,73,70,0.5);">' + st.text + '</span>';
-                            return '<span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:9999px;'
-                                 + 'color:' + st.farbe + ';background:' + st.hintergrund + ';">' + st.text + '</span>';
-                        })()}
-                    </div>
-                    ${order.customer_phone ? '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(64,73,70,0.7);"><span class="material-symbols-outlined" style="font-size:14px;">phone</span><a href="tel:' + escapeHtml(order.customer_phone) + '" style="color:var(--ink-strong);text-decoration:none;">' + escapeHtml(order.customer_phone) + '</a></div>' : ''}
-                    ${order.delivery_address ? '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(64,73,70,0.7);"><span class="material-symbols-outlined" style="font-size:14px;">location_on</span>' + adresseHtml(order.delivery_address) + '</div>' : ''}
-                    <div class="kin-order-actions">
-                        ${actionsHtml}
-                        ${druckBtns}
-                        ${posResendBtn}
-                        ${woResendBtn}
-                        <div class="kin-links">${linksHtml}${copyForKasseBtn}</div>
-                    </div>
+                ${_koerper}
+                <div class="kin-order-actions">
+                    ${actionsHtml}
+                    ${_kompakt ? '' : druckBtns}
+                    ${_kompakt ? '' : _mehrKnopf}
+                    ${posResendBtn}
+                    ${woResendBtn}
+                    ${ablehnenHtml}
+                    <div class="kin-links">${linksHtml}${copyForKasseBtn}</div>
                 </div>
             </div>
         `;
@@ -64722,7 +64792,23 @@ function updateOrderStats() {
     el = document.getElementById('statOrdersToday'); if (el) el.textContent = filtered.length;
     el = document.getElementById('statRevenueToday'); if (el) el.textContent = formatPrice(revenue);
     el = document.getElementById('statAvgOrder'); if (el) el.textContent = formatPrice(avgOrder);
-    el = document.getElementById('statAvgTime'); if (el) el.textContent = '38 Min';
+    // Hier stand fest '38 Min' -- eine erfundene Zahl. Jetzt gemessen:
+    // Eingang bis Fertig, nur Bestellungen mit beiden Zeiten.
+    el = document.getElementById('statAvgTime');
+    if (el) {
+        var _dauer = paidOrders.map(function (o) {
+            var a = new Date(o.created_at).getTime(), b = new Date(o.ready_at || o.out_for_delivery_at).getTime();
+            return (b > a) ? (b - a) / 60000 : NaN;
+        }).filter(function (m) { return !isNaN(m) && m < 600; });
+        el.textContent = _dauer.length ? Math.round(_dauer.reduce(function (x, y) { return x + y; }, 0) / _dauer.length) + ' Min' : '–';
+    }
+    // Kopf wie im Entwurf: "6 offen · 612,40 €" (vorher setzte niemand
+    // diese Zeile -- da stand immer "0 Aktiv").
+    el = document.getElementById('ordersActiveCount');
+    if (el) {
+        var _offen = filtered.filter(function (o) { return ['received', 'accepted', 'confirmed', 'preparing', 'ready', 'out_for_delivery'].indexOf(o.status) >= 0; }).length;
+        el.innerHTML = '<b>' + _offen + ' offen</b> · ' + formatPrice(revenue);
+    }
 
     // Tisch-QR: Wie viele Bestellungen kamen vom Aufsteller auf dem Tisch?
     // table_number wird bei jeder Bestellung mitgespeichert (aus ?tisch=N).
@@ -65133,6 +65219,34 @@ async function schnellAnnehmen(orderId, minuten) {
 }
 window.schnellAnnehmen = schnellAnnehmen;
 
+// Gerichte wie im Entwurf: "2× Pizza Salami", Extras gold darunter,
+// Sonderwunsch der Position hervorgehoben. Preise nur bei NEU -- in der
+// Kueche zaehlt, was auf den Teller kommt.
+function bestellExtrasText(opt) {
+    return String(opt || '').split(/\s*,\s*/).filter(Boolean).map(function (x) { return '+ ' + x; }).join(', ');
+}
+function bestellPosHtml(items, mitPreis) {
+    return (items || []).map(function (it) {
+        return '<div class="kin-pos"><span><b>' + (it.quantity || 1) + '×</b> ' + escapeHtml(it.name || '') + '</span>'
+            + (mitPreis ? '<b>' + formatPrice(it.base_price || it.price) + '</b>' : '') + '</div>'
+            + (it.options ? '<div class="kin-pos-extra">' + escapeHtml(bestellExtrasText(it.options)) + '</div>' : '')
+            + (it.notes ? '<div class="kin-pos-notiz">✎ ' + escapeHtml(it.notes) + '</div>' : '');
+    }).join('');
+}
+// Eine Zeile: "2× Cola · 1× Schnitzel"
+function bestellPosKurz(items) {
+    return (items || []).map(function (it) { return '<b>' + (it.quantity || 1) + '×</b> ' + escapeHtml(it.name || ''); }).join(' · ');
+}
+// Schild in der Spalte Fertig: "ABHOLBEREIT · 6 MIN"
+function bestellFertigSchild(order, jetzt) {
+    var unterwegs = order.status === 'out_for_delivery';
+    var seit = unterwegs ? order.out_for_delivery_at : order.ready_at;
+    var t = seit ? new Date(seit).getTime() : NaN;
+    var min = isNaN(t) ? null : Math.max(0, Math.round(((jetzt || Date.now()) - t) / 60000));
+    var wort = unterwegs ? 'Unterwegs' : (order.order_type === 'dine_in' ? 'Servierbereit' : order.order_type === 'delivery' ? 'Fertig' : 'Abholbereit');
+    return wort + (min !== null ? ' · ' + min + ' Min' : '');
+}
+
 // In welche Spalte gehoert eine Bestellung?
 function bestellSpalte(status) {
     if (status === 'received') return 'neu';
@@ -65208,7 +65322,8 @@ var KIN_SYM = {
     ton: '<path d="M11 5L6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/>',
     alarm: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
     druck: '<path d="M7 9V4h10v5"/><rect x="4" y="9" width="16" height="7" rx="2"/><path d="M7 14h10v6H7z"/>',
-    push: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>'
+    push: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
+    geschenk: '<path d="M20 12v8H4v-8M2 7h20v5H2zM12 22V7"/>'
 };
 function kinSym(name, aus, w) {
     w = w || 18;
@@ -65245,7 +65360,7 @@ function bestellSchalterZeigen() {
 
 // Drei Spalten auf dem Tablet, die gewohnte Liste auf dem Handy.
 function bestellBrettHtml(spalten, anzahl) {
-    var kopf = { neu: 'Neu', arbeit: 'In Arbeit', fertig: 'Fertig' };
+    var kopf = { neu: 'Neu', arbeit: 'In Arbeit', fertig: 'Fertig · wartet auf Abholung' };
     var leer = { neu: 'Keine neuen Bestellungen', arbeit: 'Nichts in Arbeit', fertig: 'Nichts wartet' };
     var html = ['neu', 'arbeit', 'fertig'].map(function (k) {
         return '<section class="kin-spalte kin-spalte-' + k + '" aria-label="' + kopf[k] + '">'

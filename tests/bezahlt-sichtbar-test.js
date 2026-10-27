@@ -72,11 +72,25 @@ t('und heisst weiter wie bisher',
   welt.zahlartStand({ payment_method: 'cash' }).text === 'Bar', welt.zahlartStand({ payment_method: 'cash' }).text);
 
 console.log('\n-- Die Bestellkarte benutzt es auch wirklich --');
-var karte = hol('<!-- Stitch Footer: Order type + Contact + Actions -->', 'kin-order-actions');
-t('die Karte fragt zahlartStand', /zahlartStand\(order\)/.test(karte), 'zeigt weiter nur das Wort');
+// Seit dem neuen Design (27.10.2026) baut die Karte die Zahlart in
+// renderDashboardOrders zwischen "KARTE WIE IM ENTWURF" und "var _html".
+var karte = hol('// KARTE WIE IM ENTWURF', 'var _html = `');
+t('die Karte fragt zahlartStand', /var _zahl = zahlartStand\(order\);/.test(karte), 'zeigt weiter nur das Wort');
+// AUSGEFUEHRT, nicht gelesen: der Block, der die Zahlart fuer die Karte baut.
+var zb = hol('var _zahl = zahlartStand(order);', "escapeHtml(_zahl.text || '');");
+function kartenZahl(o) {
+    welt.order = o; welt.escapeHtml = function (x) { return String(x); };
+    vm.runInContext(zb + '; this._zh = _zahlHtml;', welt); return welt._zh;
+}
+var zOffen = kartenZahl({ payment_method: 'paypal', payment_status: 'pending' });
+t('OFFEN wird farbig hinterlegt', /kin-zahl-marke/.test(zOffen) && /b45309/.test(zOffen) && /offen/.test(zOffen), zOffen);
+var zBez = kartenZahl({ payment_method: 'paypal', payment_status: 'paid' });
+t('bezahlt steht als Wort da ("bezahlt mit PayPal")', zBez === 'bezahlt mit PayPal', zBez);
+t('Bar bleibt ruhig', kartenZahl({ payment_method: 'cash' }) === 'Bar', kartenZahl({ payment_method: 'cash' }));
 t('und nicht mehr in 11-Pixel-Grau bei 50 Prozent',
-  !/font-size:11px;color:rgba\(64,73,70,0\.5\);">\$\{zahlartKurz/.test(karte), 'alte Zeile steht noch da');
-t('die Marke wird farbig hinterlegt', /st\.hintergrund/.test(karte), 'nur Text');
+  !/font-size:11px;color:rgba\(64,73,70,0\.5\)/.test(karte), 'alte Zeile steht noch da');
+t('die Zahlart steht auf der Karte (Neu: neben der Summe, Fertig: in der Zeile)',
+  /kin-summe-zeile"><span>' \+ _zahlHtml/.test(karte) && /' · ' \+ _zahlHtml \+ ' · '/.test(karte), 'fehlt');
 
 console.log('\n-- Der Bon sagt es auch --');
 // Der Bon haengt in der Kueche, der Tresen greift danach.
