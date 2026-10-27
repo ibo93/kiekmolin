@@ -54535,9 +54535,9 @@ document.addEventListener('error', function(e) {
         </div>
         <div class="modal-body">
             <p style="margin:0 0 12px;font-size:13px;color:var(--text-secondary);line-height:1.55;">
-                Dieselbe Karte wie beim Speisekarten-Import. Gelesen werden nur die Extra-Regeln
-                („Extra Zutaten: klein 1,00 €") und die Zutaten aus den Beschreibungen der Gerichte.
-                An der Speisekarte ändert sich nichts.
+                Die Speisekarte oder eine eigene Extras-Liste als PDF. Gelesen werden Extra-Regeln
+                („Extra Zutaten: klein 1,00 €"), Tabellen mit Spalten klein/groß und die Zutaten aus
+                den Beschreibungen der Gerichte. An der Speisekarte ändert sich nichts.
             </p>
             <input type="file" id="extrasPdfDatei" accept="application/pdf,.pdf" style="display:none;" onchange="extrasPdfGewaehlt(event)" aria-label="PDF mit Extras hochladen">
             <div onclick="document.getElementById('extrasPdfDatei').click()"
@@ -80873,6 +80873,105 @@ function _kopiereRechteSQL(btn) {
 // bleibt daneben bestehen.
 var _extrasPdfGefunden = null;
 
+// EXTRAS ALS TABELLE (Ibo, 27.10.2026, mit seiner PDF "Pizza Pronto Moordorf –
+// Extras"): Überschrift, darunter "Für Pizza 1–19 und Pizza Spezial 26–31",
+// Spaltenköpfe "klein groß", dann Zeilen "Käse 0,50 1,00". Der bisherige Leser
+// kannte nur "Extra Zutaten: klein 1,00 €" und hielt die 36 Zeilen für
+// GERICHTE -- Ergebnis: "In dieser Karte stehen keine Extra-Regeln".
+//
+// Was hier entsteht:
+//   - je Spalte (klein/groß) eine Gruppe mit size_name -- der Gast sieht bei
+//     der kleinen Pizza 0,50 €, bei der großen 1,00 €;
+//   - "Salate – Soße nach Wahl 0,00" + Zeile darunter "Cocktailsauce,
+//     Joghurtsauce oder Knoblauchsauce" -> Einzelauswahl mit diesen Soßen;
+//   - "Familienpizza … 2,50 / jede weitere Zutat" + "Alle Zutaten von oben
+//     wählbar" -> alle Zutaten von oben zu 2,50 €;
+//   - sonst: eine Gruppe je Überschrift.
+// Für welche Gerichte: die Kategorien des Hauses, deren Name im Text steht
+// ("Pizza", "Pizza Spezial", "Salate" ...). Findet sich keine, ist die Gruppe
+// "unsicher": in der Vorschau NICHT angehakt, mit Hinweis -- lieber nachfragen
+// als "Mit Käse überbacken" bei jedem Gericht.
+function _extrasPreisZahl(x) { return Math.round(parseFloat(String(x).replace(',', '.')) * 100) / 100; }
+function extrasKategorienFinden(text, katNamen) {
+    var t = ' ' + String(text || '').toLowerCase().replace(/\(nr\.[^)]*\)/g, ' ') + ' ';
+    return (katNamen || []).filter(function (k) {
+        var n = String(k || '').trim().toLowerCase();
+        if (!n) return false;
+        var esc = n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return new RegExp('(^|[^a-z0-9äöüß])' + esc + '([^a-z0-9äöüß]|$)').test(t);
+    });
+}
+function extrasTabelleLesen(text, katNamen) {
+    var zeilen = String(text || '').split('\n').map(function (z) { return z.trim(); }).filter(Boolean);
+    var preisRe = /^(.*?[^\d\s,.€])\s+((?:\d{1,3}[,.]\d{2}\s*€?\s*)+)$/;
+    var abschnitte = [], a = null;
+    for (var i = 0; i < zeilen.length; i++) {
+        var z = zeilen[i];
+        if (z.slice(0, 3) === '## ') { a = { titel: z.slice(3).trim(), umfang: '', groessen: [], zeilen: [] }; abschnitte.push(a); continue; }
+        if (!a) continue;
+        var m = preisRe.exec(z);
+        if (m) {
+            a.zeilen.push({ name: m[1].trim(), preise: m[2].match(/\d{1,3}[,.]\d{2}/g).map(_extrasPreisZahl), zusatz: '' });
+            continue;
+        }
+        // Spaltenköpfe: 2-4 kurze Wörter ohne Zahl, und die NÄCHSTE Zeile hat
+        // genau so viele Preise ("klein groß" / "Käse 0,50 1,00").
+        var worte = z.split(/\s+/), naechste = preisRe.exec(zeilen[i + 1] || '');
+        if (!a.zeilen.length && worte.length >= 2 && worte.length <= 4 && !/\d/.test(z)
+            && worte.every(function (w) { return w.length <= 12; })
+            && naechste && naechste[2].match(/\d{1,3}[,.]\d{2}/g).length === worte.length) { a.groessen = worte; continue; }
+        // Zeile ohne Preis direkt unter einer Preiszeile gehört zu dieser.
+        if (a.zeilen.length && !a.zeilen[a.zeilen.length - 1].zusatz) { a.zeilen[a.zeilen.length - 1].zusatz = z; continue; }
+        a.umfang += (a.umfang ? ' ' : '') + z;
+    }
+    var gruppen = [], alleZutaten = [];
+    abschnitte.forEach(function (a) {
+        if (!a.zeilen.length) return;
+        var kats = extrasKategorienFinden(a.umfang + ' ' + a.titel, katNamen);
+        // Spalten je Größe
+        if (a.groessen.length > 1 && a.zeilen.every(function (r) { return r.preise.length === a.groessen.length; })) {
+            a.groessen.forEach(function (gr, s) {
+                gruppen.push({ name: a.titel, groesse: gr, kategorie: kats.join(','), mehrfach: true, quelle: a.umfang,
+                    optionen: a.zeilen.map(function (r) { return { name: r.name, price: r.preise[s] }; }) });
+            });
+            a.zeilen.forEach(function (r) { if (alleZutaten.indexOf(r.name) < 0) alleZutaten.push(r.name); });
+            return;
+        }
+        var sammel = null;
+        a.zeilen.forEach(function (r) {
+            var liste = r.zusatz && /,|\soder\s/.test(r.zusatz) ? r.zusatz.split(/\s*,\s*|\s+oder\s+/).filter(Boolean) : null;
+            if (liste && liste.length > 1) {
+                var teile = r.name.split(/\s+[–-]\s+/);
+                var fuer = teile.length > 1 ? teile[0] : a.titel;
+                var k2 = extrasKategorienFinden(fuer, katNamen);
+                gruppen.push({ name: teile.length > 1 ? teile.slice(1).join(' – ') : r.name, kategorie: k2.join(','), mehrfach: false, quelle: r.name,
+                    optionen: liste.map(function (o) { return { name: o, price: r.preise[0] }; }) });
+                return;
+            }
+            if (/jede weitere zutat/i.test(r.zusatz) && /alle zutaten/i.test(a.umfang) && alleZutaten.length) {
+                var kurz = r.name.replace(/\s*\(nr\.[^)]*\)/i, '').replace(/\s+\d+\s*x\s*\d+\s*cm.*$/i, '').trim();
+                gruppen.push({ name: 'Extra-Zutaten ' + kurz, kategorie: extrasKategorienFinden(kurz, katNamen).join(','), mehrfach: true, quelle: r.name + ' – ' + r.zusatz,
+                    optionen: alleZutaten.map(function (n) { return { name: n, price: r.preise[0] }; }) });
+                return;
+            }
+            if (!sammel) { sammel = { name: a.titel, kategorie: kats.join(','), mehrfach: true, quelle: a.umfang, optionen: [] }; gruppen.push(sammel); }
+            sammel.optionen.push({ name: r.name, price: r.preise[0] });
+        });
+    });
+    gruppen.forEach(function (g) { g.unsicher = !g.kategorie; });
+    return gruppen;
+}
+window.extrasTabelleLesen = extrasTabelleLesen;
+
+async function extrasKategorienHolen(rid) {
+    try {
+        var r = await sbRead(SUPABASE_URL + '/rest/v1/menu_categories?restaurant_id=eq.' + encodeURIComponent(rid) + '&select=name', {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() } });
+        var l = r.ok ? await r.json() : [];
+        return (Array.isArray(l) ? l : []).map(function (k) { return k.name; }).filter(Boolean);
+    } catch (e) { return []; }
+}
+
 function extrasRestaurantWahl() {
     var sel = document.getElementById('optionsRestaurantSelect');
     return (sel && sel.value) || window._gastroOnlyRestaurantId || null;
@@ -80927,9 +81026,12 @@ async function extrasPdfLesen(datei) {
             r.readAsDataURL(datei);
         });
         var e = await leseKartePdf(daten);
-        if (!e.ok) { _extrasPdfSage(e.grund || 'Konnte nichts lesen.', 'fehler'); return; }
+        if (!e.ok && !e.rohtext) { _extrasPdfSage(e.grund || 'Konnte nichts lesen.', 'fehler'); return; }
 
         var gruppen = (e.extras || []).filter(function (g) { return g.optionen && g.optionen.length; });
+        // Tabellenform (klein/groß-Spalten) -- siehe extrasTabelleLesen.
+        var tabelle = extrasTabelleLesen(e.rohtext || '', await extrasKategorienHolen(extrasRestaurantWahl()));
+        if (tabelle.length && tabelle.length >= gruppen.length) gruppen = tabelle;
         if (!gruppen.length) {
             _extrasPdfSage('In dieser Karte stehen keine Extra-Regeln (z.B. „Extra Zutaten: 1,00 €").', 'fehler');
             return;
@@ -80950,12 +81052,14 @@ function _extrasPdfZeige(gruppen) {
         var kats = g.kategorie ? g.kategorie.split(',') : [];
         html += '<div style="border:1px solid var(--border-color);border-radius:12px;padding:10px 12px;margin-bottom:8px;">'
               + '<label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer;">'
-              + '<input type="checkbox" class="extrasPdfHaken" data-i="' + i + '" checked style="margin-top:3px;accent-color:var(--ink-strong);">'
+              + '<input type="checkbox" class="extrasPdfHaken" data-i="' + i + '"' + (g.unsicher ? '' : ' checked') + ' style="margin-top:3px;accent-color:var(--ink-strong);">'
               + '<span style="flex:1;min-width:0;">'
               +   '<span style="font-weight:800;color:var(--ink-strong);font-size:13px;">' + esc(g.name) + '</span> '
               +   '<span style="font-size:12px;color:var(--text-secondary);">'
-              +     (kats.length ? (kats.length > 3 ? kats.length + ' Kategorien' : 'bei ' + esc(kats.join(', '))) : 'bei allen Gerichten')
+              +     (kats.length ? (kats.length > 3 ? kats.length + ' Kategorien' : 'bei ' + esc(kats.join(', '))) : (g.unsicher ? 'Kategorie unklar' : 'bei allen Gerichten'))
+              +     (g.groesse ? ' · nur Größe <b>' + esc(g.groesse) + '</b>' : '')
               +     ' · ' + (g.mehrfach ? 'mehrere wählbar' : 'eine Auswahl') + '</span>'
+              +   (g.unsicher ? '<div style="font-size:12px;color:#b45309;margin-top:3px;">Keine passende Kategorie gefunden („' + esc(g.quelle || '') + '“) — nicht angehakt. Anhaken gilt für ALLE Gerichte; besser danach bei „Bearbeiten“ die Kategorie eintragen.</div>' : '')
               +   '<div style="font-size:12px;margin-top:4px;line-height:1.6;">'
               +     g.optionen.map(function (o) {
                         return '<span style="display:inline-block;border:1px solid rgba(0,61,51,0.2);border-radius:9999px;'
@@ -81087,11 +81191,16 @@ async function legeExtrasAn(restaurantId, SUPA_H) {
     // Fehler, den es bei den Gerichten gab.
     var _vorhandeneGruppen = {};
     try {
+        // Mit size_name -- sonst wären "Extra-Zutaten Pizza (klein)" und
+        // "(groß)" beim zweiten Einlesen nicht als vorhanden erkannt worden.
+        // Fehlt die Spalte (400), einmal ohne.
         var vgRes = await sbRead(SUPA_URL + '/rest/v1/menu_option_groups?restaurant_id=eq.'
+            + restaurantId + '&select=id,name,internal_name,size_name', { headers: SUPA_H });
+        if (!vgRes.ok) vgRes = await sbRead(SUPA_URL + '/rest/v1/menu_option_groups?restaurant_id=eq.'
             + restaurantId + '&select=id,name,internal_name', { headers: SUPA_H });
         if (vgRes.ok) {
             (await vgRes.json() || []).forEach(function (vg) {
-                _vorhandeneGruppen[(vg.name + '|' + (vg.internal_name || '')).toLowerCase()] = vg.id;
+                _vorhandeneGruppen[(vg.name + '|' + (vg.internal_name || '') + (vg.size_name ? '|' + vg.size_name : '')).toLowerCase()] = vg.id;
             });
         }
     } catch (e) {}
@@ -81099,7 +81208,7 @@ async function legeExtrasAn(restaurantId, SUPA_H) {
     for (var e = 0; e < extras.length; e++) {
         var g = extras[e];
         if (!g.optionen || !g.optionen.length) continue;
-        var _schl = (g.name + '|' + (g.kategorie ? 'cats:' + g.kategorie : '')).toLowerCase();
+        var _schl = (g.name + '|' + (g.kategorie ? 'cats:' + g.kategorie : '') + (g.groesse ? '|' + g.groesse : '')).toLowerCase();
         if (_vorhandeneGruppen[_schl]) { extrasUebersprungen++; continue; }
         try {
             var _gruppenFeld = {
@@ -81107,6 +81216,8 @@ async function legeExtrasAn(restaurantId, SUPA_H) {
                 name: g.name,
                 // an die Kategorie binden, damit die Extras nur dort auftauchen
                 internal_name: g.kategorie ? ('cats:' + g.kategorie) : null,
+                // Spalte "klein"/"groß" aus einer Extras-Tabelle (extrasTabelleLesen)
+                size_name: g.groesse || null,
                 selection_type: g.mehrfach === false ? 'single' : 'multiple',
                 min_selections: 0,
                 max_selections: null,
