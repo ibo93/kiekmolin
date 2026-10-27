@@ -11056,6 +11056,10 @@
             #sectionOrders .kin-schalter { flex-direction: column; justify-content: center; gap: 2px; min-height: 64px; padding: 6px 4px; border-radius: 18px !important; font-size: 12px; }
             .kin-schalter .kin-schalter-zustand { font-size: 10px; }
             .kin-bk-status { grid-column: span 2; min-height: 44px; justify-content: center; font-size: 12px; }
+            /* Reservierungen: Alarm, Restaurant, CSV, Neu laden in EINER Zeile */
+            .kin-bk-res .kin-bk-werkzeuge { flex-wrap: nowrap; }
+            .kin-bk-res .kin-bk-wahl { flex: 1 1 0; min-width: 0; padding-right: 28px; text-overflow: ellipsis; }
+            .kin-bk-res .kin-schalter, .kin-bk-res .kin-bk-rund { flex: 0 0 auto; }
         }
         .kin-reiter { display: flex; gap: 4px; background: #ffffff; border-radius: 9999px; padding: 4px; margin-bottom: 14px; overflow-x: auto; }
         .kin-reiter .kin-filter-tab { flex: 1 1 auto; justify-content: center; min-height: 44px; padding: 0 10px; gap: 6px; white-space: nowrap; }
@@ -11481,7 +11485,7 @@
             #newReservationModal { align-items: flex-end !important; padding: 0 !important; }
             #newReservationModal .modal.kin-res-formular { max-width: none; border-radius: 28px 28px 0 0; max-height: 94vh; }
         }
-        .dark-mode #newReservationModal .modal.kin-res-formular { background: #12201d; color: #e8eeec; }
+        .dark-mode #newReservationModal .modal.kin-res-formular { background: #12201d !important; color: #e8eeec; }
         .dark-mode .kin-rf-kopf h2 { color: #ffffff; }
         .dark-mode .kin-rf-zu, .dark-mode .kin-rf-ab { background: rgba(255,255,255,0.1); color: #e8eeec; }
         .dark-mode .kin-rf-feld > span { color: #b9c4c0; }
@@ -11493,6 +11497,52 @@
         .dark-mode .kin-rf-stand { color: #ffd54f; }
         .dark-mode .kin-rf-fuss { border-top-color: rgba(255,255,255,0.1); }
         .dark-mode .kin-rf-ok { background: #ffd54f; color: #00251e; }
+        /* SPERRUNGEN + ZEITEN im Stil der neuen Reservierungsseite (27.10.2026).
+           Nur Aussehen -- Kennungen und Ablauf bleiben. Inline-Stile aus
+           selectBlockType() werden ueber aria-pressed ueberstimmt. */
+        #resTabBlocking .panel, #resTabSettings .res-settings-card { background: #ffffff !important; border: none !important; border-radius: 24px !important; padding: 18px !important; box-shadow: 0 1px 2px rgba(0,37,30,0.06), 0 10px 28px -14px rgba(0,37,30,0.18) !important; }
+        #resTabBlocking .panel h4, #resTabSettings .res-settings-card h4 { font-family: Epilogue, Inter, sans-serif !important; font-weight: 900 !important; font-size: 19px !important; letter-spacing: -0.01em; color: #00251e !important; margin: 0 0 10px !important; gap: 0 !important; }
+        #resTabSettings .res-settings-card h4 .settings-icon { display: none !important; }
+        #resTabBlocking label[for], #resTabBlocking .panel label:not(.sperr-wt):not([style*="relative"]) { font-size: 12px !important; font-weight: 800 !important; letter-spacing: 0.1em !important; text-transform: uppercase; color: #404946 !important; }
+        #resTabBlocking input[type="date"], #resTabBlocking input[type="time"], #resTabBlocking input[type="number"], #resTabBlocking input[type="text"], #resTabBlocking select,
+        #resTabSettings .res-time-input { min-height: 48px !important; padding: 0 14px !important; border: 2px solid transparent !important; border-radius: 14px !important; background: #f3f4f5 !important; color: #00251e !important; font-family: Inter, sans-serif !important; font-size: 15px !important; font-weight: 700 !important; box-sizing: border-box; -webkit-appearance: none; appearance: none; }
+        #resTabBlocking select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%2300251e' stroke-width='2'/%3E%3C/svg%3E") !important; background-repeat: no-repeat !important; background-position: right 14px center !important; padding-right: 36px !important; }
+        #resTabBlocking input:focus, #resTabBlocking select:focus, #resTabSettings .res-time-input:focus { outline: none; border-color: #003d33 !important; background-color: #ffffff !important; }
+        #resTabBlocking #blockVorlagen button { min-height: 40px !important; padding: 0 14px !important; border: 2px solid #e1e5e3 !important; background: #ffffff !important; color: #00251e !important; font-size: 13px !important; font-weight: 700 !important; }
+        #resTabBlocking .block-type-btn { min-height: 46px !important; border: 2px solid #e1e5e3 !important; background: #ffffff !important; color: #00251e !important; font-weight: 800 !important; font-size: 14px !important; }
+        #resTabBlocking .block-type-btn[aria-pressed="true"] { background: #003d33 !important; border-color: #003d33 !important; color: #ffffff !important; }
+        #resTabBlocking .sperr-wt span { min-width: 44px; min-height: 40px; line-height: 26px; border: 2px solid #e1e5e3; background: #ffffff; color: #00251e; font-weight: 800; font-size: 13px; }
+        #resTabBlocking .sperr-wt input:checked + span { background: #003d33; border-color: #003d33; color: #ffffff; }
+        #resTabBlocking #blockSperrKnopf { min-height: 54px !important; font-size: 16px !important; font-weight: 900 !important; background: #b91c1c !important; }
+        #resTabBlocking #blockOnlineSpeichern, #resTabBlocking #sonderHinzu { min-height: 48px !important; background: #003d33 !important; color: #ffffff !important; font-weight: 800 !important; }
+        #resTabBlocking p { color: #404946; }
+        #resTabSettings .res-time-input { min-width: 150px !important; }
+        #resTabSettings .res-time-row label { font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #404946; }
+        #resTabSettings .res-interval-pill { min-height: 46px; border: 2px solid #e1e5e3; background: #ffffff; color: #00251e; font-weight: 800; border-radius: 9999px; }
+        #resTabSettings .res-interval-pill.active { background: #003d33; border-color: #003d33; color: #ffffff; }
+        #resTabSettings .res-save-settings-btn { min-height: 52px; padding: 0 26px; border: none; border-radius: 9999px; background: #003d33 !important; color: #ffffff; font-family: Epilogue, Inter, sans-serif; font-weight: 900; font-size: 16px; }
+        #resTabSettings #pushTestKnopf { min-height: 46px; background: #003d33 !important; }
+        /* Dunkelmodus */
+        .dark-mode #resTabBlocking .panel, .dark-mode #resTabSettings .res-settings-card { background: rgba(255,255,255,0.06) !important; box-shadow: none !important; }
+        .dark-mode #resTabBlocking .panel h4, .dark-mode #resTabSettings .res-settings-card h4 { color: #ffffff !important; }
+        .dark-mode #resTabBlocking label[for], .dark-mode #resTabBlocking .panel label:not(.sperr-wt):not([style*="relative"]), .dark-mode #resTabSettings .res-time-row label { color: #b9c4c0 !important; }
+        .dark-mode #resTabBlocking input[type="date"], .dark-mode #resTabBlocking input[type="time"], .dark-mode #resTabBlocking input[type="number"], .dark-mode #resTabBlocking input[type="text"], .dark-mode #resTabBlocking select,
+        .dark-mode #resTabSettings .res-time-input { background-color: rgba(255,255,255,0.08) !important; color: #ffffff !important; }
+        .dark-mode #resTabBlocking select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23ffffff' stroke-width='2'/%3E%3C/svg%3E") !important; }
+        .dark-mode #resTabBlocking #blockVorlagen button, .dark-mode #resTabBlocking .block-type-btn, .dark-mode #resTabBlocking .sperr-wt span, .dark-mode #resTabSettings .res-interval-pill { background: transparent !important; border-color: rgba(255,255,255,0.2) !important; color: #ffffff !important; }
+        .dark-mode #resTabBlocking .block-type-btn[aria-pressed="true"], .dark-mode #resTabBlocking .sperr-wt input:checked + span, .dark-mode #resTabSettings .res-interval-pill.active { background: #ffd54f !important; border-color: #ffd54f !important; color: #00251e !important; }
+        .dark-mode #resTabBlocking p { color: #b9c4c0; }
+        .dark-mode #resTabBlocking input:focus, .dark-mode #resTabBlocking select:focus, .dark-mode #resTabSettings .res-time-input:focus { border-color: #ffd54f !important; background-color: rgba(255,255,255,0.12) !important; }
+        .dark-mode #resTabBlocking #blockOnlineSpeichern, .dark-mode #resTabBlocking #sonderHinzu, .dark-mode #resTabSettings .res-save-settings-btn, .dark-mode #resTabSettings #pushTestKnopf { background: #ffd54f !important; color: #00251e !important; }
+        .dark-mode #resTabSettings .res-save-settings-btn *, .dark-mode #resTabSettings #pushTestKnopf * { color: #00251e !important; }
+        /* TISCHPLAN: nur angleichen (27.10.2026) -- der Plan selbst ist neu (06.10.). */
+        .tp3-titel b { font-weight: 900 !important; letter-spacing: -0.02em; color: #00251e; }
+        .dark-mode .tp3-titel b { color: #ffffff; }
+        .tp3-pille, .tp3-knopf { border-width: 2px !important; border-color: #e1e5e3 !important; }
+        .tp3-knopf.haupt { border-color: #003d33 !important; }
+        .tp3 input[type="date"] { border: 2px solid transparent !important; border-radius: 14px !important; background: #f3f4f5 !important; font-weight: 700 !important; color: #00251e !important; }
+        .dark-mode .tp3-pille, .dark-mode .tp3-knopf { border-color: rgba(255,255,255,0.18) !important; }
+        .dark-mode .tp3 input[type="date"] { background: rgba(255,255,255,0.08) !important; color: #ffffff !important; }
         .kin-dash-zeitwahl { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 4px 0 12px; }
         .kin-dash-zeitwahl span { font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #404946; margin-right: 6px; }
         .kin-dash-zeitwahl button { min-height: 40px; padding: 0 16px; border-radius: 9999px; border: 1px solid #d5dbd9; background: #ffffff; color: #00251e; font-weight: 700; font-size: 14px; cursor: pointer; }
