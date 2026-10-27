@@ -59601,6 +59601,7 @@ async function loadOptionGroups() {
                 html += '<div style="font-size:12px;color:var(--slate);margin-top:4px;">' + typeLabel + ' | ' + scopeLabel + '</div></div>';
                 html += '<div style="display:flex;gap:8px;">';
                 html += '<button onclick="openEditOptionGroupModal(\'' + g.id + '\')" style="padding:6px 12px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:9999px;font-size:12px;cursor:pointer;">Bearbeiten</button>';
+                html += '<button onclick="kopiereOptionGroupFragen(\'' + g.id + '\')" aria-label="Gruppe kopieren" style="padding:6px 12px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:9999px;font-size:12px;cursor:pointer;">Kopieren</button>';
                 html += '<button onclick="deleteOptionGroup(\'' + g.id + '\')" style="padding:6px 12px;background:#fef2f2;color:#ef4444;border:1px solid #fecaca;border-radius:9999px;font-size:12px;cursor:pointer;">Löschen</button>';
                 html += '</div></div>';
 
@@ -59969,6 +59970,103 @@ async function deleteOptionGroup(groupId) {
         showToast('Löschen fehlgeschlagen: ' + err.message, 'error');
     }
 }
+
+// GRUPPE KOPIEREN (Ibo, 27.10.2026: "eine Tabelle kopieren, dann die neue
+// bearbeiten"). Legt eine Kopie mit allen Optionen und Preisen an -- im
+// selben Haus oder (Admin) in einem anderen -- und öffnet sie sofort zum
+// Bearbeiten. Typischer Fall: "Extra Zutaten Pizza" kopieren, umbenennen in
+// "Extra Zutaten Pasta", zwei Preise ändern. Vorher hieß das: alles neu tippen.
+function kopiereOptionGroupFragen(groupId) {
+    var hier = extrasRestaurantWahl();
+    if (!hier) { showToast('Bitte zuerst oben ein Restaurant wählen', 'error'); return; }
+    var istWirt = !!window._gastroOnlyRestaurantId || (typeof currentAdmin !== 'undefined' && currentAdmin && !currentAdmin.isAdmin);
+    var liste = (APP_DATA.restaurants || []).slice().sort(function (a, b) { return String(a.name || '').localeCompare(String(b.name || ''), 'de'); });
+    var feld = 'width:100%;padding:10px 12px;border:1.5px solid var(--border-color);border-radius:9999px;font-size:14px;background:var(--bg-secondary);color:var(--text-primary);box-sizing:border-box;';
+    var html = '<div style="display:flex;flex-direction:column;gap:14px;">'
+        + '<div><label for="ogKopieName" style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:4px;">Name der Kopie</label>'
+        + '<input type="text" id="ogKopieName" placeholder="z.B. Extra Zutaten Pasta" style="' + feld + '"></div>'
+        + (istWirt || liste.length < 2 ? '' :
+            '<div><label for="ogKopieZiel" style="font-size:13px;font-weight:600;color:var(--dark);display:block;margin-bottom:4px;">In welches Restaurant?</label>'
+          + '<select id="ogKopieZiel" style="' + feld + '">'
+          + liste.map(function (r) { return '<option value="' + escapeHtml(String(r.id)) + '"' + (r.id === hier ? ' selected' : '') + '>' + escapeHtml(String(r.name || '')) + (r.id === hier ? ' (dieses)' : '') + '</option>'; }).join('')
+          + '</select></div>')
+        + '<p id="ogKopieStand" role="status" style="margin:0;font-size:13px;color:var(--slate);">Alle Optionen und Preise werden mitkopiert. Danach öffnet sich die Kopie zum Bearbeiten.</p>'
+        + '<button type="button" onclick="kopiereOptionGroup(\'' + String(groupId).replace(/[^a-zA-Z0-9_-]/g, '') + '\')" id="ogKopieKnopf" style="width:100%;padding:14px;background:var(--primary);color:white;border:none;border-radius:9999px;font-size:15px;font-weight:700;cursor:pointer;">Kopieren und bearbeiten</button>'
+        + '</div>';
+    showGenericModal('Gruppe kopieren', html);
+    sbRead(SUPABASE_URL + '/rest/v1/menu_option_groups?id=eq.' + groupId + '&select=name', {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
+    }).then(function (r) { return r.json(); }).then(function (g) {
+        var f = document.getElementById('ogKopieName');
+        if (f && g && g[0] && !f.value) f.value = g[0].name + ' (Kopie)';
+    }).catch(function () {});
+}
+window.kopiereOptionGroupFragen = kopiereOptionGroupFragen;
+
+// Aus einer gelesenen Gruppe die Zeile für die Kopie machen: ohne id und
+// Zeitstempel, mit neuem Namen und Ziel-Haus. Optionen ebenso, mit der neuen
+// group_id. Reine Funktion -- damit testbar.
+function optionGroupKopie(g, opts, neuerName, zielRest) {
+    var gruppe = {};
+    Object.keys(g || {}).forEach(function (k) { if (['id', 'created_at', 'updated_at'].indexOf(k) < 0) gruppe[k] = g[k]; });
+    gruppe.name = String(neuerName || (g && g.name) || 'Kopie').slice(0, 100);
+    gruppe.restaurant_id = zielRest;
+    var optionen = (opts || []).map(function (o) {
+        var n = {};
+        Object.keys(o).forEach(function (k) { if (['id', 'created_at', 'updated_at', 'group_id'].indexOf(k) < 0) n[k] = o[k]; });
+        return n;
+    });
+    return { gruppe: gruppe, optionen: optionen };
+}
+window.optionGroupKopie = optionGroupKopie;
+
+async function kopiereOptionGroup(groupId) {
+    var stand = document.getElementById('ogKopieStand'), knopf = document.getElementById('ogKopieKnopf');
+    var name = ((document.getElementById('ogKopieName') || {}).value || '').trim();
+    var zielEl = document.getElementById('ogKopieZiel');
+    var ziel = (zielEl && zielEl.value) || extrasRestaurantWahl();
+    function sag(t) { if (stand) { stand.textContent = t; stand.style.color = '#b45309'; } }
+    if (!name) { sag('Bitte einen Namen für die Kopie eingeben.'); return; }
+    if (!ziel) { sag('Kein Restaurant gewählt.'); return; }
+    if (knopf) { knopf.disabled = true; knopf.textContent = 'Wird kopiert…'; }
+    var lesen = { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() } };
+    var kopf = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
+    try {
+        var g = await (await sbRead(SUPABASE_URL + '/rest/v1/menu_option_groups?id=eq.' + groupId, lesen)).json();
+        if (!g || !g[0]) throw new Error('Die Gruppe ist nicht mehr da.');
+        var opts = await (await sbRead(SUPABASE_URL + '/rest/v1/menu_options?group_id=eq.' + groupId + '&order=sort_order', lesen)).json();
+        var k = optionGroupKopie(g[0], Array.isArray(opts) ? opts : [], name, ziel);
+        var res = await fetch(SUPABASE_URL + '/rest/v1/menu_option_groups', { method: 'POST', headers: kopf, body: JSON.stringify(k.gruppe) });
+        var neu = res.ok ? await res.json() : null;
+        // Ohne zurückgegebene Zeile gilt es als NICHT kopiert (Regel 6).
+        if (!res.ok || !Array.isArray(neu) || !neu[0] || !neu[0].id) {
+            var roh = res.ok ? '' : await res.text();
+            var grund = res.ok ? 'die Datenbank hat keine Gruppe zurückgegeben' : fehlerKlartext(roh);
+            sag('Nicht kopiert: ' + grund + '.');
+            if (istRechteFehler(roh) && typeof _zeigeOptionsRechteHilfe === 'function') _zeigeOptionsRechteHilfe('kopiert');
+            if (knopf) { knopf.disabled = false; knopf.textContent = 'Kopieren und bearbeiten'; }
+            return;
+        }
+        var neuId = neu[0].id, optFehler = '';
+        if (k.optionen.length) {
+            var oRes = await fetch(SUPABASE_URL + '/rest/v1/menu_options', { method: 'POST', headers: kopf,
+                body: JSON.stringify(k.optionen.map(function (o) { return Object.assign({}, o, { group_id: neuId }); })) });
+            if (!oRes.ok) optFehler = fehlerKlartext(await oRes.text());
+            else { var oNeu = await oRes.json(); if (!Array.isArray(oNeu) || oNeu.length !== k.optionen.length) optFehler = 'nur ' + (Array.isArray(oNeu) ? oNeu.length : 0) + ' von ' + k.optionen.length + ' Optionen angekommen'; }
+        }
+        closeGenericModal();
+        var sel = document.getElementById('optionsRestaurantSelect');
+        if (sel && sel.value !== ziel) sel.value = ziel;
+        await loadOptionGroups();
+        if (optFehler) showToast('Gruppe kopiert, aber die Optionen nicht: ' + optFehler, 'error');
+        else showToast('Kopiert: „' + name + '" mit ' + k.optionen.length + ' Optionen', 'success');
+        openEditOptionGroupModal(neuId);
+    } catch (e) {
+        sag('Nicht kopiert: ' + (e && e.message || e));
+        if (knopf) { knopf.disabled = false; knopf.textContent = 'Kopieren und bearbeiten'; }
+    }
+}
+window.kopiereOptionGroup = kopiereOptionGroup;
 
 // Cross-Sells laden
 async function loadCrossSells(restId) {

@@ -236,8 +236,13 @@ t('beim abgelehnten Bearbeiten ebenso',
 // landen und die klare Meldung durch "... is not defined" ersetzen. Genau das
 // ist beim Bauen passiert, weil die Hilfe in einem anderen <script>-Block steht.
 t('die Aufrufe sind gegen ReferenceError abgesichert',
-  (CODE.match(/typeof _zeigeOptionsRechteHilfe === 'function'/g) || []).length === 3,
-  (CODE.match(/typeof _zeigeOptionsRechteHilfe === 'function'/g) || []).length);
+  // JEDER Aufruf hat seine Wache (seit 27.10.2026 auch "Kopieren" -- darum
+  // nicht mehr fest 3, sondern: Aufrufe == Wachen).
+  (CODE.match(/typeof _zeigeOptionsRechteHilfe === 'function'/g) || []).length >= 3
+  && (CODE.match(/typeof _zeigeOptionsRechteHilfe === 'function'/g) || []).length
+     === (CODE.match(/[^n] _zeigeOptionsRechteHilfe\('/g) || []).length,
+  (CODE.match(/typeof _zeigeOptionsRechteHilfe === 'function'/g) || []).length + ' Wachen / '
+  + (CODE.match(/[^n] _zeigeOptionsRechteHilfe\('/g) || []).length + ' Aufrufe');
 
 // Der Hinweiskasten darf NICHT in optionGroupsList liegen: nach einem
 // abgelehnten Loeschen wird die Liste sofort neu geschrieben und wuerde den
