@@ -11185,6 +11185,9 @@
         .kin-pos > b { white-space: nowrap; }
         .kin-pos-extra { font-size: 13px; color: #735c00; padding-left: 22px; margin-top: -2px; }
         .kin-pos-notiz { font-size: 13px; color: #b45309; font-weight: 700; padding-left: 22px; }
+        /* Meldungen an dich: Warnfarben im Dunkeln lesbar halten */
+        .dark-mode #adminMeldungenStand[style*="b45309"] { color: #fbbf24 !important; }
+        .dark-mode #adminMeldungenStand[style*="b91c1c"] { color: #fca5a5 !important; }
         .kin-pos-kurz { font-size: 14px; color: #191c1d; line-height: 1.45; }
         .kin-pos-kurz b { font-weight: 800; }
         #ordersGrid .kin-order-items { display: flex; flex-direction: column; gap: 4px !important; }
@@ -23250,6 +23253,27 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         SEPA Export
                     </button>
                     <!-- Kunde wird automatisch beim Restaurant-Anlegen erstellt -->
+                </div>
+            </div>
+
+            <!-- MELDUNGEN AN DICH (27.10.2026): jede neue Reservierung und
+                 Bestellung aller Lokale per E-Mail UND Push, ohne Schalter.
+                 netlify/functions/admin-meldungen.js -->
+            <div class="panel" id="adminMeldungen" style="margin-bottom:24px;">
+                <div class="panel-content" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                    <div style="min-width:220px;flex:1;">
+                        <div style="font-family:Inter,sans-serif;font-weight:700;font-size:15px;color:var(--text-primary);">Meldungen an dich</div>
+                        <div style="font-family:Inter,sans-serif;font-size:13px;color:var(--text-secondary);margin-top:2px;">Jede neue Reservierung und Bestellung aller Lokale – per E-Mail und aufs Handy. Auch die Erinnerung, wenn der Wirt 20 Min nicht reagiert.</div>
+                        <div id="adminMeldungenStand" style="font-family:Inter,sans-serif;font-size:13px;margin-top:6px;"></div>
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button class="dash-btn" onclick="pushHierAktivieren(); setTimeout(adminMeldungenLaden, 3500);" style="background: var(--bg-secondary); color: var(--dark);">
+                            <span class="material-symbols-outlined" style="font-size:18px;">notifications_active</span>Auf diesem Handy
+                        </button>
+                        <button class="dash-btn" id="adminMeldungenKnopf" onclick="adminMeldungenTest()">
+                            <span class="material-symbols-outlined" style="font-size:18px;">send</span>Test senden
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -42625,6 +42649,7 @@ window.aboStandWort = aboStandWort;
 window.aboAnzeige = aboAnzeige;
 
 async function loadCustomers() {
+    try { adminMeldungenLaden(); } catch (e) {}
     try {
         const response = await fetch(`${SUPABASE_URL}/rest/v1/customers?select=*&role=neq.superadmin&order=created_at.desc`, {
             headers: {
@@ -48948,6 +48973,45 @@ async function pushTestSenden() {
     } finally {
         if (knopf) knopf.disabled = false;
         pushStatusLaden();
+    }
+}
+// MELDUNGEN AN DEN BETREIBER (27.10.2026). Der Stand kommt vom Server,
+// nicht aus dem Browser: "0 Geräte" ist die ehrliche Antwort, wenn sich
+// dieses Handy nie angemeldet hat -- die E-Mail kommt trotzdem.
+async function adminMeldungenLaden() {
+    var el = document.getElementById('adminMeldungenStand');
+    if (!el) return;
+    try {
+        var r = await fetch('/.netlify/functions/admin-meldungen', { headers: { Authorization: 'Bearer ' + kmiToken() } });
+        var j = await r.json().catch(function () { return { ok: false, error: 'HTTP ' + r.status }; });
+        if (!j.ok) { el.textContent = 'Stand nicht abrufbar (' + (j.error || 'HTTP ' + r.status) + ') – die E-Mails kommen trotzdem.'; el.style.color = '#b91c1c'; return; }
+        el.textContent = j.geraete
+            ? '✓ E-Mail an. Push auf ' + j.geraete + (j.geraete === 1 ? ' Gerät' : ' Geräten') + '.'
+            : '✓ E-Mail an. ⚠ Push: auf keinem Gerät angemeldet – „Auf diesem Handy“ tippen.';
+        el.style.color = j.geraete ? 'var(--text-primary)' : '#b45309';
+    } catch (e) { el.textContent = 'Stand nicht abrufbar (keine Verbindung).'; el.style.color = '#b91c1c'; }
+}
+async function adminMeldungenTest() {
+    var el = document.getElementById('adminMeldungenStand'), knopf = document.getElementById('adminMeldungenKnopf');
+    if (knopf) knopf.disabled = true;
+    if (el) { el.textContent = 'Wird gesendet …'; el.style.color = 'var(--text-secondary)'; }
+    try {
+        var r = await fetch('/.netlify/functions/admin-meldungen', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + kmiToken() },
+            body: JSON.stringify({ test: true })
+        });
+        var j = await r.json().catch(function () { return {}; });
+        if (el) {
+            el.textContent = j.ok
+                ? 'Test an ' + j.gesendet + ' von ' + j.von + (j.von === 1 ? ' Gerät' : ' Geräten') + ' gesendet – kommt er an?'
+                : 'Push nicht angekommen: ' + (j.error || 'HTTP ' + r.status) + '. Die E-Mails kommen trotzdem.';
+            el.style.color = j.ok ? 'var(--text-primary)' : '#b91c1c';
+        }
+    } catch (e) {
+        if (el) { el.textContent = 'Test nicht gesendet: keine Verbindung.'; el.style.color = '#b91c1c'; }
+    } finally {
+        if (knopf) knopf.disabled = false;
     }
 }
 function pushHierAktivieren() {

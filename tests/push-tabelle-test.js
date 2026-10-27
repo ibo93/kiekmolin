@@ -153,8 +153,9 @@ t('kein Admin-Haekchen aus dem Browser',
   /is_admin|isAdmin:\s*true,/.test(app.slice(app.indexOf('var record = {'),
                                               app.indexOf('var record = {') + 600)) === false,
   'Browser behauptet es selbst');
-t('der Melder fragt customers, wer Superadmin ist',
-  /customers\?role=eq\.superadmin&select=email/.test(melder), 'glaubt dem Geraet');
+t('der Melder fragt customers, wer Superadmin ist (ueber lib/wirt-geraete.js)',
+  /WIRT\.adminMails\(SUPABASE_URL, SUPABASE_SERVICE_KEY\)/.test(melder)
+  && /customers\?role=eq\.superadmin&select=email/.test(fs.readFileSync(KMI + '/netlify/functions/lib/wirt-geraete.js', 'utf8')), 'glaubt dem Geraet');
 // SEIT 14.10.2026: keine Kopien der Wirte-Meldungen mehr an ihn ("ich will
 // kein wächter nachrichten oder so bekommen als admin"). Die Superadmin-
 // Pruefung bleibt -- jetzt, um sein Handy HERAUSZUNEHMEN. Das Ausfuehren
@@ -162,14 +163,18 @@ t('der Melder fragt customers, wer Superadmin ist',
 var wirtLib = fs.readFileSync(KMI + '/netlify/functions/lib/wirt-geraete.js', 'utf8');
 t('die Absage-Function prueft ebenfalls ueber customers, wer Admin ist',
   /customers\?role=eq\.superadmin&select=email/.test(wirtLib) && /WIRT\.adminMails\(/.test(absage), 'nur halb eingebaut');
-t('fuer Anmeldungen wird sein Geraet ueber die E-Mail gesucht',
-  /push_subscriptions\?customer_email=in\.\(/.test(melder), 'findet nichts');
+// 27.10.2026: ueber lib/admin-geraete.js, gross/klein egal.
+var adminLib = fs.readFileSync(KMI + '/netlify/functions/lib/admin-geraete.js', 'utf8');
+t('sein Geraet wird ueber die E-Mail gesucht (lib/admin-geraete.js, ilike)',
+  /ADMIN\.geraete\(SUPABASE_URL, SUPABASE_SERVICE_KEY, await adminMailsEinmal\(\)\)/.test(melder)
+  && /push_subscriptions\?or=\(/.test(adminLib) && /customer_email\.ilike\./.test(adminLib), 'findet nichts');
 t('die Admin-Liste wird einmal je Durchlauf geholt, nicht je Meldung',
   /let _adminGeraete = null;/.test(melder) && /if \(_adminGeraete\) return _adminGeraete;/.test(melder)
   && /let _adminMails = null;/.test(melder), 'fragt bei jeder Meldung neu');
-t('Wirte-Meldungen gehen nicht mehr an die Admin-Geraete',
-  /eigene\.concat\(admins\)/.test(melder) === false && /push_subscriptions\?customer_email=in\./.test(absage) === false,
-  'Kopie an den Admin');
+// 27.10.2026: Reservierung/Bestellung WIEDER an ihn (admin-ruhe-test.js
+// fuehrt das aus), Absagen weiterhin nicht.
+t('Absagen gehen nicht an die Admin-Geraete',
+  /push_subscriptions\?customer_email=in\./.test(absage) === false, 'Kopie an den Admin');
 t('faellt die Admin-Suche aus, bekommt der Wirt trotzdem seine Meldung',
   /catch \(e\) \{\s*return \[\];/.test(wirtLib) && /Admin-Geraete nicht ladbar/.test(melder), 'ein Fehler kippt alles');
 
