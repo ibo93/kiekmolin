@@ -62,7 +62,8 @@ function t(l, c, x) { n++; if (c === true) ok++; console.log((c === true ? 'OK  
   // Listen
   t('keine Liste mehr fest auf tables:table_id(...seats) -- alle ueber den Rueckfall',
     !/select=\*,tables:table_id\(id,table_number,seats\)/.test(H) && !/\.select\('\*, tables:table_id\(id, table_number, seats\)'\)/.test(H) && (H.match(/resMitTischLaden\(function \(sel\)/g) || []).length === 2 && /RES_TISCH_EINBETTUNG\[_st\]/.test(H), '');
-  t('Rueckfall-Reihenfolge: alt, neu (seats:max_capacity), ohne', /var RES_TISCH_EINBETTUNG = \['tables:table_id\(id,table_number,seats\)', 'tables:table_id\(id,table_number,seats:max_capacity\)', ''\];/.test(H), '');
+  // 27.10.2026: neu zuerst (gemessen: alt 207x 400, neu 829x 200).
+  t('Rueckfall-Reihenfolge: neu (seats:max_capacity), alt, ohne', /var RES_TISCH_EINBETTUNG = \['tables:table_id\(id,table_number,seats:max_capacity\)', 'tables:table_id\(id,table_number,seats\)', ''\];/.test(H), '');
   // SQL
   var sql = fs.readFileSync(path.join(__dirname, '..', 'datenbank', '40-tisch-zuordnung.sql'), 'utf8');
   t('SQL: Regel zeigt auf restaurant_tables, "not valid" (alte Zeilen unangetastet), on delete set null',

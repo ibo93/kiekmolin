@@ -33770,7 +33770,10 @@ function generateReservationSlots(restaurantId, datum) {
 // vorher UND nachher laden (und nicht leer bleiben): erst die alte Form,
 // bei 400 die neue, notfalls ohne Tisch. Die Stufe, die klappt, wird
 // gemerkt.
-var RES_TISCH_EINBETTUNG = ['tables:table_id(id,table_number,seats)', 'tables:table_id(id,table_number,seats:max_capacity)', ''];
+// 27.10.2026 GEMESSEN: datenbank/40 ist eingespielt. Die alte Form gab
+// 207-mal am Tag 400 (eine Fehlanfrage bei jedem Laden), die neue 829-mal
+// 200. Deshalb jetzt neu zuerst -- die alte bleibt als Rueckfall.
+var RES_TISCH_EINBETTUNG = ['tables:table_id(id,table_number,seats:max_capacity)', 'tables:table_id(id,table_number,seats)', ''];
 async function resMitTischLaden(baueUrl, opts) {
     var res = null;
     for (var i = window._resTischStufe || 0; i < RES_TISCH_EINBETTUNG.length; i++) {
