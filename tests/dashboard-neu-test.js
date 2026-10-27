@@ -12,7 +12,7 @@ function fn(name) {
     var a = H.lastIndexOf('\n', i) + 1, d = 0, j = H.indexOf('{', i);
     for (var k = j; k < H.length; k++) { if (H[k] === '{') d++; else if (H[k] === '}') { d--; if (!d) return H.slice(a, k + 1); } }
 }
-var namen = ['dashTag', 'dashPlusTage', 'dashMin', 'dashSchnitt', 'dashProzent', 'dashFertigMin', 'dashAuswerten'];
+var namen = ['dashTagKurz', 'dashTag', 'dashPlusTage', 'dashMin', 'dashSchnitt', 'dashProzent', 'dashFertigMin', 'dashAuswerten'];
 var A = new Function('umsatzTag', 'localDayStr',
     'var DASH_ART = { pickup: {}, delivery: {}, dine_in: {} }; var DASH_STD = [11,12,13,14,15,16,17,18,19,20,21,22];\n'
     + namen.map(fn).join('\n') + '; return dashAuswerten;')(
@@ -64,6 +64,22 @@ t('Bestellart 14 Tage: Abholung 2 (ohne Storno), Lieferung 1, Tisch 1', M.art.pi
 t('Reservierte Gaeste in 4 Tagen: 8', M.res14[4].gaeste === 8, M.res14[4].gaeste);
 t('Nicht gekommen (30 Tage): 1 von 2 = 50 %', M.noShow === 50, M.noShow);
 t('Beliebte Zeiten: Dienstag 12 Uhr hat einen Wert (letzte Woche)', M.zeiten[2][1] > 0, JSON.stringify(M.zeiten[2]));
+
+console.log('\n-- Zeitraum (7 Tage / 30 Tage / 12 Monate) --');
+var Z7 = A({ orders: orders, res: res, kasse: {}, reviews: [], zeitraum: 7 }, jetzt);
+t('7 Tage: 7 Punkte, Summe nur diese Woche (50 €)', Z7.umsatz30.length === 7 && Z7.umsatz30Summe === 50, Z7.umsatz30.length + ' / ' + Z7.umsatz30Summe);
+t('7 Tage: verglichen mit den 7 davor (140 € am letzten Dienstag)', Z7.umsatzVor30.reduce(function (a, b) { return a + b; }, 0) === 140 && Z7.zVorLabel === '7 Tage davor', JSON.stringify(Z7.umsatzVor30));
+t('7 Tage: Top-Gerichte nur aus diesen 7 Tagen (Pizza 2×, Döner 1×, kein Salat von letzter Woche)', JSON.stringify(Z7.top) === '[["Pizza",2],["Döner",1]]', JSON.stringify(Z7.top));
+var altJahr = orders.concat([{ created_at: new Date(2025, 9, 10, 12).toISOString(), total: '500.00', status: 'picked_up', order_type: 'pickup' }]);
+var ZJ = A({ orders: altJahr, res: res, kasse: { '2026-10-01': { betrag: 70 } }, reviews: [], zeitraum: 365 }, jetzt);
+t('12 Monate: 12 Monats-Säulen, letzter ist Okt 26', ZJ.umsatz30.length === 12 && /^Okt/.test(ZJ.fachNamen[11]), JSON.stringify(ZJ.fachNamen));
+t('12 Monate: Oktober = App 190 € + Kasse 70 €', ZJ.umsatz30[11] === 260, ZJ.umsatz30[11]);
+t('12 Monate: Vorjahres-Oktober 500 €', ZJ.umsatzVor30[11] === 500 && ZJ.zVorLabel === 'Vorjahr', ZJ.umsatzVor30[11]);
+t('12 Monate: September (vor 40 Tagen, 10 €) im richtigen Monat', ZJ.umsatz30[10] === 10, ZJ.umsatz30[10]);
+t('12 Monate: "pro Tag" ab dem ersten Umsatztag (vor 40 Tagen -> 41 Tage), nicht durch 365', ZJ.zTage === 41 || ZJ.zTage === 40, ZJ.zTage);
+t('ohne Angabe: 30 Tage', M.zeitraum === 30 && M.umsatz30.length === 30, M.zeitraum);
+t('Seite: Zeitraum-Knöpfe rufen dashZeitraum, Wahl wird gemerkt', /onclick="dashZeitraum\(' \+ z\[0\] \+ '\)"/.test(H) && /localStorage\.setItem\('kmi_dash_zeitraum'/.test(fn('dashZeitraum')), '');
+t('Seite: für 12 Monate werden zwei Jahre geladen', /Z === 365 \? 760/.test(fn('dashLaden')) && /zeitraum: Z/.test(fn('dashLaden')), '');
 
 console.log('\n-- Nichts erfinden --');
 var L = A({ orders: [], res: [], kasse: {}, reviews: [] }, jetzt);

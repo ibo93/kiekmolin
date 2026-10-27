@@ -11427,6 +11427,13 @@
         .kin-dash-chips { display: flex; gap: 8px; flex-wrap: wrap; position: relative; z-index: 1; }
         .kin-dash-chip { display: inline-flex; align-items: center; min-height: 32px; border-radius: 9999px; padding: 0 12px; font-size: 13px; font-weight: 700; background: rgba(255,255,255,0.12); color: #ffffff; border: none; }
         .kin-dash-chip.schlecht { background: rgba(252,165,165,0.22); color: #fecaca; }
+        .kin-dash-zeitwahl { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 4px 0 12px; }
+        .kin-dash-zeitwahl span { font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #404946; margin-right: 6px; }
+        .kin-dash-zeitwahl button { min-height: 40px; padding: 0 16px; border-radius: 9999px; border: 1px solid #d5dbd9; background: #ffffff; color: #00251e; font-weight: 700; font-size: 14px; cursor: pointer; }
+        .kin-dash-zeitwahl button.aktiv { background: #003d33; border-color: #003d33; color: #ffffff; }
+        .dark-mode .kin-dash-zeitwahl span { color: #b9c4c0; }
+        .dark-mode .kin-dash-zeitwahl button { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.18); color: #e8eeec; }
+        .dark-mode .kin-dash-zeitwahl button.aktiv { background: #ffd54f; border-color: #ffd54f; color: #00251e; }
         .kin-dash-chip.warn { background: rgba(255,213,79,0.18); color: #ffd54f; }
         .kin-dash-chip.hell { background: #ffd54f; color: #00251e; font-weight: 800; cursor: pointer; min-height: 36px; }
         .kin-dash-jetztspalte { display: flex; flex-direction: column; gap: 14px; }
@@ -65949,14 +65956,45 @@ function dashAuswerten(d, jetzt) {
         M.spark.fertig.push(dashSchnitt(amTag(ok, t7).map(dashFertigMin)) || 0);
     }
 
-    // Umsatz 30 Tage (App + Kasse) und Vormonat
-    M.umsatz30 = []; M.umsatzVor30 = []; M.tage30 = [];
-    for (var j = 29; j >= 0; j--) {
-        var tj = dashPlusTage(heute, -j), tv = dashPlusTage(heute, -j - 30);
-        M.tage30.push(tj);
-        M.umsatz30.push(summe(amTag(ok, tj)) + (kasse[tj] ? kasse[tj].betrag : 0));
-        M.umsatzVor30.push(summe(amTag(ok, tv)) + (kasse[tv] ? kasse[tv].betrag : 0));
+    // UMSATZ IM GEWAEHLTEN ZEITRAUM (App + Kasse) und der gleich lange davor.
+    // 7 / 30 Tage: je Tag. 12 Monate: je Monat, verglichen mit dem Vorjahr.
+    // Die Feldnamen heissen weiter umsatz30 -- sie tragen jetzt den Zeitraum.
+    var Z = [7, 30, 365].indexOf(+d.zeitraum) >= 0 ? +d.zeitraum : 30;
+    M.zeitraum = Z;
+    M.zLabel = Z === 7 ? 'letzte 7 Tage' : Z === 30 ? 'letzte 30 Tage' : 'letzte 12 Monate';
+    M.zVorLabel = Z === 7 ? '7 Tage davor' : Z === 30 ? '30 Tage davor' : 'Vorjahr';
+    var faecher = [];
+    if (Z === 365) {
+        for (var mo = 11; mo >= 0; mo--) {
+            var m0 = new Date(jetzt.getFullYear(), jetzt.getMonth() - mo, 1), m1 = new Date(jetzt.getFullYear(), jetzt.getMonth() - mo + 1, 0);
+            var v0 = new Date(m0.getFullYear() - 1, m0.getMonth(), 1), v1 = new Date(m0.getFullYear() - 1, m0.getMonth() + 1, 0);
+            faecher.push({ von: dashTag(m0), bis: dashTag(m1), vvon: dashTag(v0), vbis: dashTag(v1),
+                           name: ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'][m0.getMonth()] + (m0.getMonth() === 0 || mo === 11 ? ' ' + String(m0.getFullYear()).slice(2) : '') });
+        }
+    } else {
+        for (var j = Z - 1; j >= 0; j--) {
+            var tj = dashPlusTage(heute, -j), tv = dashPlusTage(heute, -j - Z);
+            faecher.push({ von: tj, bis: tj, vvon: tv, vbis: tv, name: dashTagKurz(tj) });
+        }
     }
+    var imFach = function (von, bis) {
+        var app = summe(ok.filter(function (o) { var t = dashTag(o.created_at); return t >= von && t <= bis; }));
+        var k = 0; Object.keys(kasse).forEach(function (t) { if (t >= von && t <= bis && kasse[t]) k += kasse[t].betrag || 0; });
+        return app + k;
+    };
+    M.umsatz30 = []; M.umsatzVor30 = []; M.tage30 = []; M.fachNamen = [];
+    faecher.forEach(function (f) {
+        M.tage30.push(f.von); M.fachNamen.push(f.name);
+        M.umsatz30.push(imFach(f.von, f.bis));
+        M.umsatzVor30.push(imFach(f.vvon, f.vbis));
+    });
+    var zAb = Z === 365 ? faecher[0].von : dashPlusTage(heute, -(Z - 1));
+    // "Pro Tag" ab dem ersten Tag mit Umsatz im Zeitraum -- wer seit August
+    // dabei ist, hat sonst im Jahr "48 € pro Tag" statt der echten Zahl.
+    var erster = null;
+    ok.forEach(function (o) { var t = dashTag(o.created_at); if (t >= zAb && (!erster || t < erster)) erster = t; });
+    Object.keys(kasse).forEach(function (t) { if (t >= zAb && kasse[t] && kasse[t].betrag && (!erster || t < erster)) erster = t; });
+    M.zTage = erster ? Math.round((new Date(heute + 'T12:00:00') - new Date(erster + 'T12:00:00')) / 86400000) + 1 : Z;
     M.umsatz30Summe = M.umsatz30.reduce(function (a, b) { return a + b; }, 0);
     M.umsatz30Trend = dashProzent(M.umsatz30Summe, M.umsatzVor30.reduce(function (a, b) { return a + b; }, 0));
     M.umsatz30Tage = M.umsatz30.filter(function (v) { return v > 0; }).length;
@@ -65991,7 +66029,7 @@ function dashAuswerten(d, jetzt) {
     // Top 5 Gerichte (30 Tage)
     var g = {}, hatPos = false;
     ok.forEach(function (o) {
-        if (dashTag(o.created_at) <= dashPlusTage(heute, -30)) return;
+        if (dashTag(o.created_at) < zAb) return;
         (o.order_items || []).forEach(function (p) { hatPos = true; var n = p.item_name || 'Gericht'; g[n] = (g[n] || 0) + (parseInt(p.quantity, 10) || 1); });
     });
     M.top = Object.keys(g).map(function (n) { return [n, g[n]]; }).sort(function (a, b) { return b[1] - a[1]; }).slice(0, 5);
@@ -66000,7 +66038,7 @@ function dashAuswerten(d, jetzt) {
     // Reservierungen: naechste 14 Tage, Quoten der letzten 30 Tage, wiederkehrende Gaeste
     M.res14 = [];
     for (var r14 = 0; r14 < 14; r14++) { var tr = dashPlusTage(heute, r14); M.res14.push({ tag: tr, gaeste: gaeste(resOk.filter(function (r) { return r.reservation_date === tr; })) }); }
-    var vor30 = res.filter(function (r) { return r.reservation_date < heute && r.reservation_date >= dashPlusTage(heute, -30); });
+    var vor30 = res.filter(function (r) { return r.reservation_date < heute && r.reservation_date >= zAb; });
     M.noShow = vor30.length ? Math.round(vor30.filter(function (r) { return r.status === 'no_show'; }).length / vor30.length * 100) : null;
     M.abgesagt = vor30.length ? Math.round(vor30.filter(function (r) { return r.status === 'cancelled' || r.status === 'rejected'; }).length / vor30.length * 100) : null;
     var tel = {}; resOk.forEach(function (r) { var z = String(r.guest_phone || '').replace(/\D/g, ''); if (z) tel[z] = (tel[z] || 0) + 1; });
@@ -66072,16 +66110,17 @@ function dashUmsatzSvg(M) {
     s += '<polygon points="' + X(0) + ',' + Y(0) + ' ' + pts + ' ' + X(n - 1) + ',' + Y(0) + '" fill="#0b8a6f" fill-opacity="0.12"/>';
     s += '<polyline points="' + M.umsatzVor30.map(function (v, i) { return X(i).toFixed(1) + ',' + Y(v).toFixed(1); }).join(' ') + '" fill="none" class="kin-dash-vormonat" stroke-width="2" stroke-dasharray="5 5"/>';
     s += '<polyline points="' + pts + '" fill="none" stroke="#0b8a6f" stroke-width="2.5" stroke-linejoin="round"/>';
-    [0, 7, 14, 21, n - 1].forEach(function (i) { s += '<text x="' + X(i).toFixed(1) + '" y="' + (h - 6) + '" text-anchor="middle" class="kin-dash-achse">' + dashTagKurz(M.tage30[i]) + '</text>'; });
+    var marken = n <= 12 ? M.umsatz30.map(function (v, i) { return i; }).filter(function (i) { return n <= 7 || i % 2 === 0 || i === n - 1; }) : [0, 7, 14, 21, n - 1];
+    marken.forEach(function (i) { s += '<text x="' + X(i).toFixed(1) + '" y="' + (h - 6) + '" text-anchor="middle" class="kin-dash-achse">' + M.fachNamen[i] + '</text>'; });
     // Hover: unsichtbare breite Streifen je Tag mit Titel (Tooltip), Punkt erscheint per CSS
     M.umsatz30.forEach(function (v, i) {
         var bw = (w - pl - 6) / (n - 1);
         s += '<g class="kin-dash-hover"><rect x="' + (X(i) - bw / 2).toFixed(1) + '" y="' + pt + '" width="' + bw.toFixed(1) + '" height="' + (h - pt - pb) + '" fill="transparent"/>'
             + '<line x1="' + X(i).toFixed(1) + '" x2="' + X(i).toFixed(1) + '" y1="' + pt + '" y2="' + Y(0).toFixed(1) + '" class="kin-dash-kreuz"/>'
             + '<circle cx="' + X(i).toFixed(1) + '" cy="' + Y(v).toFixed(1) + '" r="5" fill="#0b8a6f" stroke="#fff" stroke-width="2"/>'
-            + '<title>' + dashTagKurz(M.tage30[i]) + ': ' + dashEuro(v) + ' · Vormonat ' + dashEuro(M.umsatzVor30[i]) + '</title></g>';
+            + '<title>' + M.fachNamen[i] + ': ' + dashEuro(v) + ' · ' + M.zVorLabel + ' ' + dashEuro(M.umsatzVor30[i]) + '</title></g>';
     });
-    return '<svg class="kin-dash-svg" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Umsatz der letzten 30 Tage">' + s + '</svg>';
+    return '<svg class="kin-dash-svg" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Umsatz ' + M.zLabel + '">' + s + '</svg>';
 }
 function dashBalken(werte, labels, farben, w, h, titel) {
     var mx = Math.max.apply(null, werte.concat([1])), n = werte.length, bw = Math.min(26, (w - 20) / n - 8), s = '';
@@ -66183,12 +66222,12 @@ function dashZeichnen(M, extra) {
         + dashKarte('Schnell erledigt', '', schnell) + '</div>';
     // Diagramme
     var umsatz = M.umsatz30Tage >= 3
-        ? dashLegende([['letzte 30 Tage', '#0b8a6f'], ['30 Tage davor (gestrichelt)', '#9aa19e']]) + dashUmsatzSvg(M)
+        ? dashLegende([[M.zLabel, '#0b8a6f'], [M.zVorLabel + ' (gestrichelt)', '#9aa19e']]) + dashUmsatzSvg(M)
         : dashWenig();
-    var umsatzKarte = dashKarte('Umsatz – letzte 30 Tage',
-        dashEuro(M.umsatz30Summe) + (M.umsatz30Trend !== null ? ' · <b class="' + (M.umsatz30Trend >= 0 ? 'gut' : 'schlecht') + '">' + (M.umsatz30Trend >= 0 ? '▲' : '▼') + ' ' + Math.abs(M.umsatz30Trend) + ' %</b> zu den 30 Tagen davor' : '') + ' · App + Kasse',
-        umsatz, '<div class="kin-dash-proTag"><b>' + dashEuroRund(M.umsatz30Summe / 30) + '</b><span>pro Tag</span></div>',
-        dashTabelle(['Tag', 'Umsatz', '30 Tage davor'], M.tage30.map(function (t, i) { return [dashTagKurz(t), dashEuro(M.umsatz30[i]), dashEuro(M.umsatzVor30[i])]; })));
+    var umsatzKarte = dashKarte('Umsatz – ' + M.zLabel,
+        dashEuro(M.umsatz30Summe) + (M.umsatz30Trend !== null ? ' · <b class="' + (M.umsatz30Trend >= 0 ? 'gut' : 'schlecht') + '">' + (M.umsatz30Trend >= 0 ? '▲' : '▼') + ' ' + Math.abs(M.umsatz30Trend) + ' %</b> zu ' + (M.zeitraum === 365 ? 'dem Vorjahr' : 'den ' + M.zVorLabel) : '') + ' · App + Kasse',
+        umsatz, '<div class="kin-dash-proTag"><b>' + dashEuroRund(M.umsatz30Summe / M.zTage) + '</b><span>pro Tag' + (M.zTage < (M.zeitraum === 365 ? 330 : M.zeitraum) ? ' (seit ' + M.zTage + ' Tagen)' : '') + '</span></div>',
+        dashTabelle([M.zeitraum === 365 ? 'Monat' : 'Tag', 'Umsatz', M.zVorLabel], M.fachNamen.map(function (t, i) { return [t, dashEuro(M.umsatz30[i]), dashEuro(M.umsatzVor30[i])]; })));
     var artInhalt = M.artGesamt ? '<div class="kin-dash-anteil">' + Object.keys(DASH_ART).map(function (k) { return M.art[k].anzahl ? '<i style="flex:' + M.art[k].anzahl + ' 1 0;background:' + DASH_ART[k].farbe + '" title="' + DASH_ART[k].name + ': ' + M.art[k].anzahl + '"></i>' : ''; }).join('') + '</div>'
         + Object.keys(DASH_ART).map(function (k) {
             var a = M.art[k], p = Math.round(a.anzahl / M.artGesamt * 100);
@@ -66198,14 +66237,19 @@ function dashZeichnen(M, extra) {
         }).join('') : dashWenig();
     var artKarte = dashKarte('Bestellungen nach Art', 'letzte 14 Tage · ' + M.artGesamt + ' Bestellungen', artInhalt, '',
         dashTabelle(['Art', 'Anzahl', 'Trend zu den 14 Tagen davor'], Object.keys(DASH_ART).map(function (k) { return [DASH_ART[k].name, M.art[k].anzahl, M.art[k].trend === null ? '–' : M.art[k].trend + ' %']; })));
-    var reihe2 = '<div class="kin-dash-reihe breit">' + umsatzKarte + artKarte + '</div>';
+    // ZEITRAUM-WAHL fuer die Auswertung darunter. "Heute" steht schon oben.
+    var zeitWahl = '<div class="kin-dash-zeitwahl" role="tablist" aria-label="Zeitraum der Auswertung"><span>Auswertung</span>'
+        + [[7, '7 Tage'], [30, '30 Tage'], [365, '12 Monate']].map(function (z) {
+            return '<button type="button" role="tab" aria-selected="' + (M.zeitraum === z[0]) + '" class="' + (M.zeitraum === z[0] ? 'aktiv' : '') + '" onclick="dashZeitraum(' + z[0] + ')">' + z[1] + '</button>';
+        }).join('') + '</div>';
+    var reihe2 = zeitWahl + '<div class="kin-dash-reihe breit">' + umsatzKarte + artKarte + '</div>';
     var zeitenKarte = dashKarte('Wann ist bei uns was los?', 'Bestellungen + reservierte Gäste je Stunde · Schnitt der letzten 8 Wochen', '<div id="kinDashZeiten">' + dashZeitenHtml(M, M.wt) + '</div>', '',
         dashTabelle(['Stunde'].concat([1, 2, 3, 4, 5, 6, 0].map(function (t) { return DASH_WT[t]; })), DASH_STD.map(function (h, i) { return [h + ' Uhr'].concat([1, 2, 3, 4, 5, 6, 0].map(function (t) { return M.zeiten[t][i].toFixed(1); })); })));
     var topMax = M.top.length ? M.top[0][1] : 1;
     var topInhalt = !M.topGeladen ? dashWenig('Gerichte konnten nicht geladen werden.') : M.top.length ? M.top.map(function (x) {
         return '<div class="kin-dash-top"><span>' + escapeHtml(x[0]) + '</span><div><i style="width:' + Math.round(x[1] / topMax * 100) + '%"></i><b>' + x[1] + '×</b></div></div>';
     }).join('') : dashWenig();
-    var topKarte = dashKarte('Top 5 Gerichte', 'letzte 30 Tage', topInhalt, '', dashTabelle(['Gericht', 'Anzahl'], M.top));
+    var topKarte = dashKarte('Top 5 Gerichte', M.zLabel, topInhalt, '', dashTabelle(['Gericht', 'Anzahl'], M.top));
     var steuerSlot = '<section class="kin-dash-karte" id="kinDashSteuerSlot"><div class="kin-dash-kartenkopf"><div><h3>Steuerung</h3></div></div></section>';
     var reihe3 = '<div class="kin-dash-reihe drei">' + zeitenKarte + topKarte + steuerSlot + '</div>';
     var resWerte = M.res14.map(function (x) { return x.gaeste; });
@@ -66215,7 +66259,7 @@ function dashZeichnen(M, extra) {
         + dashBalken(resWerte, M.res14.map(function (x, i) { return i === 0 ? 'heute' : DASH_WT[new Date(x.tag + 'T12:00:00').getDay()]; }), resFarben, 430, 170, function (i) { return dashTagKurz(M.res14[i].tag) + ': ' + resWerte[i] + ' Gäste'; })
         : dashWenig('In den nächsten 14 Tagen ist noch nichts reserviert.'))
         + '<div class="kin-dash-quoten">'
-        + [['NICHT GEKOMMEN', M.noShow, 'letzte 30 Tage'], ['ABGESAGT', M.abgesagt, 'letzte 30 Tage'], ['WIEDERKEHRENDE', M.wiederkehrend, 'Gäste, letzte 8 Wochen']].map(function (q) {
+        + [['NICHT GEKOMMEN', M.noShow, M.zLabel], ['ABGESAGT', M.abgesagt, M.zLabel], ['WIEDERKEHRENDE', M.wiederkehrend, 'Gäste, letzte 8 Wochen']].map(function (q) {
             return '<div><span class="kin-dash-label">' + q[0] + '</span><b>' + (q[1] === null ? '–' : q[1] + ' %') + '</b><small>' + q[2] + '</small></div>'; }).join('') + '</div>';
     var resKarte = dashKarte('Reservierte Gäste – nächste 14 Tage', resMax ? 'Spitze: ' + DASH_WT[new Date(resSpitze.tag + 'T12:00:00').getDay()] + ' ' + dashTagKurz(resSpitze.tag) + ' mit ' + resMax + ' Gästen' : '', resInhalt, '',
         dashTabelle(['Tag', 'Gäste'], M.res14.map(function (x) { return [dashTagKurz(x.tag), x.gaeste]; })));
@@ -66249,18 +66293,33 @@ function dashZeichnen(M, extra) {
     }
 }
 
+// Gewaehlter Zeitraum: nur eine Bequemlichkeit dieses Geraets, darum
+// localStorage (darf fehlen -- dann 30 Tage).
+function dashZeitraumWahl() {
+    try { var z = +localStorage.getItem('kmi_dash_zeitraum'); if ([7, 30, 365].indexOf(z) >= 0) return z; } catch (e) {}
+    return 30;
+}
+function dashZeitraum(z) {
+    try { localStorage.setItem('kmi_dash_zeitraum', String(z)); } catch (e) {}
+    dashLaden();
+}
+
 async function dashLaden() {
     var box = document.getElementById('kinDash');
     if (!box) return;
     var rid = getControlRestaurantId();
     if (!rid) { box.innerHTML = '<div class="kin-dash-wenig">Bitte oben ein Restaurant wählen.</div>'; return; }
-    var heute = todayStrLocal(), ab = dashPlusTage(heute, -63);
+    var Z = dashZeitraumWahl();
+    // So weit zurueck, dass Zeitraum UND der gleich lange davor drin sind
+    // (12 Monate: zwei Jahre). Nie weniger als 63 Tage -- die 8 Wochen der
+    // "beliebten Zeiten" brauchen das.
+    var heute = todayStrLocal(), ab = dashPlusTage(heute, -Math.max(63, Z === 365 ? 760 : 2 * Z + 2));
     var q = 'restaurant_id=eq.' + encodeURIComponent(rid);
     var felder = 'id,order_number,created_at,total,status,order_type,ready_at,out_for_delivery_at,estimated_time,estimated_minutes,accepted_at';
     var holeOrders = supabaseGet('orders', q + '&created_at=gte.' + encodeURIComponent(tagesBeginnIso(new Date(ab + 'T12:00:00'))) + '&select=' + felder + ',order_items(item_name,quantity)&order=created_at.asc&limit=10000')
         .catch(function () { return supabaseGet('orders', q + '&created_at=gte.' + encodeURIComponent(tagesBeginnIso(new Date(ab + 'T12:00:00'))) + '&select=' + felder + '&order=created_at.asc&limit=10000'); });
-    var holeRes = supabaseGet('reservations', q + '&reservation_date=gte.' + dashPlusTage(heute, -56) + '&reservation_date=lte.' + dashPlusTage(heute, 14) + '&select=id,reservation_date,reservation_time,party_size,status,guest_name,guest_phone,created_at&limit=10000');
-    var holeKasse = kasseLaden(rid, dashPlusTage(heute, -60), heute).catch(function () { return {}; });
+    var holeRes = supabaseGet('reservations', q + '&reservation_date=gte.' + dashPlusTage(heute, -Math.max(56, Z === 365 ? 366 : Z)) + '&reservation_date=lte.' + dashPlusTage(heute, 14) + '&select=id,reservation_date,reservation_time,party_size,status,guest_name,guest_phone,created_at&limit=10000');
+    var holeKasse = kasseLaden(rid, ab, heute).catch(function () { return {}; });
     var holeBew = supabaseGet('reviews', 'target_type=eq.restaurant&target_id=eq.' + encodeURIComponent(rid) + '&select=rating,created_at,owner_reply&limit=2000').catch(function () { return []; });
     var holeTechnik = supabaseGet('restaurants', 'id=eq.' + encodeURIComponent(rid) + '&select=printer_last_poll_at,pos_last_poll_at')
         .catch(function () { return supabaseGet('restaurants', 'id=eq.' + encodeURIComponent(rid) + '&select=printer_last_poll_at').catch(function () { return []; }); });
@@ -66271,7 +66330,7 @@ async function dashLaden() {
         .then(function (r) { return r.json(); }).catch(function () { return null; });
     try {
         var e = await Promise.all([holeOrders, holeRes, holeKasse, holeBew, holeTechnik, holePush]);
-        var M = dashAuswerten({ orders: e[0], res: e[1], kasse: e[2], reviews: e[3] }, new Date());
+        var M = dashAuswerten({ orders: e[0], res: e[1], kasse: e[2], reviews: e[3], zeitraum: Z }, new Date());
         var t = (e[4] && e[4][0]) || {}, tech = [];
         var alter = function (iso) { return iso ? (Date.now() - new Date(iso).getTime()) / 1000 : null; };
         var dr = alter(t.printer_last_poll_at);
