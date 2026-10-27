@@ -117,6 +117,63 @@ t('nach jedem Laden wird "Heute" neu gezeichnet', /window\.resHeuteZeichnen\(\);
 t('"Heute" ist der erste Reiter und vorausgewaehlt', /id="resTabBtnHeute"/.test(H) && /<div id="resTabHeute" class="res-tab-content active"/.test(H) && /<div id="resTabCalendar" class="res-tab-content" style="display: none;">/.test(H), '');
 t('kein Ton-Schalter, der nichts taete', !/kin-bk-res[\s\S]{0,2500}toggleOrderSound/.test(H), '');
 
+console.log('\n-- 7. Liste --');
+(function () {
+    var body = { innerHTML: '' }, filter = { value: 'week' };
+    var zeilenFn = welt([], jetzt).api.zeile;
+    var heuteS = tag(new Date());
+    var gestern = tag(new Date(Date.now() - 86400000)), uebermorgen = tag(new Date(Date.now() + 2 * 86400000));
+    var w = { resAllReservations: [
+        { id: 'g', date: gestern, time: '19:00', name: 'Gestrig', persons: 2, status: 'confirmed' },
+        { id: 'h', date: heuteS, time: '19:00', name: 'Heutig', persons: 4, status: 'confirmed' },
+        { id: 'u', date: uebermorgen, time: '12:00', name: 'Spaeter', persons: 3, status: 'pending' }] };
+    var f = new Function('window', 'document', 'getTodayString', 'getTomorrowString', 'localDayStr', 'escapeHtml', 'resTagWort', 'resGastZeileHtml', 'ladeStandFehlt', 'gastProfileLaden',
+        fn('renderReservationList') + '; return renderReservationList;');
+    f(w, { getElementById: function (id) { return id === 'listFilterDate' ? filter : body; } },
+      function () { return heuteS; }, function () { return tag(new Date(Date.now() + 86400000)); }, tag, esc,
+      function (d) { return d; }, zeilenFn, function () { return false; }, function () {})();
+    t('keine "undefined Pers." und kein "Tisch null"', body.innerHTML.indexOf('undefined') < 0 && body.innerHTML.indexOf('Tisch null') < 0, '');
+    t('heute und spaeter stehen da', body.innerHTML.indexOf('Heutig') >= 0 && body.innerHTML.indexOf('Spaeter') >= 0, '');
+    t('"Nächste 7 Tage" zeigt nichts Vergangenes', body.innerHTML.indexOf('Gestrig') < 0, '');
+    t('Knoepfe mit Anfuehrungszeichen um die ID (UUIDs)', /resStatusSetzen\('h', 'seated'\)/.test(body.innerHTML), '');
+})();
+t('Stornieren in der Liste speichert (resCancelReservation), statt nur lokal zu loeschen',
+  /if \(typeof window\.resCancelReservation === 'function'\) return window\.resCancelReservation\(id\);/.test(fn('cancelReservation')), '');
+
+// Reiter: nach dem Tipp bleibt der gewaehlte markiert (switchResTab nahm
+// vorher allen Reitern "active" weg -- auch dem gerade gesetzten).
+(function () {
+    var i = H.indexOf('async function switchResTab(tabName) {'), j = H.indexOf("document.getElementById('resTabBtnHeute').addEventListener", i);
+    var code = H.slice(i, j).replace('async function switchResTab(tabName) {', 'return async function (tabName) {');
+    var klassen = {}, knoepfe = ['Heute', 'Calendar', 'List'].map(function (n) {
+        var k = { id: 'resTabBtn' + n, classList: { add: function (c) { klassen[k.id] = c; }, remove: function () { delete klassen[k.id]; } } }; return k; });
+    var doc = { querySelectorAll: function (q) { return q === '.res-tab-btn' ? knoepfe : []; },
+        getElementById: function (id) { return knoepfe.filter(function (k) { return k.id === id; })[0] || { classList: { add: function () {} }, style: {} }; } };
+    var sw = new Function('document', 'window', code.replace(/\}\s*$/, '') + '}')(doc, {});
+    sw('list').then(function () {
+        t('nach Tipp auf "Liste" ist "Liste" markiert', klassen.resTabBtnList === 'active' && !klassen.resTabBtnHeute, JSON.stringify(klassen));
+    });
+})();
+
+console.log('\n-- 8. Detailfenster: Gast-Eingaben sind Text, kein HTML --');
+(function () {
+    var i = H.indexOf('window.resShowDetails = function(resId) {'), j = H.indexOf('// ===== RESERVIERUNG BEARBEITEN =====', i);
+    var code = H.slice(i, j).replace('window.resShowDetails = function(resId) {', 'return function(resId) {').replace(/\};\s*$/, '}');
+    var inhalt = { innerHTML: '' }, modal = { style: {} };
+    var doc = { getElementById: function (id) { return id === 'resDetailsContent' ? inhalt : modal; }, body: { insertAdjacentHTML: function () {} } };
+    var hilf = welt([], jetzt);
+    var bose = '<img src=x onerror=alert(1)>';
+    var w = { resAllReservations: [{ id: 'z9', date: heute, time: '19:00:00', name: bose, phone: '0170"><script>x</script>', notes: bose, persons: 2, status: 'confirmed', duration: 90 }] };
+    var g = new Function('window', 'document', 'escapeHtml', 'waNummer', 'kinSym', 'resZuSpaet', 'resPersonenHtml', 'resTischHtml', 'resQuelleChip', code);
+    var namenR = ['resPersonenHtml', 'resTischHtml', 'resQuelleChip', 'resZuSpaet', 'resHeuteZeitMin'];
+    var R = new Function('escapeHtml', 'localDayStr', namenR.map(fn).join('\n') + '; return {' + namenR.map(function (x) { return x + ': ' + x; }).join(',') + '};')(esc, tag);
+    g(w, doc, esc, function (x) { return x ? '49170' : ''; }, function () { return '<svg/>'; }, R.resZuSpaet, R.resPersonenHtml, R.resTischHtml, R.resQuelleChip)('z9');
+    t('Name mit <img onerror> erscheint als Text', inhalt.innerHTML.indexOf('<img') < 0 && inhalt.innerHTML.indexOf('&lt;img') >= 0, inhalt.innerHTML.slice(0, 200));
+    t('Telefon mit <script> erscheint als Text', inhalt.innerHTML.indexOf('<script>') < 0, '');
+    t('gespeicherte Tischzeit (90) ist markiert, nicht immer "2 Std"', /kin-res-dauer-btn aktiv"[^>]*resSetTableTime\('z9', 90\)/.test(inhalt.innerHTML), '');
+    t('das Fenster geht auf', modal.style.display === 'flex', modal.style.display);
+})();
+
 console.log('\n-- 6. Kalender-Tagesansicht: alle Gaeste einer Uhrzeit --');
 // resRenderDaySlots ist window.resRenderDaySlots = function() -- per Text holen
 var i = H.indexOf('window.resRenderDaySlots = function()'), j = H.indexOf('// ===== RESERVIERUNG DETAILS ANZEIGEN', i);
@@ -127,8 +184,19 @@ t('filter statt find', /var _amSlot = window\.resAllReservations\.filter\(/.test
     var win = { resSelectedDate: new Date(2026, 9, 27, 12), resCurrentRestaurant: null,
         resAllReservations: [{ id: 'x1', date: '2026-10-27', time: '18:00:00', name: 'Erster', persons: 2, status: 'confirmed' },
                              { id: 'x2', date: '2026-10-27', time: '18:00:00', name: 'Zweiter', persons: 4, status: 'confirmed' }] };
-    var f = new Function('window', 'document', 'localDayStr', 'generateReservationSlots', 'console', tagesCode.replace('window.resRenderDaySlots = function()', 'return function()'));
-    f(win, { getElementById: function () { return cont; } }, tag, function () { return ['17:30', '18:00', '18:30']; }, { error: function () {} })();
+    // Die echte Zeilen-Funktion (dieselbe wie "Heute") mitgeben.
+    var zeilenFn = welt([], jetzt).api.zeile;
+    var f = new Function('window', 'document', 'localDayStr', 'generateReservationSlots', 'console', 'resGastZeileHtml', 'gastProfileLaden',
+        tagesCode.replace('window.resRenderDaySlots = function()', 'return function()'));
+    f(win, { getElementById: function () { return cont; } }, tag, function () { return ['17:30', '18:00', '18:30']; }, { error: function () {} }, zeilenFn, function () {})();
     t('beide Namen in der Tagesansicht (ausgefuehrt)', cont.innerHTML.indexOf('Erster') >= 0 && cont.innerHTML.indexOf('Zweiter') >= 0, cont.innerHTML.length);
+    t('18:00: "2 Tische · 6 Gäste"', /18:00<\/b><span>2 Tische · 6 Gäste/.test(cont.innerHTML), (cont.innerHTML.match(/18:00<\/b><span>[^<]*/) || [''])[0]);
+    t('freie Zeit bleibt antippbar (17:30)', /class="timeslot kin-res-frei" data-time="17:30"/.test(cont.innerHTML), '');
+    // Eine Reservierung AUSSERHALB der Raster-Zeiten steht trotzdem da.
+    var cont2 = { innerHTML: '', querySelectorAll: function () { return []; } };
+    var win2 = { resSelectedDate: new Date(2026, 9, 27, 12), resAllReservations: [{ id: 'y', date: '2026-10-27', time: '18:15:00', name: 'Krumm', persons: 2, status: 'confirmed' }] };
+    f(win2, { getElementById: function () { return cont2; } }, tag, function () { return ['18:00', '18:30']; }, { error: function () {} }, zeilenFn, function () {})();
+    t('Reservierung um 18:15 (kein Raster) steht da, zwischen 18:00 und 18:30',
+      cont2.innerHTML.indexOf('Krumm') > cont2.innerHTML.indexOf('18:00') && cont2.innerHTML.indexOf('Krumm') < cont2.innerHTML.indexOf('18:30'), '');
 })();
 

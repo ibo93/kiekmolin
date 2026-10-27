@@ -11343,6 +11343,56 @@
         .dark-mode .kin-res-knoepfe .kin-text-btn.kin-ablehnen,
         .dark-mode .kin-res-aktionen .kin-text-btn.kin-ablehnen { background: transparent; color: #fca5a5 !important; border-color: rgba(252,165,165,0.55); }
 
+        /* Kalender, Liste und Detailfenster im neuen Design */
+        #resTabCalendar .panels-grid { gap: 16px; }
+        #resTabCalendar .panel { background: #ffffff !important; border-radius: 24px !important; border: none !important; box-shadow: 0 8px 24px -10px rgba(0,37,30,0.10) !important; }
+        #resTabCalendar .panel-title { font-family: 'Epilogue', sans-serif; font-weight: 900; color: #00251e; }
+        #resTabCalendar .cal-day { border-radius: 14px; min-height: 44px; font-weight: 700; }
+        #resTabCalendar .cal-day.selected { background: #003d33 !important; color: #ffffff !important; }
+        #resTabCalendar .cal-day.today:not(.selected) { box-shadow: inset 0 0 0 2px #ffd54f; }
+        #resTabCalendar .cal-day.has-reservations::after { background: #ea580c; }
+        #dayReservations { display: flex; flex-direction: column; gap: 8px; }
+        /* Doppelt seit dem neuen Kopf (dort: "Neue Reservierung" + Aktualisieren).
+           #openNewResBtn bleibt im DOM -- resNeueOeffnen() klickt ihn. */
+        #resTabCalendar #openNewResBtn, #resTabCalendar .panel-header > .dash-btn:not(#openNewResBtn) { display: none !important; }
+        .kin-res-frei { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 16px; border: 2px dashed rgba(0,37,30,0.12); background: transparent; cursor: pointer; }
+        .kin-res-frei b { font-family: 'Epilogue', sans-serif; font-weight: 900; font-size: 16px; color: #00251e; min-width: 52px; }
+        .kin-res-frei span { font-size: 13px; color: #6b7471; font-weight: 600; }
+        .kin-res-listenkopf { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+        .kin-res-listenkopf > span { font-family: 'Epilogue', sans-serif; font-weight: 900; font-size: 20px; color: #00251e; }
+        .kin-res-liste { display: flex; flex-direction: column; gap: 8px; }
+        .kin-res-listenzeile { display: flex; align-items: center; gap: 10px; }
+        .kin-res-listenzeile > .kin-res-gast { flex: 1 1 auto; min-width: 0; }
+        .kin-res-listenzeit { font-family: 'Epilogue', sans-serif; font-weight: 900; font-size: 16px; color: #00251e; min-width: 50px; }
+        .kin-res-tagkopf { padding-top: 12px; }
+        .kin-res-fenster { border-radius: 28px !important; background: #ffffff !important; overflow: hidden; }
+        .kin-res-detail { display: flex; flex-direction: column; gap: 14px; }
+        .kin-res-detail .kin-res-zeit span { display: block; margin-top: 2px; }
+        .kin-res-kontakt { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 18px; background: #f3f4f5; }
+        .kin-res-kontakt > span { flex: 1 1 auto; font-size: 15px; font-weight: 800; color: #00251e; }
+        .kin-res-kontakt .kin-res-rund { background: #ffffff; }
+        .kin-res-dauer { display: flex; flex-direction: column; gap: 6px; }
+        .kin-res-dauer > span { font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #404946; }
+        .kin-res-dauer > div { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+        .kin-res-dauer small { font-size: 12px; color: #6b7471; }
+        .kin-res-dauer-btn { min-height: 44px; border-radius: 14px; border: 2px solid rgba(0,37,30,0.12); background: #ffffff; color: #00251e; font-weight: 800; font-size: 13px; cursor: pointer; }
+        .kin-res-dauer-btn.aktiv { background: #003d33; color: #ffffff; border-color: #003d33; }
+        .kin-res-detail-knoepfe { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .kin-res-detail-knoepfe > .kin-res-bestaetigen, .kin-res-detail-knoepfe > .kin-res-gross { flex: 1 1 100%; min-height: 52px; font-size: 16px; }
+        .kin-res-detail-knoepfe .kin-text-btn.kin-ablehnen {
+            min-height: 44px; padding: 0 14px; border-radius: 9999px; border: 2px solid rgba(185,28,28,0.45);
+            background: #ffffff; color: #b91c1c; font-size: 13px; font-weight: 800; text-decoration: none;
+        }
+        .dark-mode #resTabCalendar .panel, .dark-mode .kin-res-fenster { background: var(--bg-card, #1a2e27) !important; }
+        .dark-mode #resTabCalendar .panel-title, .dark-mode .kin-res-frei b, .dark-mode .kin-res-listenkopf > span, .dark-mode .kin-res-listenzeit, .dark-mode .kin-res-kontakt > span { color: var(--text-primary, #e8eeec); }
+        .dark-mode .kin-res-frei span, .dark-mode .kin-res-dauer > span, .dark-mode .kin-res-dauer small { color: #b7c2be; }
+        .dark-mode .kin-res-frei { border-color: rgba(255,255,255,0.15); }
+        .dark-mode .kin-res-kontakt { background: rgba(255,255,255,0.08); }
+        .dark-mode .kin-res-kontakt .kin-res-rund { background: rgba(255,255,255,0.12); }
+        .dark-mode .kin-res-dauer-btn { background: transparent; color: var(--text-primary, #e8eeec); border-color: rgba(255,255,255,0.18); }
+        .dark-mode .kin-res-dauer-btn.aktiv { background: #ffd54f; color: #00251e; border-color: #ffd54f; }
+        .dark-mode .kin-res-detail-knoepfe .kin-text-btn.kin-ablehnen { background: transparent; color: #fca5a5 !important; border-color: rgba(252,165,165,0.55); }
+
         /* Drei Spalten (bestellBrettHtml). Das Raster steht inline am
            #ordersGrid -- daher !important. */
         #ordersGrid.kin-brett { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 16px !important; align-items: start; }
@@ -17999,6 +18049,12 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         c.style.display = 'none'; 
                     });
 
+                    // Den Reiter selbst wieder markieren. Die Zeile oben nahm "active"
+                    // allen Reitern weg -- auch dem, den der Klick gerade gesetzt
+                    // hatte. Folge: nach jedem Tipp war KEIN Reiter markiert.
+                    var _knopf = document.getElementById('resTabBtn' + ({ heute: 'Heute', calendar: 'Calendar', floorplan: 'Floorplan', list: 'List', blocking: 'Blocking', settings: 'Settings' }[tabName] || ''));
+                    if (_knopf) _knopf.classList.add('active');
+
                     // Gewählten Tab aktivieren
                     var tabContent = document.getElementById('resTab' + tabName.charAt(0).toUpperCase() + tabName.slice(1));
                     if (tabContent) {
@@ -18196,6 +18252,9 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                                     // mapRestaurant. Der Gast liest "10 % auf die
                                     // Rechnung", und an der Kasse weiss es keiner.
                                     aktion_text: r.aktion_text || '',
+                                    // Fuer "Tischzeit" im Detailfenster: vorher war dort
+                                    // immer "2 Std" markiert, egal was gespeichert war.
+                                    duration: r.duration_minutes || null,
                                     status: r.status || 'confirmed',
                                     source: r.source || 'dashboard',
                                     restaurant_id: r.restaurant_id,
@@ -18275,6 +18334,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
 
                     // UI aktualisieren
                     try { if (typeof window.resHeuteZeichnen === 'function') window.resHeuteZeichnen(); } catch (e) { console.error('Heute-Ansicht:', e); }
+                    try { if (typeof renderReservationList === 'function') renderReservationList(); } catch (e) { console.error('Liste:', e); }
                     window.resRenderCalendar();
                     window.resRenderDaySlots();
                     if (typeof window.renderFloorplanCalendar === 'function') window.renderFloorplanCalendar();
@@ -18434,13 +18494,19 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
 
                     var dateStr = localDayStr(window.resSelectedDate);
                     var slots = generateReservationSlots(window.resCurrentRestaurant);
+                    var jetzt = new Date();
 
-                    // Debug: zeige alle Reservierungen für dieses Datum
-                    var dayRes = window.resAllReservations.filter(function(r) { return r.date === dateStr; });
+                    // Alle Uhrzeiten: die buchbaren UND die, zu denen jemand reserviert
+                    // hat (auch ausserhalb der Raster-Zeiten), sortiert.
+                    var zeiten = slots.slice();
+                    window.resAllReservations.forEach(function (r) {
+                        var t = (r.time || '').substring(0, 5);
+                        if (r.date === dateStr && t && zeiten.indexOf(t) === -1) zeiten.push(t);
+                    });
+                    zeiten.sort();
 
                     var html = '';
-                    slots.forEach(function(time) {
-                        // Zeit normalisieren: "19:00:00" -> "19:00"
+                    zeiten.forEach(function(time) {
                         // ALLE Reservierungen dieser Uhrzeit. Hier stand find():
                         // bei zwei Tischen um 18:00 sah der Wirt nur EINEN -- der
                         // zweite Gast fehlte still in der Tagesansicht (27.10.2026).
@@ -18449,87 +18515,17 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             return r.date === dateStr && resTime === time;
                         });
 
-                        if (_amSlot.length) _amSlot.forEach(function (res) {
-                            // Reservierungen markieren — KIN Design
-                            var isOnline = res.source === 'app';
-                            var hasTable = res.table && res.table !== 1;
-                            var statusPending = res.status === 'pending';
-                            var bgColor = statusPending ? 'rgba(245,158,11,0.06)' : 'rgba(22,163,74,0.04)';
-                            var borderColor = statusPending ? '#f59e0b' : 'var(--primary)';
-
-                            // Badges zusammenbauen
-                            var badges = '';
-                            badges += '<span style="font-size:11px;padding:2px 6px;border-radius:4px;background:rgba(99,102,241,0.1);color:#6366f1;font-weight:600;">' + res.persons + ' Pers.</span>';
-                            if (hasTable) {
-                                badges += '<span style="font-size:11px;padding:2px 6px;border-radius:4px;background:rgba(59,130,246,0.1);color:#3b82f6;font-weight:600;">Tisch ' + res.table + '</span>';
-                            } else {
-                                badges += '<span style="font-size:10px;padding:3px 10px;border-radius:9999px;background:rgba(245,158,11,0.1);color:#d97706;font-weight:700;cursor:pointer;letter-spacing:0.02em;" onclick="event.stopPropagation(); window.resEditReservation(\'' + res.id + '\');">Tisch zuweisen</span>';
-                            }
-                            if (isOnline) {
-                                badges += '<span style="font-size:10px;padding:3px 10px;border-radius:9999px;background:rgba(22,163,74,0.1);color:#16a34a;font-weight:700;letter-spacing:0.02em;">Online</span>';
-                            } else if (res.source === 'telefon') {
-                                // WICHTIG, dass das sichtbar ist: alles, was nicht
-                                // "app" war, galt bisher als "vom Dashboard" -- also
-                                // als haette der Wirt es selbst eingetippt. Eine vom
-                                // Telefon-Assistenten aufgenommene Reservierung
-                                // versteckte sich darunter. Der Wirt muss sie aber
-                                // erkennen: der Assistent hat zugehoert, nicht
-                                // zugesagt, und bei Unklarheiten muss jemand
-                                // zurueckrufen.
-                                badges += '<span style="font-size:10px;padding:3px 10px;border-radius:9999px;background:rgba(37,99,235,0.12);color:#2563eb;font-weight:700;letter-spacing:0.02em;display:inline-flex;align-items:center;gap:4px;">'
-                                       + '<span class="material-symbols-outlined" style="font-size:12px;">call</span>Telefon-Assistent</span>';
-                            }
-                            if (statusPending) {
-                                badges += '<span style="font-size:10px;padding:3px 10px;border-radius:9999px;background:rgba(245,158,11,0.15);color:#d97706;font-weight:700;letter-spacing:0.02em;">Ausstehend</span>';
-                            }
-                            // Eingangszeit: WANN kam die Reservierung rein (wie bei Bestellungen)
-                            if (res.created_at) {
-                                try {
-                                    var _cAt = new Date(res.created_at);
-                                    var _cTime = _cAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                                    var _cToday = _cAt.toDateString() === new Date().toDateString();
-                                    var _cLabel = _cToday ? ('Eingegangen ' + _cTime + ' Uhr')
-                                        : ('Eingegangen ' + _cAt.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) + ' ' + _cTime + ' Uhr');
-                                    badges += '<span style="font-size:10px;padding:3px 10px;border-radius:9999px;background:rgba(0,61,51,0.06);color:var(--text-secondary);font-weight:600;letter-spacing:0.02em;">' + _cLabel + '</span>';
-                                } catch (e) {}
-                            }
-
-                            html += '<div class="timeslot has-reservation" data-res-id="' + res.id + '" style="cursor:pointer;background:rgba(255,255,255,0.7);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-left:3px solid ' + borderColor + ';border-radius:32px;padding:16px 20px;margin-bottom:8px;border:1px solid rgba(255,255,255,0.3);">';
-                            html += '<div class="timeslot-time" style="font-weight:900;color:' + borderColor + ';font-size:17px;letter-spacing:-0.5px;min-width:50px;text-align:center;">' + time + '</div>';
-                            html += '<div class="timeslot-info" style="flex:1;min-width:0;">';
-                            html += '<div class="timeslot-name" style="font-weight:700;color:var(--ink-deep);font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:Epilogue,sans-serif;">' + String(res.name || 'Gast').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
-                            html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">' + badges + '</div>';
-                            html += '</div>';
-                            html += '<button onclick="event.stopPropagation(); window.resEditReservation(\'' + res.id + '\');" style="width:36px;height:36px;border-radius:50%;border:1px solid rgba(0,61,51,0.06);background:rgba(255,255,255,0.7);-webkit-backdrop-filter: blur(12px);backdrop-filter:blur(12px);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--text-secondary);transition:all 0.2s;" title="Bearbeiten" aria-label="Bearbeiten"><span class="material-symbols-outlined" style="font-size:16px;">edit</span></button>';
-                            html += '</div>';
-                        }); else {
-                            html += '<div class="timeslot" data-time="' + time + '" data-date="' + dateStr + '">';
-                            html += '<div class="timeslot-time">' + time + '</div>';
-                            html += '<div class="timeslot-info"><span class="timeslot-empty">Frei - Klicken zum Reservieren</span></div>';
-                            html += '</div>';
+                        if (_amSlot.length) {
+                            // Gleiche Bausteine wie die Ansicht "Heute" (Entwurf).
+                            var p = _amSlot.reduce(function (s2, r) { return s2 + (parseInt(r.persons, 10) || 0); }, 0);
+                            html += '<div class="kin-res-uhrzeit"><b>' + time + '</b><span>' + _amSlot.length + (_amSlot.length === 1 ? ' Tisch' : ' Tische') + ' · ' + p + ' Gäste</span></div>';
+                            _amSlot.forEach(function (res) { html += resGastZeileHtml(res, jetzt); });
+                        } else if (slots.indexOf(time) !== -1) {
+                            html += '<div class="timeslot kin-res-frei" data-time="' + time + '" data-date="' + dateStr + '">'
+                                + '<b>' + time + '</b><span>frei – antippen zum Reservieren</span></div>';
                         }
                     });
-
-                    // ZUSÄTZLICH: Reservierungen die NICHT in Standard-Slots sind auch anzeigen
-                    dayRes.forEach(function(res) {
-                        var resTime = (res.time || '').substring(0, 5);
-                        if (slots.indexOf(resTime) === -1) {
-                            // Diese Reservierung ist nicht in einem Standard-Slot
-                            console.error('Reservierung außerhalb Standard-Slots:', resTime, res.name);
-                            var isOnline = res.source === 'app';
-                            var bgColor = '#f0fdf4';
-                            var borderColor = isOnline ? 'var(--primary)' : '#10b981';
-
-                            html += '<div class="timeslot has-reservation" data-res-id="' + res.id + '" style="cursor:pointer;background:rgba(255,255,255,0.7);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-left:3px solid ' + borderColor + ';border-radius:32px;padding:16px 20px;margin-bottom:8px;border:1px solid rgba(255,255,255,0.3);">';
-                            html += '<div class="timeslot-time" style="font-weight:900;color:var(--primary);font-size:17px;letter-spacing:-0.5px;min-width:50px;text-align:center;">' + resTime + '</div>';
-                            html += '<div class="timeslot-info" style="flex:1;min-width:0;">';
-                            html += '<div class="timeslot-name" style="font-weight:700;color:var(--ink-deep);font-size:15px;font-family:Epilogue,sans-serif;">' + (isOnline ? '<span class="material-symbols-outlined" style="font-size:16px;color:var(--primary);vertical-align:middle;margin-right:4px;">smartphone</span> ' : '') + res.name + (isOnline ? ' <span style="font-size:10px;padding:2px 8px;border-radius:9999px;background:rgba(0,61,51,0.7);color:var(--primary);font-weight:700;">Online</span>' : '') + '</div>';
-                            html += '<div class="timeslot-details" style="margin-top:4px;font-size:13px;color:var(--text-secondary);">' + res.persons + ' Pers. • Tisch ' + res.table + '</div>';
-                            html += '</div>';
-                            html += '<button onclick="event.stopPropagation(); window.resShowDetails(\'' + res.id + '\');" class="dash-btn" style="padding:8px 16px;font-size:11px;border-radius:9999px;">Details</button>';
-                            html += '</div>';
-                        }
-                    });
+                    if (!html) html = '<div class="kin-spalte-leer">An diesem Tag ist nichts buchbar.</div>';
 
                     container.innerHTML = html;
 
@@ -18539,16 +18535,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             window.resQuickBook(this.getAttribute('data-date'), this.getAttribute('data-time'));
                         });
                     });
-
-                    // Click auf Reservierung für Details
-                    container.querySelectorAll('.timeslot.has-reservation').forEach(function(el) {
-                        el.addEventListener('click', function() {
-                            var resId = this.getAttribute('data-res-id');
-                            // UUID oder numerische ID - beides unterstützen
-                            var numId = parseInt(resId);
-                            window.resShowDetails(isNaN(numId) ? resId : numId);
-                        });
-                    });
+                    try { var _rid = window.resCurrentRestaurant; if (_rid && typeof gastProfileLaden === 'function') gastProfileLaden(_rid); } catch (e) {}
                 };
 
                 // ===== RESERVIERUNG DETAILS ANZEIGEN =====
@@ -18560,7 +18547,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     if (!modal) {
                         // Modal erstellen - KIN DESIGN
                         var modalHtml = '<div class="modal-overlay" id="resDetailsModal" style="z-index: 10020; display: none;">' +
-                            '<div class="modal-container" style="max-width: 480px;border-radius:40px;background:rgba(255,255,255,0.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.3);box-shadow:0 24px 48px -8px rgba(0,37,30,0.15);overflow:hidden;">' +
+                            '<div class="modal-container kin-res-fenster" style="max-width: 480px;">' +
                             '<div class="modal-header">' +
                             '<h3 class="modal-title">Reservierung</h3>' +
                             '<button class="modal-close" aria-label="Schließen" onclick="document.getElementById(\'resDetailsModal\').style.display=\'none\'">×</button>' +
@@ -18571,86 +18558,54 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         modal = document.getElementById('resDetailsModal');
                     }
 
-                    // Material Symbols Icons
-                    var iconCheck = '<span class="material-symbols-outlined" style="font-size:16px;">check</span>';
-                    var iconUserX = '<span class="material-symbols-outlined" style="font-size:16px;">person_off</span>';
-                    var iconX = '<span class="material-symbols-outlined" style="font-size:16px;">close</span>';
-                    var iconEdit = '<span class="material-symbols-outlined" style="font-size:16px;">edit</span>';
-                    var iconPhone = '<span class="material-symbols-outlined" style="font-size:14px;">call</span>';
-                    var iconTimer = '<span class="material-symbols-outlined" style="font-size:16px;">timer</span>';
-
+                    // NEUES DESIGN (27.10.2026) -- dieselben Bausteine wie "Heute".
+                    // ALLES, was der Gast eingetippt hat, geht durch escapeHtml: vorher
+                    // standen Name und Telefon ungefiltert im HTML -- ein Gast konnte
+                    // so Code in das Dashboard des Wirts schreiben.
                     var timeStr = (res.time || '').substring(0, 5);
-
-                    // KIN DESIGN — Apple-Style Reservierungs-Detail
                     var _dateObj = res.date ? new Date(res.date + 'T00:00:00') : new Date();
-                    var _dateFormatted = _dateObj.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: 'long', year: 'numeric' });
-                    var _statusColor = res.status === 'confirmed' ? '#16a34a' : (res.status === 'seated' ? '#2563eb' : (res.status === 'pending' ? '#d97706' : 'var(--text-secondary)'));
-                    var _statusLabel = res.status === 'confirmed' ? 'Bestätigt' : (res.status === 'seated' ? 'Platziert' : (res.status === 'pending' ? 'Ausstehend' : res.status));
-                    var _tableDisplay = res.table ? 'Tisch ' + res.table : 'Kein Tisch';
-                    var _tableId = res.table_id || res.table || '';
+                    var _dateFormatted = _dateObj.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
+                    var _id = String(res.id).replace(/[^a-zA-Z0-9-]/g, '');
+                    var _tableId = String(res.table_id || res.table || '').replace(/[^a-zA-Z0-9-]/g, '');
+                    var _rid = String(res.restaurant_id || window.resCurrentRestaurant || '').replace(/[^a-zA-Z0-9-]/g, '');
+                    var _tel = res.phone ? String(res.phone) : '';
+                    var _wa = waNummer(_tel);
+                    var _schluss = 'document.getElementById(\'resDetailsModal\').style.display=\'none\';';
+                    var _chip = res.status === 'seated' ? '<span class="kin-art kin-res-da">Ist da</span>'
+                        : res.status === 'pending' ? '<span class="kin-art kin-res-offen-chip">Wartet auf Bestätigung</span>'
+                        : res.status === 'finished' ? '<span class="kin-art">Fertig</span>'
+                        : resZuSpaet(res, new Date()) ? '<span class="kin-art kin-res-spaet">Zu spät</span>'
+                        : '<span class="kin-art kin-res-ok">Bestätigt</span>';
+                    var _dauer = parseInt(res.duration, 10) || 0;
+                    var _haupt = res.status === 'pending'
+                        ? '<button type="button" class="kin-res-bestaetigen" onclick="this.disabled=true; confirmDashReservation(\'' + _id + '\', \'' + _rid + '\'); ' + _schluss + '">Bestätigen</button>'
+                        : res.status === 'seated'
+                        ? '<button type="button" class="kin-res-btn hell kin-res-gross" onclick="resStatusSetzen(\'' + _id + '\', \'finished\'); ' + _schluss + '">Tisch frei</button>'
+                        : res.status === 'finished' ? ''
+                        : '<button type="button" class="kin-res-btn kin-res-gross" onclick="window.resMarkAsSeated(\'' + _id + '\', \'' + _tableId + '\'); ' + _schluss + '">Gast ist da</button>';
 
-                    var content = '<div style="padding:0;">' +
-
-                        // Hero Header — Stitch Emerald Gradient
-                        '<div style="background:linear-gradient(135deg,#00251e,#003d33);border-radius:32px;padding:28px;margin-bottom:16px;color:white;position:relative;overflow:hidden;">' +
-                        '<div style="position:absolute;top:-40%;right:-20%;width:200px;height:200px;background:radial-gradient(circle,rgba(117,168,155,0.15),transparent 60%);border-radius:50%;"></div>' +
-                        '<div style="display:flex;justify-content:space-between;align-items:flex-start;">' +
-                        '<div>' +
-                        '<div style="font-family:Epilogue,sans-serif;font-size:28px;font-weight:700;line-height:1.2;">' + res.name + '</div>' +
-                        '<div style="font-size:13px;opacity:0.85;margin-top:6px;">' + _dateFormatted + '</div>' +
-                        '</div>' +
-                        '<span style="padding:5px 14px;border-radius:9999px;font-size:10px;font-weight:900;background:rgba(255,255,255,0.7);color:white;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);letter-spacing:0.15em;text-transform:uppercase;">' + _statusLabel + '</span>' +
-                        '</div>' +
-                        '<div style="display:flex;gap:20px;margin-top:16px;">' +
-                        '<div style="display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:15px;color:rgba(255,255,255,0.9);">schedule</span><span style="font-size:15px;font-weight:600;">' + timeStr + ' Uhr</span></div>' +
-                        '<div style="display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:15px;color:rgba(255,255,255,0.9);">person</span><span style="font-size:15px;font-weight:600;">' + res.persons + ' Pers.</span></div>' +
-                        '<div style="display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:15px;color:rgba(255,255,255,0.9);">table_restaurant</span><span style="font-size:15px;font-weight:600;">' + _tableDisplay + '</span></div>' +
-                        '</div>' +
-                        '</div>' +
-
-                        // Telefon — Stitch Glass
-                        (res.phone ? '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:rgba(255,255,255,0.7);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.3);border-radius:24px;margin-bottom:10px;">' +
-                        '<div style="display:flex;align-items:center;gap:12px;">' +
-                        '<div style="width:40px;height:40px;border-radius:50%;background:rgba(0,61,51,0.08);display:flex;align-items:center;justify-content:center;">' + iconPhone + '</div>' +
-                        '<div><div style="font-size:9px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.15em;">Telefon</div><div style="font-size:15px;font-weight:700;color:var(--ink-strong);font-family:Inter,sans-serif;">' + res.phone + '</div></div>' +
-                        '</div>' +
-                        '<a href="tel:' + res.phone + '" style="padding:10px 20px;background:linear-gradient(135deg,#00251e,#003d33);color:white;border-radius:9999px;font-size:13px;font-weight:700;text-decoration:none;font-family:Inter,sans-serif;box-shadow:0 4px 12px rgba(0,37,30,0.2);">Anrufen</a>' +
-                        '</div>' : '') +
-
-                        // Aktion fuer diesen Termin -- das Personal zieht den Vorteil an der Kasse ab.
-                        (res.aktion_text ? '<div style="display:flex;gap:10px;padding:14px 18px;background:#fff4cc;border:1px solid rgba(115,92,0,0.18);border-radius:20px;margin-bottom:12px;">' +
-                        '<span class="material-symbols-outlined" style="font-size:16px;color:#735c00;flex-shrink:0;margin-top:1px;">redeem</span>' +
-                        '<div style="font-size:13px;color:#5c4600;font-weight:700;line-height:1.5;">' + escapeHtml(res.aktion_text) + '</div>' +
-                        '</div>' : '') +
-
-                        // Anmerkungen — Stitch Glass
-                        (res.notes ? '<div style="display:flex;gap:10px;padding:16px 20px;background:rgba(255,213,79,0.08);border:1px solid rgba(255,213,79,0.15);border-radius:20px;margin-bottom:12px;">' +
-                        '<span class="material-symbols-outlined" style="font-size:16px;color:#f59e0b;flex-shrink:0;margin-top:1px;">chat</span>' +
-                        '<div style="font-size:13px;color:var(--text-primary);line-height:1.5;">' + escapeHtml(res.notes) + '</div>' +
-                        '</div>' : '') +
-
-                        // Tischzeit planen — elegant
-                        '<div style="margin-bottom:16px;">' +
-                        '<div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--slate);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;font-weight:600;">' + iconTimer + ' Tischzeit planen</div>' +
-                        '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">' +
-                        '<button onclick="window.resSetTableTime(\'' + res.id + '\', 60);" class="kin-time-btn">1 Std</button>' +
-                        '<button onclick="window.resSetTableTime(\'' + res.id + '\', 90);" class="kin-time-btn">1,5 Std</button>' +
-                        '<button onclick="window.resSetTableTime(\'' + res.id + '\', 120);" class="kin-time-btn active">2 Std</button>' +
-                        '<button onclick="window.resSetTableTime(\'' + res.id + '\', 180);" class="kin-time-btn">3 Std</button>' +
-                        '</div>' +
-                        '</div>' +
-
-                        // Aktions-Buttons — Premium KIN Design
-                        '<div style="display:flex;flex-direction:column;gap:8px;">' +
-                        '<button onclick="window.resMarkAsSeated(\'' + res.id + '\', \'' + _tableId + '\'); document.getElementById(\'resDetailsModal\').style.display=\'none\';" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:16px;font-size:15px;font-weight:700;font-family:Inter,sans-serif;background:linear-gradient(135deg,#00251e,#003d33);color:white;border:none;border-radius:9999px;cursor:pointer;transition:all 0.2s;box-shadow:0 8px 24px -6px rgba(0,37,30,0.3);">' + iconCheck + ' Gast ist da</button>' +
-                        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
-                        '<button onclick="window.resMarkNoShow(\'' + res.id + '\'); document.getElementById(\'resDetailsModal\').style.display=\'none\';" style="display:flex;align-items:center;justify-content:center;gap:6px;padding:13px;font-size:13px;font-weight:600;font-family:Inter,sans-serif;background:var(--bg-secondary);color:var(--text-secondary);border:1px solid rgba(0,61,51,0.06);border-radius:9999px;cursor:pointer;transition:all 0.2s;">' + iconUserX + ' No-Show</button>' +
-                        '<button onclick="window.resCancelReservation(\'' + res.id + '\'); document.getElementById(\'resDetailsModal\').style.display=\'none\';" style="display:flex;align-items:center;justify-content:center;gap:6px;padding:13px;font-size:13px;font-weight:600;font-family:Inter,sans-serif;background:rgba(239,68,68,0.06);color:#ef4444;border:1px solid rgba(239,68,68,0.15);border-radius:9999px;cursor:pointer;transition:all 0.2s;">' + iconX + ' Stornieren</button>' +
-                        '</div>' +
-                        '<button onclick="window.resEditReservation(\'' + res.id + '\');" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:10px;font-size:12px;font-weight:500;font-family:Inter,sans-serif;background:transparent;color:var(--slate);border:1px dashed rgba(0,61,51,0.06);border-radius:9999px;cursor:pointer;">' + iconEdit + ' Bearbeiten</button>' +
-                        '</div>' +
-
-                        '</div>';
+                    var content = '<div class="kin-res-detail">'
+                        + '<div class="kin-res-oben">' + resPersonenHtml(res.persons)
+                        + '<div class="kin-res-mitte"><div class="kin-res-zeit">' + escapeHtml(timeStr) + ' <span>' + escapeHtml(_dateFormatted) + '</span></div>'
+                        + '<div class="kin-res-name">' + escapeHtml(res.name || 'Gast') + '</div>'
+                        + '<div class="kin-res-chips">' + _chip + resTischHtml(res) + resQuelleChip(res) + '</div></div></div>'
+                        + (res.notes ? '<div class="kin-hinweis">„' + escapeHtml(res.notes) + '“</div>' : '')
+                        + (res.aktion_text ? '<div class="kin-res-aktion">' + kinSym('geschenk', false, 14) + ' ' + escapeHtml(res.aktion_text) + '</div>' : '')
+                        + (_tel ? '<div class="kin-res-kontakt"><span>' + escapeHtml(_tel) + '</span>'
+                            + (_wa ? '<a class="kin-res-rund" href="https://wa.me/' + _wa + '" target="_blank" rel="noopener" aria-label="WhatsApp an den Gast">' + kinSym('wa', false, 20) + '</a>' : '')
+                            + '<a class="kin-res-rund" href="tel:' + escapeHtml(_tel) + '" aria-label="Gast anrufen">' + kinSym('tel', false, 20) + '</a></div>' : '')
+                        + '<div class="kin-res-dauer"><span>Tischzeit</span><div>'
+                        + [[60, '1 Std'], [90, '1,5 Std'], [120, '2 Std'], [180, '3 Std']].map(function (d) {
+                            return '<button type="button" class="kin-res-dauer-btn' + (d[0] === _dauer ? ' aktiv' : '') + '" onclick="window.resSetTableTime(\'' + _id + '\', ' + d[0] + '); this.parentNode.querySelectorAll(\'button\').forEach(function(b){b.classList.remove(\'aktiv\')}); this.classList.add(\'aktiv\');">' + d[1] + '</button>';
+                        }).join('') + '</div>'
+                        + (_dauer ? '' : '<small>noch nicht festgelegt</small>') + '</div>'
+                        + '<div class="kin-res-detail-knoepfe">' + _haupt
+                        + '<button type="button" class="kin-res-btn hell" onclick="window.resEditReservation(\'' + _id + '\');">Bearbeiten</button>'
+                        + (res.status !== 'finished' && res.status !== 'pending' ? '<button type="button" class="kin-text-btn kin-ablehnen" onclick="window.resMarkNoShow(\'' + _id + '\'); ' + _schluss + '">Nicht gekommen …</button>' : '')
+                        + (res.status === 'pending'
+                            ? '<button type="button" class="kin-text-btn kin-ablehnen" onclick="rejectDashReservation(\'' + _id + '\', \'' + _rid + '\'); ' + _schluss + '">Ablehnen …</button>'
+                            : '<button type="button" class="kin-text-btn kin-ablehnen" onclick="window.resCancelReservation(\'' + _id + '\'); ' + _schluss + '">Stornieren …</button>')
+                        + '</div></div>';
 
                     document.getElementById('resDetailsContent').innerHTML = content;
                     modal.style.display = 'flex';
@@ -22644,41 +22599,19 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
 
             <!-- LISTE TAB -->
             <div id="resTabList" class="res-tab-content" style="display: none;">
-                <div class="panel">
-                    <div class="panel-header">
-                        <h3 class="panel-title">Alle Reservierungen</h3>
-                        <div style="display: flex; gap: 8px;">
-                            <select class="form-select" id="listFilterDate" onchange="filterReservationList()" style="width: auto;" aria-label="Zeitraum filtern">
-                                <option value="today">Heute</option>
-                                <option value="tomorrow">Morgen</option>
-                                <option value="week">Diese Woche</option>
-                                <option value="all">Alle</option>
-                            </select>
-                            <button onclick="document.getElementById('newReservationModal').style.display='flex';" class="dash-btn dash-btn-primary" style="padding: 8px 16px;">
-                                <span class="material-symbols-outlined" style="font-size:16px;">add</span>
-                                Neue
-                            </button>
-                        </div>
-                    </div>
-                    <div class="panel-content" style="padding: 0;">
-                        <table class="reservation-table">
-                            <thead>
-                                <tr>
-                                    <th>Datum</th>
-                                    <th>Uhrzeit</th>
-                                    <th>Name</th>
-                                    <th>Personen</th>
-                                    <th>Tisch</th>
-                                    <th>Status</th>
-                                    <th>Aktionen</th>
-                                </tr>
-                            </thead>
-                            <tbody id="reservationTableBody">
-                                <!-- Wird dynamisch gefüllt -->
-                            </tbody>
-                        </table>
-                    </div>
+                <!-- Liste im neuen Design (27.10.2026). Vorher eine Tabelle mit
+                     "undefined Pers.", "Tisch null", Knoepfen, die bei echten IDs
+                     nichts taten, und einem "Stornieren", das nichts speicherte. -->
+                <div class="kin-res-listenkopf">
+                    <span>Alle Reservierungen</span>
+                    <select class="kin-bk-wahl" id="listFilterDate" onchange="filterReservationList()" aria-label="Zeitraum filtern">
+                        <option value="today">Heute</option>
+                        <option value="tomorrow">Morgen</option>
+                        <option value="week" selected>Nächste 7 Tage</option>
+                        <option value="all">Alle ab heute</option>
+                    </select>
                 </div>
+                <div id="reservationTableBody" class="kin-res-liste"></div>
             </div>
 
             <!-- SPERRUNGEN TAB -->
@@ -77188,51 +77121,41 @@ function setTableOccupied() {
 // Reservierungs-Liste
 function renderReservationList() {
     const container = document.getElementById('reservationTableBody');
-    const filter = document.getElementById('listFilterDate').value;
-
-    let filtered = [...demoReservations];
+    if (!container) return;
+    const filterEl = document.getElementById('listFilterDate');
+    const filter = filterEl ? filterEl.value : 'week';
     const today = getTodayString();
     const tomorrow = getTomorrowString();
+    const bis = new Date(today + 'T12:00:00'); bis.setDate(bis.getDate() + 7);
+    const bisStr = localDayStr(bis);
 
-    if (filter === 'today') {
-        filtered = filtered.filter(r => r.date === today);
-    } else if (filter === 'tomorrow') {
-        filtered = filtered.filter(r => r.date === tomorrow);
-    } else if (filter === 'week') {
-        const weekEnd = new Date();
-        weekEnd.setDate(weekEnd.getDate() + 7);
-        filtered = filtered.filter(r => new Date(r.date) <= weekEnd);
-    }
-
-    // Sortieren nach Datum und Zeit
-    filtered.sort((a, b) => {
-        if (a.date !== b.date) return a.date.localeCompare(b.date);
-        return a.time.localeCompare(b.time);
+    let filtered = (window.resAllReservations || []).filter(function (r) {
+        if (filter === 'today') return r.date === today;
+        if (filter === 'tomorrow') return r.date === tomorrow;
+        if (filter === 'week') return r.date >= today && r.date < bisStr;   // vorher: auch alles Vergangene
+        return r.date >= today;
     });
+    filtered.sort(function (a, b) { return (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')); });
 
     if (filtered.length === 0) {
-        container.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--slate); padding: 40px;">Keine Reservierungen gefunden</td></tr>';
+        var kaputt = typeof ladeStandFehlt === 'function' && ladeStandFehlt('reservierungen');
+        container.innerHTML = '<div class="kin-spalte-leer">' + (kaputt ? 'Nicht geladen – es können Reservierungen da sein.' : 'Keine Reservierungen in diesem Zeitraum') + '</div>';
         return;
     }
-
-    container.innerHTML = filtered.map(res => `
-        <tr>
-            <td>${formatDateShort(res.date)}</td>
-            <td><strong>${res.time}</strong></td>
-            <td>${res.name}</td>
-            <td>${res.party_size} Pers.</td>
-            <td>Tisch ${res.table}</td>
-            <td><span class="res-status ${res.status}">${res.status === 'confirmed' ? 'Bestätigt' : res.status === 'pending' ? 'Ausstehend' : 'Storniert'}</span></td>
-            <td>
-                <button onclick="editReservation(${res.id})" class="dash-btn" style="padding: 6px 10px;">
-                    <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
-                </button>
-                <button onclick="cancelReservation(${res.id})" class="dash-btn" style="padding: 6px 10px; color: var(--danger-600);">
-                    <span class="material-symbols-outlined" style="font-size:18px">close</span>
-                </button>
-            </td>
-        </tr>
-    `).join('');
+    // Nach Tag gruppiert, je Zeile dieselben Knoepfe wie "Heute" (speichern echt).
+    var jetzt = new Date(), html = '', letzter = '';
+    filtered.forEach(function (r) {
+        if (r.date !== letzter) {
+            letzter = r.date;
+            var tagG = filtered.filter(function (x) { return x.date === r.date; });
+            var pers = tagG.reduce(function (s2, x) { return s2 + (parseInt(x.persons, 10) || 0); }, 0);
+            html += '<div class="kin-res-uhrzeit kin-res-tagkopf"><b>' + escapeHtml(resTagWort(r.date, today)) + '</b><span>'
+                + tagG.length + (tagG.length === 1 ? ' Reservierung' : ' Reservierungen') + ' · ' + pers + ' Gäste</span></div>';
+        }
+        html += '<div class="kin-res-listenzeile"><span class="kin-res-listenzeit">' + escapeHtml(String(r.time || '').slice(0, 5)) + '</span>' + resGastZeileHtml(r, jetzt) + '</div>';
+    });
+    container.innerHTML = html;
+    try { var rid = window.resCurrentRestaurant; if (rid && typeof gastProfileLaden === 'function') gastProfileLaden(rid); } catch (e) {}
 }
 
 function formatDateShort(dateStr) {
@@ -77299,6 +77222,9 @@ function editReservation(id) {
 }
 
 async function cancelReservation(id) {
+    // Vorher entfernte das nur lokal (der Setter von demoReservations ist leer)
+    // und meldete "storniert" -- in der Datenbank blieb die Reservierung.
+    if (typeof window.resCancelReservation === 'function') return window.resCancelReservation(id);
     if (!await kinConfirm('Reservierung wirklich stornieren?')) return;
 
     const res = demoReservations.find(r => r.id === id);

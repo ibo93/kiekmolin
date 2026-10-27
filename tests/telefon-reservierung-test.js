@@ -295,8 +295,14 @@ async function abschnitt4() {
 // darunter versteckt, und niemand haette gewusst, dass da noch jemand
 // zurueckrufen muss.
 (function () {
+    // Seit dem neuen Design (27.10.2026) baut resQuelleChip die Plakette --
+    // fuer "Heute", Kalender, Liste und das Detailfenster. AUSGEFUEHRT:
+    var qi = H.indexOf('function resQuelleChip('), qj = H.indexOf('\n}', qi) + 2;
+    var chip = new Function(H.slice(qi, qj) + '; return resQuelleChip;')();
     t('es gibt eine eigene Plakette fuer den Telefon-Assistenten',
-      /res\.source === 'telefon'/.test(H) && /Telefon-Assistent<\/span>/.test(H));
+      /Telefon-Assistent<\/span>/.test(chip({ source: 'telefon' }))
+      && chip({ source: 'dashboard' }).indexOf('Telefon') < 0
+      && /Online/.test(chip({ source: 'app' })), chip({ source: 'telefon' }));
     t('die Zaehlung trennt Telefon von "hat der Wirt selbst getippt"',
       /r\.source !== 'app' && r\.source !== 'telefon'/.test(H));
     t('und die Statuszeile nennt die Telefon-Reservierungen mit',
