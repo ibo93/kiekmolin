@@ -29422,6 +29422,35 @@ function subscribeWebPush() {
             angebote: pushAngebote(),
             angebote_at: pushAngebote() ? new Date().toISOString() : null
         };
+        // ANGEMELDET -> UEBER DEN SERVER (27.10.2026, push-geraet.js).
+        // Hier ging die Zeile bisher mit dem oeffentlichen Schluessel raus.
+        // Der Ausloeser in der Datenbank sah dann niemanden und strich
+        // Lokal und E-Mail -- das Handy des Wirts stand namenlos in der
+        // Liste, und keine Reservierung kam je an. Gemessen: jede Abfrage
+        // "Geraete dieses Lokals" leer. Der Server prueft die Sitzung und
+        // traegt das Lokal nur ein, wenn es dem Angemeldeten gehoert.
+        var _sitzung = (typeof kmiToken === 'function' && typeof SUPABASE_KEY !== 'undefined') ? kmiToken() : null;
+        if (_sitzung && _sitzung !== SUPABASE_KEY) {
+            return fetch('/.netlify/functions/push-geraet', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _sitzung },
+                body: JSON.stringify({ geraet: json, r: gastroRestaurantId, telefon: phone, angebote: pushAngebote() })
+            }).then(function (r) {
+                return r.json().catch(function () { return { ok: false, error: 'HTTP ' + r.status }; });
+            }).then(function (j) {
+                window._pushGeraetStand = j;
+                // Still waere hier das Schlimmste: der Wirt glaubt, er sei
+                // angemeldet. Also sagen -- aber nur, wo ein Lokal dran haengt.
+                if (gastroRestaurantId && (!j.ok || j.lokalVerweigert)) {
+                    try { showToast('Benachrichtigungen nicht eingerichtet: ' + (j.error || 'kein Zugriff auf dieses Lokal'), 'error'); } catch (e) {}
+                }
+                return sub;
+            }).catch(function (e) {
+                window._pushGeraetStand = { ok: false, error: e && e.message };
+                if (gastroRestaurantId) { try { showToast('Benachrichtigungen nicht eingerichtet: keine Verbindung', 'error'); } catch (x) {} }
+                return sub;
+            });
+        }
         try {
             var _supaKey = (typeof SUPABASE_KEY !== 'undefined') ? SUPABASE_KEY : ((typeof SUPA_KEY !== 'undefined') ? SUPA_KEY : null);
             if (typeof SUPABASE_URL !== 'undefined' && _supaKey) {
@@ -66227,8 +66256,13 @@ async function dashLaden() {
     var holeBew = supabaseGet('reviews', 'target_type=eq.restaurant&target_id=eq.' + encodeURIComponent(rid) + '&select=rating,created_at,owner_reply&limit=2000').catch(function () { return []; });
     var holeTechnik = supabaseGet('restaurants', 'id=eq.' + encodeURIComponent(rid) + '&select=printer_last_poll_at,pos_last_poll_at')
         .catch(function () { return supabaseGet('restaurants', 'id=eq.' + encodeURIComponent(rid) + '&select=printer_last_poll_at').catch(function () { return []; }); });
+    // Push: gezaehlt vom SERVER (push-status.js), nicht die Erlaubnis im
+    // Browser. "Erlaubt" war gruen, waehrend kein einziges Handy des Lokals
+    // in der Liste stand (gemessen 27.10.2026).
+    var holePush = fetch('/.netlify/functions/push-status?r=' + encodeURIComponent(rid), { headers: { Authorization: 'Bearer ' + kmiToken() } })
+        .then(function (r) { return r.json(); }).catch(function () { return null; });
     try {
-        var e = await Promise.all([holeOrders, holeRes, holeKasse, holeBew, holeTechnik]);
+        var e = await Promise.all([holeOrders, holeRes, holeKasse, holeBew, holeTechnik, holePush]);
         var M = dashAuswerten({ orders: e[0], res: e[1], kasse: e[2], reviews: e[3] }, new Date());
         var t = (e[4] && e[4][0]) || {}, tech = [];
         var alter = function (iso) { return iso ? (Date.now() - new Date(iso).getTime()) / 1000 : null; };
@@ -66236,8 +66270,10 @@ async function dashLaden() {
         if (dr !== null) tech.push(dr < 300 ? ['● Drucker bereit', 'gut'] : ['● Drucker meldet sich nicht', 'schlecht']);
         var ka = alter(t.pos_last_poll_at);
         if (ka !== null) tech.push(ka < 600 ? ['● Kasse verbunden', 'gut'] : ['● Kasse meldet sich nicht', 'schlecht']);
-        var push = false; try { push = typeof Notification !== 'undefined' && Notification.permission === 'granted'; } catch (x) {}
-        tech.push(push ? ['● Push an', 'gut'] : ['● Push aus', 'warn']);
+        var ps = e[5];
+        if (ps && ps.ok && ps.geraete > 0) tech.push(['● Push auf ' + ps.geraete + (ps.geraete === 1 ? ' Handy' : ' Handys'), 'gut']);
+        else if (ps && ps.ok) tech.push(['● Push: kein Handy angemeldet', 'schlecht']);
+        else tech.push(['● Push: Stand unbekannt', 'warn']);
         var r = ((window.APP_DATA && APP_DATA.restaurants) || []).find(function (x) { return x.id === rid; }) || { id: rid };
         dashZeichnen(M, { restaurant: r, technik: tech });
     } catch (err) {
