@@ -29147,11 +29147,15 @@ function showNewOrderAlarm(order) {
                 '<div class="kin-alarm-summe"><span id="orderAlarmZahlart">' + _alarmEsc(order.payment_method && typeof zahlartKurz === 'function' ? zahlartKurz(order.payment_method) : '') + '</span>' +
                     '<b>' + (order.total != null && order.total !== '' ? parseFloat(order.total).toFixed(2).replace('.', ',') + ' €' : '') + '</b></div>' +
             '</div>' +
-            '<span class="kin-alarm-tipp">EIN TIPP = ANGENOMMEN · FERTIG IN</span>' +
+            (order.status && order.status !== 'received'
+                // "Sofort bestaetigen" ist an: schon angenommen -- nichts mehr anzutippen.
+                ? '<span class="kin-alarm-tipp">SCHON ANGENOMMEN (SOFORT BESTÄTIGEN)</span>'
+                  + '<button type="button" class="kin-alarm-haupt" onclick="dismissNewOrderAlarm(true)">Ansehen</button>'
+                : '<span class="kin-alarm-tipp">EIN TIPP = ANGENOMMEN · FERTIG IN</span>' +
             '<div class="kin-alarm-zeiten">' + zeiten.map(function (m) {
                 return '<button type="button" data-schnell="' + oid + '" onclick="bestellAlarmAnnehmen(\'' + oid + '\', ' + m + ')" aria-label="Annehmen, fertig in ' + m + ' Minuten"><b>' + m + '</b><small>MIN</small></button>';
             }).join('') + '</div>' +
-            '<span class="kin-alarm-hinweis">Zeit antippen – fertig, angenommen</span>' +
+            '<span class="kin-alarm-hinweis">Zeit antippen – fertig, angenommen</span>') +
             '<div class="kin-alarm-unten">' +
                 '<button type="button" class="kin-alarm-anruf" onclick="try{printKitchenBon(\'' + oid + '\')}catch(e){}">' + kinSym('druck', false, 18) + 'Bon drucken</button>' +
                 '<button type="button" class="kin-alarm-ablehnen" onclick="bestellAlarmAblehnen(\'' + oid + '\')">Ablehnen …</button>' +
@@ -29332,6 +29336,69 @@ function istWacheProbe(o) {
 window.istWacheProbe = istWacheProbe;
 
 // ==================== BESTELLUNGEN ECHTZEIT ====================
+// DASHBOARD-NETZ (28.10.2026). Ibo: "beim dashboard muss alles rein kommen,
+// so muss der wirt alles mitbekommen, reservierungen und bestellung".
+//
+// Bisher kam Neues auf zwei Wegen: Echtzeit (Supabase) und Nachfragen alle
+// 10 s -- das Nachfragen aber NUR, solange die Bestellseite offen war. Ob die
+// Echtzeit fuer orders/reservations ueberhaupt freigeschaltet ist, steht in
+// keinem Protokoll und in keiner SQL-Datei des Projekts. Sass der Wirt auf dem
+// Dashboard, hing alles an diesem einen ungeprueften Weg.
+//
+// Jetzt: solange das Dashboard offen ist -- egal welche Seite --, alle 15 s
+// nachfragen und Neues ueber DENSELBEN Weg melden wie die Echtzeit (Ton,
+// Vollbild-Alarm, Liste). Doppelt wird nichts: kmiSchonGemeldet().
+window._kmiGemeldet = window._kmiGemeldet || {};
+function kmiSchonGemeldet(art, id) {
+    var k = art + ':' + id;
+    if (window._kmiGemeldet[k]) return true;
+    window._kmiGemeldet[k] = Date.now();
+    return false;
+}
+var _netzBasis = false, _netzLaeuft = false;
+async function dashboardNetz() {
+    if (_netzLaeuft) return;
+    var dash = document.getElementById('dashboardView');
+    if (!dash || window.getComputedStyle(dash).display === 'none') return;
+    if (typeof currentAdmin === 'undefined' || !currentAdmin) return;
+    _netzLaeuft = true;
+    try {
+        var seit = encodeURIComponent(new Date(Date.now() - 15 * 60000).toISOString());
+        var rid = window._gastroOnlyRestaurantId || (!currentAdmin.isAdmin ? (currentAdmin.restaurant_id || '') : '');
+        var nur = rid ? '&restaurant_id=eq.' + encodeURIComponent(rid) : '';
+        var kopf = { headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + kmiToken() } };
+        var e = await Promise.all([
+            fetch(SUPABASE_URL + '/rest/v1/orders?created_at=gte.' + seit + '&status=neq.cancelled' + nur
+                + '&select=id,restaurant_id,order_number,order_type,customer_name,delivery_address,table_number,total,payment_method,status,created_at&order=created_at.asc&limit=30', kopf),
+            fetch(SUPABASE_URL + '/rest/v1/reservations?created_at=gte.' + seit + '&status=in.(pending,confirmed)' + nur
+                + '&select=id,restaurant_id,guest_name,guest_phone,party_size,reservation_date,reservation_time,notes,source,status,created_at&order=created_at.asc&limit=30', kopf)
+        ]);
+        if (!e[0].ok || !e[1].ok) { console.warn('[Dashboard-Netz] nicht lesbar:', e[0].status, e[1].status); return; }
+        var bestellungen = await e[0].json(), reservierungen = await e[1].json();
+        var erst = !_netzBasis;
+        (Array.isArray(bestellungen) ? bestellungen : []).forEach(function (o) {
+            if (!o || !o.id || istWacheProbe(o)) return;
+            // Beim ersten Blick nur merken -- was schon da war, ist kein Alarm.
+            if (erst) { window._kmiGemeldet['o:' + o.id] = Date.now(); return; }
+            if (!window._kmiGemeldet['o:' + o.id]) { handleRealtimeOrder({ eventType: 'INSERT', new: o }); window._kmiGemeldet['o:' + o.id] = window._kmiGemeldet['o:' + o.id] || Date.now(); }
+        });
+        (Array.isArray(reservierungen) ? reservierungen : []).forEach(function (r) {
+            if (!r || !r.id || istWacheProbe(r)) return;
+            // Selbst eingetragen (Telefon am Tresen) ist keine Meldung wert.
+            if (r.source === 'dashboard') { window._kmiGemeldet['r:' + r.id] = Date.now(); return; }
+            if (erst) { window._kmiGemeldet['r:' + r.id] = Date.now(); return; }
+            if (!window._kmiGemeldet['r:' + r.id]) { handleRealtimeReservation({ eventType: 'INSERT', new: r }); window._kmiGemeldet['r:' + r.id] = window._kmiGemeldet['r:' + r.id] || Date.now(); }
+        });
+        _netzBasis = true;
+    } catch (err) {
+        console.warn('[Dashboard-Netz]', err && err.message);
+    } finally {
+        _netzLaeuft = false;
+    }
+}
+window.dashboardNetz = dashboardNetz;
+try { setTimeout(dashboardNetz, 4000); setInterval(dashboardNetz, 15000); } catch (e) {}
+
 function handleRealtimeOrder(payload) {
     var type = payload.eventType;
     var order = payload.new || {};
@@ -29344,6 +29411,8 @@ function handleRealtimeOrder(payload) {
     if (_gId && order.restaurant_id && order.restaurant_id !== _gId) return;
 
     if (type === 'INSERT') {
+        // Echtzeit UND das Dashboard-Netz koennen dieselbe Bestellung melden.
+        if (order.id && kmiSchonGemeldet('o', order.id)) return;
         // Dashboard Orders IMMER aktualisieren wenn Dashboard sichtbar
         var dashEl = document.getElementById('dashboardView');
         var isDashboardVisible = dashEl && (dashEl.classList.contains('active') || dashEl.style.display === 'block' || dashEl.style.display === '');
@@ -29459,6 +29528,9 @@ function handleRealtimeReservation(payload) {
 
     if (type === 'INSERT') {
         if (!_resIsOwn) return;
+        // Die Probe der Gastweg-Wache ist kein Gast (wie bei Bestellungen).
+        if (typeof istWacheProbe === 'function' && istWacheProbe(reservation)) return;
+        if (reservation.id && kmiSchonGemeldet('r', reservation.id)) return;
         if (document.getElementById('dashboardView') && document.getElementById('dashboardView').style.display !== 'none') {
             playReservationSound();
             showToast('Neue Reservierung von ' + (reservation.guest_name || 'Gast'), 'success');
