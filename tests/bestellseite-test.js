@@ -116,7 +116,15 @@ function weiter() {
     ['orderSoundBtn', 'fsAlarmBtn', 'autoPrintBtn', 'pushNotifBtn', 'printerStatusBadge', 'kasseStatusBadge', 'druckerMeldungZeile', 'ordersRestaurantSelect', 'ordersTimeFilter', 'ordersConnectionStatus'].forEach(function (id) {
         t('Kennung ' + id + ' gibt es genau einmal', (H.match(new RegExp('id="' + id + '"', 'g')) || []).length === 1, (H.match(new RegExp('id="' + id + '"', 'g')) || []).length);
     });
-    t('Zahlen und Bestelloptionen stehen zugeklappt UNTER den Bestellungen', sek.indexOf('id="ordersMehr"') > sek.indexOf('id="ordersGrid"') && sek.indexOf('id="orderSettingsPanel"') > sek.indexOf('id="ordersMehr"'), '');
+    t('Zahlen stehen zugeklappt UNTER den Bestellungen', sek.indexOf('id="ordersMehr"') > sek.indexOf('id="ordersGrid"'), '');
+    // 28.10.2026: "es fehlen so viele sachen ... paypal, vorbes" -- die Einstellungen
+    // waren unten im Zugeklappten nicht zu finden. Jetzt: eigener Knopf im Kopf.
+    t('Einstellungen OBEN (vor den Bestellungen), nicht im Zugeklappten', sek.indexOf('id="orderSettingsPanel"') > sek.indexOf('id="ordersEinstellungen"') && sek.indexOf('id="orderSettingsPanel"') < sek.indexOf('id="ordersGrid"') && sek.slice(sek.indexOf('id="ordersMehr"')).indexOf('id="orderSettingsPanel"') < 0, '');
+    t('… mit eigenem Knopf "Einstellungen" im Kopf, auch auf dem Handy sichtbar', /id="ordersEinstKnopf"[^>]*onclick="bestellEinstellungen\(\)"/.test(sek) && /\.kin-bk \.kin-bk-werkzeug\.kin-einst-knopf \{ display: inline-flex !important;/.test(H), '');
+    ['settingPickup', 'settingDelivery', 'settingNurKarte', 'settingBrandColor'].forEach(function (id) {
+        var i = sek.indexOf('id="' + id + '"');
+        t('Einstellung ' + id + ' steht im Einstellungs-Bereich', i > sek.indexOf('id="ordersEinstellungen"') && i < sek.indexOf('</section>', sek.indexOf('id="ordersEinstellungen"')), i);
+    });
     t('die Bestelloptionen sind noch da (nicht geloescht)', (H.match(/id="orderSettingsPanel"/g) || []).length === 1, '');
     t('vier Reiter: Alle / Neu / In Arbeit / Fertig', (sek.match(/class="kin-filter-tab/g) || []).length === 4, (sek.match(/class="kin-filter-tab/g) || []).length);
     t('"Fertig" zaehlt auch "Unterwegs"', /ordersCountReady'\); if \(el\) el\.textContent = dashboardOrders\.filter\(o => o\.status === 'ready' \|\| o\.status === 'out_for_delivery'\)/.test(H), '');
