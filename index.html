@@ -11475,6 +11475,37 @@
         .dark-mode .kin-alarm-quelle.online { background: #e0f2fe !important; color: #075985 !important; }
         .dark-mode .kin-alarm-quelle.telefon { background: #ede9fe !important; color: #5b21b6 !important; }
         .dark-mode .kin-alarm-haupt { background: #ffd54f !important; color: #00251e !important; }
+        /* BESTELL-ALARM wie Entwurf "Handy – neue Bestellung (Alarm)" */
+        .kin-best-alarm { z-index: 10050; }
+        .kin-alarm-nr { display: flex; flex-direction: column; gap: 6px; }
+        .kin-alarm-nr > b { font-family: Epilogue, Inter, sans-serif; font-weight: 900; font-size: 64px; line-height: 0.95; letter-spacing: -0.04em; word-break: break-all; }
+        .kin-alarm-zeile { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .kin-alarm-art { background: #ffd54f; color: #00251e; border-radius: 9999px; padding: 5px 12px; font-size: 12px; font-weight: 800; letter-spacing: 0.08em; }
+        .kin-alarm-wer { font-size: 15px; color: rgba(255,255,255,0.88); }
+        .kin-alarm-bon { font-size: 13px; font-weight: 700; color: #86efac; }
+        .kin-alarm-bon:empty { display: none; }
+        .kin-alarm-pos { display: flex; flex-direction: column; gap: 8px; }
+        .kin-best-alarm .kin-pos { font-size: 16px; color: #191c1d; }
+        .kin-alarm-lade { font-size: 14px; color: #404946; }
+        .kin-alarm-summe { display: flex; justify-content: space-between; align-items: baseline; border-top: 1px solid #edeeef; padding-top: 10px; }
+        .kin-alarm-summe span { color: #404946; font-size: 14px; }
+        .kin-alarm-summe b { font-family: Epilogue, Inter, sans-serif; font-weight: 900; font-size: 26px; color: #00251e; }
+        .kin-alarm-tipp { font-size: 12px; font-weight: 800; letter-spacing: 0.14em; color: #ffd54f; }
+        .kin-alarm-zeiten { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .kin-alarm-zeiten button { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 84px; border: none; border-radius: 20px; background: #ffd54f; color: #00251e; font-family: Epilogue, Inter, sans-serif; cursor: pointer; }
+        .kin-alarm-zeiten button b { font-weight: 900; font-size: 30px; line-height: 1; }
+        .kin-alarm-zeiten button small { font-size: 11px; font-weight: 800; letter-spacing: 0.1em; }
+        .kin-alarm-zeiten button:disabled { opacity: 0.5; }
+        .kin-alarm-hinweis { margin-top: auto; text-align: center; font-size: 13px; color: rgba(255,255,255,0.7); }
+        .kin-alarm-weiter { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+        .kin-alarm-weiter button { min-height: 44px; border: none; background: transparent; color: rgba(255,255,255,0.75); font-size: 13px; font-weight: 700; text-decoration: underline; cursor: pointer; padding: 0; }
+        .dark-mode .kin-best-alarm .kin-pos, .dark-mode .kin-best-alarm .kin-pos * { color: #191c1d !important; }
+        .dark-mode .kin-alarm-summe b { color: #00251e !important; }
+        .dark-mode .kin-alarm-summe span, .dark-mode .kin-alarm-lade { color: #404946 !important; }
+        .dark-mode .kin-alarm-zeiten button, .dark-mode .kin-alarm-art { background: #ffd54f !important; color: #00251e !important; }
+        .dark-mode .kin-alarm-zeiten button *, .dark-mode .kin-alarm-art * { color: #00251e !important; }
+        .dark-mode .kin-best-alarm .kin-pos-extra { color: #735c00 !important; }
+        .kin-best-alarm .kin-pos-extra { font-size: 14px; color: #735c00; padding-left: 24px; }
         /* NEUE RESERVIERUNG -- Stil des Entwurfs "Eine Reservierung (Fenster)" */
         #newReservationModal .modal.kin-res-formular { max-width: 520px; width: 100%; padding: 0; border-radius: 28px; background: #ffffff !important; color: #00251e; overflow: hidden; display: flex; flex-direction: column; max-height: calc(100vh - 32px); backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: 0 30px 80px rgba(0,37,30,0.35); }
         .kin-rf-kopf { display: flex; align-items: center; justify-content: space-between; padding: 22px 20px 6px; }
@@ -28939,6 +28970,53 @@ function zeigeTischRuf(act) {
     }, 6000);
 }
 
+// Gerichte, Hinweis, Bon-Stand aus der geladenen Liste nachtragen. Bis zu
+// 15 Sekunden warten; kommt nichts, steht es da (nicht still leer).
+function bestellAlarmFuellen(oid, versuch) {
+    var ov = document.getElementById('newOrderAlarmOverlay');
+    if (!ov || ov.getAttribute('data-order') !== oid) return;
+    var o = (typeof dashboardOrders !== 'undefined' && dashboardOrders || []).find(function (x) { return x && x.id === oid; });
+    var box = document.getElementById('orderAlarmPos');
+    if (!o || !(o.items || []).length) {
+        if (versuch < 15) { setTimeout(function () { bestellAlarmFuellen(oid, versuch + 1); }, 1000); return; }
+        var l = box && box.querySelector('.kin-alarm-lade'); if (l) l.textContent = 'Gerichte nicht geladen – in der Liste ansehen.';
+        return;
+    }
+    var l2 = box.querySelector('.kin-alarm-lade');
+    var hin = typeof bestellHinweis === 'function' ? bestellHinweis(o) : '';
+    var html = bestellPosHtml(o.items, true) + (hin ? '<div class="kin-alarm-notiz">„' + escapeHtml(hin) + '“</div>' : '');
+    if (l2) l2.outerHTML = '<div class="kin-alarm-pos">' + html + '</div>';
+    var bon = document.getElementById('orderAlarmBon');
+    if (bon && o.printed_at) bon.textContent = '✓ Bon gedruckt';
+}
+function bestellAlarmSeit() {
+    var el = document.getElementById('orderAlarmSeit');
+    if (!el) return;
+    var sek = Math.max(0, Math.round((Date.now() - new Date(el.getAttribute('data-seit')).getTime()) / 1000));
+    el.textContent = isNaN(sek) ? '' : sek < 60 ? 'vor ' + sek + ' Sek' : 'vor ' + Math.floor(sek / 60) + ' Min';
+    setTimeout(bestellAlarmSeit, 1000);
+}
+function bestellAlarmStatus(oid) {
+    var o = (typeof dashboardOrders !== 'undefined' && dashboardOrders || []).find(function (x) { return x && x.id === oid; });
+    return o ? o.status : '';
+}
+// Zu nur, wenn die Bestellung WIRKLICH nicht mehr neu ist -- scheitert es,
+// bleibt der Alarm stehen (die Meldung zeigt confirmAcceptOrder selbst).
+async function bestellAlarmAnnehmen(oid, minuten) {
+    if (typeof schnellAnnehmen !== 'function') { dismissNewOrderAlarm(true); return; }
+    await schnellAnnehmen(oid, minuten);
+    var st = bestellAlarmStatus(oid);
+    if (st && st !== 'received') dismissNewOrderAlarm(false);
+}
+async function bestellAlarmAblehnen(oid) {
+    if (typeof rejectOrder !== 'function') return;
+    await rejectOrder(oid);
+    var st = bestellAlarmStatus(oid);
+    if (st && st !== 'received') dismissNewOrderAlarm(false);
+}
+window.bestellAlarmAnnehmen = bestellAlarmAnnehmen;
+window.bestellAlarmAblehnen = bestellAlarmAblehnen;
+
 // Nachfragen über den SERVER, nicht direkt in der Datenbank.
 //
 // Direkt zu lesen wäre kürzer, hängt aber an den Zeilen-Regeln (RLS) von
@@ -29034,37 +29112,52 @@ function showNewOrderAlarm(order) {
     var existing = document.getElementById('newOrderAlarmOverlay');
     if (existing) {
         var cnt = document.getElementById('orderAlarmTitle');
-        if (cnt) cnt.textContent = _orderAlarmCount + ' neue Bestellungen!';
+        if (cnt) cnt.innerHTML = '<i></i>' + _orderAlarmCount + ' NEUE BESTELLUNGEN';
         return;
     }
 
-    var typeLabel = order.order_type === 'dine_in'
-        ? ('Vor Ort' + (order.table_number ? ' · Tisch ' + _alarmEsc(order.table_number) : ''))
-        : (order.order_type === 'delivery' ? 'Lieferung' : 'Abholung');
-    var totalLabel = order.total ? (parseFloat(order.total).toFixed(2).replace('.', ',') + ' €') : '';
-    var detailParts = [];
-    if (order.order_number) detailParts.push('#' + _alarmEsc(order.order_number));
-    detailParts.push(typeLabel);
-    if (order.customer_name) detailParts.push(_alarmEsc(order.customer_name));
-    if (totalLabel) detailParts.push('<strong style="color:#FFD54F;">' + totalLabel + '</strong>');
+    // AUSSEHEN WIE DER ENTWURF "Handy – neue Bestellung (Alarm)" (Claude
+    // Design, 27.10.2026; gebaut 28.10.): Nummer gross, Art, Gast, Gerichte,
+    // Summe -- und EIN Tipp auf die Minuten nimmt an, direkt hier.
+    // Die Gerichte kommen nicht mit dem Echtzeit-Signal; sie werden nachgereicht,
+    // sobald die Liste geladen ist (bestellAlarmFuellen).
+    var oid = String(order.id || '').replace(/[^\w-]/g, '');
+    var art = order.order_type === 'dine_in' ? ('TISCH' + (order.table_number ? ' ' + _alarmEsc(order.table_number) : ''))
+            : order.order_type === 'delivery' ? 'LIEFERUNG' : 'ABHOLUNG';
+    var haus = ((window.APP_DATA && APP_DATA.restaurants) || []).find(function (r) { return r.id === order.restaurant_id; });
+    var std = typeof vorbereitungsMinuten === 'function' ? vorbereitungsMinuten(haus, order.order_type) : 0;
+    var zeiten = typeof schnellZeiten === 'function' ? schnellZeiten(std, order.order_type) : [15, 20, 30];
+    var wer = [order.customer_name, order.order_type === 'delivery' ? order.delivery_address : ''].filter(Boolean).map(_alarmEsc).join(' · ');
 
     var ov = document.createElement('div');
     ov.id = 'newOrderAlarmOverlay';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:10050;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(0,25,20,0.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);animation:fadeIn 0.25s ease;';
+    ov.className = 'kin-res-alarm kin-best-alarm';
+    ov.setAttribute('role', 'alertdialog');
+    ov.setAttribute('aria-label', 'Neue Bestellung');
+    ov.setAttribute('data-order', oid);
     ov.innerHTML =
-        '<div style="max-width:420px;width:100%;background:linear-gradient(160deg,#003D33,#00251e);border:1px solid rgba(255,255,255,0.12);border-radius:28px;padding:36px 28px 24px;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,0.5);">' +
-            '<div style="width:88px;height:88px;margin:0 auto 20px;border-radius:50%;background:rgba(255,213,79,0.12);display:flex;align-items:center;justify-content:center;animation:pulse 1.2s infinite;">' +
-                '<span class="material-symbols-outlined" style="font-size:44px;color:#FFD54F;font-variation-settings:\'FILL\' 1;">notifications_active</span>' +
+        '<div class="kin-alarm-innen">' +
+            '<div class="kin-alarm-kopf"><span class="kin-alarm-chip" id="orderAlarmTitle"><i></i>NEUE BESTELLUNG</span>' +
+                '<span class="kin-alarm-seit" id="orderAlarmSeit" data-seit="' + _alarmEsc(String(order.created_at || new Date().toISOString())) + '">gerade eben</span></div>' +
+            '<div class="kin-alarm-nr"><b>' + (order.order_number ? '#' + _alarmEsc(order.order_number) : 'Neu') + '</b>' +
+                '<div class="kin-alarm-zeile"><span class="kin-alarm-art">' + art + '</span>' + (wer ? '<span class="kin-alarm-wer">' + wer + '</span>' : '') +
+                '<span class="kin-alarm-bon" id="orderAlarmBon"></span></div></div>' +
+            '<div class="kin-alarm-gast" id="orderAlarmPos">' +
+                '<span class="kin-alarm-lade">Gerichte werden geladen …</span>' +
+                '<div class="kin-alarm-summe"><span id="orderAlarmZahlart">' + _alarmEsc(order.payment_method && typeof zahlartKurz === 'function' ? zahlartKurz(order.payment_method) : '') + '</span>' +
+                    '<b>' + (order.total != null && order.total !== '' ? parseFloat(order.total).toFixed(2).replace('.', ',') + ' €' : '') + '</b></div>' +
             '</div>' +
-            '<div id="orderAlarmTitle" style="font-family:Epilogue,sans-serif;font-size:26px;font-weight:900;color:#ffffff;letter-spacing:-0.01em;">Neue Bestellung!</div>' +
-            '<div style="margin-top:10px;color:rgba(255,255,255,0.85);font-family:Inter,sans-serif;font-size:15px;line-height:1.5;">' + detailParts.join(' · ') + '</div>' +
-            '<button onclick="dismissNewOrderAlarm(true)" style="margin-top:24px;width:100%;padding:16px;border:none;border-radius:9999px;background:#FFD54F;color:#00251e;font-family:Inter,sans-serif;font-size:16px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">' +
-                '<span class="material-symbols-outlined" style="font-size:20px;">receipt_long</span>Bestellung ansehen' +
-            '</button>' +
-            '<button onclick="dismissNewOrderAlarm(false)" style="margin-top:10px;width:100%;padding:13px;border:1px solid rgba(255,255,255,0.2);border-radius:9999px;background:transparent;color:rgba(255,255,255,0.8);font-family:Inter,sans-serif;font-size:14px;font-weight:600;cursor:pointer;">Schließen</button>' +
-            '<label style="margin-top:16px;display:flex;align-items:center;justify-content:center;gap:8px;font-family:Inter,sans-serif;font-size:12px;color:rgba(255,255,255,0.45);cursor:pointer;">' +
-                '<input type="checkbox" onchange="try{localStorage.setItem(\'kmi_order_alarm_off\',this.checked?\'1\':\'0\');updateFsAlarmBtn()}catch(e){}" style="accent-color:#FFD54F;">Vollbild-Alarm nicht mehr anzeigen' +
-            '</label>' +
+            '<span class="kin-alarm-tipp">EIN TIPP = ANGENOMMEN · FERTIG IN</span>' +
+            '<div class="kin-alarm-zeiten">' + zeiten.map(function (m) {
+                return '<button type="button" data-schnell="' + oid + '" onclick="bestellAlarmAnnehmen(\'' + oid + '\', ' + m + ')" aria-label="Annehmen, fertig in ' + m + ' Minuten"><b>' + m + '</b><small>MIN</small></button>';
+            }).join('') + '</div>' +
+            '<span class="kin-alarm-hinweis">Zeit antippen – fertig, angenommen</span>' +
+            '<div class="kin-alarm-unten">' +
+                '<button type="button" class="kin-alarm-anruf" onclick="try{printKitchenBon(\'' + oid + '\')}catch(e){}">' + kinSym('druck', false, 18) + 'Bon drucken</button>' +
+                '<button type="button" class="kin-alarm-ablehnen" onclick="bestellAlarmAblehnen(\'' + oid + '\')">Ablehnen …</button>' +
+            '</div>' +
+            '<div class="kin-alarm-weiter"><button type="button" onclick="dismissNewOrderAlarm(true)">Später – zur Liste</button>' +
+            '<label class="kin-alarm-aus"><input type="checkbox" onchange="try{localStorage.setItem(\'kmi_order_alarm_off\',this.checked?\'1\':\'0\');updateFsAlarmBtn()}catch(e){}">Vollbild-Alarm aus</label></div>' +
         '</div>';
     document.body.appendChild(ov);
 
@@ -29077,6 +29170,8 @@ function showNewOrderAlarm(order) {
         }
         try { if (typeof playOrderSound === 'function') playOrderSound(); } catch (e) {}
     }, 6000);
+    bestellAlarmFuellen(oid, 0);
+    bestellAlarmSeit();
 }
 
 // ==================== VOLLBILD-ALARM AN/AUS (Dashboard-Knopf) ====================
@@ -65471,10 +65566,16 @@ function updateOrderStats() {
     try {
         if (!window._seenReceivedOrderIds) window._seenReceivedOrderIds = {};
         var _ordAlertInit = !window._orderAlertReady;
+        // NUR WAS GERADE ERST REINKAM (28.10.2026). Vorher reichte "noch nicht
+        // gesehen": wer auf "Gestern" oder einen anderen Tag umschaltete, bekam
+        // jede dort noch offene Bestellung als "Neue Bestellung" gemeldet --
+        // gemessen in der Vorschau mit einer Bestellung von Vortag.
+        var _frischAb = Date.now() - 15 * 60000;
         dashboardOrders.forEach(function(o) {
             if (o && o.status === 'received' && o.id && !window._seenReceivedOrderIds[o.id]) {
                 window._seenReceivedOrderIds[o.id] = true;
-                if (!_ordAlertInit && typeof showNewOrderAlert === 'function') showNewOrderAlert(o);
+                var _t = new Date(o.created_at || 0).getTime();
+                if (!_ordAlertInit && _t >= _frischAb && typeof showNewOrderAlert === 'function') showNewOrderAlert(o);
             }
         });
         window._orderAlertReady = true;
@@ -71716,6 +71817,10 @@ function showNewOrderAlert(order) {
         if (typeof currentAdmin === 'undefined' || !currentAdmin) return;
         var dashEl = document.getElementById('dashboardView');
         if (!dashEl || window.getComputedStyle(dashEl).display === 'none') return;
+        // Ist der Vollbild-Alarm an, meldet ER die Bestellung -- diese kleine
+        // Karte waere doppelt (Ibo, 28.10.2026: "siehst du das rote, muss das
+        // sein?"). Sie bleibt nur als Ersatz, wenn der Vollbild-Alarm aus ist.
+        try { if (localStorage.getItem('kmi_order_alarm_off') !== '1') return; } catch (e) {}
 
         var orderNum = order.order_number ? ('#' + order.order_number) : (oid ? ('#' + String(oid).substring(0, 6)) : '');
         var typeLabel = order.order_type === 'dine_in' ? 'Hier essen'
@@ -71732,16 +71837,16 @@ function showNewOrderAlert(order) {
             st.textContent =
                 '@keyframes ordAlertIn{from{transform:translate(-50%,-24px);opacity:0}to{transform:translate(-50%,0);opacity:1}}' +
                 '@keyframes ordAlertOut{from{transform:translate(-50%,0);opacity:1}to{transform:translate(-50%,-24px);opacity:0}}' +
-                '@keyframes ordAlertGlow{0%,100%{box-shadow:0 10px 40px rgba(239,68,68,.55),0 0 0 0 rgba(239,68,68,.45)}50%{box-shadow:0 14px 54px rgba(239,68,68,.9),0 0 0 14px rgba(239,68,68,0)}}' +
-                '#newOrderAlert{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:2147483600;min-width:300px;max-width:min(440px,92vw);background:linear-gradient(135deg,#ef4444,#f97316);color:#fff;border-radius:18px;padding:16px 18px;animation:ordAlertIn .28s ease,ordAlertGlow 1.1s ease-in-out infinite;cursor:pointer;font-family:inherit}' +
+                '@keyframes ordAlertGlow{0%,100%{box-shadow:0 10px 40px rgba(0,37,30,.45),0 0 0 0 rgba(255,213,79,.55)}50%{box-shadow:0 14px 54px rgba(0,37,30,.6),0 0 0 12px rgba(255,213,79,0)}}' +
+                '#newOrderAlert{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:2147483600;min-width:300px;max-width:min(440px,92vw);background:#00251e;color:#fff;border:2px solid #ffd54f;border-radius:18px;padding:16px 18px;animation:ordAlertIn .28s ease,ordAlertGlow 1.1s ease-in-out infinite;cursor:pointer;font-family:inherit}' +
                 '#newOrderAlert .oa-row{display:flex;align-items:center;gap:13px}' +
-                '#newOrderAlert .oa-ic{width:46px;height:46px;border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;animation:pulse 1s ease infinite}' +
-                '#newOrderAlert .oa-ic svg{width:26px;height:26px;color:var(--primary);display:block}' +
+                '#newOrderAlert .oa-ic{width:46px;height:46px;border-radius:12px;background:#ffd54f;display:flex;align-items:center;justify-content:center;flex-shrink:0;animation:pulse 1s ease infinite}' +
+                '#newOrderAlert .oa-ic svg{width:26px;height:26px;color:#00251e;display:block}' +
                 '#newOrderAlert .oa-ttl{font-size:16px;font-weight:800;letter-spacing:.02em;line-height:1.15}' +
                 '#newOrderAlert .oa-num{font-weight:800}' +
                 '#newOrderAlert .oa-meta{font-size:13px;opacity:.95;margin-top:2px}' +
                 '#newOrderAlert .oa-hint{font-size:11px;opacity:.85;margin-top:8px;text-align:right}' +
-                '#newOrderAlert .oa-badge{background:#fff;color:#ef4444;font-weight:800;border-radius:9999px;min-width:24px;height:24px;padding:0 7px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}';
+                '#newOrderAlert .oa-badge{background:#ffd54f;color:#00251e;font-weight:800;border-radius:9999px;min-width:24px;height:24px;padding:0 7px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}';
             document.head.appendChild(st);
         }
 
