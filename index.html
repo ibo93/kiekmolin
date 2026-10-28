@@ -29281,6 +29281,9 @@ function handleRealtimeOrder(payload) {
     if (type === 'INSERT') {
         // Echtzeit UND das Dashboard-Netz koennen dieselbe Bestellung melden.
         if (order.id && kmiSchonGemeldet('o', order.id)) return;
+        // Die Startseite des Dashboards ("Jetzt wichtig", Zahlen) gleich mit --
+        // sonst stuende die neue Bestellung dort erst nach bis zu einer Minute.
+        try { var _sd = document.getElementById('sectionDashboard'); if (_sd && _sd.classList.contains('active') && typeof dashLaden === 'function') dashLaden(); } catch (e) {}
         // Dashboard Orders IMMER aktualisieren wenn Dashboard sichtbar
         var dashEl = document.getElementById('dashboardView');
         var isDashboardVisible = dashEl && (dashEl.classList.contains('active') || dashEl.style.display === 'block' || dashEl.style.display === '');
@@ -29399,6 +29402,7 @@ function handleRealtimeReservation(payload) {
         // Die Probe der Gastweg-Wache ist kein Gast (wie bei Bestellungen).
         if (typeof istWacheProbe === 'function' && istWacheProbe(reservation)) return;
         if (reservation.id && kmiSchonGemeldet('r', reservation.id)) return;
+        try { var _sd2 = document.getElementById('sectionDashboard'); if (_sd2 && _sd2.classList.contains('active') && typeof dashLaden === 'function') dashLaden(); } catch (e) {}
         if (document.getElementById('dashboardView') && document.getElementById('dashboardView').style.display !== 'none') {
             playReservationSound();
             showToast('Neue Reservierung von ' + (reservation.guest_name || 'Gast'), 'success');
