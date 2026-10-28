@@ -11043,6 +11043,12 @@
         }
         #ordersGrid .kin-order-actions { align-items: center; }
         .kin-bk-mehrknopf { display: none; font-size: 22px; font-weight: 900; line-height: 1; }
+        /* Tag waehlen: das Datumsfeld ist nur der Kalender dahinter */
+        .kin-bk-tagwahl { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+        .kin-bk-tagwahl.offen { position: static; width: auto; height: 44px; opacity: 1; pointer-events: auto; padding: 0 12px; border-radius: 9999px; border: 2px solid rgba(0,37,30,0.15); font-weight: 700; color: #00251e; background: #ffffff; }
+        .kin-bk-tagpfeil { font-size: 22px; font-weight: 900; line-height: 1; }
+        .kin-bk-tagpfeil:disabled { opacity: 0.35; cursor: default; }
+        .dark-mode .kin-bk-tagwahl.offen { background: transparent; color: #ffffff; border-color: rgba(255,255,255,0.18); }
         /* Handy wie im Entwurf: vier grosse Kacheln, Werkzeuge hinter "⋯". */
         @media (max-width: 699px) {
             .kin-bk { padding: 12px; border-radius: 20px; }
@@ -23858,7 +23864,14 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             <option value="week">Diese Woche</option>
                             <option value="month">Dieser Monat</option>
                             <option value="year">Dieses Jahr</option>
+                            <option value="tag">Tag wählen …</option>
                         </select>
+                        <!-- JEDER TAG (28.10.2026, Ibo: "will jeden tage haben"). Der
+                             Kalender oeffnet sich ueber "Tag wählen …"; ‹ › blaettern
+                             tageweise, solange ein einzelner Tag gewaehlt ist. -->
+                        <input type="date" id="ordersTagWahl" class="kin-bk-tagwahl" aria-label="Tag wählen" onchange="ordersTagSetzen(this.value)">
+                        <button type="button" class="kin-bk-werkzeug kin-bk-rund kin-bk-tagpfeil" id="ordersTagZurueck" onclick="ordersTagBlaettern(-1)" aria-label="Tag davor" title="Tag davor">‹</button>
+                        <button type="button" class="kin-bk-werkzeug kin-bk-rund kin-bk-tagpfeil" id="ordersTagVor" onclick="ordersTagBlaettern(1)" aria-label="Tag danach" title="Tag danach">›</button>
                     </div>
                 </div>
                 <div class="kin-bk-zeile">
@@ -64052,12 +64065,77 @@ var ordersTimeFilter = 'today';
 
 // Zeitraum-Filter ändern
 function changeOrdersTimeFilter(filter) {
+    if (filter === 'tag') {
+        // Erst wenn ein Tag gewaehlt ist, wird gefiltert -- bis dahin bleibt
+        // die Auswahl, wie sie war (sonst stuende "Tag wählen …" ohne Tag da).
+        var sel = document.getElementById('ordersTimeFilter');
+        if (sel) sel.value = ordersTimeFilter;
+        var feld = document.getElementById('ordersTagWahl');
+        if (feld) {
+            feld.value = ordersTagVon(ordersTimeFilter) || localDayStr(new Date());
+            try { if (feld.showPicker) { feld.showPicker(); return; } } catch (e) {}
+            feld.classList.add('offen'); feld.focus();
+        }
+        return;
+    }
     ordersTimeFilter = filter;
+    ordersTagAnzeigen();
     loadDashboardOrders();
+}
+// "tag:2026-10-21" -> "2026-10-21", sonst ''
+function ordersTagVon(filter) {
+    var m = /^tag:(\d{4}-\d{2}-\d{2})$/.exec(String(filter || ''));
+    return m ? m[1] : '';
+}
+function ordersTagSetzen(datum) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(datum || ''))) return;
+    ordersTimeFilter = 'tag:' + datum;
+    ordersTagAnzeigen();
+    loadDashboardOrders();
+}
+function ordersTagBlaettern(schritt) {
+    var tag = ordersTagVon(ordersTimeFilter);
+    if (!tag) {
+        // Aus "Heute"/"Gestern" heraus blaettern: vom jeweiligen Tag aus.
+        var d0 = new Date(); if (ordersTimeFilter === 'yesterday') d0.setDate(d0.getDate() - 1);
+        tag = localDayStr(d0);
+    }
+    var d = new Date(tag + 'T12:00:00'); d.setDate(d.getDate() + schritt);
+    ordersTagSetzen(localDayStr(d));
+}
+// Der gewaehlte Tag steht als eigene Zeile in der Auswahl ("Mi, 21.10.") --
+// sonst zeigte sie weiter "Heute", waehrend ein anderer Tag geladen ist.
+function ordersTagAnzeigen() {
+    var sel = document.getElementById('ordersTimeFilter'), feld = document.getElementById('ordersTagWahl');
+    var tag = ordersTagVon(ordersTimeFilter);
+    var opt = document.getElementById('ordersTagOption');
+    if (tag && sel) {
+        if (!opt) { opt = document.createElement('option'); opt.id = 'ordersTagOption'; sel.insertBefore(opt, sel.querySelector('option[value="tag"]')); }
+        opt.value = ordersTimeFilter;
+        opt.textContent = ordersTagText(tag);
+        sel.value = ordersTimeFilter;
+    } else if (opt) {
+        opt.remove();
+    }
+    if (feld) { feld.classList.remove('offen'); if (tag) feld.value = tag; }
+    var an = !!tag || ordersTimeFilter === 'today' || ordersTimeFilter === 'yesterday';
+    ['ordersTagZurueck', 'ordersTagVor'].forEach(function (id) { var b = document.getElementById(id); if (b) b.style.display = an ? '' : 'none'; });
+    var vor = document.getElementById('ordersTagVor');
+    if (vor) vor.disabled = (tag || (ordersTimeFilter === 'today' ? localDayStr(new Date()) : '')) >= localDayStr(new Date());
+}
+try { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { try { ordersTagAnzeigen(); } catch (e) {} }); else setTimeout(function () { try { ordersTagAnzeigen(); } catch (e) {} }, 0); } catch (e) {}
+function ordersTagText(tag) {
+    var heute = localDayStr(new Date()), g = new Date(); g.setDate(g.getDate() - 1);
+    if (tag === heute) return 'Heute';
+    if (tag === localDayStr(g)) return 'Gestern';
+    var d = new Date(tag + 'T12:00:00');
+    return d.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'numeric', year: d.getFullYear() === new Date().getFullYear() ? undefined : '2-digit' });
 }
 
 // Zeitraum-Start berechnen
 function getTimeFilterStart(filter) {
+    var tag = ordersTagVon(filter);
+    if (tag) { var t = tag.split('-'); return new Date(+t[0], +t[1] - 1, +t[2], 0, 0, 0, 0); }
     var d = new Date();
     switch (filter) {
         case 'today': d.setHours(0,0,0,0); break;
@@ -64070,12 +64148,17 @@ function getTimeFilterStart(filter) {
     return d;
 }
 
-// Zeitraum-Ende (nur für gestern relevant)
+// Zeitraum-Ende (gestern und ein gewaehlter Tag)
 function getTimeFilterEnd(filter) {
     if (filter === 'yesterday') {
         var d = new Date();
         d.setHours(0,0,0,0);
         return d;
+    }
+    if (ordersTagVon(filter)) {
+        var e = getTimeFilterStart(filter);
+        e.setDate(e.getDate() + 1);
+        return e;
     }
     return null;
 }
@@ -64220,7 +64303,7 @@ function renderBestseller(orders) {
     window._dashboardOrdersFuerAuswertung = orders || [];
 
     var labels = { today: 'Heute', yesterday: 'Gestern', week: 'Diese Woche', month: 'Dieser Monat', year: 'Dieses Jahr' };
-    if (label) label.textContent = labels[ordersTimeFilter] || 'Heute';
+    if (label) label.textContent = labels[ordersTimeFilter] || (ordersTagVon(ordersTimeFilter) ? ordersTagText(ordersTagVon(ordersTimeFilter)) : 'Heute');
 
     var rid = window._gastroOnlyRestaurantId
            || (typeof ordersRestaurantFilter !== 'undefined' ? ordersRestaurantFilter : '')
@@ -65410,7 +65493,11 @@ async function loadPeriodComparison(currentRevenue, currentCount) {
     try {
         // Vorperiode berechnen
         var start = getTimeFilterStart(ordersTimeFilter);
-        var now = new Date();
+        // Ein abgeschlossener Zeitraum (gestern, ein gewaehlter Tag) wird mit
+        // dem gleich langen davor verglichen -- also dem Tag davor. Vorher rechnete
+        // es "jetzt minus Anfang": fuer gestern waren das anderthalb Tage.
+        var ende = getTimeFilterEnd(ordersTimeFilter);
+        var now = ende || new Date();
         var diff = now.getTime() - start.getTime();
         var prevEnd = new Date(start.getTime());
         var prevStart = new Date(start.getTime() - diff);
