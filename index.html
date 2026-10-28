@@ -11047,6 +11047,103 @@
         .kin-bk .kin-bk-werkzeug.kin-einst-knopf { display: inline-flex !important; background: #003d33; color: #ffffff; }
         .kin-bk .kin-bk-werkzeug.kin-einst-knopf.aktiv { background: #ffd54f; color: #00251e; }
         .kin-einst { margin: 0 0 16px; }
+        .kin-einst-name { display: block; font-size: 14px; color: #404946; margin-top: 2px; }
+        /* EINSTELLUNGEN wie Board "Bestellungen – Einstellungen" (28.10.2026) */
+        .kin-e-raster { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+        @media (max-width: 899px) { .kin-e-raster { grid-template-columns: minmax(0, 1fr); } }
+        .kin-e-spalte { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+        .kin-e-karte { background: #ffffff; border-radius: 24px; padding: 18px; box-shadow: 0 1px 2px rgba(0,37,30,0.06), 0 10px 28px -14px rgba(0,37,30,0.18); display: flex; flex-direction: column; gap: 14px; }
+        .kin-e-karte h4 { margin: 0; font-family: Epilogue, Inter, sans-serif; font-weight: 900; font-size: 19px; letter-spacing: -0.01em; color: #00251e; }
+        .kin-e-kacheln { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+        @media (max-width: 480px) { .kin-e-kacheln { grid-template-columns: minmax(0, 1fr); } }
+        .kin-e-kachel { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 20px; border: 2px solid #e1e5e3 !important; background: #ffffff; cursor: pointer; transition: border-color .2s, background .2s; }
+        .kin-e-kachel:has(input:checked) { border-color: #003d33 !important; background: #f0f7f4; }
+        .kin-e-kachel-oben { display: flex; justify-content: space-between; align-items: center; }
+        .kin-e-sym { flex: 0 0 40px; width: 40px; height: 40px; border-radius: 12px; background: #f3f4f5; color: #00251e; display: flex; align-items: center; justify-content: center; }
+        .kin-e-kachel:has(input:checked) .kin-e-sym { background: #003d33; color: #ffffff; }
+        .kin-e-sym svg { stroke: currentColor !important; }
+        .kin-e-titel { display: block; font-size: 15px; font-weight: 800; color: #00251e; }
+        .kin-e-kachel .kin-e-titel { font-size: 16px; }
+        .kin-e-sub { display: block; font-size: 13px; line-height: 1.4; color: #404946; }
+        .kin-e-zeile { display: flex; align-items: center; gap: 12px; padding-top: 12px; border-top: 1px solid #eef0ef; }
+        .kin-e-karte > h4 + .kin-e-zeile, .kin-e-kacheln + .kin-e-zeile { border-top: none; padding-top: 0; }
+        .kin-e-klick { cursor: pointer; }
+        .kin-e-text { flex: 1 1 auto; min-width: 0; }
+        /* Schalter: 48x28 -- das Skript setzt Farbe/Lage inline, :checked gewinnt */
+        .kin-e-kipp { position: relative; display: inline-block; flex-shrink: 0; cursor: pointer; margin: 0; }
+        .kin-e-bahn { position: relative !important; flex: 0 0 48px; width: 48px !important; height: 28px !important; border-radius: 9999px !important; background: #c9cfcd !important; transition: background .2s; }
+        .kin-e-knopf { position: absolute !important; top: 3px !important; left: 3px !important; right: auto !important; width: 22px !important; height: 22px !important; border-radius: 9999px !important; background: #ffffff !important; box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important; transition: transform .2s !important; }
+        input:checked + .kin-e-bahn { background: #003d33 !important; }
+        input:checked + .kin-e-bahn .kin-e-knopf { transform: translateX(20px); }
+        #ordersEinstellungen .toggle-switch { flex: 0 0 48px; width: 48px !important; height: 28px !important; border-radius: 9999px; background: #003d33; position: relative; cursor: pointer; }
+        #ordersEinstellungen .toggle-switch::after { top: 3px; right: 3px; width: 22px; height: 22px; }
+        #ordersEinstellungen .toggle-switch.off { background: #c9cfcd; }
+        #ordersEinstellungen .toggle-switch.off::after { right: auto; left: 3px; }
+        .kin-e-wert { display: flex; flex-direction: column; gap: 8px; padding-top: 14px; border-top: 1px solid #eef0ef; }
+        .kin-e-karte > h4 + .kin-e-wert { border-top: none; padding-top: 0; }
+        .kin-e-wert-kopf { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+        .kin-e-wert-kopf label, .kin-e-label, .kin-e-minuten label > span:first-child { font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #404946; }
+        .kin-e-zahl { display: inline-flex; align-items: center; gap: 6px; }
+        .kin-e-zahl input { width: 80px; min-height: 44px; padding: 0 10px; border: 2px solid transparent; border-radius: 14px; background: #f3f4f5; color: #00251e; font-family: Inter, sans-serif; font-size: 16px; font-weight: 800; text-align: center; box-sizing: border-box; }
+        .kin-e-zahl input:focus, .kin-e-feld:focus { outline: none; border-color: #003d33; background: #ffffff; }
+        .kin-e-zahl > span { font-size: 14px; font-weight: 700; color: #404946; }
+        .kin-e-chips { display: flex; gap: 6px; }
+        .kin-e-chips button { flex: 1 1 0; min-width: 0; min-height: 40px; border-radius: 9999px; border: 2px solid #e1e5e3; background: #ffffff; color: #00251e; font-family: Inter, sans-serif; font-size: 13px; font-weight: 800; white-space: nowrap; cursor: pointer; }
+        .kin-e-chips button:active { background: #003d33; color: #ffffff; border-color: #003d33; }
+        .kin-e-minuten { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-left: 52px; }
+        .kin-e-minuten label { display: flex; flex-direction: column; gap: 6px; margin: 0; }
+        .kin-e-minuten .kin-e-zahl input { width: 100%; text-align: left; padding: 0 14px; }
+        .kin-e-feld { width: 100%; min-height: 48px; padding: 0 14px; border: 2px solid transparent; border-radius: 14px; background: #f3f4f5; color: #00251e; font-family: Inter, sans-serif; font-size: 15px; font-weight: 700; box-sizing: border-box; }
+        .kin-e-paypal { display: flex; flex-direction: column; gap: 6px; }
+        .kin-e-klein { margin: 0; font-size: 13px; line-height: 1.45; color: #404946; }
+        .kin-e-zuerst { margin-top: 8px; background: #f0f7f4; border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+        .kin-e-zuerst .kin-e-feld { background: #ffffff; }
+        .kin-e-zuerst-kopf { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .kin-e-zuerst-kopf b { font-size: 15px; color: #00251e; }
+        .kin-e-status { font-size: 11px; font-weight: 800; letter-spacing: 0.06em; padding: 4px 10px; border-radius: 9999px; background: rgba(0,0,0,0.06); color: #404946; }
+        .kin-e-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #00251e; cursor: pointer; }
+        .kin-e-knoepfe { display: flex; gap: 8px; }
+        .kin-e-haupt { flex: 1 1 auto; min-height: 48px; border: none; border-radius: 9999px; background: #003d33; color: #ffffff; font-size: 15px; font-weight: 900; cursor: pointer; }
+        .kin-e-weg { min-height: 48px; padding: 0 18px; border: none; border-radius: 9999px; background: #ffffff; color: #b91c1c; font-size: 15px; font-weight: 900; cursor: pointer; }
+        .kin-e-zweit { min-height: 48px; border: none; border-radius: 9999px; background: #f3f4f5; color: #00251e; font-size: 15px; font-weight: 900; cursor: pointer; }
+        .kin-e-palette { display: flex; flex-wrap: wrap; gap: 8px; }
+        .kin-e-palette > button { width: 36px !important; height: 36px !important; border-radius: 12px !important; }
+        .kin-e-eigene { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #404946; }
+        .kin-e-eigene input { width: 44px; height: 32px; padding: 2px; border: 2px solid #e1e5e3; border-radius: 10px; background: #ffffff; cursor: pointer; }
+        .kin-e-vorschau { display: flex; align-items: center; justify-content: center; min-height: 48px; border-radius: 9999px; color: #ffffff; font-family: Epilogue, Inter, sans-serif; font-weight: 900; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase; }
+        .kin-e-warn { padding: 8px 10px; border-radius: 12px; background: rgba(180,83,9,0.09); color: #92400e; font-size: 13px; font-weight: 600; line-height: 1.45; }
+        .kin-e-fehler { padding: 8px 10px; border-radius: 12px; background: rgba(220,38,38,0.08); color: #b91c1c; font-size: 13px; font-weight: 600; line-height: 1.45; }
+        /* Dunkelmodus */
+        .dark-mode .kin-einst-name { color: #b9c4c0; }
+        .dark-mode .kin-e-karte { background: rgba(255,255,255,0.06); box-shadow: none; }
+        .dark-mode .kin-e-karte h4, .dark-mode .kin-e-titel, .dark-mode .kin-e-zuerst-kopf b, .dark-mode .kin-e-check { color: #ffffff; }
+        .dark-mode .kin-e-sub, .dark-mode .kin-e-klein, .dark-mode .kin-e-zahl > span, .dark-mode .kin-e-eigene { color: #b9c4c0; }
+        .dark-mode .kin-e-wert-kopf label, .dark-mode .kin-e-label, .dark-mode .kin-e-minuten label > span:first-child { color: #b9c4c0; }
+        .dark-mode .kin-e-kachel { background: transparent; border-color: rgba(255,255,255,0.18) !important; }
+        .dark-mode .kin-e-kachel:has(input:checked) { border-color: #ffd54f !important; background: rgba(255,213,79,0.08); }
+        .dark-mode .kin-e-sym { background: rgba(255,255,255,0.1); color: #ffffff; }
+        .dark-mode .kin-e-kachel:has(input:checked) .kin-e-sym { background: #ffd54f; color: #00251e !important; }
+        .dark-mode .kin-e-kachel:has(input:checked) .kin-e-sym svg { stroke: #00251e !important; }
+        .dark-mode .kin-e-zeile, .dark-mode .kin-e-wert { border-top-color: rgba(255,255,255,0.1); }
+        .dark-mode .kin-e-bahn { background: rgba(255,255,255,0.25) !important; }
+        .dark-mode .kin-e-knopf { background: #ffffff !important; }
+        .dark-mode input:checked + .kin-e-bahn { background: #ffd54f !important; }
+        .dark-mode input:checked + .kin-e-bahn .kin-e-knopf { background: #00251e !important; }
+        .dark-mode #ordersEinstellungen .toggle-switch { background: #ffd54f; }
+        .dark-mode #ordersEinstellungen .toggle-switch.off { background: rgba(255,255,255,0.25); }
+        .dark-mode .kin-e-zahl input, .dark-mode .kin-e-feld { background: rgba(255,255,255,0.08); color: #ffffff; }
+        .dark-mode .kin-e-zahl input:focus, .dark-mode .kin-e-feld:focus { border-color: #ffd54f; background: rgba(255,255,255,0.12); }
+        .dark-mode .kin-e-chips button { background: transparent; border-color: rgba(255,255,255,0.2); color: #ffffff; }
+        .dark-mode .kin-e-zuerst { background: rgba(255,255,255,0.05); }
+        .dark-mode .kin-e-zuerst .kin-e-feld { background: rgba(255,255,255,0.08); }
+        .dark-mode .kin-e-status { background: rgba(255,255,255,0.1); color: #e8eeec; }
+        .dark-mode .kin-e-haupt { background: #ffd54f; color: #00251e; }
+        .dark-mode .kin-e-weg { background: transparent; color: #fca5a5; border: 2px solid rgba(252,165,165,0.4); }
+        .dark-mode .kin-e-zweit { background: rgba(255,255,255,0.1); color: #e8eeec; }
+        .dark-mode .kin-e-eigene input { border-color: rgba(255,255,255,0.2); background: transparent; }
+        .dark-mode .kin-e-warn { color: #fcd34d; background: rgba(252,211,77,0.1); }
+        .dark-mode .kin-e-fehler { color: #fca5a5; background: rgba(252,165,165,0.1); }
+
         .kin-einst-kopf { display: flex; align-items: center; justify-content: space-between; margin: 0 0 10px; }
         .kin-einst-kopf h3 { margin: 0; font-family: Epilogue, Inter, sans-serif; font-weight: 900; font-size: 22px; color: #00251e; }
         .kin-einst-zu { min-height: 44px; padding: 0 18px; border-radius: 9999px; border: none; background: #f3f4f5; color: #00251e; font-weight: 800; cursor: pointer; }
@@ -23953,412 +24050,183 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                  und PayPal. Oeffnet ueber "Einstellungen" im Kopf, steht dann OBEN. -->
             <section id="ordersEinstellungen" class="kin-einst" hidden aria-label="Einstellungen der Bestellungen">
                 <div class="kin-einst-kopf">
-                    <h3>Einstellungen</h3>
+                    <div><h3>Einstellungen</h3><span id="orderSettingsRestName" class="kin-einst-name">für Gäste sichtbar</span></div>
                     <button type="button" class="kin-einst-zu" onclick="bestellEinstellungen(false)">Schließen</button>
                 </div>
-<div id="orderSettingsPanel" style="background: rgba(255,255,255,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 48px; padding: 24px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.3);">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <div style="width: 36px; height: 36px; background: linear-gradient(135deg, rgba(26,95,74,0.12), rgba(26,95,74,0.04)); border-radius: 16px; display: flex; align-items: center; justify-content: center;">
-                            <span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">settings</span>
-                        </div>
-                        <div>
-                            <span style="font-weight: 700; font-size: 15px; color: var(--text-primary);">Bestelloptionen</span>
-                            <!-- DER NAME DES BETRIEBS GEHOERT HIERHIN.
-                                 Ibo am 14.09.2026: eine Bestellung kam bei Restaurant A an,
-                                 gespeichert wurde die Einstellung nie dort -- oben im
-                                 Auswahlfeld stand ein anderes. Das Feld entscheidet, und
-                                 man uebersieht es. Wer mehrere Betriebe hat, stellt sonst
-                                 beim falschen um und sieht keinen Fehler: das Speichern
-                                 hat ja geklappt. -->
-                            <span id="orderSettingsRestName" style="font-size: 11px; color: var(--text-secondary); display: block;">für Kunden sichtbar</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Abholung & Lieferung Toggles - Horizontal -->
-                <div style="display: flex; gap: 10px; margin-bottom: 14px;">
-                    <div id="togglePickup" onclick="var cb=document.getElementById('settingPickup'); cb.checked=!cb.checked; saveOrderSettings();" style="flex: 1; display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--bg-secondary); border-radius: 16px; border: 1.5px solid var(--primary); cursor: pointer; transition: all 0.25s cubic-bezier(0.16,1,0.3,1);">
-                        <div style="width: 40px; height: 40px; background: linear-gradient(135deg, rgba(26,95,74,0.12), rgba(26,95,74,0.04)); border-radius: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                            <span class="material-symbols-outlined" style="font-size:20px;color:var(--primary);">shopping_bag</span>
-                        </div>
-                        <div style="flex: 1;">
-                            <div style="font-size: 14px; font-weight: 700; color: var(--text-primary);">Abholung</div>
-                            <div style="font-size: 11px; color: var(--text-secondary);">Kunden holen ab</div>
-                        </div>
+<div id="orderSettingsPanel" class="kin-e-raster">
+                <!-- EINSTELLUNGEN wie Board "Bestellungen – Einstellungen" (28.10.2026).
+                     Alle Kennungen, Schalter und Speicher-Wege sind die alten -- nur
+                     neu geordnet: Gaeste · Lieferung · Ablauf | Bezahlen · Stammgaeste · Aussehen.
+                     Die Farben der Schalter setzt das Skript noch selbst (style.*);
+                     das neue Aussehen gewinnt per :checked (CSS .kin-e-*). -->
+                <div class="kin-e-spalte">
+                <section class="kin-e-karte" aria-labelledby="kinEGaeste">
+                    <h4 id="kinEGaeste">So bestellen Gäste</h4>
+                    <div class="kin-e-kacheln">
+                    <div id="togglePickup" class="kin-e-kachel" role="switch" tabindex="0" onclick="var cb=document.getElementById('settingPickup'); cb.checked=!cb.checked; saveOrderSettings();" onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();this.click();}">
+                        <div class="kin-e-kachel-oben"><span class="kin-e-sym"><svg class="kin-sym" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 7h12l1 13H5z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg></span>
                         <input type="checkbox" id="settingPickup" checked style="display: none;" aria-label="Abholung anbieten">
-                        <div id="pickupToggleTrack" style="width: 44px; height: 24px; background: var(--primary); border-radius: 16px; position: relative; transition: all 0.25s; flex-shrink: 0;">
-                            <div id="pickupToggleKnob" style="width: 20px; height: 20px; background: var(--bg-card); border-radius: 50%; position: absolute; top: 2px; right: 2px; transition: all 0.25s; box-shadow: 0 1px 3px rgba(0,0,0,0.15);"></div>
-                        </div>
+                        <div id="pickupToggleTrack" class="kin-e-bahn"><div id="pickupToggleKnob" class="kin-e-knopf"></div></div></div>
+                        <div><b class="kin-e-titel">Abholung</b><span class="kin-e-sub">Gast holt ab</span></div>
                     </div>
-                    <div id="toggleDelivery" onclick="var cb=document.getElementById('settingDelivery'); cb.checked=!cb.checked; saveOrderSettings();" style="flex: 1; display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--bg-secondary); border-radius: 16px; border: 1.5px solid var(--border-color); cursor: pointer; transition: all 0.25s cubic-bezier(0.16,1,0.3,1);">
-                        <div style="width: 40px; height: 40px; background: linear-gradient(135deg, rgba(100,116,139,0.1), rgba(100,116,139,0.03)); border-radius: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                            <span class="material-symbols-outlined" style="font-size:20px;color:var(--text-secondary);">delivery_dining</span>
-                        </div>
-                        <div style="flex: 1;">
-                            <div style="font-size: 14px; font-weight: 700; color: var(--text-primary);">Lieferung</div>
-                            <div style="font-size: 11px; color: var(--text-secondary);">Wir liefern</div>
-                        </div>
+                    <div id="toggleDelivery" class="kin-e-kachel" role="switch" tabindex="0" onclick="var cb=document.getElementById('settingDelivery'); cb.checked=!cb.checked; saveOrderSettings();" onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();this.click();}">
+                        <div class="kin-e-kachel-oben"><span class="kin-e-sym"><svg class="kin-sym" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="17" r="2.5"/><circle cx="18" cy="17" r="2.5"/><path d="M8.5 17h7M15 6h3l2 6M4 12h7l2 5"/></svg></span>
                         <input type="checkbox" id="settingDelivery" style="display: none;" aria-label="Lieferung anbieten">
-                        <div id="deliveryToggleTrack" style="width: 44px; height: 24px; background: #d1d5db; border-radius: 16px; position: relative; transition: all 0.25s; flex-shrink: 0;">
-                            <div id="deliveryToggleKnob" style="width: 20px; height: 20px; background: var(--bg-card); border-radius: 50%; position: absolute; top: 2px; left: 2px; transition: all 0.25s; box-shadow: 0 1px 3px rgba(0,0,0,0.15);"></div>
-                        </div>
+                        <div id="deliveryToggleTrack" class="kin-e-bahn"><div id="deliveryToggleKnob" class="kin-e-knopf"></div></div></div>
+                        <div><b class="kin-e-titel">Lieferung</b><span class="kin-e-sub">Ihr liefert</span></div>
                     </div>
-                    <div id="toggleDineIn" onclick="var cb=document.getElementById('settingDineIn'); cb.checked=!cb.checked; saveOrderSettings();" style="flex: 1; display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--bg-secondary); border-radius: 16px; border: 1.5px solid var(--border-color); cursor: pointer; transition: all 0.25s cubic-bezier(0.16,1,0.3,1);">
-                        <div style="width: 40px; height: 40px; background: linear-gradient(135deg, rgba(100,116,139,0.1), rgba(100,116,139,0.03)); border-radius: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                            <span class="material-symbols-outlined" style="font-size:20px;color:var(--text-secondary);">restaurant</span>
-                        </div>
-                        <div style="flex: 1;">
-                            <div style="font-size: 14px; font-weight: 700; color: var(--text-primary);">Hier essen</div>
-                            <div style="font-size: 11px; color: var(--text-secondary);">Tisch-QR Bestellung</div>
-                        </div>
+                    <div id="toggleDineIn" class="kin-e-kachel" role="switch" tabindex="0" onclick="var cb=document.getElementById('settingDineIn'); cb.checked=!cb.checked; saveOrderSettings();" onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();this.click();}">
+                        <div class="kin-e-kachel-oben"><span class="kin-e-sym"><svg class="kin-sym" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3v8a2 2 0 0 0 2 2v8M11 3v6M7 3v6M17 3c-2 2-2 6 0 8v10"/></svg></span>
                         <input type="checkbox" id="settingDineIn" style="display: none;" aria-label="Vor Ort essen anbieten">
-                        <div id="dineInToggleTrack" style="width: 44px; height: 24px; background: #d1d5db; border-radius: 16px; position: relative; transition: all 0.25s; flex-shrink: 0;">
-                            <div id="dineInToggleKnob" style="width: 20px; height: 20px; background: var(--bg-card); border-radius: 50%; position: absolute; top: 2px; left: 2px; transition: all 0.25s; box-shadow: 0 1px 3px rgba(0,0,0,0.15);"></div>
-                        </div>
+                        <div id="dineInToggleTrack" class="kin-e-bahn"><div id="dineInToggleKnob" class="kin-e-knopf"></div></div></div>
+                        <div><b class="kin-e-titel">Hier essen</b><span class="kin-e-sub">Tisch-QR</span></div>
                     </div>
+                    </div>
+                    <!-- NUR SPEISEKARTE: kein vierter Weg, sondern der Schalter, der alle drei ausmacht. -->
+                    <div id="toggleNurKarte" class="kin-e-zeile kin-e-klick" role="switch" tabindex="0" onclick="var cb=document.getElementById('settingNurKarte'); cb.checked=!cb.checked; saveOrderSettings();" onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();this.click();}">
+                        <span class="kin-e-sym"><svg class="kin-sym" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h14v16H5z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span>
+                        <div class="kin-e-text"><b class="kin-e-titel">Nur Speisekarte zeigen</b><span class="kin-e-sub">Keine Onlinebestellung – Gäste sehen die Karte und rufen an.</span></div>
+                        <input type="checkbox" id="settingNurKarte" style="display: none;" aria-label="Nur Speisekarte zeigen, keine Onlinebestellung">
+                        <div id="nurKarteToggleTrack" class="kin-e-bahn"><div id="nurKarteToggleKnob" class="kin-e-knopf"></div></div>
+                    </div>
+                </section>
+
+                <section class="kin-e-karte" aria-labelledby="kinELief">
+                    <h4 id="kinELief">Lieferung &amp; Mindestwert</h4>
+                    <div id="deliveryFeeSection" class="kin-e-wert">
+                        <div class="kin-e-wert-kopf"><label for="settingDeliveryFee">Liefergebühr</label>
+                            <span class="kin-e-zahl"><input type="number" id="settingDeliveryFee" value="0" min="0" max="20" step="0.50" onchange="saveDeliveryFee()" aria-label="Liefergebühr in Euro"><span>€</span></span></div>
+                        <div class="kin-e-chips"><button type="button" onclick="document.getElementById('settingDeliveryFee').value='0'; saveDeliveryFee();">Gratis</button><button type="button" onclick="document.getElementById('settingDeliveryFee').value='2.50'; saveDeliveryFee();">2,50 €</button><button type="button" onclick="document.getElementById('settingDeliveryFee').value='3.50'; saveDeliveryFee();">3,50 €</button><button type="button" onclick="document.getElementById('settingDeliveryFee').value='5.00'; saveDeliveryFee();">5,00 €</button></div>
+                    </div>
+                    <div class="kin-e-wert">
+                        <div class="kin-e-wert-kopf"><label for="settingDeliveryRadius">Lieferradius</label>
+                            <span class="kin-e-zahl"><input type="number" id="settingDeliveryRadius" value="10" min="1" max="50" step="1" onchange="saveDeliveryRadius()" aria-label="Maximale Entfernung in Kilometern"><span>km</span></span></div>
+                        <div class="kin-e-chips"><button type="button" onclick="document.getElementById('settingDeliveryRadius').value='5'; saveDeliveryRadius();">5 km</button><button type="button" onclick="document.getElementById('settingDeliveryRadius').value='10'; saveDeliveryRadius();">10 km</button><button type="button" onclick="document.getElementById('settingDeliveryRadius').value='15'; saveDeliveryRadius();">15 km</button><button type="button" onclick="document.getElementById('settingDeliveryRadius').value='25'; saveDeliveryRadius();">25 km</button></div>
+                    </div>
+                    <div class="kin-e-wert">
+                        <div class="kin-e-wert-kopf"><label for="settingMinOrder">Mindestbestellwert</label>
+                            <span class="kin-e-zahl"><input type="number" id="settingMinOrder" value="0" min="0" max="100" step="1" onchange="saveMinOrderValue()" onblur="saveMinOrderValue()" oninput="minOrderOffen()" aria-label="Mindestbestellwert in Euro"><span>€</span></span></div>
+                        <div class="kin-e-chips"><button type="button" onclick="document.getElementById('settingMinOrder').value='0'; saveMinOrderValue();">Kein</button><button type="button" onclick="document.getElementById('settingMinOrder').value='10'; saveMinOrderValue();">10 €</button><button type="button" onclick="document.getElementById('settingMinOrder').value='15'; saveMinOrderValue();">15 €</button><button type="button" onclick="document.getElementById('settingMinOrder').value='20'; saveMinOrderValue();">20 €</button></div>
+                        <!-- DIE ZEILE, DIE AM 27.08.2026 GEFEHLT HAT: Wert nur im Browser = Gast sah 0. -->
+                        <div id="minOrderOffen" class="kin-e-warn" style="display:none;">Noch nicht gespeichert &mdash; einmal daneben tippen.</div>
+                        <div id="minOrderNurLokal" class="kin-e-fehler" style="display:none;"></div>
+                    </div>
+                </section>
+
+                <section class="kin-e-karte" aria-labelledby="kinEAblauf">
+                    <h4 id="kinEAblauf">Ablauf</h4>
+                    <!-- VORBESTELLUNG: id und onclick unveraendert (toggleFeature + Laden). Voreinstellung bleibt AUS:
+                         nicht jeder Betrieb will nachts Bestellungen sammeln. -->
+                    <div class="kin-e-zeile">
+                        <span class="kin-e-sym"><svg class="kin-sym" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg></span>
+                        <div class="kin-e-text"><b class="kin-e-titel">Vorbestellung</b><span class="kin-e-sub">Gäste dürfen auch bestellen, wenn geschlossen ist – sie wählen dann eine Wunschzeit. Die Küche sieht Vorbestellungen getrennt.</span></div>
+                        <div class="toggle-switch" id="preorderToggle" onclick="toggleFeature('preorder')" role="switch" tabindex="0" aria-label="Vorbestellung" onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();this.click();}"></div>
+                    </div>
+                    <div class="kin-e-zeile">
+                        <span class="kin-e-sym"><svg class="kin-sym" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+                        <div class="kin-e-text"><b class="kin-e-titel">Wartezeit zusagen</b><span class="kin-e-sub">Das sieht der Gast, wenn du die Bestellung annimmst. Getrennt für Abholung und Lieferung.</span></div>
+                        <label class="kin-e-kipp">
+                            <input type="checkbox" id="settingPrepOn" checked onchange="savePrepMinutes()" style="display:none;" aria-label="Wartezeit zusagen">
+                        <div id="prepToggleTrack" class="kin-e-bahn"><div id="prepToggleKnob" class="kin-e-knopf"></div></div>
+                        </label>
+                    </div>
+                    <div class="kin-e-minuten">
+                        <label><span>Abholung</span><span class="kin-e-zahl"><input type="number" id="settingPrepPickup" value="25" min="5" max="180" step="5" onchange="savePrepMinutes()"><span>Min</span></span></label>
+                        <label><span>Lieferung</span><span class="kin-e-zahl"><input type="number" id="settingPrepDelivery" value="45" min="5" max="180" step="5" onchange="savePrepMinutes()"><span>Min</span></span></label>
+                    </div>
+                    <div class="kin-e-zeile">
+                        <span class="kin-e-sym"><svg class="kin-sym" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg></span>
+                        <div class="kin-e-text"><b class="kin-e-titel">Sofort bestätigen</b><span class="kin-e-sub">Gast bekommt sofort die Bestätigung mit Wartezeit. <strong>Du kannst eine Bestellung dann nicht mehr ablehnen.</strong> Vorbestellungen mit Wunschzeit bleiben wie bisher.</span></div>
+                        <label class="kin-e-kipp">
+                            <input type="checkbox" id="settingPrepAuto" onchange="savePrepMinutes()" style="display:none;" aria-label="Bestellungen sofort bestätigen">
+                        <div id="prepAutoTrack" class="kin-e-bahn"><div id="prepAutoKnob" class="kin-e-knopf"></div></div>
+                        </label>
+                    </div>
+                    <!-- KOHLE-RUF und AB 18 (Shisha, seit 06.10.2026): nur sichtbar, wenn es passt (Skript). -->
+                    <div id="kohleRufBox" style="display:none;" class="kin-e-zeile">
+                        <span class="kin-e-sym"><svg class="kin-sym" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3c1 4 6 6 6 11a6 6 0 0 1-12 0c0-3 2-5 3-7 1 2 2 3 3 3 0-3-1-5 0-7z"/></svg></span>
+                        <div class="kin-e-text"><b class="kin-e-titel">Kohle-Knopf (Shisha)</b><span class="kin-e-sub">Gäste am Tisch sehen „Kohle bitte“. Euer Handy zeigt dann „Tisch 5 möchte neue Kohle“.</span></div>
+                        <div class="toggle-switch off" id="kohleRufToggle" role="switch" tabindex="0" aria-label="Kohle-Knopf" onclick="toggleFeature('kohle_ruf')"></div>
+                    </div>
+                    <div id="abAchtzehnBox" style="display:none;" class="kin-e-zeile">
+                        <span class="kin-e-sym"><svg class="kin-sym" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="12" r="2.5"/><path d="M14 10h4M14 14h4"/></svg></span>
+                        <div class="kin-e-text"><b class="kin-e-titel">Zutritt ab 18</b><span class="kin-e-sub">Eure Seite zeigt „Ab 18“, wer reserviert, bestätigt Volljährigkeit und Ausweis. Die Kontrolle an der Tür bleibt bei euch.</span></div>
+                        <div class="toggle-switch off" id="abAchtzehnToggle" role="switch" tabindex="0" aria-label="Zutritt ab 18" onclick="toggleFeature('ab_18')"></div>
+                    </div>
+                </section>
                 </div>
 
-                <!-- NUR SPEISEKARTE, KEINE ONLINEBESTELLUNG
-                     Steht bewusst ABGESETZT unter den drei Bestellarten und
-                     nicht daneben: es ist kein vierter Weg zu bestellen,
-                     sondern der Schalter, der alle drei ausmacht. -->
-                <div id="toggleNurKarte" onclick="var cb=document.getElementById('settingNurKarte'); cb.checked=!cb.checked; saveOrderSettings();" style="margin-top: 10px; display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--bg-secondary); border-radius: 16px; border: 1.5px solid var(--border-color); cursor: pointer; transition: all 0.25s cubic-bezier(0.16,1,0.3,1);">
-                    <div style="width: 40px; height: 40px; background: linear-gradient(135deg, rgba(100,116,139,0.1), rgba(100,116,139,0.03)); border-radius: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                        <span class="material-symbols-outlined" style="font-size:20px;color:var(--text-secondary);">restaurant_menu</span>
+                <div class="kin-e-spalte">
+                <section class="kin-e-karte" aria-labelledby="kinEZahl">
+                    <h4 id="kinEZahl">Bezahlen</h4>
+                    <div id="togglePayCash" class="kin-e-zeile kin-e-klick" role="switch" tabindex="0" onclick="var cb=document.getElementById('settingPayCash'); cb.checked=!cb.checked; savePaymentSettings();">
+                        <div class="kin-e-text"><b class="kin-e-titel">Bar</b><span class="kin-e-sub">bei Abholung oder Lieferung</span></div>
+                        <input type="checkbox" id="settingPayCash" checked style="display: none;" aria-label="Barzahlung annehmen">
+                        <div id="payCashToggleTrack" class="kin-e-bahn"><div id="payCashToggleKnob" class="kin-e-knopf"></div></div>
                     </div>
-                    <div style="flex: 1;">
-                        <div style="font-size: 14px; font-weight: 700; color: var(--text-primary);">Nur Speisekarte zeigen</div>
-                        <div style="font-size: 11px; color: var(--text-secondary);">Keine Onlinebestellung — G&auml;ste sehen die Karte und rufen an</div>
+                    <div id="togglePayCard" class="kin-e-zeile kin-e-klick" role="switch" tabindex="0" onclick="var cb=document.getElementById('settingPayCard'); cb.checked=!cb.checked; savePaymentSettings();">
+                        <div class="kin-e-text"><b class="kin-e-titel">Karte</b><span class="kin-e-sub">EC / Kreditkarte vor Ort</span></div>
+                        <input type="checkbox" id="settingPayCard" checked style="display: none;" aria-label="Kartenzahlung annehmen">
+                        <div id="payCardToggleTrack" class="kin-e-bahn"><div id="payCardToggleKnob" class="kin-e-knopf"></div></div>
                     </div>
-                    <input type="checkbox" id="settingNurKarte" style="display: none;" aria-label="Nur Speisekarte zeigen, keine Onlinebestellung">
-                    <div id="nurKarteToggleTrack" style="width: 44px; height: 24px; background: #d1d5db; border-radius: 16px; position: relative; transition: all 0.25s; flex-shrink: 0;">
-                        <div id="nurKarteToggleKnob" style="width: 20px; height: 20px; background: var(--bg-card); border-radius: 50%; position: absolute; top: 2px; left: 2px; transition: all 0.25s; box-shadow: 0 1px 3px rgba(0,0,0,0.15);"></div>
+                    <div id="togglePayPaypal" class="kin-e-zeile kin-e-klick" role="switch" tabindex="0" onclick="var cb=document.getElementById('settingPayPaypal'); cb.checked=!cb.checked; savePaymentSettings();">
+                        <div class="kin-e-text"><b class="kin-e-titel">PayPal</b><span class="kin-e-sub">Gast zahlt online</span></div>
+                        <input type="checkbox" id="settingPayPaypal" style="display: none;" aria-label="PayPal annehmen">
+                        <div id="payPaypalToggleTrack" class="kin-e-bahn"><div id="payPaypalToggleKnob" class="kin-e-knopf"></div></div>
                     </div>
-                </div>
+                    <div id="paypalMeSection" style="display: none;" class="kin-e-paypal">
+                        <label class="kin-e-label" for="settingPaypalMe">PayPal-Adresse oder Link</label>
+                        <input type="text" id="settingPaypalMe" class="kin-e-feld" placeholder="payment@dein-betrieb.de  oder  paypal.me/DeinName" oninput="savePaypalMe()" aria-label="PayPal-Adresse oder Link">
+                        <p id="paypalMeVorschau" class="kin-e-klein">Nur den Namen eintragen — nicht den ganzen Link.</p>
+                        <!-- ZAHLUNG ZUERST, DANN BESTELLUNG: der Wirt traegt die Schluessel selbst ein; das Secret kommt nie wieder heraus. -->
+                        <div class="kin-e-zuerst">
+                            <div class="kin-e-zuerst-kopf"><b>Zahlung zuerst (empfohlen)</b><span id="ppcStatus" class="kin-e-status">wird geprüft…</span></div>
+                            <p class="kin-e-klein">Ohne das bekommt der Gast nur einen Bezahllink — bestellt ist bestellt, ob er zahlt oder nicht. Mit den zwei Schlüsseln aus deinem PayPal-Konto entsteht die Bestellung <strong>erst nach bezahlter Zahlung</strong>. Die Schlüssel holst du auf <strong>developer.paypal.com</strong> → Apps &amp; Credentials → Create App.</p>
+                            <label class="kin-e-label" for="ppcClientId">Client ID</label>
+                            <input type="text" id="ppcClientId" class="kin-e-feld" placeholder="Client ID" autocomplete="off" aria-label="PayPal Client ID">
+                            <label class="kin-e-label" for="ppcSecret">Secret</label>
+                            <input type="password" id="ppcSecret" placeholder="Secret" autocomplete="new-password" class="kin-e-feld" aria-label="PayPal Secret">
+                            <label class="kin-e-check"><input type="checkbox" id="ppcLive" aria-label="Echtes Geld statt Testkonto"> Echtes Geld (sonst Sandbox zum Testen)</label>
+                            <div class="kin-e-knoepfe">
+                                <button type="button" class="kin-e-haupt" onclick="ppcSpeichern()">Prüfen &amp; speichern</button>
+                                <button type="button" class="kin-e-weg" onclick="ppcEntfernen()">Entfernen</button>
+                            </div>
+                            <p id="ppcMeldungDash" class="kin-e-klein"></p>
+                        </div>
+                    </div>
+                </section>
 
-                <!-- Liefergebühr & Stempelkarte - Compact Row -->
-                <div style="display: flex; gap: 10px;">
-                    <!-- Liefergebühr -->
-                    <div id="deliveryFeeSection" style="flex: 1; padding: 16px 20px; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3);">
-                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-                            <div>
-                                <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">Liefergebühr</div>
-                                <div style="font-size: 11px; color: var(--text-secondary);">Kundenkosten</div>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 4px;">
-                                <input type="number" id="settingDeliveryFee" value="0" min="0" max="20" step="0.50" onchange="saveDeliveryFee()" style="width: 65px; padding: 7px 10px; border: 1px solid rgba(0,61,51,0.06); border-radius: 50px; font-size: 14px; font-weight: 700; text-align: right; background: rgba(255,255,255,0.6); color: var(--text-primary);" aria-label="Liefergebühr in Euro">
-                                <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary);">€</span>
-                            </div>
-                        </div>
-                        <div style="display: flex; gap: 6px;">
-                            <button onclick="document.getElementById('settingDeliveryFee').value='0'; saveDeliveryFee();" style="flex:1; padding: 6px 8px; border: 1px solid rgba(0,61,51,0.06); background: rgba(255,255,255,0.6); border-radius: 50px; font-size: 11px; font-weight: 600; cursor: pointer; color: var(--text-secondary); font-family: 'Inter', sans-serif; transition: all 0.2s;">Gratis</button>
-                            <button onclick="document.getElementById('settingDeliveryFee').value='2.50'; saveDeliveryFee();" style="flex:1; padding: 6px 8px; border: 1px solid rgba(0,61,51,0.06); background: rgba(255,255,255,0.6); border-radius: 50px; font-size: 11px; font-weight: 600; cursor: pointer; color: var(--text-secondary); font-family: 'Inter', sans-serif; transition: all 0.2s;">2,50 €</button>
-                            <button onclick="document.getElementById('settingDeliveryFee').value='3.50'; saveDeliveryFee();" style="flex:1; padding: 6px 8px; border: 1px solid rgba(0,61,51,0.06); background: rgba(255,255,255,0.6); border-radius: 50px; font-size: 11px; font-weight: 600; cursor: pointer; color: var(--text-secondary); font-family: 'Inter', sans-serif; transition: all 0.2s;">3,50 €</button>
-                            <button onclick="document.getElementById('settingDeliveryFee').value='5.00'; saveDeliveryFee();" style="flex:1; padding: 6px 8px; border: 1px solid rgba(0,61,51,0.06); background: rgba(255,255,255,0.6); border-radius: 50px; font-size: 11px; font-weight: 600; cursor: pointer; color: var(--text-secondary); font-family: 'Inter', sans-serif; transition: all 0.2s;">5,00 €</button>
-                        </div>
+                <section class="kin-e-karte" aria-labelledby="kinEStamm">
+                    <h4 id="kinEStamm">Stammgäste</h4>
+                    <div class="kin-e-zeile">
+                        <div class="kin-e-text"><b class="kin-e-titel">Stempelkarte</b><span id="stempelKachelText" class="kin-e-sub">Stempel sammeln, Belohnung bekommen</span></div>
+                        <label class="kin-e-kipp">
+                            <input type="checkbox" id="settingLoyaltyPoints" onchange="saveLoyaltySetting()" style="display:none;" aria-label="Stempelkarte">
+                        <div id="loyaltyToggleTrack" class="kin-e-bahn"><div id="loyaltyToggleKnob" class="kin-e-knopf"></div></div>
+                        </label>
                     </div>
+                    <!-- Einstellungen und Stammgaeste (datenbank/46-stempelkarte.sql) -->
+                    <button type="button" class="kin-e-zweit" onclick="stempelVerwaltungOeffnen()">Einrichten · Stammgäste</button>
+                </section>
 
-                    <!-- Lieferradius -->
-                    <div style="flex: 1; padding: 16px 20px; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3);">
-                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-                            <div>
-                                <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">
-                                    <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">my_location</span>
-                                    Lieferradius
-                                </div>
-                                <div style="font-size: 11px; color: var(--text-secondary);">Max. Entfernung</div>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 4px;">
-                                <input type="number" id="settingDeliveryRadius" value="10" min="1" max="50" step="1" onchange="saveDeliveryRadius()" style="width: 55px; padding: 7px 10px; border: 1px solid rgba(0,61,51,0.06); border-radius: 50px; font-size: 14px; font-weight: 700; text-align: right; background: rgba(255,255,255,0.6); color: var(--text-primary);" aria-label="Maximale Entfernung in Kilometern">
-                                <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary);">km</span>
-                            </div>
-                        </div>
-                        <div style="display: flex; gap: 6px;">
-                            <button onclick="document.getElementById('settingDeliveryRadius').value='5'; saveDeliveryRadius();" style="flex:1; padding: 6px 8px; border: 1px solid rgba(0,61,51,0.06); background: rgba(255,255,255,0.6); border-radius: 50px; font-size: 11px; font-weight: 600; cursor: pointer; color: var(--text-secondary); font-family: 'Inter', sans-serif; transition: all 0.2s;">5 km</button>
-                            <button onclick="document.getElementById('settingDeliveryRadius').value='10'; saveDeliveryRadius();" style="flex:1; padding: 6px 8px; border: 1px solid rgba(0,61,51,0.06); background: rgba(255,255,255,0.6); border-radius: 50px; font-size: 11px; font-weight: 600; cursor: pointer; color: var(--text-secondary); font-family: 'Inter', sans-serif; transition: all 0.2s;">10 km</button>
-                            <button onclick="document.getElementById('settingDeliveryRadius').value='15'; saveDeliveryRadius();" style="flex:1; padding: 6px 8px; border: 1px solid rgba(0,61,51,0.06); background: rgba(255,255,255,0.6); border-radius: 50px; font-size: 11px; font-weight: 600; cursor: pointer; color: var(--text-secondary); font-family: 'Inter', sans-serif; transition: all 0.2s;">15 km</button>
-                            <button onclick="document.getElementById('settingDeliveryRadius').value='25'; saveDeliveryRadius();" style="flex:1; padding: 6px 8px; border: 1px solid rgba(0,61,51,0.06); background: rgba(255,255,255,0.6); border-radius: 50px; font-size: 11px; font-weight: 600; cursor: pointer; color: var(--text-secondary); font-family: 'Inter', sans-serif; transition: all 0.2s;">25 km</button>
-                        </div>
+                <section class="kin-e-karte" aria-labelledby="kinELook">
+                    <h4 id="kinELook">Aussehen deiner Seite</h4>
+                    <span class="kin-e-sub">Knöpfe und Akzente auf kiekmolin.de/<span id="settingSlugHint">dein-name</span></span>
+                    <!-- Farbfelder aus MARKE.PALETTE (markePaletteBauen), nicht von Hand. -->
+                    <div id="markePalette" class="kin-e-palette"></div>
+                    <div class="kin-e-eigene"><span>oder eigene:</span>
+                        <input type="color" id="settingBrandColor" value="#003d33" onchange="saveBrandColor()" aria-label="Eigene Farbe deiner Seite"></div>
+                    <!-- Die Vorschau zeigt GENAU, was der Gast sieht -- inklusive Abdunklung. -->
+                    <div id="markeVorschau" class="kin-e-vorschau" style="background:#003d33;">Reservieren</div>
+                    <div id="markeHinweis" class="kin-e-warn" style="display:none;"></div>
+                    <div class="kin-e-zeile">
+                        <div class="kin-e-text"><b class="kin-e-titel">Dunkler Auftritt</b><span class="kin-e-sub">Für Bars &amp; Lounges: Seite und Karte dunkel, in eurer Farbe.</span></div>
+                        <div class="toggle-switch off" id="lookDunkelToggle" role="switch" tabindex="0" aria-label="Dunkler Auftritt" onclick="toggleFeature('look_dunkel')"></div>
                     </div>
-
-                    <!-- Stempelkarte -->
-                    <div style="width: 200px; flex-shrink: 0; padding: 16px 20px; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3); display: flex; flex-direction: column; justify-content: center;">
-                        <div style="display: flex; align-items: center; justify-content: space-between;">
-                            <div>
-                                <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">
-                                    <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">loyalty</span>
-                                    Stempelkarte
-                                </div>
-                                <div id="stempelKachelText" style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;">Stempel sammeln, Belohnung bekommen</div>
-                            </div>
-                            <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;">
-                                <input type="checkbox" id="settingLoyaltyPoints" onchange="saveLoyaltySetting()" style="display:none;">
-                                <div id="loyaltyToggleTrack" style="width:44px;height:24px;background:#d1d5db;border-radius:12px;transition:all 0.25s;">
-                                    <div id="loyaltyToggleKnob" style="width:20px;height:20px;background:var(--bg-card);border-radius:50%;position:absolute;top:2px;left:2px;transition:all 0.25s;box-shadow:0 1px 3px rgba(0,0,0,0.15);"></div>
-                                </div>
-                            </label>
-                        </div>
-                        <!-- Einstellungen und Stammgaeste (datenbank/46-stempelkarte.sql) -->
-                        <button type="button" onclick="stempelVerwaltungOeffnen()" style="margin-top:10px;min-height:40px;padding:0 12px;border-radius:9999px;border:1px solid rgba(0,61,51,0.18);background:transparent;color:var(--ink-strong);font:700 12px Inter,sans-serif;cursor:pointer;">Einrichten · Stammgäste</button>
-                    </div>
+                </section>
                 </div>
             </div>
-
-                <!-- KOHLE-RUF FUER SHISHA-BARS (seit 06.10.2026). Positives Flag
-                     wie die Vorbestellung: aus, bis der Wirt es einschaltet.
-                     Eine Pizzeria soll ihren Gaesten keinen Kohle-Knopf zeigen. -->
-                <div id="kohleRufBox" style="display:none; margin-top: 14px; padding: 16px 20px; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3);">
-                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
-                        <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">
-                            <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">local_fire_department</span>
-                            Kohle-Knopf (Shisha)
-                        </div>
-                        <div class="toggle-switch off" id="kohleRufToggle" onclick="toggleFeature('kohle_ruf')" style="width:44px;height:24px;flex-shrink:0;"></div>
-                    </div>
-                    <div style="font-size: 11px; color: var(--text-secondary);">Gäste am Tisch sehen zusätzlich „Kohle bitte“. Euer Handy zeigt dann „Tisch 5 möchte neue Kohle“ – ihr wisst sofort, was gebraucht wird.</div>
-                </div>
-
-                <!-- AB 18 (seit 06.10.2026). Shisha ist Tabak: unter 18 kein
-                     Zutritt (Jugendschutzgesetz §10). Der Schalter sagt es dem
-                     Gast VOR dem Weg -- die Ausweiskontrolle an der Tuer
-                     ersetzt er nicht. Siehe abAchtzehn(). -->
-                <div id="abAchtzehnBox" style="display:none; margin-top: 14px; padding: 16px 20px; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3);">
-                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
-                        <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">
-                            <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">badge</span>
-                            Zutritt ab 18
-                        </div>
-                        <div class="toggle-switch off" id="abAchtzehnToggle" onclick="toggleFeature('ab_18')" style="width:44px;height:24px;flex-shrink:0;"></div>
-                    </div>
-                    <div style="font-size: 11px; color: var(--text-secondary);">Eure Seite zeigt „Ab 18“, und wer reserviert, bestätigt, dass alle Gäste volljährig sind und einen Ausweis mitbringen. Die Kontrolle an der Tür bleibt bei euch.</div>
-                </div>
-
-                <!-- VORBESTELLUNG: darf der Gast bestellen, wenn zu ist?
-                     Umgezogen aus der Restaurant-Steuerung -- gesucht wurde sie
-                     hier, bei den Bestell-Einstellungen. Zusammen mit der
-                     Wartezeit darunter steht damit an EINER Stelle, wie
-                     Bestellungen hereinkommen: ausserhalb der Zeiten ja/nein,
-                     und mit oder ohne Zeitzusage.
-
-                     Die Schaltflaeche behaelt id und onclick unveraendert --
-                     toggleFeature() und das Setzen des Zustands beim Laden
-                     haengen an genau diesem id. Neu ist nur der Kasten
-                     drumherum, damit sie aussieht wie die Wartezeit daneben.
-
-                     Voreinstellung bleibt AUS: nicht jeder Betrieb will nachts
-                     Bestellungen sammeln, und niemand soll das ungefragt
-                     bekommen. -->
-                <div style="margin-top: 14px; padding: 16px 20px; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3);">
-                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
-                        <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">
-                            <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">event_upcoming</span>
-                            Vorbestellung
-                        </div>
-                        <div class="toggle-switch" id="preorderToggle" onclick="toggleFeature('preorder')" style="width:44px;height:24px;flex-shrink:0;"></div>
-                    </div>
-                    <div style="font-size: 11px; color: var(--text-secondary);">Gäste dürfen auch bestellen, wenn geschlossen ist – sie wählen dann eine Wunschzeit. Die Küche sieht Vorbestellungen getrennt.</div>
-                </div>
-
-                <!-- Wartezeiten: was der Gast als Zusage bekommt -->
-                <div style="margin-top: 14px; padding: 16px 20px; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3);">
-                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
-                        <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">
-                            <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">schedule</span>
-                            Wartezeit
-                        </div>
-                        <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;flex-shrink:0;">
-                            <input type="checkbox" id="settingPrepOn" checked onchange="savePrepMinutes()" style="display:none;">
-                            <div id="prepToggleTrack" style="width:44px;height:24px;background:#d1d5db;border-radius:12px;transition:all 0.25s;">
-                                <div id="prepToggleKnob" style="width:20px;height:20px;background:var(--bg-solid);border-radius:50%;position:absolute;top:2px;left:2px;transition:all 0.25s;box-shadow:0 1px 3px rgba(0,0,0,0.2);"></div>
-                            </div>
-                        </label>
-                    </div>
-                    <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 10px;">Das sieht der Gast, wenn du die Bestellung annimmst. Getrennt für Abholung und Lieferung.</div>
-                    <div style="display: flex; gap: 10px;">
-                        <label style="flex:1; display:flex; align-items:center; justify-content:space-between; gap:6px; font-size:13px; font-weight:600; color:var(--text-primary);">
-                            <span><span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">shopping_bag</span> Abholung</span>
-                            <span style="display:flex;align-items:center;gap:4px;">
-                                <input type="number" id="settingPrepPickup" value="25" min="5" max="180" step="5" onchange="savePrepMinutes()" style="width: 62px; padding: 7px 10px; border: 1px solid rgba(0,61,51,0.06); border-radius: 50px; font-size: 14px; font-weight: 700; text-align: right; background: rgba(255,255,255,0.6); color: var(--text-primary);">
-                                <span style="font-size:12px;color:var(--text-secondary);">Min</span>
-                            </span>
-                        </label>
-                        <label style="flex:1; display:flex; align-items:center; justify-content:space-between; gap:6px; font-size:13px; font-weight:600; color:var(--text-primary);">
-                            <span><span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">inventory_2</span> Lieferung</span>
-                            <span style="display:flex;align-items:center;gap:4px;">
-                                <input type="number" id="settingPrepDelivery" value="45" min="5" max="180" step="5" onchange="savePrepMinutes()" style="width: 62px; padding: 7px 10px; border: 1px solid rgba(0,61,51,0.06); border-radius: 50px; font-size: 14px; font-weight: 700; text-align: right; background: rgba(255,255,255,0.6); color: var(--text-primary);">
-                                <span style="font-size:12px;color:var(--text-secondary);">Min</span>
-                            </span>
-                        </label>
-                    </div>
-                    <!-- Sofort bestaetigen: der Gast bekommt die Zusage direkt per Mail -->
-                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-top:14px;padding-top:12px;border-top:1px solid rgba(0,61,51,0.08);">
-                        <div>
-                            <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">
-                                <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">check_circle</span>
-                                Bestellungen sofort bestätigen
-                            </div>
-                            <div style="font-size: 11px; color: var(--text-secondary); margin-top:4px;">Der Gast bekommt sofort eine Bestätigungs-Mail mit deiner Wartezeit – du musst nichts mehr annehmen. <strong>Dafür kannst du eine Bestellung dann nicht mehr ablehnen.</strong> Vorbestellungen mit Wunschzeit bleiben wie bisher.</div>
-                        </div>
-                        <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;flex-shrink:0;">
-                            <input type="checkbox" id="settingPrepAuto" onchange="savePrepMinutes()" style="display:none;">
-                            <div id="prepAutoTrack" style="width:44px;height:24px;background:#d1d5db;border-radius:12px;transition:all 0.25s;">
-                                <div id="prepAutoKnob" style="width:20px;height:20px;background:var(--bg-solid);border-radius:50%;position:absolute;top:2px;left:2px;transition:all 0.25s;box-shadow:0 1px 3px rgba(0,0,0,0.2);"></div>
-                            </div>
-                        </label>
-                    </div>
-                </div>
-
-                <!-- Mindestbestellwert & Zahlungsarten -->
-                <div style="display: flex; gap: 10px; margin-top: 14px;">
-                    <!-- Mindestbestellwert -->
-                    <div style="flex: 1; padding: 16px 20px; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3);">
-                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-                            <div>
-                                <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">
-                                    <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">payments</span>
-                                    Mindestbestellwert
-                                </div>
-                                <div style="font-size: 11px; color: var(--text-secondary);">Minimum pro Bestellung</div>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 4px;">
-                                <input type="number" id="settingMinOrder" value="0" min="0" max="100" step="1" onchange="saveMinOrderValue()" onblur="saveMinOrderValue()" oninput="minOrderOffen()" style="width: 65px; padding: 7px 10px; border: 1px solid rgba(0,61,51,0.06); border-radius: 50px; font-size: 14px; font-weight: 700; text-align: right; background: rgba(255,255,255,0.6); color: var(--text-primary);" aria-label="Mindestbestellwert in Euro">
-                                <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary);">€</span>
-                            </div>
-                        </div>
-                        <div style="display: flex; gap: 6px;">
-                            <button onclick="document.getElementById('settingMinOrder').value='0'; saveMinOrderValue();" style="flex:1; padding: 6px 8px; border: 1px solid rgba(0,61,51,0.06); background: rgba(255,255,255,0.6); border-radius: 50px; font-size: 11px; font-weight: 600; cursor: pointer; color: var(--text-secondary); font-family: 'Inter', sans-serif; transition: all 0.2s;">Kein</button>
-                            <button onclick="document.getElementById('settingMinOrder').value='10'; saveMinOrderValue();" style="flex:1; padding: 6px 8px; border: 1px solid rgba(0,61,51,0.06); background: rgba(255,255,255,0.6); border-radius: 50px; font-size: 11px; font-weight: 600; cursor: pointer; color: var(--text-secondary); font-family: 'Inter', sans-serif; transition: all 0.2s;">10 €</button>
-                            <button onclick="document.getElementById('settingMinOrder').value='15'; saveMinOrderValue();" style="flex:1; padding: 6px 8px; border: 1px solid rgba(0,61,51,0.06); background: rgba(255,255,255,0.6); border-radius: 50px; font-size: 11px; font-weight: 600; cursor: pointer; color: var(--text-secondary); font-family: 'Inter', sans-serif; transition: all 0.2s;">15 €</button>
-                            <button onclick="document.getElementById('settingMinOrder').value='20'; saveMinOrderValue();" style="flex:1; padding: 6px 8px; border: 1px solid rgba(0,61,51,0.06); background: rgba(255,255,255,0.6); border-radius: 50px; font-size: 11px; font-weight: 600; cursor: pointer; color: var(--text-secondary); font-family: 'Inter', sans-serif; transition: all 0.2s;">20 €</button>
-                        </div>
-                        <!-- DIE ZEILE, DIE AM 27.08.2026 GEFEHLT HAT.
-                             Der Wirt sah bei Oldersum 15 EUR und fragte, warum
-                             in der Datenbank 0 steht. Antwort: der Wert lag nur
-                             in seinem Browser -- der Gast sah 0 und konnte fuer
-                             12 EUR liefern lassen. Ein Feld, das den falschen
-                             Wert anzeigt, ist schlimmer als ein leeres. -->
-                        <div id="minOrderOffen" style="display:none; margin-top:8px; padding:8px 10px; border-radius:12px; background:rgba(180,83,9,0.09); color:#b45309; font-size:11px; font-weight:600; line-height:1.45;">Noch nicht gespeichert &mdash; einmal daneben tippen.</div>
-                        <div id="minOrderNurLokal" style="display:none; margin-top:8px; padding:8px 10px; border-radius:12px; background:rgba(220,38,38,0.08); color:#b91c1c; font-size:11px; font-weight:600; line-height:1.45;"></div>
-                    </div>
-
-                    <!-- Farbe der eigenen Seite -->
-                    <div style="flex: 1; padding: 16px 20px; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3);">
-                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-                            <div>
-                                <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">
-                                    <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">palette</span>
-                                    Farbe deiner Seite
-                                </div>
-                                <div style="font-size: 11px; color: var(--text-secondary);">Knöpfe und Akzente auf kiekmolin.de/<span id="settingSlugHint">dein-name</span></div>
-                            </div>
-                        </div>
-                        <!-- Die Farbfelder werden aus MARKE.PALETTE gebaut, nicht
-                             hier von Hand aufgezaehlt. Sonst haetten wir zwei
-                             Wahrheiten: eine im Code und eine in der Maske --
-                             und beim naechsten Umbau stimmt eine davon nicht mehr. -->
-                        <div id="markePalette" style="display:grid; grid-template-columns:repeat(7,1fr); gap:6px;"></div>
-                        <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
-                            <span style="font-size:11px; color:var(--text-secondary); font-weight:600;">oder eigene:</span>
-                            <input type="color" id="settingBrandColor" value="#003d33" onchange="saveBrandColor()" style="width: 38px; height: 28px; padding: 2px; border: 1px solid rgba(0,61,51,0.06); border-radius: 8px; background: rgba(255,255,255,0.6); cursor: pointer;" aria-label="Eigene Farbe deiner Seite">
-                        </div>
-                        <!-- Die Vorschau ist kein Schmuck: der Wirt sieht hier
-                             GENAU das, was der Gast sieht -- inklusive der
-                             Abdunklung, falls seine Farbe zu hell war. Ohne das
-                             waere die Korrektur eine stille Aenderung. -->
-                        <div id="markeVorschau" style="margin-top:10px; padding:10px 14px; border-radius:50px; background:#003d33; color:#fff; font-size:12px; font-weight:700; text-align:center; letter-spacing:0.08em; text-transform:uppercase; font-family:Epilogue,sans-serif;">Reservieren</div>
-                        <div id="markeHinweis" style="display:none; margin-top:8px; padding:8px 10px; border-radius:12px; background:rgba(180,83,9,0.09); color:#b45309; font-size:11px; font-weight:600; line-height:1.45;"></div>
-                        <!-- DUNKLER AUFTRITT (seit 06.10.2026) -- fuer Bars, Lounges,
-                             Shisha. Der Gast sieht diese Seite im gemessenen
-                             Dunkelmodus der App, in der Farbe oben. Siehe
-                             barLookPflegen(). -->
-                        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:12px; padding-top:12px; border-top:1px solid var(--border-color);">
-                            <div>
-                                <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">
-                                    <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">dark_mode</span>
-                                    Dunkler Auftritt
-                                </div>
-                                <div style="font-size: 11px; color: var(--text-secondary);">Für Bars &amp; Lounges: Gäste sehen eure Seite und Karte dunkel, in eurer Farbe.</div>
-                            </div>
-                            <div class="toggle-switch off" id="lookDunkelToggle" onclick="toggleFeature('look_dunkel')" style="width:44px;height:24px;flex-shrink:0;"></div>
-                        </div>
-                    </div>
-
-                    <!-- Zahlungsarten -->
-                    <div style="flex: 1; padding: 16px 20px; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3);">
-                        <div style="font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 10px;">
-                            <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">credit_card</span>
-                            Zahlungsarten
-                        </div>
-                        <div style="display: flex; flex-direction: column; gap: 8px;">
-                            <div id="togglePayCash" onclick="var cb=document.getElementById('settingPayCash'); cb.checked=!cb.checked; savePaymentSettings();" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: rgba(255,255,255,0.7); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); border-radius: 16px; border: 1px solid rgba(0,61,51,0.06); cursor: pointer; transition: all 0.2s;">
-                                <span class="material-symbols-outlined" style="font-size:18px;color:var(--text-secondary);">money</span>
-                                <span style="flex: 1; font-size: 13px; font-weight: 600; color: var(--text-primary);">Barzahlung</span>
-                                <input type="checkbox" id="settingPayCash" checked style="display: none;" aria-label="Barzahlung annehmen">
-                                <div id="payCashToggleTrack" style="width: 36px; height: 20px; background: var(--primary); border-radius: 14px; position: relative; transition: all 0.25s; flex-shrink: 0;">
-                                    <div id="payCashToggleKnob" style="width: 16px; height: 16px; background: var(--bg-card); border-radius: 50%; position: absolute; top: 2px; right: 2px; transition: all 0.25s; box-shadow: 0 1px 3px rgba(0,0,0,0.15);"></div>
-                                </div>
-                            </div>
-                            <div id="togglePayCard" onclick="var cb=document.getElementById('settingPayCard'); cb.checked=!cb.checked; savePaymentSettings();" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: rgba(255,255,255,0.7); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); border-radius: 16px; border: 1px solid rgba(0,61,51,0.06); cursor: pointer; transition: all 0.2s;">
-                                <span class="material-symbols-outlined" style="font-size:18px;color:var(--text-secondary);">credit_card</span>
-                                <span style="flex: 1; font-size: 13px; font-weight: 600; color: var(--text-primary);">Kartenzahlung</span>
-                                <input type="checkbox" id="settingPayCard" checked style="display: none;" aria-label="Kartenzahlung annehmen">
-                                <div id="payCardToggleTrack" style="width: 36px; height: 20px; background: var(--primary); border-radius: 14px; position: relative; transition: all 0.25s; flex-shrink: 0;">
-                                    <div id="payCardToggleKnob" style="width: 16px; height: 16px; background: var(--bg-card); border-radius: 50%; position: absolute; top: 2px; right: 2px; transition: all 0.25s; box-shadow: 0 1px 3px rgba(0,0,0,0.15);"></div>
-                                </div>
-                            </div>
-                            <div id="togglePayPaypal" onclick="var cb=document.getElementById('settingPayPaypal'); cb.checked=!cb.checked; savePaymentSettings();" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: rgba(255,255,255,0.7); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); border-radius: 16px; border: 1px solid rgba(0,61,51,0.06); cursor: pointer; transition: all 0.2s;">
-                                <span class="material-symbols-outlined" style="font-size:18px;color:var(--text-secondary);">account_balance_wallet</span>
-                                <span style="flex: 1; font-size: 13px; font-weight: 600; color: var(--text-primary);">PayPal</span>
-                                <input type="checkbox" id="settingPayPaypal" style="display: none;" aria-label="PayPal annehmen">
-                                <div id="payPaypalToggleTrack" style="width: 36px; height: 20px; background: #d1d5db; border-radius: 14px; position: relative; transition: all 0.25s; flex-shrink: 0;">
-                                    <div id="payPaypalToggleKnob" style="width: 16px; height: 16px; background: var(--bg-card); border-radius: 50%; position: absolute; top: 2px; left: 2px; transition: all 0.25s; box-shadow: 0 1px 3px rgba(0,0,0,0.15);"></div>
-                                </div>
-                            </div>
-                            <div id="paypalMeSection" style="display: none; padding: 8px 12px; background: rgba(0,112,243,0.05); border-radius: 16px; border: 1px solid rgba(0,112,243,0.2);">
-                                <!-- FRUEHER: "PayPal.me Link" mit festem Kaestchen
-                                     "paypal.me/" davor. Beides falsch. Wer "Link"
-                                     liest, fuegt einen Link ein -- und die meisten
-                                     Wirte haben gar keinen PayPal.Me-Namen, sondern
-                                     nur die Adresse ihres Geschaeftskontos. -->
-                                <label style="font-size: 11px; color: var(--text-secondary); display: block; margin-bottom: 4px;" for="settingPaypalMe">PayPal-Adresse oder Link</label>
-                                <div style="display: flex; gap: 6px;">
-                                    <input type="text" id="settingPaypalMe" placeholder="payment@dein-betrieb.de  oder  paypal.me/DeinName" oninput="savePaypalMe()" style="flex: 1; padding: 8px 10px; border: 1px solid rgba(0,61,51,0.06); border-radius: 16px; font-size: 13px; background: rgba(255,255,255,0.6); color: var(--text-primary);" aria-label="PayPal-Adresse oder Link">
-                                </div>
-                                <p id="paypalMeVorschau" style="font-size: 10px; color: var(--slate); margin: 4px 0 0; line-height: 1.45;">Nur den Namen eintragen — nicht den ganzen Link.</p>
-
-                                <!-- ZAHLUNG ZUERST, DANN BESTELLUNG.
-                                     Frueher mussten die zwei Schluessel per SQL in die
-                                     Datenbank -- also ueber Ibo, fuer jeden Kunden
-                                     einzeln. Jetzt traegt der Wirt sie selbst ein, und
-                                     sie gehen direkt in die geschuetzte Tabelle. Das
-                                     Secret kommt nie wieder heraus. -->
-                                <div style="margin-top:12px; padding-top:12px; border-top:1px solid rgba(0,112,243,0.15);">
-                                    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
-                                        <div style="font-size:11px; font-weight:700; color:var(--text-primary);">Zahlung zuerst (empfohlen)</div>
-                                        <span id="ppcStatus" style="font-size:10px; font-weight:700; padding:2px 8px; border-radius:9999px; background:rgba(0,0,0,0.06); color:var(--slate);">wird geprüft…</span>
-                                    </div>
-                                    <p style="font-size:10px; color:var(--slate); margin:4px 0 8px; line-height:1.45;">
-                                        Ohne das bekommt der Gast nur einen Bezahllink — bestellt ist bestellt, ob er zahlt oder nicht.
-                                        Mit den zwei Schlüsseln aus deinem PayPal-Konto entsteht die Bestellung <strong>erst nach bezahlter Zahlung</strong>.
-                                        Die Schlüssel holst du auf <strong>developer.paypal.com</strong> → Apps &amp; Credentials → Create App.
-                                    </p>
-                                    <input type="text" id="ppcClientId" placeholder="Client ID" autocomplete="off" style="width:100%; padding:8px 10px; margin-bottom:6px; border:1px solid rgba(0,61,51,0.06); border-radius:16px; font-size:12px; background:rgba(255,255,255,0.6); color:var(--text-primary); box-sizing:border-box;" aria-label="PayPal Client ID">
-                                    <input type="password" id="ppcSecret" placeholder="Secret" autocomplete="new-password" style="width:100%; padding:8px 10px; margin-bottom:6px; border:1px solid rgba(0,61,51,0.06); border-radius:16px; font-size:12px; background:rgba(255,255,255,0.6); color:var(--text-primary); box-sizing:border-box;" aria-label="PayPal Secret">
-                                    <label style="display:flex; align-items:center; gap:6px; font-size:11px; cursor:pointer; margin-bottom:8px;">
-                                        <input type="checkbox" id="ppcLive" aria-label="Echtes Geld statt Testkonto"> Echtes Geld (sonst Sandbox zum Testen)
-                                    </label>
-                                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                                        <button type="button" onclick="ppcSpeichern()" style="flex:1; min-width:120px; padding:8px 12px; background:var(--primary); color:#fff; border:none; border-radius:16px; font-size:12px; font-weight:700; cursor:pointer;">Prüfen &amp; speichern</button>
-                                        <button type="button" onclick="ppcEntfernen()" style="padding:8px 12px; background:transparent; color:var(--slate); border:1px solid rgba(0,61,51,0.10); border-radius:16px; font-size:12px; font-weight:600; cursor:pointer;">Entfernen</button>
-                                    </div>
-                                    <p id="ppcMeldungDash" style="font-size:10px; margin:8px 0 0; line-height:1.45; color:var(--slate);"></p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
+</section>
 
             <div class="kin-reiter" role="tablist">
                 <button type="button" class="kin-filter-tab active" onclick="filterOrders('all', this)" data-status="all">Alle <span class="kin-filter-count" id="ordersCountAll">0</span></button>
