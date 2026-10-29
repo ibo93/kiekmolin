@@ -47,12 +47,22 @@ function t(l, c, x) { n++; if (c === true) ok++; console.log((c === true ? 'OK  
     }
     return { ok: true, json: async function () { return []; } };
   };
-  var r = await RG.handler({ httpMethod: 'POST', body: JSON.stringify({ restaurant_id: RID, guest_name: 'Celina', guest_phone: '0151', party_size: 2, reservation_date: (function () { var d = new Date(Date.now() + 14 * 864e5); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(), reservation_time: '19:00', table_id: TID, notes: 'Kinderstuhl' }) });
+  var r = await RG.handler({ httpMethod: 'POST', body: JSON.stringify({ restaurant_id: RID, guest_name: 'Celina', guest_phone: '0151 2345678', party_size: 2, reservation_date: (function () { var d = new Date(Date.now() + 14 * 864e5); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(), reservation_time: '19:00', table_id: TID, notes: 'Kinderstuhl' }) });
   var a = JSON.parse(r.body), zweiter = eingefuegt[1] || {};
   t('Gast mit Tischwunsch wird NICHT abgewiesen', a.ok === true && r.statusCode === 200, { code: r.statusCode, a: a });
   t('zweiter Versuch ohne table_id', eingefuegt.length === 2 && eingefuegt[0].table_id === TID && !('table_id' in zweiter), eingefuegt);
   t('Wunsch steht vorn in der Notiz, eigene Notiz bleibt', zweiter.notes === 'Tisch: Tisch 4 · Kinderstuhl', zweiter.notes);
   t('kein Alarm (der Gast hat ja reserviert)', alarmiert === 0, alarmiert);
+
+  // SPAM-SCHUTZ (29.10.2026): "3127" kam als Telefonnummer durch.
+  var vorher = eingefuegt.length;
+  var datum14 = (function () { var d = new Date(Date.now() + 14 * 864e5); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })();
+  var sp = await RG.handler({ httpMethod: 'POST', body: JSON.stringify({ restaurant_id: RID, guest_name: 'Spam', guest_phone: '3127', party_size: 1, reservation_date: datum14, reservation_time: '12:00' }) });
+  var spa = JSON.parse(sp.body);
+  t('Spam-Schutz: Nummer mit 4 Ziffern -> 400, nichts gespeichert, Satz fuer den Gast', sp.statusCode === 400 && spa.error === 'Bitte die Telefonnummer mit Vorwahl angeben.' && eingefuegt.length === vorher, { code: sp.statusCode, a: spa, n: eingefuegt.length - vorher });
+  var gut = await RG.handler({ httpMethod: 'POST', body: JSON.stringify({ restaurant_id: RID, guest_name: 'Gast', guest_phone: '+49 491 12', party_size: 2, reservation_date: datum14, reservation_time: '19:00' }) });
+  t('… 6 Ziffern mit Leerzeichen und + gehen durch', JSON.parse(gut.body).ok === true, gut.body);
+  t('Formular prueft es schon vor dem Absenden (gleicher Satz)', /var _telFeld = document\.getElementById\('guestPhone'\);\s*if \(_telFeld && String\(_telFeld\.value \|\| ''\)\.replace\(\/\\D\/g, ''\)\.length < 6\)/.test(H) && /if \(!name \|\| phone\.replace\(\/\\D\/g, ''\)\.length < 6\)/.test(H), '');
 
   // Tischplan
   t('Tischplan: bei reservations_table_id_fkey zweiter Versuch ohne Tisch, Notiz "Tisch: <Name>"',

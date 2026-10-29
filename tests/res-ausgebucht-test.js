@@ -65,7 +65,7 @@ function lauf(features, notes) {
         return antw([]);
     };
     var tag = plus(3);
-    return F.handler({ httpMethod: 'POST', body: JSON.stringify({ restaurant_id: '11111111-1111-4111-8111-111111111111', guest_name: 'Ayse', guest_phone: '0176 1', party_size: 2, reservation_date: tag, reservation_time: '19:00', notes: notes }) })
+    return F.handler({ httpMethod: 'POST', body: JSON.stringify({ restaurant_id: '11111111-1111-4111-8111-111111111111', guest_name: 'Ayse', guest_phone: '0176 1234567', party_size: 2, reservation_date: tag, reservation_time: '19:00', notes: notes }) })
         .then(function (r) { return { code: r.statusCode, body: JSON.parse(r.body), gespeichert: gespeichert }; })
         .finally(function () { global.fetch = alt; console.warn = w; console.log = l; });
 }

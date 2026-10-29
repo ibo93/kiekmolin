@@ -35185,8 +35185,8 @@ async function submitWaitlistEntry() {
     var email = (document.getElementById('wlEmail') || {}).value || '';
     var wishTime = (document.getElementById('wlTime') || {}).value || '';
     name = name.trim(); phone = phone.trim(); email = email.trim();
-    if (!name || phone.length < 5) {
-        showToast('Bitte Name und Telefonnummer angeben', 'error');
+    if (!name || phone.replace(/\D/g, '').length < 6) {
+        showToast(name ? 'Bitte die Telefonnummer mit Vorwahl angeben.' : 'Bitte Name und Telefonnummer angeben', 'error');
         return;
     }
     var restaurantId = (document.getElementById('reservationRestaurantId') || {}).value || '';
@@ -35350,6 +35350,14 @@ function submitReservation(e) {
 
     // Zutritt ab 18: VOR allem anderen -- auch vor dem lokalen Speichern.
     if (!abAchtzehnPruefen(restaurant)) return;
+    // Mindestens 6 Ziffern -- wie der Server (reservation-guest.js), damit der
+    // Gast es hier liest und nicht erst nach dem Absenden.
+    var _telFeld = document.getElementById('guestPhone');
+    if (_telFeld && String(_telFeld.value || '').replace(/\D/g, '').length < 6) {
+        showToast('Bitte die Telefonnummer mit Vorwahl angeben.', 'error');
+        try { _telFeld.focus(); } catch (e2) {}
+        return;
+    }
 
     // Prüfen ob Auto-Confirm aktiviert ist
     var resFeatures = (restaurant && restaurant.features) ? restaurant.features : [];

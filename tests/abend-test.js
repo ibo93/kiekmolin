@@ -68,7 +68,7 @@ Module._load = function (anfrage) {
         welt(o);
         var w = console.warn, l = console.log; console.warn = function () {}; console.log = function () {};
         try {
-            var r = await G.handler({ httpMethod: 'POST', body: JSON.stringify({ restaurant_id: '11111111-1111-4111-8111-111111111111', guest_name: 'Ayse', guest_phone: '0176 1', party_size: personen, reservation_date: tag, reservation_time: '19:00', notes: notes || '' }) });
+            var r = await G.handler({ httpMethod: 'POST', body: JSON.stringify({ restaurant_id: '11111111-1111-4111-8111-111111111111', guest_name: 'Ayse', guest_phone: '0176 1234567', party_size: personen, reservation_date: tag, reservation_time: '19:00', notes: notes || '' }) });
             return { code: r.statusCode, body: JSON.parse(r.body), gespeichert: o.gespeichert || null };
         } finally { console.warn = w; console.log = l; }
     }

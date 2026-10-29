@@ -241,6 +241,13 @@ exports.handler = async function (event) {
     var r = sauber((roh && roh.reservation) || roh || {});
     var fehler = pruefe(r);
     if (fehler.length) return json(400, { ok: false, error: fehler.join('; ') });
+    // SPAM-SCHUTZ (29.10.2026): vier gleiche Anfragen mit russischem
+    // Werbetext und der Nummer "3127" kamen durch. Eine Nummer, unter der man
+    // jemanden erreicht, hat mit Vorwahl immer mindestens 6 Ziffern. Der Satz
+    // steht so beim Gast (Formular zeigt antwort.error).
+    if (String(r.guest_phone || '').replace(/\D/g, '').length < 6) {
+        return json(400, { ok: false, error: 'Bitte die Telefonnummer mit Vorwahl angeben.' });
+    }
     var zeit = zeitFehler(r, Date.now());
     if (zeit) return json(400, { ok: false, error: zeit });
 
