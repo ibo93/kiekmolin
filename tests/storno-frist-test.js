@@ -87,6 +87,10 @@ function aufruf(q) { return RC.handler({ queryStringParameters: Object.assign({ 
     t('Server liest die Oeffnungszeiten mit (opening_hours, opening_time)', /select=[^&]*opening_hours/.test(lokalUrl) && /select=[^&]*opening_time/.test(lokalUrl), lokalUrl);
     t('Server: Lokal oeffnet erst zur Tischzeit -> 1 Std vorher noch online abgesagt', j.abgesagt === true && patches.length === 1, JSON.stringify(j));
 
+    reservierung = Object.assign({ id: ID, status: 'cancelled', restaurant_id: 'r1' }, inStunden(5));
+    j = JSON.parse((await aufruf({ format: 'json', grund: 'krank' })).body);
+    t('schon abgesagt + Grund nachgereicht: App bekommt abgesagt:true (kein falsches "hat nicht geklappt")', j.abgesagt === true, JSON.stringify(j));
+
     lokal = { name: 'Ohne Nummer', phone: '', features: ['storno_frist:24'] };
     reservierung = Object.assign({ id: ID, status: 'confirmed', restaurant_id: 'r1' }, inStunden(1)); patches = [];
     j = JSON.parse((await aufruf({ format: 'json' })).body);

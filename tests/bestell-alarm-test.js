@@ -52,6 +52,28 @@ t('Bon drucken und Ablehnen … (mit Nachfrage in rejectOrder)', /printKitchenBo
     status = 'accepted';
     await A.annehmen('o1', 20);
     t('angenommen -> Alarm zu', weg === 1, weg);
+    // ---- 3b. Pruefung 29.10.2026 ----
+    // Bestellung steht NICHT in der Liste (anderer Tag gewaehlt / anderes Lokal):
+    // gespeichert ist gespeichert -> Alarm zu, sonst tippt der Wirt doppelt.
+    var weg2 = 0, ang2 = [], ergebnis2 = true, fenster = { APP_DATA: { restaurants: [] } };
+    var dok3 = { getElementById: function (id) { return id === 'newOrderAlarmOverlay' && ang2.length && !weg2 ? { remove: function () { weg2++; }, getAttribute: function () { return 'o9'; } } : null; },
+        createElement: function () { return { setAttribute: function () {}, style: {} }; }, body: { appendChild: function (e) { ang2.push(e); } } };
+    var A2 = new Function('APP_DATA', 'document', 'localStorage', 'window', 'setInterval', 'clearInterval', 'setTimeout', 'schnellAnnehmen', 'zahlartKurz', 'dashboardOrders', 'showDashboardSection',
+        'var KIN_SYM = { druck: "" }; var _orderAlarmInterval = null, _orderAlarmCount = 0; function bestellAlarmFuellen() {} function bestellAlarmSeit() {} function vorbereitungsMinuten() { return 0; }\n'
+        + code + '; return { zeigen: showNewOrderAlarm, annehmen: bestellAlarmAnnehmen };')(
+        { restaurants: [] }, dok3, { getItem: function () { return null; } }, fenster, function () { return 1; }, function () {}, function () {},
+        async function () { return ergebnis2; }, function (p) { return p; }, [], function () {});
+    A2.zeigen({ id: 'o9', order_number: '7', order_type: 'delivery', customer_name: 'Max', total: 30, delivery_address: { street: 'Hauptstr.', house_number: '5', zip: '26789', city: 'Leer' } });
+    var h2 = ang2[0] && ang2[0].innerHTML || '';
+    t('Lieferung: Adresse lesbar, nicht "[object Object]"', /Max · Hauptstr\. 5, Leer/.test(h2) && !/object Object/.test(h2), (h2.match(/Max[^<]*/) || [''])[0]);
+    t('Alarm merkt sich die Bestellung (fuer Vorbestellung -> "accepted" statt "wird zubereitet")', fenster._kinAlarmBestellung && fenster._kinAlarmBestellung.id === 'o9', '');
+    ergebnis2 = false; await A2.annehmen('o9', 30);
+    t('nicht in der Liste + nicht gespeichert -> Alarm bleibt', weg2 === 0, weg2);
+    ergebnis2 = true; await A2.annehmen('o9', 30);
+    t('nicht in der Liste + gespeichert -> Alarm zu (kein zweiter Tipp, keine doppelte Mail)', weg2 === 1, weg2);
+    var ca = fn('confirmAcceptOrder');
+    t('confirmAcceptOrder meldet Erfolg zurueck und nimmt sonst die Alarm-Daten', /return _acErfolg;\s*\}$/.test(ca) && /_acErfolg = true;/.test(ca) && /window\._kinAlarmBestellung\.id === currentAcceptOrderId/.test(ca), '');
+    t('schnellAnnehmen und rejectOrder geben den Erfolg weiter', /return await confirmAcceptOrder\(\);/.test(fn('schnellAnnehmen')) && /\n    return true;\n\}$/.test(fn('rejectOrder')), '');
     // ---- 4. Der Tischruf bleibt unberuehrt ----
     t('der Tischruf-Alarm ruft nichts vom Bestell-Alarm auf', fn('zeigeTischRuf').indexOf('bestellAlarm') < 0, '');
     t('… der Bestell-Alarm reicht die Gerichte nach', /bestellAlarmFuellen\(oid, 0\);/.test(fn('showNewOrderAlarm')), '');

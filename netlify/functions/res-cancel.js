@@ -276,7 +276,7 @@ exports.handler = async function (event) {
                         body: JSON.stringify({ cancel_reason: grundText })
                     });
                 } catch (e) {}
-                return seite('Danke!', 'Wir haben es notiert. Das hilft dem Restaurant weiter – bis zum nächsten Mal!', true);
+                return seite('Danke!', 'Wir haben es notiert. Das hilft dem Restaurant weiter – bis zum nächsten Mal!', true, '', { abgesagt: true });
             }
             return seite('Schon abgesagt', 'Diese Reservierung wurde bereits storniert. Alles gut – bis zum nächsten Mal!', true, '', { abgesagt: true });
         }

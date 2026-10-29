@@ -28914,15 +28914,15 @@ function bestellAlarmStatus(oid) {
 // bleibt der Alarm stehen (die Meldung zeigt confirmAcceptOrder selbst).
 async function bestellAlarmAnnehmen(oid, minuten) {
     if (typeof schnellAnnehmen !== 'function') { dismissNewOrderAlarm(true); return; }
-    await schnellAnnehmen(oid, minuten);
+    var gespeichert = await schnellAnnehmen(oid, minuten);
     var st = bestellAlarmStatus(oid);
-    if (st && st !== 'received') dismissNewOrderAlarm(false);
+    if (gespeichert === true || (st && st !== 'received')) dismissNewOrderAlarm(false);
 }
 async function bestellAlarmAblehnen(oid) {
     if (typeof rejectOrder !== 'function') return;
-    await rejectOrder(oid);
+    var gespeichert = await rejectOrder(oid);
     var st = bestellAlarmStatus(oid);
-    if (st && st !== 'received') dismissNewOrderAlarm(false);
+    if (gespeichert === true || (st && st !== 'received')) dismissNewOrderAlarm(false);
 }
 window.bestellAlarmAnnehmen = bestellAlarmAnnehmen;
 window.bestellAlarmAblehnen = bestellAlarmAblehnen;
@@ -29037,7 +29037,14 @@ function showNewOrderAlarm(order) {
     var haus = ((window.APP_DATA && APP_DATA.restaurants) || []).find(function (r) { return r.id === order.restaurant_id; });
     var std = typeof vorbereitungsMinuten === 'function' ? vorbereitungsMinuten(haus, order.order_type) : 0;
     var zeiten = typeof schnellZeiten === 'function' ? schnellZeiten(std, order.order_type) : [15, 20, 30];
-    var wer = [order.customer_name, order.order_type === 'delivery' ? order.delivery_address : ''].filter(Boolean).map(_alarmEsc).join(' · ');
+    // delivery_address ist ein Objekt {street, house_number, zip, city} --
+    // direkt eingesetzt stand "[object Object]" im Alarm (Pruefung 29.10.2026).
+    var _adr = order.delivery_address, adr = '';
+    if (typeof _adr === 'string') { try { _adr = JSON.parse(_adr); } catch (e) { adr = _adr; } }
+    if (_adr && typeof _adr === 'object') adr = [[_adr.street, _adr.house_number].filter(Boolean).join(' '), _adr.city].filter(Boolean).join(', ');
+    var wer = [order.customer_name, order.order_type === 'delivery' ? adr : ''].filter(Boolean).map(_alarmEsc).join(' · ');
+    // Fuer confirmAcceptOrder, falls die Bestellung nicht in der Liste steht.
+    window._kinAlarmBestellung = order;
 
     var ov = document.createElement('div');
     ov.id = 'newOrderAlarmOverlay';
@@ -29223,8 +29230,11 @@ async function resAlarmBestaetigen(id) {
     if (await updateReservationStatus(id, 'confirmed')) dismissNewReservationAlarm(false);
 }
 async function resAlarmAblehnen(id) {
-    if (typeof kinConfirm === 'function' && !await kinConfirm('Reservierung ablehnen?')) return;
-    if (await updateReservationStatus(id, 'rejected')) dismissNewReservationAlarm(false);
+    if (typeof kinConfirm === 'function' && !await kinConfirm('Reservierung ablehnen? Der Gast bekommt eine Absage per Mail.')) return;
+    // 'cancelled', nicht 'rejected': nur dann geht die Absage-Mail raus
+    // (updateReservationStatus) und der Platz wird wieder frei
+    // (res-availability zaehlt alles ausser cancelled). Wie Push-Ablehnen.
+    if (await updateReservationStatus(id, 'cancelled')) dismissNewReservationAlarm(false);
 }
 window.resAlarmBestaetigen = resAlarmBestaetigen;
 window.resAlarmAblehnen = resAlarmAblehnen;
@@ -29277,11 +29287,14 @@ async function dashboardNetz() {
         var rid = window._gastroOnlyRestaurantId || (!currentAdmin.isAdmin ? (currentAdmin.restaurant_id || '') : '');
         var nur = rid ? '&restaurant_id=eq.' + encodeURIComponent(rid) : '';
         var kopf = { headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + kmiToken() } };
+        // Ganze Zeilen (select=*), wie im Echtzeit-Signal: handleRealtimeOrder
+        // schickt die Bestellung bei Kasse-Automatik sofort weiter -- ohne
+        // items kaeme ein leerer Beleg an (Pruefung 29.10.2026).
         var e = await Promise.all([
             fetch(SUPABASE_URL + '/rest/v1/orders?created_at=gte.' + seit + '&status=neq.cancelled' + nur
-                + '&select=id,restaurant_id,order_number,order_type,customer_name,delivery_address,table_number,total,payment_method,status,created_at&order=created_at.asc&limit=30', kopf),
+                + '&select=*&order=created_at.asc&limit=30', kopf),
             fetch(SUPABASE_URL + '/rest/v1/reservations?created_at=gte.' + seit + '&status=in.(pending,confirmed)' + nur
-                + '&select=id,restaurant_id,guest_name,guest_phone,party_size,reservation_date,reservation_time,notes,source,status,created_at&order=created_at.asc&limit=30', kopf)
+                + '&select=*&order=created_at.asc&limit=30', kopf)
         ]);
         if (!e[0].ok || !e[1].ok) { console.warn('[Dashboard-Netz] nicht lesbar:', e[0].status, e[1].status); return; }
         var bestellungen = await e[0].json(), reservierungen = await e[1].json();
@@ -66016,7 +66029,7 @@ async function schnellAnnehmen(orderId, minuten) {
         currentAcceptModus = 'annehmen';
         document.querySelectorAll('.time-option-btn').forEach(function (b) { b.classList.remove('selected'); });
         feld.value = String(minuten);
-        await confirmAcceptOrder();
+        return await confirmAcceptOrder();
     } finally {
         feld.value = '';
         delete _schnellLaeuft[orderId];
@@ -66902,8 +66915,11 @@ try {
 } catch (e) {}
 
 async function confirmAcceptOrder() {
+    // true = wirklich gespeichert. Der Vollbild-Alarm schliesst nur dann
+    // (bestellAlarmAnnehmen) -- auch wenn die Bestellung nicht in der Liste steht.
+    var _acErfolg = false;
     try {
-    if (!currentAcceptOrderId) return;
+    if (!currentAcceptOrderId) return false;
 
     // Zeit ermitteln
     let minutes = 0;
@@ -66935,7 +66951,12 @@ async function confirmAcceptOrder() {
     // "preparing" -- der eigene Knopf "Zubereiten" entfaellt. Ausnahme:
     // eine Vorbestellung fuer spaeter bleibt "accepted" (bestaetigt), sonst
     // laese der Gast "wird zubereitet" fuer morgen Mittag.
-    var _acOrder = (typeof dashboardOrders !== 'undefined' ? dashboardOrders : []).find(function (o) { return o.id === currentAcceptOrderId; });
+    var _acOrder = (typeof dashboardOrders !== 'undefined' ? dashboardOrders : []).find(function (o) { return o.id === currentAcceptOrderId; })
+        // Aus dem Vollbild-Alarm angenommen, aber nicht in der Liste (anderer
+        // Tag gewaehlt, anderes Lokal, Liste noch nicht geladen): die Daten
+        // des Alarms nehmen -- sonst wuerde eine Vorbestellung fuer morgen
+        // "wird zubereitet".
+        || (window._kinAlarmBestellung && window._kinAlarmBestellung.id === currentAcceptOrderId ? window._kinAlarmBestellung : null);
     var _neuerStatus = annahmeStatus(_acOrder);
     var _jetztIso = new Date().toISOString();
     var _feld = _nurZeit
@@ -66995,6 +67016,7 @@ async function confirmAcceptOrder() {
             showToast(_nurZeit
                 ? `Neue Zeit gesendet • ${minutes} Min`
                 : `Bestellung angenommen • ${minutes} Min`, 'success');
+            _acErfolg = true;
 
             // Auto-Druck: den Bon automatisch drucken.
             // NICHT beim blossen Aendern der Zeit -- sonst laeuft bei jeder
@@ -67018,6 +67040,7 @@ async function confirmAcceptOrder() {
         console.error('confirmAcceptOrder Fehler:', e);
         showToast('Fehler aufgetreten', 'error');
     }
+    return _acErfolg;
 }
 
 // Order ablehnen
@@ -67056,6 +67079,9 @@ async function rejectOrder(orderId) {
     }
 
     const order = dashboardOrders.find(o => o.id === orderId);
+    // Gespeichert ist es hier schon -- auch wenn die Bestellung nicht in der
+    // Liste steht (Vollbild-Alarm bei anderem Tag/Lokal).
+    if (!order) showToast('Bestellung abgelehnt', 'error');
     if (order) {
         order.status = 'cancelled';
         renderDashboardOrders();
@@ -67067,6 +67093,7 @@ async function rejectOrder(orderId) {
             }, 1200);
         }
     }
+    return true;
 }
 
 // Status aktualisieren

@@ -36,6 +36,21 @@ var W = require(path.join(__dirname, '..', 'netlify', 'functions', 'gastweg-wach
     t('… Lokal mit Handy wird nicht gemeldet', typeof m === 'string' && m.indexOf(B.slice(0, 8)) < 0, m);
     t('… die Probe der Wache macht kein Lokal zum "Betrieb"', typeof m === 'string' && m.indexOf(P.slice(0, 8)) < 0, m);
 
+    // Seiten: Supabase gibt hoechstens 1000 Zeilen je Abfrage. Ein Lokal, das
+    // erst in der zweiten Seite vorkommt, muss trotzdem geprueft werden.
+    var netzAlt = netz, voll = []; for (var i = 0; i < 1000; i++) voll.push({ restaurant_id: B, customer_name: 'X' });
+    netz = [
+        [/reservations\?created_at=gte/, []],
+        [/orders\?created_at=gte.*offset=0(&|$)/, voll],
+        [/orders\?created_at=gte.*offset=1000(&|$)/, [{ restaurant_id: A, customer_name: 'Spät' }]],
+        [/customers\?role=eq\.superadmin/, [{ email: 'ibo@kiekmolin.de' }]],
+        [/push_subscriptions\?restaurant_id=in/, [{ restaurant_id: B, customer_email: null }]],
+        [/restaurants\?id=in/, [{ id: A, name: 'Lütt Italia', is_active: true }]]
+    ];
+    var m2 = await W.pruefeWirtGeraete();
+    t('Lokal erst nach 1000 Zeilen wird trotzdem geprueft (Seiten, nicht stilles Abschneiden)', typeof m2 === 'string' && /Lütt Italia/.test(m2), m2);
+    netz = netzAlt;
+
     netz[3] = [/push_subscriptions\?restaurant_id=in/, [{ restaurant_id: A, customer_email: 'koch@a.de' }, { restaurant_id: B, customer_email: null }]];
     t('alle haben ein Handy -> kein Mangel', (await W.pruefeWirtGeraete()) === null, '');
 

@@ -41,6 +41,7 @@ var N = new Function('window', 'document', 'fetch', 'currentAdmin', 'kmiToken', 
     t('Echtzeit-Bestellung prüft den Merker (kein Doppel-Alarm mit dem Netz)', /if \(order\.id && kmiSchonGemeldet\('o', order\.id\)\) return;/.test(ho), '');
     t('Echtzeit-Reservierung: Probe raus + Merker', /istWacheProbe\(reservation\)\) return;/.test(hr) && /kmiSchonGemeldet\('r', reservation\.id\)/.test(hr), '');
     t('Netz läuft alle 15 s auf JEDER Dashboard-Seite (nicht nur Bestellungen)', /setInterval\(dashboardNetz, 15000\)/.test(H) && !/sectionOrders/.test(fn('dashboardNetz')), '');
+    t('Netz holt ganze Zeilen (select=*) -- sonst ginge bei Kasse-Automatik ein Beleg ohne Gerichte raus', (fn('dashboardNetz').match(/&select=\*&order=created_at\.asc&limit=30/g) || []).length === 2, '');
     console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' Tests FEHLGESCHLAGEN.'));
     process.exit(ok === n ? 0 : 1);
 })();

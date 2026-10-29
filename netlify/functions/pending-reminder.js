@@ -299,7 +299,10 @@ async function handleItem(kind, item, restaurantNameById, stufe) {
   // Fokus-Modus ...). Gemessen am 27.10.2026: jede Geraete-Abfrage eines
   // Lokals kam leer zurueck ([] = 2 Bytes). Die Mail zeigt die Mail-App
   // auf dem Handy von selbst an; war es aus, liegt sie danach da.
-  await adminMail(title, body, targetUrl);
+  // ERST ABHAKEN, DANN MAILEN (Pruefung 29.10.2026): scheitert das Abhaken
+  // oder bricht der Lauf ab, kaeme sonst jede Minute dieselbe Mail -- bis zu
+  // FRISCH_STUNDEN lang. Eine Push-Wiederholung stoert wenig, 180 Mails schon.
+  const mailDanach = async function () { try { await adminMail(title, body, targetUrl); } catch (e) { console.error('[melder] Mail an Betreiber:', e.message); } };
 
   if (!subs.length) {
     console.log('[melder] keine Geraete fuer Betrieb', restId, '- nur E-Mail:', kind, item.id);
@@ -307,6 +310,7 @@ async function handleItem(kind, item, restaurantNameById, stufe) {
     // Meldet sich der Wirt spaeter mit einem Geraet an, bekommt er die
     // alten Sachen nicht nachtraeglich; er sieht sie im Dashboard.
     await sbPatch(tabelle + '?id=eq.' + item.id, { [spalte]: jetzt });
+    await mailDanach();
     return;
   }
 
@@ -325,6 +329,7 @@ async function handleItem(kind, item, restaurantNameById, stufe) {
 
   // Abhaken -- nicht nochmal melden
   await sbPatch(tabelle + '?id=eq.' + item.id, { [spalte]: jetzt });
+  await mailDanach();
 }
 
 // NEUE GASTRONOM-ANMELDUNG -- geht nur an den Superadmin.

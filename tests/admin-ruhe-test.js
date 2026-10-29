@@ -137,6 +137,28 @@ function laden(name) {
           !/push_subscriptions\?customer_email=in\./.test(q), 'Kopie an den Admin');
     });
 
+    // ---- Keine Mail-Flut: erst abhaken, dann mailen (Pruefung 29.10.2026) ----
+    process.env.RESEND_API_KEY = 're_test';
+    var mails = 0, patchOk = false;
+    function netzMail() {
+        global.fetch = async function (url, opt) {
+            url = String(url); opt = opt || {};
+            if (/api\.resend\.com/.test(url)) { mails++; return { ok: true, status: 200, json: async function () { return {}; }, text: async function () { return ''; } }; }
+            if (opt.method === 'PATCH') return { ok: patchOk, status: patchOk ? 200 : 500, json: async function () { return []; }, text: async function () { return 'kaputt'; } };
+            var body = [];
+            if (/customers\?role=eq\.superadmin/.test(url)) body = [{ email: 'ibo@kiekmolin.de' }];
+            else if (/reservations\?status=eq\.pending&push_sent_at=is\.null/.test(url)) body = [{ id: 'r7', restaurant_id: RID, guest_name: 'Flut', reservation_date: '2026-10-15', reservation_time: '19:00', party_size: 2 }];
+            else if (/restaurants\?id=in/.test(url)) body = [{ id: RID, name: 'Lütt Italia' }];
+            return { ok: true, status: 200, json: async function () { return body; }, text: async function () { return JSON.stringify(body); } };
+        };
+    }
+    netzMail(); mails = 0; patchOk = false;
+    try { await laden('pending-reminder').handler({}); } catch (e) {}
+    t('Abhaken scheitert -> KEINE Mail (sonst jede Minute dieselbe, bis zu 3 Std)', mails === 0, mails + ' Mails');
+    netzMail(); mails = 0; patchOk = true;
+    await laden('pending-reminder').handler({});
+    t('Abhaken klappt -> genau eine Mail an den Betreiber', mails === 1, mails + ' Mails');
+    delete process.env.RESEND_API_KEY;
     console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' Tests FEHLGESCHLAGEN.'));
     process.exit(ok === n ? 0 : 1);
 })().catch(function (e) { console.error(e); process.exit(1); });

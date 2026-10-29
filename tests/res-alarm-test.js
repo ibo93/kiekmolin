@@ -45,6 +45,9 @@ var K = new Function('document', 'localStorage', 'window', 'setInterval', 'clear
     ergebnis = true;
     await K.ja('r1');
     t('Bestätigen klappt -> Alarm zu', weg === 1, weg);
+    status = []; ergebnis = true; angehaengt = [{}]; weg = 0;
+    await K.nein('r1');
+    t('Ablehnen = "cancelled" (Absage-Mail geht raus, Platz wird frei) -- nicht "rejected"', status.length === 1 && status[0][1] === 'cancelled', JSON.stringify(status));
 
     angehaengt = []; weg = 0;
     K.zeigen({ id: 'r2', guest_name: 'Auto', party_size: 2, reservation_date: '2026-10-31', reservation_time: '18:00', status: 'confirmed' });

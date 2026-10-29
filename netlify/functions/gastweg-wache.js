@@ -81,7 +81,7 @@ var UNPRUEFBAR = 'unpruefbar';
 //
 // tests/wache-test.js vergleicht beide Zahlen und wird rot, wenn eine
 // stehenbleibt.
-var CACHE_MINDESTENS = 118;
+var CACHE_MINDESTENS = 119;
 
 var SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co';
 var SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY || '';
@@ -395,15 +395,23 @@ async function pruefeWirtGeraete() {
     try {
         var seit = encodeURIComponent(new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString());
         var ids = {};
+        // In Seiten zu 1000: Supabase liefert pro Abfrage hoechstens max-rows
+        // Zeilen (Standard 1000), auch bei limit=5000. Lokale jenseits davon
+        // waeren still nicht geprueft worden -- "alles gut" bei halbem Blick.
+        var SEITE = 1000;
         for (var t of [['reservations', 'guest_name'], ['orders', 'customer_name']]) {
-            var r = await fetch(SUPABASE_URL + '/rest/v1/' + t[0] + '?created_at=gte.' + seit
-                + '&select=restaurant_id,' + t[1] + '&limit=5000', { headers: kopf() });
-            if (!r.ok) return UNPRUEFBAR;
-            ((await r.json()) || []).forEach(function (z) {
-                var n = String(z && z.restaurant_id || '');
-                // Die eigenen Proben der Wache zaehlen nicht als "Betrieb".
-                if (n && String(z[t[1]] || '').indexOf('[Probe]') !== 0) ids[n] = true;
-            });
+            for (var ab = 0, runde = 0; runde < 50; runde++, ab += SEITE) {
+                var r = await fetch(SUPABASE_URL + '/rest/v1/' + t[0] + '?created_at=gte.' + seit
+                    + '&select=restaurant_id,' + t[1] + '&order=created_at.asc&limit=' + SEITE + '&offset=' + ab, { headers: kopf() });
+                if (!r.ok) return UNPRUEFBAR;
+                var zeilen0 = (await r.json()) || [];
+                zeilen0.forEach(function (z) {
+                    var n = String(z && z.restaurant_id || '');
+                    // Die eigenen Proben der Wache zaehlen nicht als "Betrieb".
+                    if (n && String(z[t[1]] || '').indexOf('[Probe]') !== 0) ids[n] = true;
+                });
+                if (zeilen0.length < SEITE) break;
+            }
         }
         var liste = Object.keys(ids);
         if (!liste.length) return null;
