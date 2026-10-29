@@ -34188,7 +34188,7 @@ function stornoFristStunden(restaurant) {
         var m = /^storno_frist:(\d{1,3})$/.exec(String(f[i]));
         if (m) { var v = parseInt(m[1], 10); if (v >= 0 && v <= 72) return v; }
     }
-    return 2;
+    return 0; // ohne Wahl: jederzeit, wie vorher (lib/storno-frist.js)
 }
 function stornoFristAnzeigen(restaurant) {
     var sel = document.getElementById('resStornoFrist'), stand = document.getElementById('resStornoStand');

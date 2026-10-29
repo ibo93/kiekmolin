@@ -12,15 +12,16 @@ function t(l, c, x) { n++; if (c === true) ok++; console.log((c === true ? 'OK  
 var F = require(path.join(FN, 'lib', 'storno-frist.js'));
 
 // ---- 1. Die Regel ----
-t('ohne Eintrag: 2 Stunden', F.fristStunden([]) === 2 && F.fristStunden(null) === 2, F.fristStunden([]));
+t('ohne Eintrag: jederzeit (wie vorher, Ibo: "ja genau")', F.fristStunden([]) === 0 && F.fristStunden(null) === 0, F.fristStunden([]));
+t('… ohne Eintrag also auch 10 Min vorher online', F.darfOnline('2026-10-31', '19:30', [], '0151 1', F.berlinZeitpunkt('2026-10-31', '19:30') - 600000) === true, '');
 t('eingestellt: 24 Stunden', F.fristStunden(['x', 'storno_frist:24']) === 24, '');
 t('0 = jederzeit', F.fristStunden(['storno_frist:0']) === 0, '');
-t('Unsinn (999) -> Standard', F.fristStunden(['storno_frist:999']) === 2, '');
+t('Unsinn (999) -> jederzeit', F.fristStunden(['storno_frist:999']) === 0, '');
 t('Winterzeit: 31.10. 19:30 Berlin = 18:30 UTC', new Date(F.berlinZeitpunkt('2026-10-31', '19:30')).toISOString() === '2026-10-31T18:30:00.000Z', '');
 t('Sommerzeit: 15.07. 19:30 Berlin = 17:30 UTC', new Date(F.berlinZeitpunkt('2026-07-15', '19:30:00')).toISOString() === '2026-07-15T17:30:00.000Z', '');
 var tisch = F.berlinZeitpunkt('2026-10-31', '19:30');
-t('3 Std vorher: online ok', F.darfOnline('2026-10-31', '19:30', [], '0151 1', tisch - 3 * 3600000) === true, '');
-t('1 Std vorher (Frist 2): nur telefonisch', F.darfOnline('2026-10-31', '19:30', [], '0151 1', tisch - 3600000) === false, '');
+t('3 Std vorher: online ok', F.darfOnline('2026-10-31', '19:30', ['storno_frist:2'], '0151 1', tisch - 3 * 3600000) === true, '');
+t('1 Std vorher (Frist 2): nur telefonisch', F.darfOnline('2026-10-31', '19:30', ['storno_frist:2'], '0151 1', tisch - 3600000) === false, '');
 t('Frist 0: auch 10 Min vorher online', F.darfOnline('2026-10-31', '19:30', ['storno_frist:0'], '0151 1', tisch - 600000) === true, '');
 t('KEINE SACKGASSE: ohne Telefon immer online', F.darfOnline('2026-10-31', '19:30', ['storno_frist:24'], '', tisch - 600000) === true, '');
 
@@ -28,19 +29,19 @@ t('KEINE SACKGASSE: ohne Telefon immer online', F.darfOnline('2026-10-31', '19:3
 // 31.10.2026 ist ein Samstag.
 var L17 = { opening_hours: { sa_start: '17:00', sa_end: '23:00' } };
 var t17 = F.berlinZeitpunkt('2026-10-31', '17:00');
-t('Oeffnung 17, Tisch 17: um 16:30 noch online (nicht schon ab 15 Uhr nur Telefon)', F.darfOnline('2026-10-31', '17:00', [], '0151 1', t17 - 1800000, L17) === true, '');
-t('… Grenze = 17:00, nicht 15:00', F.spaetestens('2026-10-31', '17:00', [], '0151 1', L17) === t17, new Date(F.spaetestens('2026-10-31', '17:00', [], '0151 1', L17)).toISOString());
+t('Oeffnung 17, Tisch 17: um 16:30 noch online (nicht schon ab 15 Uhr nur Telefon)', F.darfOnline('2026-10-31', '17:00', ['storno_frist:2'], '0151 1', t17 - 1800000, L17) === true, '');
+t('… Grenze = 17:00, nicht 15:00', F.spaetestens('2026-10-31', '17:00', ['storno_frist:2'], '0151 1', L17) === t17, new Date(F.spaetestens('2026-10-31', '17:00', ['storno_frist:2'], '0151 1', L17)).toISOString());
 var t20 = F.berlinZeitpunkt('2026-10-31', '20:00');
-t('Oeffnung 17, Tisch 20: Frist 2 Std bleibt (Grenze 18:00)', F.spaetestens('2026-10-31', '20:00', [], '0151 1', L17) === t20 - 7200000, '');
-t('Oeffnung 17, Tisch 18, Frist 2: Grenze 17:00 (Oeffnung), nicht 16:00', F.spaetestens('2026-10-31', '18:00', [], '0151 1', L17) === t17, '');
+t('Oeffnung 17, Tisch 20: Frist 2 Std bleibt (Grenze 18:00)', F.spaetestens('2026-10-31', '20:00', ['storno_frist:2'], '0151 1', L17) === t20 - 7200000, '');
+t('Oeffnung 17, Tisch 18, Frist 2: Grenze 17:00 (Oeffnung), nicht 16:00', F.spaetestens('2026-10-31', '18:00', ['storno_frist:2'], '0151 1', L17) === t17, '');
 var LM = { opening_hours: { sa_start: '11:30', sa_end: '14:00', sa_start2: '17:00', sa_end2: '22:00' } };
-t('Mittagspause 14-17, Tisch 17:30: Grenze 17:00 (Abendschicht), nicht 15:30', F.spaetestens('2026-10-31', '17:30', [], '0151 1', LM) === t17, '');
-t('Mittagstisch 12:30: Grenze 11:30 (Mittagsschicht) -- die Abendschicht danach zaehlt NICHT', F.spaetestens('2026-10-31', '12:30', [], '0151 1', LM) === F.berlinZeitpunkt('2026-10-31', '11:30'), '');
+t('Mittagspause 14-17, Tisch 17:30: Grenze 17:00 (Abendschicht), nicht 15:30', F.spaetestens('2026-10-31', '17:30', ['storno_frist:2'], '0151 1', LM) === t17, '');
+t('Mittagstisch 12:30: Grenze 11:30 (Mittagsschicht) -- die Abendschicht danach zaehlt NICHT', F.spaetestens('2026-10-31', '12:30', ['storno_frist:2'], '0151 1', LM) === F.berlinZeitpunkt('2026-10-31', '11:30'), '');
 t('Sonderzeit an dem Tag ab 18:00 zaehlt', F.schichtBeginn({ opening_hours: { sa_start: '12:00', sonderzeiten: [{ datum: '2026-10-31', von: '18:00', bis: '23:00' }] } }, '2026-10-31', '19:00') === '18:00', '');
 t('nur opening_time bekannt: zaehlt auch', F.schichtBeginn({ opening_time: '17:00:00' }, '2026-10-31', '17:00') === '17:00', '');
 t('Oeffnungszeiten als Text (JSON) werden gelesen', F.schichtBeginn({ opening_hours: JSON.stringify(L17.opening_hours) }, '2026-10-31', '18:00') === '17:00', '');
 t('Wochentag stimmt (Freitag-Zeiten gelten nicht am Samstag)', F.schichtBeginn({ opening_hours: { fr_start: '17:00' } }, '2026-10-31', '18:00') === '', '');
-t('ohne Oeffnungszeiten: Frist wie eingestellt', F.spaetestens('2026-10-31', '17:00', [], '0151 1', {}) === t17 - 7200000, '');
+t('ohne Oeffnungszeiten: Frist wie eingestellt', F.spaetestens('2026-10-31', '17:00', ['storno_frist:2'], '0151 1', {}) === t17 - 7200000, '');
 
 // ---- 2. Die Absage-Funktion ----
 var lokal, reservierung, patches = [], lokalUrl = '';
@@ -109,6 +110,7 @@ function aufruf(q) { return RC.handler({ queryStringParameters: Object.assign({ 
     t('App meldet "abgesagt" nur, wenn der Server es sagt (nicht bloss HTTP 200)', /if \(!j \|\| j\.abgesagt !== true\) throw new Error/.test(H), '');
     t('Einstellung unter "Zeiten": jederzeit / 1 / 2 / 4 / 12 / 24 / 48 Std, speichert mit Rueckmeldung', /id="resStornoFrist"[^>]*onchange="stornoFristSpeichern\(this\.value\)"/.test(H) && /features\.push\('storno_frist:' \+ h\)/.test(H) && /Frist NICHT gespeichert/.test(H), '');
     t('Wirt liest in der Einstellung, dass vor der Oeffnung online absagen immer geht', /Vor eurer Öffnung geht online absagen immer/.test(H), '');
+    t('App: ohne Wahl steht die Einstellung auf "jederzeit"', /return 0; \/\/ ohne Wahl: jederzeit/.test(H), '');
     console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' Tests FEHLGESCHLAGEN.'));
     process.exit(ok === n ? 0 : 1);
 })().catch(function (e) { console.error(e); process.exit(1); });

@@ -8,7 +8,9 @@
 // Tisch weitergeben; ein Klick auf einen Link geht im Service unter.
 //
 // Gespeichert wie die Wartezeit: restaurants.features enthaelt
-// "storno_frist:<Stunden>". 0 = jederzeit online. Fehlt der Eintrag: 2.
+// "storno_frist:<Stunden>". 0 = jederzeit online. Fehlt der Eintrag: jederzeit
+// (Ibo, 29.10.2026: "er will es wie vorher" -- keiner bekommt eine Frist,
+// die er nicht selbst gewaehlt hat).
 //
 // KEINE SACKGASSE: Hat das Lokal keine Telefonnummer, bleibt Online-Absagen
 // immer erlaubt. Wer weder klicken noch anrufen kann, kommt einfach nicht --
@@ -18,7 +20,7 @@
 // (Bestaetigung) und reservation-reminder.js (Erinnerung).
 'use strict';
 
-var STANDARD = 2, HOECHSTENS = 72;
+var STANDARD = 0, HOECHSTENS = 72;
 
 function fristStunden(features) {
     var f = Array.isArray(features) ? features : [];
