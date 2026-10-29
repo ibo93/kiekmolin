@@ -66591,6 +66591,50 @@ function dashSpark(werte, farbe, w, h) {
         + '<polyline points="' + p.join(' ') + '" fill="none" stroke="' + farbe + '" stroke-width="2" stroke-linejoin="round"/>'
         + '<circle cx="' + l[0] + '" cy="' + l[1] + '" r="3.5" fill="' + farbe + '" stroke="#fff" stroke-width="1.5"/></svg>';
 }
+// SITZDAUER (Ibo 29.10.2026, statt einer KI-Kamera): aus "Ist da" und
+// "Fertig", deren Uhrzeit die Datenbank selbst setzt (SQL 48). Reine
+// Rechnung -- im Test ausgefuehrt. Unter 10 Min oder ueber 6 Std ist ein
+// vergessener Tipp, kein Besuch: der zaehlt nicht mit.
+function sitzdauerAuswerten(zeilen) {
+    var d = [];
+    (zeilen || []).forEach(function (z) {
+        var a = new Date(z && z.seated_at).getTime(), b = new Date(z && z.finished_at).getTime();
+        if (!(b > a)) return;
+        var min = (b - a) / 60000;
+        if (min < 10 || min > 360) return;
+        d.push({ min: min, std: new Date(a).getHours(), p: parseInt(z.party_size, 10) || 0 });
+    });
+    function schnitt(f) {
+        var x = d.filter(f);
+        return x.length ? { min: Math.round(x.reduce(function (s, y) { return s + y.min; }, 0) / x.length), n: x.length } : null;
+    }
+    return { n: d.length, gesamt: schnitt(function () { return true; }),
+             mittag: schnitt(function (x) { return x.std < 15; }), abend: schnitt(function (x) { return x.std >= 17; }),
+             klein: schnitt(function (x) { return x.p > 0 && x.p <= 2; }), mittel: schnitt(function (x) { return x.p >= 3 && x.p <= 4; }),
+             gross: schnitt(function (x) { return x.p >= 5; }) };
+}
+function sitzText(s) {
+    if (!s) return '–';
+    var h = Math.floor(s.min / 60), m = s.min % 60;
+    return h ? h + ' Std' + (m ? ' ' + m + ' Min' : '') : m + ' Min';
+}
+// Die Karte. Drei Faelle, keiner still leer (Regel 6): SQL fehlt / Fehler /
+// noch zu wenig Besuche gemessen.
+function sitzKarte(S) {
+    var inhalt;
+    if (!S || S.fehlt) inhalt = dashWenig('Noch nicht eingerichtet: einmal <b>SQL 48 (Sitzdauer)</b> in Supabase einspielen. Danach zählt jeder Besuch mit „Ist da“ und „Fertig“.');
+    else if (S.fehler) inhalt = dashWenig('Sitzdauer nicht geladen (' + escapeHtml(S.fehler) + ').');
+    else if (S.n < 3) inhalt = dashWenig('Noch zu wenig gemessen (' + S.n + (S.n === 1 ? ' Besuch' : ' Besuche') + '). Es zählt jeder Tisch, der im Tischplan „Ist da“ und danach „Fertig“ bekommt.');
+    else inhalt = '<div class="kin-dash-quoten">'
+        + [['MITTAGS', S.mittag, 'bis 15 Uhr'], ['ABENDS', S.abend, 'ab 17 Uhr'], ['IM SCHNITT', S.gesamt, 'alle Besuche']].map(function (q) {
+            return '<div><span class="kin-dash-label">' + q[0] + '</span><b>' + sitzText(q[1]) + '</b><small>' + q[2] + (q[1] ? ' · ' + q[1].n + '×' : '') + '</small></div>'; }).join('')
+        + '</div><div class="kin-dash-quoten" style="margin-top:8px">'
+        + [['1–2 PERSONEN', S.klein], ['3–4 PERSONEN', S.mittel], ['AB 5 PERSONEN', S.gross]].map(function (q) {
+            return '<div><span class="kin-dash-label">' + q[0] + '</span><b>' + sitzText(q[1]) + '</b><small>' + (q[1] ? q[1].n + ' Besuche' : 'noch keine') + '</small></div>'; }).join('')
+        + '</div>';
+    return dashKarte('Sitzdauer an den Tischen', 'letzte 8 Wochen · aus „Ist da“ und „Fertig“' + (S && S.n >= 3 ? ' · ' + S.n + ' Besuche' : ''), inhalt, '',
+        S && S.n >= 3 ? dashTabelle(['Gruppe', 'Ø Sitzdauer', 'Besuche'], [['Mittags', sitzText(S.mittag), S.mittag ? S.mittag.n : 0], ['Abends', sitzText(S.abend), S.abend ? S.abend.n : 0], ['1–2 Personen', sitzText(S.klein), S.klein ? S.klein.n : 0], ['3–4 Personen', sitzText(S.mittel), S.mittel ? S.mittel.n : 0], ['Ab 5 Personen', sitzText(S.gross), S.gross ? S.gross.n : 0]]) : '');
+}
 function dashKarte(titel, unter, inhalt, rechts, tabelle, klasse) {
     return '<section class="kin-dash-karte' + (klasse ? ' ' + klasse : '') + '"><div class="kin-dash-kartenkopf"><div><h3>' + titel + '</h3>' + (unter ? '<p>' + unter + '</p>' : '') + '</div>' + (rechts || '') + '</div>'
         + inhalt + (tabelle ? '<div class="kin-dash-tabelle">' + tabelle + '</div>' : '') + '</section>';
@@ -66775,9 +66819,10 @@ function dashZeichnen(M, extra) {
         M.bewSchnitt === null ? '' : '<div class="kin-dash-proTag"><b>' + M.bewSchnitt.toFixed(1).replace('.', ',') + ' <span class="gold">★</span></b></div>',
         dashTabelle(['Sterne', 'Anzahl'], M.bewVert));
     var reihe4 = '<div class="kin-dash-reihe zwei">' + resKarte + bewKarte + '</div>';
+    var reihe5 = '<div class="kin-dash-reihe zwei">' + sitzKarte(extra && extra.sitz) + '</div>';
     var kopf = '<div class="kin-dash-leiste"><span class="kin-dash-titel">Dashboard</span>'
         + '<button type="button" class="kin-dash-tabknopf" aria-pressed="false" onclick="var d=document.getElementById(\'kinDash\'); this.setAttribute(\'aria-pressed\', d.classList.toggle(\'tabellen\') ? \'true\' : \'false\');">Als Tabelle</button></div>';
-    box.innerHTML = kopf + '<div class="kin-dash-reihe oben">' + hero + jetztHtml + '</div>' + kpis + reihe1 + reihe2 + reihe3 + reihe4;
+    box.innerHTML = kopf + '<div class="kin-dash-reihe oben">' + hero + jetztHtml + '</div>' + kpis + reihe1 + reihe2 + reihe3 + reihe4 + reihe5;
     // Die bestehende Steuerung (echte Schalter) in die Kachel umziehen.
     var st = document.getElementById('dashSteuerung'), slot = document.getElementById('kinDashSteuerSlot');
     if (st && slot) {
@@ -66824,6 +66869,15 @@ async function dashLaden() {
         .catch(function () { return supabaseGet('orders', q + '&created_at=gte.' + encodeURIComponent(tagesBeginnIso(new Date(ab + 'T12:00:00'))) + '&select=' + felder + '&order=created_at.asc&limit=10000'); });
     var holeRes = supabaseGet('reservations', q + '&reservation_date=gte.' + dashPlusTage(heute, -Math.max(56, Z === 365 ? 366 : Z)) + '&reservation_date=lte.' + dashPlusTage(heute, 14) + '&select=id,reservation_date,reservation_time,party_size,status,guest_name,guest_phone,created_at&limit=10000');
     var holeKasse = kasseLaden(rid, ab, heute).catch(function () { return {}; });
+    // Eigene Abfrage: fehlen die Spalten (SQL 48 nicht eingespielt), darf das
+    // nicht die Reservierungen oben mitreissen -- dann nur diese Karte.
+    var holeSitz = fetch(SUPABASE_URL + '/rest/v1/reservations?' + q + '&seated_at=not.is.null&finished_at=not.is.null&reservation_date=gte.' + dashPlusTage(heute, -56)
+        + '&select=seated_at,finished_at,party_size&limit=5000', { headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + kmiToken() } })
+        .then(async function (antw) {
+            if (antw.ok) return sitzdauerAuswerten(await antw.json());
+            var t = ''; try { t = await antw.text(); } catch (e) {}
+            return /seated_at|finished_at|42703/.test(t) ? { fehlt: true } : { fehler: 'HTTP ' + antw.status };
+        }).catch(function (e) { return { fehler: String(e && e.message || e) }; });
     var holeBew = supabaseGet('reviews', 'target_type=eq.restaurant&target_id=eq.' + encodeURIComponent(rid) + '&select=rating,created_at,owner_reply&limit=2000').catch(function () { return []; });
     var holeTechnik = supabaseGet('restaurants', 'id=eq.' + encodeURIComponent(rid) + '&select=printer_last_poll_at,pos_last_poll_at')
         .catch(function () { return supabaseGet('restaurants', 'id=eq.' + encodeURIComponent(rid) + '&select=printer_last_poll_at').catch(function () { return []; }); });
@@ -66833,7 +66887,7 @@ async function dashLaden() {
     var holePush = fetch('/.netlify/functions/push-status?r=' + encodeURIComponent(rid), { headers: { Authorization: 'Bearer ' + kmiToken() } })
         .then(function (r) { return r.json(); }).catch(function () { return null; });
     try {
-        var e = await Promise.all([holeOrders, holeRes, holeKasse, holeBew, holeTechnik, holePush]);
+        var e = await Promise.all([holeOrders, holeRes, holeKasse, holeBew, holeTechnik, holePush, holeSitz]);
         var M = dashAuswerten({ orders: e[0], res: e[1], kasse: e[2], reviews: e[3], zeitraum: Z }, new Date());
         var t = (e[4] && e[4][0]) || {}, tech = [];
         var alter = function (iso) { return iso ? (Date.now() - new Date(iso).getTime()) / 1000 : null; };
@@ -66846,7 +66900,7 @@ async function dashLaden() {
         else if (ps && ps.ok) tech.push(['● Push: kein Handy angemeldet', 'schlecht']);
         else tech.push(['● Push: Stand unbekannt', 'warn']);
         var r = ((window.APP_DATA && APP_DATA.restaurants) || []).find(function (x) { return x.id === rid; }) || { id: rid };
-        dashZeichnen(M, { restaurant: r, technik: tech });
+        dashZeichnen(M, { restaurant: r, technik: tech, sitz: e[6] });
     } catch (err) {
         // Nicht still leer (Regel 6): ein leeres Dashboard saehe aus wie "nichts los".
         box.innerHTML = '<div class="kmi-stand fehler" role="alert"><span><b>Dashboard nicht geladen</b> (' + escapeHtml(String(err && err.message || err)) + '). Es kann etwas los sein.</span>'
