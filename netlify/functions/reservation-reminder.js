@@ -25,6 +25,7 @@ var RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 var EMAIL_FROM = process.env.EMAIL_FROM || 'Kiek mol in <bestellung@kiekmolin.de>';
 var nurText = require('./lib/nur-text').nurText;
 var MAIL = require('./lib/mail-rahmen');
+var FRIST = require('./lib/storno-frist');
 
 function sbHeaders(extra) {
     return Object.assign({ 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' }, extra || {});
@@ -59,6 +60,22 @@ async function sendMail(to, subject, html, rest) {
     if (!res.ok) { var t = ''; try { t = await res.text(); } catch (e) {} throw new Error('Resend ' + res.status + ': ' + t.slice(0, 150)); }
 }
 
+// ABSAGEN IN DER ERINNERUNG (29.10.2026): die Erinnerung geht morgens
+// zwischen 9 und 11 Uhr raus -- bei einem Tisch um 12 Uhr liegt sie schon in
+// der Frist des Lokals. Dann gleich der Anruf statt eines Links, den
+// res-cancel.js verweigern wuerde (lib/storno-frist.js).
+function absageKasten(res, rest, cancelUrl, jetzt) {
+    var grenze = FRIST.spaetestens(res.reservation_date, res.reservation_time, rest.features, rest.phone);
+    var tel = rest.phone ? 'tel:' + String(rest.phone).replace(/[^\d+]/g, '') : '';
+    if (grenze !== null && (jetzt == null ? Date.now() : jetzt) >= grenze) {
+        return MAIL.kasten('Du kannst doch nicht kommen? So kurz vorher bitte kurz anrufen – dann kann das Team den Tisch gleich weitergeben:<br>' +
+            MAIL.knopf('Anrufen: ' + esc(rest.phone), tel, 'voll'));
+    }
+    return MAIL.kasten('Du kannst doch nicht kommen? Kein Problem – sag einfach kurz ab, dann kann das Team den Tisch weitergeben:<br>' +
+        MAIL.knopf('Reservierung absagen', cancelUrl, 'rot') +
+        (grenze !== null ? '<div style="margin-top:6px;font-size:12px;color:#57534e;">Online bis <strong>' + esc(FRIST.fristText(grenze)) + '</strong>, danach bitte anrufen: <a href="' + tel + '" style="color:#0b3d33;">' + esc(rest.phone) + '</a></div>' : ''));
+}
+
 // Die Erinnerung selbst -- eigene Funktion, damit werkzeug/mails-ansehen.js
 // sie ohne Datenbank bauen kann.
 function erinnerungsMail(res, rest, timeStr) {
@@ -81,8 +98,7 @@ function erinnerungsMail(res, rest, timeStr) {
                 ['Telefon', rest.phone ? '<a href="tel:' + esc(rest.phone) + '" style="color:#0b3d33;">' + esc(rest.phone) + '</a>' : '']
             ], { links: 'Heute', rechts: esc(timeStr) + ' Uhr' }) +
             MAIL.verweise([['Route planen', MAIL.routeUrl(rest)], ['Speisekarte ansehen', rest.name ? MAIL.lokalUrl(rest) : '']]) +
-            MAIL.kasten('Du kannst doch nicht kommen? Kein Problem – sag einfach kurz ab, dann kann das Team den Tisch weitergeben:<br>' +
-                MAIL.knopf('Reservierung absagen', cancelUrl, 'rot')),
+            absageKasten(res, rest, cancelUrl),
         fuss: 'Diese Erinnerung wurde automatisch von kiekmolin.de verschickt.'
     });
     return html;
@@ -103,7 +119,7 @@ exports.handler = async function () {
         list = await sbGet('reservations?reservation_date=eq.' + today +
             '&status=eq.confirmed&guest_email=not.is.null&reminder_email_sent_at=is.null' +
             '&created_at=lt.' + encodeURIComponent(bookedBefore) +
-            '&select=id,restaurant_id,guest_name,guest_email,party_size,reservation_time&limit=200');
+            '&select=id,restaurant_id,guest_name,guest_email,party_size,reservation_date,reservation_time&limit=200');
     } catch (e) {
         if (e.status === 400 && /reminder_email_sent_at/.test(e.body || '')) {
             console.warn('[res-reminder] Spalte reminder_email_sent_at fehlt. Bitte einmalig anlegen. Keine Mails verschickt.');
@@ -116,7 +132,7 @@ exports.handler = async function () {
     // Restaurant-Infos einmal laden
     var restaurants = {};
     try {
-        (await sbGet('restaurants?select=id,slug,name,street,city,phone,email,logo_url&limit=200')).forEach(function (r) { restaurants[r.id] = r; });
+        (await sbGet('restaurants?select=id,slug,name,street,city,phone,email,logo_url,features&limit=200')).forEach(function (r) { restaurants[r.id] = r; });
     } catch (e) {}
 
     var sent = 0, skipped = 0;

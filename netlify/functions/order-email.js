@@ -49,6 +49,7 @@ var WARTEZEIT = require('./lib/wartezeit');
 var ZAHLART = require('./lib/zahlart');
 var BESTELLART = require('./lib/bestellart');
 var MAIL = require('./lib/mail-rahmen');
+var FRIST = require('./lib/storno-frist');
 
 var CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -413,13 +414,27 @@ function buildReservationEmail(r, rest, eventType) {
     var cancelBlock = '';
     if (r.id && eventType !== 'cancelled') {
         var cancelUrl = 'https://kiekmolin.de/.netlify/functions/res-cancel?id=' + encodeURIComponent(r.id);
-        cancelBlock = MAIL.kasten(
-            '<strong>Doch etwas dazwischengekommen?</strong><br>' +
-            'Sag uns bitte kurz Bescheid – dann kann ' + esc(restName) + ' den Tisch noch weitergeben.<br>' +
-            MAIL.knopf('Reservierung absagen', cancelUrl, 'rot') +
-            ((rest && rest.phone)
-                ? '<div style="margin-top:6px;font-size:12px;color:#57534e;">Oder telefonisch: <a href="tel:' + esc(rest.phone) + '" style="color:#0b3d33;">' + esc(rest.phone) + '</a></div>'
-                : ''));
+        // FRIST (lib/storno-frist.js, 29.10.2026): kurz vorher nur telefonisch.
+        // Dieselbe Rechnung wie res-cancel.js -- die Mail verspricht nichts,
+        // was der Link dann verweigert.
+        var grenze = FRIST.spaetestens(r.reservation_date, r.reservation_time, rest && rest.features, rest && rest.phone);
+        var telLink = (rest && rest.phone) ? 'tel:' + String(rest.phone).replace(/[^\d+]/g, '') : '';
+        if (grenze !== null && Date.now() >= grenze) {
+            cancelBlock = MAIL.kasten(
+                '<strong>Doch etwas dazwischengekommen?</strong><br>' +
+                'So kurz vorher geht die Absage nur telefonisch – dann weiß ' + esc(restName) + ' sofort Bescheid und kann den Tisch weitergeben.<br>' +
+                MAIL.knopf('Anrufen: ' + esc(rest.phone), telLink, 'voll'));
+        } else {
+            cancelBlock = MAIL.kasten(
+                '<strong>Doch etwas dazwischengekommen?</strong><br>' +
+                'Sag uns bitte kurz Bescheid – dann kann ' + esc(restName) + ' den Tisch noch weitergeben.<br>' +
+                MAIL.knopf('Reservierung absagen', cancelUrl, 'rot') +
+                (grenze !== null
+                    ? '<div style="margin-top:6px;font-size:12px;color:#57534e;">Online absagen geht bis <strong>' + esc(FRIST.fristText(grenze)) + '</strong>. Danach bitte anrufen: <a href="' + telLink + '" style="color:#0b3d33;">' + esc(rest.phone) + '</a></div>'
+                    : (rest && rest.phone)
+                        ? '<div style="margin-top:6px;font-size:12px;color:#57534e;">Oder telefonisch: <a href="tel:' + esc(rest.phone) + '" style="color:#0b3d33;">' + esc(rest.phone) + '</a></div>'
+                        : ''));
+        }
     }
 
     var html = MAIL.rahmen({
@@ -500,7 +515,7 @@ async function handleReservation(resvId, eventType) {
     var rest = null;
     if (resv.restaurant_id) {
         try {
-            var rres = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(resv.restaurant_id) + '&select=id,slug,name,street,city,phone,email,google_maps_url,logo_url', { headers: sbHeaders() });
+            var rres = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(resv.restaurant_id) + '&select=id,slug,name,street,city,phone,email,google_maps_url,logo_url,features', { headers: sbHeaders() });
             if (rres.ok) { var rl = await rres.json(); rest = rl[0] || null; }
         } catch (e) {}
     }

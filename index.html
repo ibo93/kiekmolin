@@ -11665,6 +11665,25 @@
         @media (max-width: 1099px) { .kin-sperr-raster { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
         @media (max-width: 699px) { .kin-sperr-raster { grid-template-columns: minmax(0, 1fr); } }
         #resTabSettings .res-time-input { min-width: 150px !important; }
+        .kmi-tel-absage { position: fixed; inset: 0; z-index: 10060; background: rgba(0,37,30,0.55); display: flex; align-items: flex-end; justify-content: center; }
+        .kmi-tel-blatt { background: #ffffff; width: 100%; max-width: 480px; border-radius: 28px 28px 0 0; padding: 24px 20px 28px; display: flex; flex-direction: column; gap: 12px; font-family: Inter, sans-serif; }
+        .kmi-tel-titel { font-family: Epilogue, Inter, sans-serif; font-weight: 900; font-size: 22px; color: #00251e; }
+        .kmi-tel-text { margin: 0; font-size: 15px; line-height: 1.5; color: #404946; }
+        .kmi-tel-anruf { display: flex; align-items: center; justify-content: center; min-height: 56px; border-radius: 9999px; background: #003d33; color: #ffffff !important; text-decoration: none; font-weight: 900; font-size: 17px; }
+        .kmi-tel-zurueck { min-height: 48px; border: none; border-radius: 9999px; background: #f3f4f5; color: #00251e; font-weight: 800; font-size: 15px; cursor: pointer; }
+        .dark-mode .kmi-tel-blatt { background: #12201d; }
+        .dark-mode .kmi-tel-titel { color: #ffffff; }
+        .dark-mode .kmi-tel-text { color: #b9c4c0; }
+        .dark-mode .kmi-tel-anruf { background: #ffd54f; color: #00251e !important; }
+        .dark-mode .kmi-tel-zurueck { background: rgba(255,255,255,0.1); color: #e8eeec; }
+        .kin-storno-text { margin: 0 0 12px; font-size: 13px; line-height: 1.45; color: #404946; }
+        .kin-storno-label { display: block; margin: 0 0 6px; font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #404946; }
+        #stornoFristKarte .kin-storno-wahl { width: 100%; min-height: 48px; padding: 0 14px; border: 1.5px solid #d6dbd9 !important; border-radius: 14px; background: #f3f4f5 !important; color: #00251e !important; font-family: Inter, sans-serif; font-size: 15px; font-weight: 700; }
+        .kin-storno-stand { margin: 8px 0 0; font-size: 13px; font-weight: 600; color: #92400e; }
+        .kin-storno-stand:empty { display: none; }
+        .dark-mode .kin-storno-text, .dark-mode .kin-storno-label { color: #b9c4c0; }
+        .dark-mode #stornoFristKarte .kin-storno-wahl { background: #1f2a28 !important; border-color: rgba(255,255,255,0.18) !important; color: #ffffff !important; }
+        .dark-mode .kin-storno-stand { color: #fcd34d; }
         #resTabSettings .kin-pause-kopf { display: flex; align-items: center; justify-content: space-between; margin: 0 0 10px; }
         #resTabSettings .kin-pause-kopf h4 { margin: 0 !important; }
         .kin-kipp { position: relative; display: inline-block; width: 48px; height: 28px; flex-shrink: 0; cursor: pointer; }
@@ -23281,6 +23300,26 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         </div>
                         <p style="font-size: 12px; color: var(--text-secondary); margin: 12px 0 0 0;">Keine Reservierungen in dieser Zeit möglich.</p>
                     </div>
+
+                    <!-- ABSAGEN DURCH GAESTE (29.10.2026): bis wann online, danach nur
+                         telefonisch. Gilt fuer den Link in Bestaetigung und Erinnerung
+                         und den Knopf in der App (Sperre auf dem Server:
+                         netlify/functions/lib/storno-frist.js). -->
+                    <div class="res-settings-card" id="stornoFristKarte">
+                        <h4>Absagen durch Gäste</h4>
+                        <p class="kin-storno-text">Bis wann Gäste online absagen dürfen. Danach nur telefonisch – dann erfahrt ihr es sofort und könnt den Tisch weitergeben.</p>
+                        <label class="kin-storno-label" for="resStornoFrist">Online absagen bis</label>
+                        <select id="resStornoFrist" class="kin-storno-wahl" onchange="stornoFristSpeichern(this.value)">
+                            <option value="0">jederzeit</option>
+                            <option value="1">1 Stunde vorher</option>
+                            <option value="2">2 Stunden vorher</option>
+                            <option value="4">4 Stunden vorher</option>
+                            <option value="12">12 Stunden vorher</option>
+                            <option value="24">1 Tag vorher</option>
+                            <option value="48">2 Tage vorher</option>
+                        </select>
+                        <p id="resStornoStand" class="kin-storno-stand"></p>
+                    </div>
                 </div>
 
                 <!-- Vorschau -->
@@ -34141,6 +34180,57 @@ var resSettingsInterval = 30;
 var resDisabledSlots = []; // Manuell deaktivierte Slots
 var _resSettingsLoadedFor = null; // welches Restaurant ist gerade in der Settings-UI
 
+// Frist fuer Absagen durch Gaeste -- gleiche Regel wie lib/storno-frist.js
+// (Server). "storno_frist:<h>" in restaurants.features, fehlt = 2.
+function stornoFristStunden(restaurant) {
+    var f = (restaurant && Array.isArray(restaurant.features)) ? restaurant.features : [];
+    for (var i = 0; i < f.length; i++) {
+        var m = /^storno_frist:(\d{1,3})$/.exec(String(f[i]));
+        if (m) { var v = parseInt(m[1], 10); if (v >= 0 && v <= 72) return v; }
+    }
+    return 2;
+}
+function stornoFristAnzeigen(restaurant) {
+    var sel = document.getElementById('resStornoFrist'), stand = document.getElementById('resStornoStand');
+    if (!sel) return;
+    var h = stornoFristStunden(restaurant);
+    if (!Array.prototype.some.call(sel.options, function (o) { return +o.value === h; })) { var o = document.createElement('option'); o.value = h; o.textContent = h + ' Stunden vorher'; sel.appendChild(o); }
+    sel.value = String(h);
+    if (stand) stand.textContent = restaurant && !restaurant.phone && h > 0
+        ? 'Achtung: Für das Lokal ist keine Telefonnummer eingetragen – ohne Nummer bleibt Online-Absagen immer möglich.' : '';
+}
+async function stornoFristSpeichern(wert) {
+    var rid = window.resCurrentRestaurant, stand = document.getElementById('resStornoStand');
+    var h = Math.max(0, Math.min(72, parseInt(wert, 10) || 0));
+    if (!rid) { showToast('Kein Restaurant ausgewählt', 'error'); return; }
+    try {
+        var r0 = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(rid) + '&select=features', { headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + kmiToken() } });
+        var d = await r0.json();
+        var features = (d[0] && Array.isArray(d[0].features)) ? d[0].features : [];
+        features = features.filter(function (f) { return !/^storno_frist:/.test(String(f)); });
+        features.push('storno_frist:' + h);
+        var pat = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(rid), {
+            method: 'PATCH',
+            headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
+            body: JSON.stringify({ features: features })
+        });
+        var zurueck = []; try { zurueck = await pat.json(); } catch (e) {}
+        // Nicht "gespeichert" melden, ohne nachzusehen (PATCH ohne Zeile ist kein Fehler fuer die Datenbank).
+        if (!pat.ok || !Array.isArray(zurueck) || !zurueck.length) {
+            showToast('Frist NICHT gespeichert – die Datenbank hat die Änderung nicht übernommen.', 'error');
+            if (stand) stand.textContent = 'Nicht gespeichert.';
+            return;
+        }
+        var r = ((window.APP_DATA && APP_DATA.restaurants) || []).find(function (x) { return x.id === rid; });
+        if (r) r.features = features;
+        showToast((r && r.name ? r.name + ': ' : '') + (h ? 'Gäste sagen bis ' + h + (h === 1 ? ' Stunde' : ' Stunden') + ' vorher online ab, danach telefonisch' : 'Gäste dürfen jederzeit online absagen'), 'success');
+        stornoFristAnzeigen(r || { features: features, phone: 'x' });
+    } catch (e) {
+        showToast('Keine Verbindung – Frist nicht gespeichert', 'error');
+    }
+}
+window.stornoFristSpeichern = stornoFristSpeichern;
+
 function loadResSettingsUI() {
     if (typeof pushStatusLaden === 'function') pushStatusLaden();
     var rid = window.resCurrentRestaurant;
@@ -34150,6 +34240,7 @@ function loadResSettingsUI() {
     }
     if (!restaurant) { _resSettingsLoadedFor = null; return; }
     _resSettingsLoadedFor = rid;
+    try { stornoFristAnzeigen(restaurant); } catch (e) {}
 
     var startEl = document.getElementById('resSettingsStart');
     var endEl = document.getElementById('resSettingsEnd');
@@ -49078,6 +49169,14 @@ function absageGrundFragen() {
 
 async function guestCancelReservation(resId, btn) {
     if (!resId) return;
+    // ERST FRAGEN, OB ONLINE NOCH GEHT (29.10.2026, Frist des Lokals --
+    // lib/storno-frist.js). Sonst fuellt der Gast erst den Grund aus und
+    // erfaehrt danach, dass er anrufen muss.
+    try {
+        var vor = await fetch('/.netlify/functions/res-cancel?format=json&pruefen=1&id=' + encodeURIComponent(resId));
+        var vj = await vor.json();
+        if (vj && vj.nurTelefon) { absageNurTelefon(vj); return; }
+    } catch (e) { /* Pruefung nicht moeglich: der Server entscheidet beim Absagen selbst */ }
     var wahl = await absageGrundFragen();
     // null = abgebrochen. Ein leerer Grund = abgesagt, aber ohne Angabe --
     // das ist ein gueltiges Ergebnis und darf die Absage nicht aufhalten.
@@ -49085,10 +49184,15 @@ async function guestCancelReservation(resId, btn) {
 
     if (btn) { btn.disabled = true; btn.textContent = 'Wird abgesagt…'; }
     try {
-        var res = await fetch('/.netlify/functions/res-cancel?id=' + encodeURIComponent(resId)
+        var res = await fetch('/.netlify/functions/res-cancel?format=json&id=' + encodeURIComponent(resId)
             + (wahl.grund ? '&grund=' + encodeURIComponent(wahl.grund) : '')
             + (wahl.frei ? '&frei=' + encodeURIComponent(wahl.frei) : ''));
         if (!res.ok) throw new Error('HTTP ' + res.status);
+        // NUR "abgesagt" melden, wenn der Server es sagt. Vorher reichte HTTP
+        // 200 -- das kam auch bei "Gerade nicht moeglich" (HTML-Seite).
+        var j = await res.json().catch(function () { return null; });
+        if (j && j.nurTelefon) { absageNurTelefon(j); if (btn) { btn.disabled = false; btn.textContent = 'Absagen'; } return; }
+        if (!j || j.abgesagt !== true) throw new Error((j && j.text) || 'nicht abgesagt');
         showToast('Reservierung abgesagt – danke für die Info!', 'success');
         // Liste neu laden, damit die Karte als "Storniert" erscheint.
         // Haengt nicht mehr an einer gespeicherten Telefonnummer -- die
@@ -49102,6 +49206,25 @@ async function guestCancelReservation(resId, btn) {
         if (btn) { btn.disabled = false; btn.textContent = 'Absagen'; }
     }
 }
+
+// Kurz vor dem Tisch: nur telefonisch -- mit einem Knopf, der gleich waehlt.
+function absageNurTelefon(j) {
+    var tel = String(j.telefon || '').replace(/[^\d+]/g, '');
+    var h = j.fristStunden || 2;
+    var ov = document.createElement('div');
+    ov.className = 'kmi-tel-absage';
+    ov.setAttribute('role', 'dialog');
+    ov.setAttribute('aria-label', 'Absage nur telefonisch');
+    ov.innerHTML = '<div class="kmi-tel-blatt">'
+        + '<b class="kmi-tel-titel">Bitte kurz anrufen</b>'
+        + '<p class="kmi-tel-text">Weniger als ' + h + (h === 1 ? ' Stunde' : ' Stunden') + ' vorher geht die Absage nur telefonisch – so weiß das Restaurant sofort Bescheid und kann den Tisch weitergeben.</p>'
+        + (tel ? '<a class="kmi-tel-anruf" href="tel:' + tel + '">' + escapeHtml(j.telefon) + ' anrufen</a>' : '')
+        + '<button type="button" class="kmi-tel-zurueck">Zurück</button></div>';
+    ov.querySelector('button').onclick = function () { ov.remove(); };
+    ov.addEventListener('click', function (e) { if (e.target === ov) ov.remove(); });
+    document.body.appendChild(ov);
+}
+window.absageNurTelefon = absageNurTelefon;
 
 // ==================== ANMELDUNG IM DASHBOARD WACH HALTEN ====================
 // Gemessen am 14.10.2026 (Supabase edge_logs): Lokal ebc6ed13 hat seit dem
