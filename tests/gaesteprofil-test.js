@@ -34,7 +34,8 @@ t('Besuche zählen nur stattgefundene, vor heute (nicht Absage/No-Show/heutige)'
 t('Umsatz aus App-Bestellungen ohne Storno', p.umsatz === 40, p.umsatz);
 t('letzter Besuch und Lieblingstisch (am häufigsten)', p.letzterBesuch === '2026-10-01' && p.lieblingsTisch === '5' && p.lieblingsTischMal === 2, JSON.stringify([p.letzterBesuch, p.lieblingsTisch]));
 t('Notizen früherer Besuche, neueste zuerst, höchstens 3, nicht die von heute', p.notizen.length === 3 && p.notizen[0].text === 'krank' && p.notizen[2].text === 'Fensterplatz, Allergie Nüsse' && !p.notizen.some(function (x) { return x.text === 'heute'; }), JSON.stringify(p.notizen));
-t('Abzeichen: Stammgast ab 3 Besuchen', p.stamm === true && G.chip(p) === 'Stammgast · 3 Besuche', G.chip(p));
+t('Abzeichen: Stammgast ab 3 Besuchen (einmal nicht gekommen -> das steht vorne)', p.stamm === true && G.chip(p) === '1× nicht gekommen · 3 Besuche', G.chip(p));
+t('Abzeichen: Stammgast ohne Ausfall', G.chip(Object.assign({}, p, { nichtErschienen: 0 })) === 'Stammgast · 3 Besuche', '');
 var neu = G.p('0160 5555555', daten, '2026-10-09');
 t('Abzeichen: unbekannte Nummer = "Neu"', neu.neu === true && G.chip(neu) === 'Neu', G.chip(neu));
 var zweit = G.p('0171 999999', daten, '2026-10-09');
@@ -53,6 +54,17 @@ t('Tischnummern aus restaurant_tables (dorthin zeigt table_id, SQL 40), ohne Pla
 t('Laden fehlgeschlagen: Abzeichen sagt "Profil nicht geladen" statt still "Neu" (Regel 6)', /c\.textContent = 'Profil nicht geladen'/.test(gl), '');
 t('Abzeichen versteckt bis geladen (kein falsches "Neu" vorab)', /class="kmi-gp-chip"[^>]*style="display:none;/.test(fn('gpChipHtml')), '');
 t('Profil-Fenster: Name und Notizen maskiert (Gäste tippen sie selbst)', /escapeHtml\(name \|\| 'Gast'\)/.test(fn('gastProfilZeigen')) && /escapeHtml\(n\.text\)/.test(fn('gastProfilZeigen')), '');
+
+// Nicht gekommen -- auf einen Blick, nicht erst im Profil (29.10.2026)
+var dNS = { reservierungen: [
+    { guest_phone: '0151 222', reservation_date: '2026-09-01', status: 'no_show' },
+    { guest_phone: '0151 222', reservation_date: '2026-09-20', status: 'no_show' },
+    { guest_phone: '0151 222', reservation_date: '2026-10-01', status: 'finished' },
+    { guest_phone: '0151 222', reservation_date: '2026-10-05', status: 'finished' },
+    { guest_phone: '0151 222', reservation_date: '2026-10-09', status: 'finished' }], bestellungen: [] };
+var pNS = G.p('0151 222', dNS, '2026-10-29');
+t('Abzeichen: "2× nicht gekommen" steht vorne, auch beim Stammgast', G.chip(pNS) === '2× nicht gekommen · 3 Besuche', G.chip(pNS));
+t('Abzeichen wird rot (Klasse), im Dunkelmodus hell genug', /if \(p\.nichtErschienen\) c\.classList\.add\('kmi-gp-warn'\)/.test(fn('gastProfileLaden')) && /\.dark-mode \.kmi-gp-chip\.kmi-gp-warn \{[^}]*color: #fca5a5/.test(H), '');
 
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' Tests FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);

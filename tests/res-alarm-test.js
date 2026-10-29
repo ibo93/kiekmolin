@@ -51,6 +51,9 @@ var K = new Function('document', 'localStorage', 'window', 'setInterval', 'clear
     var h2 = angehaengt[0].innerHTML;
     t('schon automatisch bestätigt -> "Ansehen" statt "Bestätigen"', /kin-alarm-haupt" onclick="dismissNewReservationAlarm\(true\)">Ansehen/.test(h2) && !/>Bestätigen</.test(h2), '');
 
+    // Kleine Ersatz-Karte (Vollbild-Alarm aus): dunkel/gold wie das Bestell-Banner
+    t('Ersatz-Karte "Neue Reservierung": kein gruener Verlauf mehr, dunkel mit Goldrand', !/#16a34a,#0f766e/.test(H) && /#newResAlert\{[^']*background:#00251e;color:#fff;border:2px solid #ffd54f;/.test(H) && /#newResAlert \.ra-ic\{[^']*background:#ffd54f/.test(H), '');
+    t('Gold-Symbol verblasst nicht (eigene Animation statt der doppelt definierten "pulse")', /#newResAlert \.ra-ic\{[^']*animation:kinSymPuls/.test(H) && /#newOrderAlert \.oa-ic\{[^']*animation:kinSymPuls/.test(H) && (H.match(/@keyframes kinSymPuls\{0%,100%\{opacity:1\}50%\{opacity:\.65\}\}/g) || []).length === 2, '');
     console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' Tests FEHLGESCHLAGEN.'));
     process.exit(ok === n ? 0 : 1);
 })().catch(function (e) { console.error(e); process.exit(1); });
