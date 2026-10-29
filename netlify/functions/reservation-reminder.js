@@ -65,7 +65,7 @@ async function sendMail(to, subject, html, rest) {
 // der Frist des Lokals. Dann gleich der Anruf statt eines Links, den
 // res-cancel.js verweigern wuerde (lib/storno-frist.js).
 function absageKasten(res, rest, cancelUrl, jetzt) {
-    var grenze = FRIST.spaetestens(res.reservation_date, res.reservation_time, rest.features, rest.phone);
+    var grenze = FRIST.spaetestens(res.reservation_date, res.reservation_time, rest.features, rest.phone, rest);
     var tel = rest.phone ? 'tel:' + String(rest.phone).replace(/[^\d+]/g, '') : '';
     if (grenze !== null && (jetzt == null ? Date.now() : jetzt) >= grenze) {
         return MAIL.kasten('Du kannst doch nicht kommen? So kurz vorher bitte kurz anrufen – dann kann das Team den Tisch gleich weitergeben:<br>' +
@@ -132,7 +132,7 @@ exports.handler = async function () {
     // Restaurant-Infos einmal laden
     var restaurants = {};
     try {
-        (await sbGet('restaurants?select=id,slug,name,street,city,phone,email,logo_url,features&limit=200')).forEach(function (r) { restaurants[r.id] = r; });
+        (await sbGet('restaurants?select=id,slug,name,street,city,phone,email,logo_url,features,opening_hours,opening_time&limit=200')).forEach(function (r) { restaurants[r.id] = r; });
     } catch (e) {}
 
     var sent = 0, skipped = 0;

@@ -417,7 +417,7 @@ function buildReservationEmail(r, rest, eventType) {
         // FRIST (lib/storno-frist.js, 29.10.2026): kurz vorher nur telefonisch.
         // Dieselbe Rechnung wie res-cancel.js -- die Mail verspricht nichts,
         // was der Link dann verweigert.
-        var grenze = FRIST.spaetestens(r.reservation_date, r.reservation_time, rest && rest.features, rest && rest.phone);
+        var grenze = FRIST.spaetestens(r.reservation_date, r.reservation_time, rest && rest.features, rest && rest.phone, rest);
         var telLink = (rest && rest.phone) ? 'tel:' + String(rest.phone).replace(/[^\d+]/g, '') : '';
         if (grenze !== null && Date.now() >= grenze) {
             cancelBlock = MAIL.kasten(
@@ -515,7 +515,7 @@ async function handleReservation(resvId, eventType) {
     var rest = null;
     if (resv.restaurant_id) {
         try {
-            var rres = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(resv.restaurant_id) + '&select=id,slug,name,street,city,phone,email,google_maps_url,logo_url,features', { headers: sbHeaders() });
+            var rres = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(resv.restaurant_id) + '&select=id,slug,name,street,city,phone,email,google_maps_url,logo_url,features,opening_hours,opening_time', { headers: sbHeaders() });
             if (rres.ok) { var rl = await rres.json(); rest = rl[0] || null; }
         } catch (e) {}
     }

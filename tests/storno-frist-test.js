@@ -24,14 +24,32 @@ t('1 Std vorher (Frist 2): nur telefonisch', F.darfOnline('2026-10-31', '19:30',
 t('Frist 0: auch 10 Min vorher online', F.darfOnline('2026-10-31', '19:30', ['storno_frist:0'], '0151 1', tisch - 600000) === true, '');
 t('KEINE SACKGASSE: ohne Telefon immer online', F.darfOnline('2026-10-31', '19:30', ['storno_frist:24'], '', tisch - 600000) === true, '');
 
+// ---- 1b. Vor der Oeffnung geht keiner ans Telefon (Ibo: "Wirt um 17 Uhr geoeffnet, Gast kommt um 17 Uhr") ----
+// 31.10.2026 ist ein Samstag.
+var L17 = { opening_hours: { sa_start: '17:00', sa_end: '23:00' } };
+var t17 = F.berlinZeitpunkt('2026-10-31', '17:00');
+t('Oeffnung 17, Tisch 17: um 16:30 noch online (nicht schon ab 15 Uhr nur Telefon)', F.darfOnline('2026-10-31', '17:00', [], '0151 1', t17 - 1800000, L17) === true, '');
+t('… Grenze = 17:00, nicht 15:00', F.spaetestens('2026-10-31', '17:00', [], '0151 1', L17) === t17, new Date(F.spaetestens('2026-10-31', '17:00', [], '0151 1', L17)).toISOString());
+var t20 = F.berlinZeitpunkt('2026-10-31', '20:00');
+t('Oeffnung 17, Tisch 20: Frist 2 Std bleibt (Grenze 18:00)', F.spaetestens('2026-10-31', '20:00', [], '0151 1', L17) === t20 - 7200000, '');
+t('Oeffnung 17, Tisch 18, Frist 2: Grenze 17:00 (Oeffnung), nicht 16:00', F.spaetestens('2026-10-31', '18:00', [], '0151 1', L17) === t17, '');
+var LM = { opening_hours: { sa_start: '11:30', sa_end: '14:00', sa_start2: '17:00', sa_end2: '22:00' } };
+t('Mittagspause 14-17, Tisch 17:30: Grenze 17:00 (Abendschicht), nicht 15:30', F.spaetestens('2026-10-31', '17:30', [], '0151 1', LM) === t17, '');
+t('Mittagstisch 12:30: Grenze 11:30 (Mittagsschicht) -- die Abendschicht danach zaehlt NICHT', F.spaetestens('2026-10-31', '12:30', [], '0151 1', LM) === F.berlinZeitpunkt('2026-10-31', '11:30'), '');
+t('Sonderzeit an dem Tag ab 18:00 zaehlt', F.schichtBeginn({ opening_hours: { sa_start: '12:00', sonderzeiten: [{ datum: '2026-10-31', von: '18:00', bis: '23:00' }] } }, '2026-10-31', '19:00') === '18:00', '');
+t('nur opening_time bekannt: zaehlt auch', F.schichtBeginn({ opening_time: '17:00:00' }, '2026-10-31', '17:00') === '17:00', '');
+t('Oeffnungszeiten als Text (JSON) werden gelesen', F.schichtBeginn({ opening_hours: JSON.stringify(L17.opening_hours) }, '2026-10-31', '18:00') === '17:00', '');
+t('Wochentag stimmt (Freitag-Zeiten gelten nicht am Samstag)', F.schichtBeginn({ opening_hours: { fr_start: '17:00' } }, '2026-10-31', '18:00') === '', '');
+t('ohne Oeffnungszeiten: Frist wie eingestellt', F.spaetestens('2026-10-31', '17:00', [], '0151 1', {}) === t17 - 7200000, '');
+
 // ---- 2. Die Absage-Funktion ----
-var lokal, reservierung, patches = [];
+var lokal, reservierung, patches = [], lokalUrl = '';
 global.fetch = async function (url, opt) {
     url = String(url); opt = opt || {};
     function a(b) { return { ok: true, status: 200, json: async function () { return b; }, text: async function () { return ''; } }; }
     if (opt.method === 'PATCH') { patches.push(JSON.parse(opt.body)); return a([]); }
     if (/\/reservations\?id=eq\./.test(url)) return a([reservierung]);
-    if (/\/restaurants\?id=eq\./.test(url)) return a([lokal]);
+    if (/\/restaurants\?id=eq\./.test(url)) { lokalUrl = url; return a([lokal]); }
     if (/push_subscriptions/.test(url)) return a([]);
     return a([]);
 };
@@ -60,6 +78,14 @@ function aufruf(q) { return RC.handler({ queryStringParameters: Object.assign({ 
     r = await aufruf({ format: 'json' }); j = JSON.parse(r.body);
     t('5 Std vorher: abgesagt (und gespeichert)', j.abgesagt === true && patches.length === 1 && patches[0].status === 'cancelled', r.body);
 
+    var jetztTisch = inStunden(1), oh = {};
+    ['so', 'mo', 'di', 'mi', 'do', 'fr', 'sa'].forEach(function (k) { oh[k + '_start'] = jetztTisch.reservation_time.slice(0, 5); });
+    lokal = { name: 'Lütt Italia', phone: '04941 12345', features: ['storno_frist:2'], opening_hours: oh };
+    reservierung = Object.assign({ id: ID, status: 'confirmed', restaurant_id: 'r1' }, jetztTisch); patches = [];
+    j = JSON.parse((await aufruf({ format: 'json' })).body);
+    t('Server liest die Oeffnungszeiten mit (opening_hours, opening_time)', /select=[^&]*opening_hours/.test(lokalUrl) && /select=[^&]*opening_time/.test(lokalUrl), lokalUrl);
+    t('Server: Lokal oeffnet erst zur Tischzeit -> 1 Std vorher noch online abgesagt', j.abgesagt === true && patches.length === 1, JSON.stringify(j));
+
     lokal = { name: 'Ohne Nummer', phone: '', features: ['storno_frist:24'] };
     reservierung = Object.assign({ id: ID, status: 'confirmed', restaurant_id: 'r1' }, inStunden(1)); patches = [];
     j = JSON.parse((await aufruf({ format: 'json' })).body);
@@ -70,16 +96,19 @@ function aufruf(q) { return RC.handler({ queryStringParameters: Object.assign({ 
     var L = { name: 'Lütt Italia', phone: '04941 12345', features: ['storno_frist:2'], street: 'Markt 1', city: 'Leer' };
     var weit = OE._baue.buildReservationEmail(Object.assign({ id: 'r1', party_size: 2, guest_name: 'A' }, inStunden(48)), L, 'confirmed').html;
     t('Bestätigung (Tisch in 2 Tagen): Absage-Knopf + "Online absagen geht bis …"', /res-cancel\?id=r1/.test(weit) && /Online absagen geht bis/.test(weit), '');
+    var vorAuf = OE._baue.buildReservationEmail({ id: 'r3', party_size: 2, guest_name: 'A', reservation_date: '2099-10-31', reservation_time: '17:00:00' }, Object.assign({}, L, { opening_hours: { sa_start: '17:00' } }), 'confirmed').html;
+    t('Bestätigung: "Online absagen geht bis … 17:00 Uhr" wenn das Lokal um 17 Uhr oeffnet', /Online absagen geht bis <strong>[^<]*17:00 Uhr/.test(vorAuf), (vorAuf.match(/geht bis <strong>[^<]*/) || [''])[0]);
     var knapp = OE._baue.buildReservationEmail(Object.assign({ id: 'r2', party_size: 2, guest_name: 'A' }, inStunden(1)), L, 'confirmed').html;
     t('Bestätigung (Tisch in 1 Std): kein Absage-Link, Anruf-Knopf', !/res-cancel\?id=r2/.test(knapp) && /Anrufen: 04941 12345/.test(knapp), '');
     var rem = fs.readFileSync(path.join(FN, 'reservation-reminder.js'), 'utf8');
-    t('Erinnerung: Absage-Kasten rechnet mit derselben Frist', /function absageKasten\(res, rest, cancelUrl, jetzt\)/.test(rem) && /FRIST\.spaetestens\(res\.reservation_date, res\.reservation_time, rest\.features, rest\.phone\)/.test(rem) && /reservation_date,reservation_time&limit=200/.test(rem) && /logo_url,features&limit=200/.test(rem), '');
+    t('Erinnerung: Absage-Kasten rechnet mit derselben Frist', /function absageKasten\(res, rest, cancelUrl, jetzt\)/.test(rem) && /FRIST\.spaetestens\(res\.reservation_date, res\.reservation_time, rest\.features, rest\.phone, rest\)/.test(rem) && /reservation_date,reservation_time&limit=200/.test(rem) && /logo_url,features,opening_hours,opening_time&limit=200/.test(rem), '');
 
     // ---- 4. App + Einstellung ----
     var H = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
     t('App fragt VOR dem Grund-Dialog, ob online noch geht', /res-cancel\?format=json&pruefen=1&id=/.test(H) && H.indexOf('res-cancel?format=json&pruefen=1') < H.indexOf('var wahl = await absageGrundFragen();'), '');
     t('App meldet "abgesagt" nur, wenn der Server es sagt (nicht bloss HTTP 200)', /if \(!j \|\| j\.abgesagt !== true\) throw new Error/.test(H), '');
     t('Einstellung unter "Zeiten": jederzeit / 1 / 2 / 4 / 12 / 24 / 48 Std, speichert mit Rueckmeldung', /id="resStornoFrist"[^>]*onchange="stornoFristSpeichern\(this\.value\)"/.test(H) && /features\.push\('storno_frist:' \+ h\)/.test(H) && /Frist NICHT gespeichert/.test(H), '');
+    t('Wirt liest in der Einstellung, dass vor der Oeffnung online absagen immer geht', /Vor eurer Öffnung geht online absagen immer/.test(H), '');
     console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' Tests FEHLGESCHLAGEN.'));
     process.exit(ok === n ? 0 : 1);
 })().catch(function (e) { console.error(e); process.exit(1); });

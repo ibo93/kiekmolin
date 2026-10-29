@@ -245,11 +245,12 @@ exports.handler = async function (event) {
         // Frist entscheidet, OB storniert wird.
         var lokal = {};
         try {
-            var lr = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(r.restaurant_id) + '&select=name,phone,features', { headers: sbHeaders() });
+            var lr = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(r.restaurant_id) + '&select=name,phone,features,opening_hours,opening_time', { headers: sbHeaders() });
             if (lr.ok) lokal = ((await lr.json()) || [])[0] || {};
-        } catch (e) {}
+            else console.warn('[res-cancel] Lokal nicht lesbar (' + lr.status + ') -- Frist nicht pruefbar, Absage online erlaubt');
+        } catch (e) { console.warn('[res-cancel] Lokal nicht lesbar: ' + e.message + ' -- Absage online erlaubt'); }
 
-        if (r.status !== 'cancelled' && !FRIST.darfOnline(r.reservation_date, r.reservation_time, lokal.features, lokal.phone)) {
+        if (r.status !== 'cancelled' && !FRIST.darfOnline(r.reservation_date, r.reservation_time, lokal.features, lokal.phone, null, lokal)) {
             var h = FRIST.fristStunden(lokal.features);
             var tel = String(lokal.phone || '').replace(/[^\d+]/g, '');
             var esc = function (x) { return String(x || '').replace(/[<>&"]/g, ''); };

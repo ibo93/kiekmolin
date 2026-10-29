@@ -44,16 +44,53 @@ function berlinZeitpunkt(datum, zeit) {
     return guess - (alsBerlin - guess);
 }
 
+// WANN MACHT DAS LOKAL FUER DIESEN TISCH AUF? (Ibo, 29.10.2026: "der Wirt
+// um 17 Uhr geoeffnet, der Gast kommt um 17 Uhr") -- bei 2 Std Frist muesste
+// der Gast um 15 Uhr anrufen, und da geht keiner ran. Also: der Beginn der
+// Schicht, in die der Tisch faellt (spaetester Beginn <= Tischzeit). Kennt
+// auch die zweite Schicht (Mittagspause) und Sonderzeiten an dem Tag.
+// "HH:MM" oder '' (unbekannt -> Frist bleibt wie eingestellt).
+var TAGE = ['so', 'mo', 'di', 'mi', 'do', 'fr', 'sa'];
+function schichtBeginn(lokal, datum, zeit) {
+    if (!lokal) return '';
+    var oh = lokal.opening_hours;
+    if (typeof oh === 'string') { try { oh = JSON.parse(oh); } catch (e) { oh = null; } }
+    var d = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(datum || ''));
+    var hhmm = String(zeit || '').slice(0, 5);
+    if (!d || !/^\d{2}:\d{2}$/.test(hhmm)) return '';
+    var k = TAGE[new Date(Date.UTC(+d[1], +d[2] - 1, +d[3])).getUTCDay()];
+    var anfaenge = [];
+    if (oh && typeof oh === 'object' && oh[k + '_start']) {
+        anfaenge.push(oh[k + '_start']);
+        if (oh[k + '_start2']) anfaenge.push(oh[k + '_start2']);
+    } else if (lokal.opening_time) anfaenge.push(lokal.opening_time);
+    ((oh && Array.isArray(oh.sonderzeiten)) ? oh.sonderzeiten : []).forEach(function (z) {
+        if (z && String(z.datum) === String(datum).slice(0, 10) && z.von) anfaenge.push(z.von);
+    });
+    var beste = '';
+    anfaenge.forEach(function (a) {
+        a = String(a).slice(0, 5);
+        if (/^\d{2}:\d{2}$/.test(a) && a <= hhmm && a > beste) beste = a;
+    });
+    return beste;
+}
+
 // Bis wann online? null = jederzeit (Frist 0 oder kein Telefon).
-function spaetestens(datum, zeit, features, telefon) {
+// lokal (optional) = { opening_hours, opening_time }: vor der Oeffnung ist
+// niemand am Telefon, also bleibt online absagen bis zur Oeffnung erlaubt.
+function spaetestens(datum, zeit, features, telefon, lokal) {
     var h = fristStunden(features);
     if (!h || !String(telefon || '').replace(/[^\d]/g, '')) return null;
     var z = berlinZeitpunkt(datum, zeit);
-    return isNaN(z) ? null : z - h * 3600000;
+    if (isNaN(z)) return null;
+    var grenze = z - h * 3600000;
+    var auf = schichtBeginn(lokal, datum, zeit);
+    if (auf) { var a = berlinZeitpunkt(datum, auf); if (!isNaN(a) && a > grenze) grenze = a; }
+    return grenze;
 }
 
-function darfOnline(datum, zeit, features, telefon, jetzt) {
-    var grenze = spaetestens(datum, zeit, features, telefon);
+function darfOnline(datum, zeit, features, telefon, jetzt, lokal) {
+    var grenze = spaetestens(datum, zeit, features, telefon, lokal);
     return grenze === null || (jetzt == null ? Date.now() : jetzt) < grenze;
 }
 
@@ -65,4 +102,4 @@ function fristText(ms) {
     return tag.replace(/\.$/, '') + '., ' + uhr + ' Uhr';
 }
 
-module.exports = { STANDARD: STANDARD, fristStunden: fristStunden, berlinZeitpunkt: berlinZeitpunkt, spaetestens: spaetestens, darfOnline: darfOnline, fristText: fristText };
+module.exports = { STANDARD: STANDARD, fristStunden: fristStunden, berlinZeitpunkt: berlinZeitpunkt, schichtBeginn: schichtBeginn, spaetestens: spaetestens, darfOnline: darfOnline, fristText: fristText };
