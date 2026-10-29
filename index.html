@@ -11678,6 +11678,7 @@
         .dark-mode .kmi-tel-zurueck { background: rgba(255,255,255,0.1); color: #e8eeec; }
         .kmi-gp-chip.kmi-gp-warn { background: rgba(220,38,38,0.10) !important; color: #b91c1c !important; }
         .dark-mode .kmi-gp-chip.kmi-gp-warn { background: rgba(248,113,113,0.16) !important; color: #fca5a5 !important; }
+        .kmi-falle { position: absolute !important; left: -9999px !important; width: 1px !important; height: 1px !important; opacity: 0 !important; pointer-events: none !important; }
         .kin-storno-text { margin: 0 0 12px; font-size: 13px; line-height: 1.45; color: #404946; }
         .kin-storno-label { display: block; margin: 0 0 6px; font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #404946; }
         #stornoFristKarte .kin-storno-wahl { width: 100%; min-height: 48px; padding: 0 14px; border: 1.5px solid #d6dbd9 !important; border-radius: 14px; background: #f3f4f5 !important; color: #00251e !important; font-family: Inter, sans-serif; font-size: 15px; font-weight: 700; }
@@ -16465,6 +16466,8 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                                     <label class="res-feld"><span class="material-symbols-outlined" aria-hidden="true">call</span><span class="res-feld-innen"><small>Telefon</small><input type="tel" class="form-input" style="background:transparent;border:none;" id="guestPhone" required placeholder="Für Rückfragen des Lokals" aria-label="Telefon" autocomplete="tel"></span></label>
                                     <label class="res-feld"><span class="material-symbols-outlined" aria-hidden="true">mail</span><span class="res-feld-innen"><small>E-Mail</small><input type="email" class="form-input" style="background:transparent;border:none;" id="guestEmail" placeholder="Hierhin kommt die Bestätigung" aria-label="E-Mail für die Bestätigung" autocomplete="email" oninput="resMailPruefen()" onblur="resMailPruefen()"></span></label>
                                     <button type="button" id="resMailTipp" class="res-mail-tipp" style="display:none;" onclick="resMailUebernehmen()"></button>
+                                    <!-- Spam-Falle (29.10.2026): fuer Menschen unsichtbar, nicht per Tab erreichbar, kein Autofill-Name. Nur Roboter fuellen es. -->
+                                    <input type="text" id="kmiFeld" name="kmi_feld" class="kmi-falle" tabindex="-1" autocomplete="off" aria-hidden="true" value="">
                                 </div>
                                 <!-- Leer voreingestellt. Siehe Bestellformular. -->
                                 <label for="resReviewConsent" style="display:flex;align-items:flex-start;gap:9px;margin:-2px 2px 4px;font-size:12px;line-height:1.35;color:var(--slate,#6b7280);cursor:pointer;">
@@ -31587,7 +31590,8 @@ async function saveReservationToSupabase(reservation) {
                 table_id: (reservation.tableId && String(reservation.tableId).includes('-')) ? reservation.tableId : null,
                 guest_email: reservation.guestEmail || null,
                 occasion: reservation.occasion || null,
-                review_consent: reservation.reviewConsent === true
+                review_consent: reservation.reviewConsent === true,
+                kmi_feld: (typeof document !== 'undefined' && document.getElementById('kmiFeld') || {}).value || ''
             })
         });
 
