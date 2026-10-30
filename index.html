@@ -23338,10 +23338,12 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         <h4>Essen mit der Reservierung vorbestellen</h4>
                         <p class="kin-storno-text">Nach dem Reservieren können Gäste gleich ihr Essen bestellen. Es kommt bei euch als Vorbestellung für die Uhrzeit des Tisches an – die Küche kann planen, und das Essen ist da, wenn sie sich setzen.</p>
                         <label class="kin-storno-label" for="resVorbestWahl">Vorbestellen</label>
-                        <select id="resVorbestWahl" class="kin-storno-wahl" onchange="resVorbestSpeichern(this.value === 'an')">
+                        <select id="resVorbestWahl" class="kin-storno-wahl" onchange="resVorbestSpeichern(this.value)">
                             <option value="aus">Aus</option>
-                            <option value="an">An</option>
+                            <option value="an">An – Zahlung wie gewohnt</option>
+                            <option value="online">An – nur mit Online-Zahlung</option>
                         </select>
+                        <p class="kin-storno-text" style="margin:8px 0 0">„Nur mit Online-Zahlung“: Wer vorbestellt, zahlt vorher mit PayPal. Kommt der Gast nicht, ist das Essen trotzdem bezahlt.</p>
                         <p id="resVorbestStand" class="kin-storno-stand"></p>
                     </div>
                 </div>
@@ -34275,7 +34277,12 @@ window.stornoFristSpeichern = stornoFristSpeichern;
 // Reservierung in der Notiz (die Fassung, die immer ankommt). Der Wirt
 // schaltet es selbst ein (restaurants.features "res_vorbestellen"), ohne
 // Wahl ist es aus -- niemand bekommt Vorbestellungen, die er nicht wollte.
-var RES_VORBEST = 'res_vorbestellen';
+var RES_VORBEST = 'res_vorbestellen', RES_VORBEST_ONLINE = 'res_vorbestellen_online';
+// Der Wirt will es so (Ibo 30.10.2026: "das mit 1 muss der Wirt haben
+// wollen"): ohne diesen Eintrag zahlt der Gast wie bei jeder Bestellung.
+function resVorbestNurOnline(restaurant) {
+    return resVorbestAn(restaurant) && restaurant.features.indexOf(RES_VORBEST_ONLINE) >= 0;
+}
 function resVorbestAn(restaurant) {
     return !!(restaurant && Array.isArray(restaurant.features) && restaurant.features.indexOf(RES_VORBEST) >= 0);
 }
@@ -34286,24 +34293,30 @@ function resVorbestMoeglich(restaurant) {
         if (typeof nurSpeisekarte === 'function' && nurSpeisekarte(restaurant)) return false;
         if (typeof zahlsperreBestellenAus === 'function' && zahlsperreBestellenAus(restaurant)) return false;
     } catch (e) {}
+    // Nur online, aber PayPal gar nicht eingeschaltet: dann ginge es nicht -- lieber kein Knopf.
+    if (resVorbestNurOnline(restaurant) && restaurant.features.indexOf('payment_paypal') < 0) return false;
     return true;
 }
 function resVorbestAnzeigen(restaurant) {
     var sel = document.getElementById('resVorbestWahl'), stand = document.getElementById('resVorbestStand');
     if (!sel) return;
-    var an = resVorbestAn(restaurant);
-    sel.value = an ? 'an' : 'aus';
-    if (stand) stand.textContent = an && !resVorbestMoeglich(restaurant)
-        ? 'Achtung: Online-Bestellen ist bei euch gerade aus („Nur Speisekarte“) – dann sehen Gäste den Knopf nicht.' : '';
+    var an = resVorbestAn(restaurant), online = resVorbestNurOnline(restaurant);
+    sel.value = online ? 'online' : (an ? 'an' : 'aus');
+    var f = (restaurant && restaurant.features) || [];
+    if (stand) stand.textContent = online && f.indexOf('payment_paypal') < 0
+        ? 'Achtung: PayPal ist bei euch nicht eingeschaltet – mit „nur Online-Zahlung“ sehen Gäste den Knopf dann nicht.'
+        : (an && !resVorbestMoeglich(restaurant) ? 'Achtung: Online-Bestellen ist bei euch gerade aus („Nur Speisekarte“) – dann sehen Gäste den Knopf nicht.' : '');
 }
-async function resVorbestSpeichern(an) {
+async function resVorbestSpeichern(wahl) {
+    var an = wahl === true || wahl === 'an' || wahl === 'online', online = wahl === 'online';
     var rid = window.resCurrentRestaurant, stand = document.getElementById('resVorbestStand');
     if (!rid) { showToast('Kein Restaurant ausgewählt', 'error'); return; }
     try {
         var r0 = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(rid) + '&select=features', { headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + kmiToken() } });
         var d = await r0.json();
-        var features = ((d[0] && Array.isArray(d[0].features)) ? d[0].features : []).filter(function (f) { return f !== RES_VORBEST; });
+        var features = ((d[0] && Array.isArray(d[0].features)) ? d[0].features : []).filter(function (f) { return f !== RES_VORBEST && f !== RES_VORBEST_ONLINE; });
         if (an) features.push(RES_VORBEST);
+        if (online) features.push(RES_VORBEST_ONLINE);
         var pat = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(rid), {
             method: 'PATCH',
             headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
@@ -34317,7 +34330,7 @@ async function resVorbestSpeichern(an) {
         }
         var r = ((window.APP_DATA && APP_DATA.restaurants) || []).find(function (x) { return x.id === rid; });
         if (r) r.features = features;
-        showToast((r && r.name ? r.name + ': ' : '') + (an ? 'Gäste können mit der Reservierung Essen vorbestellen' : 'Vorbestellen zur Reservierung ist aus'), 'success');
+        showToast((r && r.name ? r.name + ': ' : '') + (online ? 'Vorbestellen zur Reservierung nur mit Online-Zahlung' : an ? 'Gäste können mit der Reservierung Essen vorbestellen' : 'Vorbestellen zur Reservierung ist aus'), 'success');
         resVorbestAnzeigen(r || { features: features });
     } catch (e) {
         showToast('Keine Verbindung – nicht gespeichert', 'error');
@@ -34377,7 +34390,8 @@ function resVorbestBanner() {
     k.id = 'resVorbestHinweis';
     k.className = 'kmi-resvb';
     k.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">restaurant</span><div><b>Vorbestellung zu deinem Tisch</b><br>'
-        + escapeHtml(v.gastText) + ' – die Küche bereitet alles für deine Ankunft vor.</div>'
+        + escapeHtml(v.gastText) + ' – die Küche bereitet alles für deine Ankunft vor.'
+        + (resVorbestNurOnline(currentOrderRestaurant) ? ' Bezahlt wird vorher online.' : '') + '</div>'
         + '<button type="button" onclick="resVorbestAbbrechen()">Doch nicht</button>';
     liste.parentElement.insertBefore(k, liste);
 }
@@ -62688,6 +62702,11 @@ async function submitOrder() {
     // VORBESTELLUNG ZUR RESERVIERUNG: "Hier essen", Zeitpunkt = Tisch.
     var _resVb = (typeof resVorbestAktiv === 'function') ? resVorbestAktiv() : null;
     if (_resVb) orderType = 'dine_in';
+    // Der Wirt will Vorbestellungen nur bezahlt -- nicht nur Knoepfe ausblenden, auch hier stoppen.
+    if (_resVb && resVorbestNurOnline(currentOrderRestaurant) && paymentMethod !== 'paypal') {
+        showToast('Für die Vorbestellung zu deinem Tisch bitte online mit PayPal bezahlen. Geht das nicht: bitte im Restaurant anrufen.', 'error');
+        return;
+    }
 
     // Hilfsfunktion: Feld markieren und hinscrollem
     function markError(fieldId, msg) {
@@ -74732,6 +74751,8 @@ function updateCheckoutPaymentMethods() {
     var hasCash = _za.bar;
     var hasCard = _za.karte;
     var hasPaypal = _za.paypal;
+    // Vorbestellung zum Tisch, und der Wirt will sie nur bezahlt: Bar und Karte weg.
+    if (typeof resVorbestAktiv === 'function' && resVorbestAktiv() && resVorbestNurOnline(currentOrderRestaurant)) { hasCash = false; hasCard = false; }
 
     // Buttons zeigen/verstecken
     var container = document.getElementById('paymentMethodsContainer');

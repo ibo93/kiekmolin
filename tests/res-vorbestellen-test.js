@@ -13,8 +13,8 @@ function fn(name) {
 }
 var fenster = {}, nurKarte = false, gesperrt = false;
 var X = new Function('window', 'nurSpeisekarte', 'zahlsperreBestellenAus', 'currentOrderRestaurant',
-    'var RES_VORBEST = "res_vorbestellen";\n' + ['resVorbestAn', 'resVorbestMoeglich', 'resVorbestZeitpunkt', 'resVorbestKuechenText', 'resVorbestAktiv'].map(fn).join('\n')
-    + '; return { an: resVorbestAn, moeglich: resVorbestMoeglich, zeit: resVorbestZeitpunkt, text: resVorbestKuechenText, aktiv: function (r) { currentOrderRestaurant = r; return resVorbestAktiv(); } };')(
+    'var RES_VORBEST = "res_vorbestellen", RES_VORBEST_ONLINE = "res_vorbestellen_online";\n' + ['resVorbestAn', 'resVorbestNurOnline', 'resVorbestMoeglich', 'resVorbestZeitpunkt', 'resVorbestKuechenText', 'resVorbestAktiv'].map(fn).join('\n')
+    + '; return { online: resVorbestNurOnline, an: resVorbestAn, moeglich: resVorbestMoeglich, zeit: resVorbestZeitpunkt, text: resVorbestKuechenText, aktiv: function (r) { currentOrderRestaurant = r; return resVorbestAktiv(); } };')(
     fenster, function () { return nurKarte; }, function () { return gesperrt; }, null);
 
 // ---- Der Wirt entscheidet ----
@@ -24,6 +24,16 @@ t('Knopf nur, wenn auch bestellt werden kann ("Nur Speisekarte" -> kein Knopf)',
 nurKarte = false;
 t('… Zahlsperre -> kein Knopf', (gesperrt = true, !X.moeglich({ features: ['res_vorbestellen'] })), '');
 gesperrt = false;
+
+// ---- Nur mit Online-Zahlung: nur wenn der Wirt es will ----
+t('ohne Wahl: Zahlung wie gewohnt (nicht nur online)', X.online({ features: ['res_vorbestellen'] }) === false, '');
+t('Wirt waehlt "nur online": an', X.online({ features: ['res_vorbestellen', 'res_vorbestellen_online'] }) === true, '');
+t('… aber Vorbestellen selbst aus -> auch nicht online', X.online({ features: ['res_vorbestellen_online'] }) === false, '');
+t('nur online ohne PayPal -> kein Knopf (ginge sonst nicht zu bezahlen)', X.moeglich({ features: ['res_vorbestellen', 'res_vorbestellen_online'] }) === false && X.moeglich({ features: ['res_vorbestellen', 'res_vorbestellen_online', 'payment_paypal'] }) === true, '');
+var so0 = fn('submitOrder');
+t('submitOrder stoppt bei "nur online" ohne PayPal (nicht nur Knoepfe weg)', /if \(_resVb && resVorbestNurOnline\(currentOrderRestaurant\) && paymentMethod !== 'paypal'\) \{/.test(so0), '');
+t('Checkout blendet Bar und Karte aus', /if \(typeof resVorbestAktiv === 'function' && resVorbestAktiv\(\) && resVorbestNurOnline\(currentOrderRestaurant\)\) \{ hasCash = false; hasCard = false; \}/.test(fn('updateCheckoutPaymentMethods')), '');
+t('Einstellung hat drei Wahlen, speichert beide Eintraege', /<option value="online">An – nur mit Online-Zahlung<\/option>/.test(H) && /if \(online\) features\.push\(RES_VORBEST_ONLINE\);/.test(fn('resVorbestSpeichern')), '');
 
 // ---- Zeitpunkt und Kuechen-Text ----
 t('Zeitpunkt = Uhrzeit des Tisches (deutsche Zeit, Winter)', X.zeit('2026-10-31', '19:00') === '2026-10-31T18:00:00.000Z', X.zeit('2026-10-31', '19:00'));
@@ -48,7 +58,7 @@ t('… kein alter QR-Tisch', /var tableNumber = _resVb \? null :/.test(so), '');
 t('… erst NACH dem Speichern geloest (scheitert es, bleibt die Vorbestellung)', so.indexOf('if (_resVb) { window._resVorbest = null;') > so.indexOf('zeigeBestellungFehlgeschlagen(_saveErr);'), '');
 t('Bestaetigung zeigt den Knopf nur, wenn moeglich', /\(resVorbestMoeglich\(r\) \? '<button type="button" class="kmi-resok-vorbest" onclick="resVorbestStarten\(\);/.test(fn('showReservationConfirmation')), '');
 t('Speisekarte zeigt den Hinweis mit "Doch nicht"', /resVorbestBanner\(\);/.test(fn('openMenuModal')) && /onclick="resVorbestAbbrechen\(\)">Doch nicht/.test(fn('resVorbestBanner')), '');
-t('Einstellung unter "Zeiten": Aus/An, speichert mit Rueckmeldung', /id="resVorbestWahl"[^>]*onchange="resVorbestSpeichern\(this\.value === 'an'\)"/.test(H) && /NICHT gespeichert – die Datenbank hat die Änderung nicht übernommen/.test(fn('resVorbestSpeichern')) && /resVorbestAnzeigen\(restaurant\)/.test(fn('loadResSettingsUI')), '');
+t('Einstellung unter "Zeiten": Aus/An, speichert mit Rueckmeldung', /id="resVorbestWahl"[^>]*onchange="resVorbestSpeichern\(this\.value\)"/.test(H) && /NICHT gespeichert – die Datenbank hat die Änderung nicht übernommen/.test(fn('resVorbestSpeichern')) && /resVorbestAnzeigen\(restaurant\)/.test(fn('loadResSettingsUI')), '');
 
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' Tests FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);
