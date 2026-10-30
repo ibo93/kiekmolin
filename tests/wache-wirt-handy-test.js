@@ -17,7 +17,16 @@ global.fetch = async function (url) {
     }
     return { ok: true, status: 200, json: async function () { return []; } };
 };
+// web-push liegt nur in den Netlify-Abhaengigkeiten, nicht in der CI (dort
+// stuerzte dieser Test ab, 30.10.2026) -- wie in wache-test.js ersetzen.
+var Module = require('module'), echtesRequire = Module.prototype.require;
+Module.prototype.require = function (name) {
+    if (name === 'web-push') return { setVapidDetails: function () {}, sendNotification: async function () {} };
+    if (name === './lib/alarm') return { alarm: async function () { return { ok: true }; }, senden: async function () { return { ok: true }; } };
+    return echtesRequire.apply(this, arguments);
+};
 var W = require(path.join(__dirname, '..', 'netlify', 'functions', 'gastweg-wache.js'))._intern;
+Module.prototype.require = echtesRequire;
 
 (async function () {
     t('die Prüfung steht in der Liste der Wache', W.PRUEFUNGEN.some(function (p) { return p.kennung === 'wache-wirt-handy' && p.fn === W.pruefeWirtGeraete; }), '');

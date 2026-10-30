@@ -54,7 +54,14 @@ global.fetch = async function (url, opt) {
     if (/push_subscriptions/.test(url)) return a([]);
     return a([]);
 };
+// web-push liegt nur in den Netlify-Abhaengigkeiten, nicht in der CI -- ersetzen.
+var Module = require('module'), echtesRequire = Module.prototype.require;
+Module.prototype.require = function (name) {
+    if (name === 'web-push') return { setVapidDetails: function () {}, sendNotification: async function () { return {}; } };
+    return echtesRequire.apply(this, arguments);
+};
 var RC = require(path.join(FN, 'res-cancel.js'));
+Module.prototype.require = echtesRequire;
 function inStunden(h) {
     var d = new Date(Date.now() + h * 3600000);
     var teile = {}; new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(d).forEach(function (p) { teile[p.type] = p.value; });
