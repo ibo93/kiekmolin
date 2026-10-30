@@ -11684,8 +11684,21 @@
         /* Die Speisekarte bleibt auch im Dunkelmodus hell (gemessen 30.10.2026: .modal rgb(255,255,255)) -- der Hinweis traegt seinen eigenen hellen Grund. */
         .dark-mode .kmi-resvb { background: #fff8dc !important; border-color: #ffd54f !important; }
         .dark-mode .kmi-resvb, .dark-mode .kmi-resvb div { color: #3d3a2e !important; } .dark-mode .kmi-resvb b { color: #00251e !important; }
-        .kmi-resok-vorbest { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 52px; margin: 0 0 10px; border: none; border-radius: 9999px; background: #ffd54f; color: #00251e; font-family: Inter, sans-serif; font-size: 15px; font-weight: 800; cursor: pointer; }
+        .kmi-resok-vbkasten { display: flex; flex-direction: column; gap: 6px; margin: 0 0 12px; padding: 14px; border-radius: 18px; background: #fff8dc; border: 1.5px solid #ffd54f; text-align: left; font-family: Inter, sans-serif; }
+        .kmi-resok-vbkasten > b { font-size: 15px; color: #00251e; } .kmi-resok-vbkasten > span { font-size: 13px; line-height: 1.45; color: #3d3a2e; }
+        .dark-mode .kmi-resok-vbkasten { background: #fff8dc !important; } .dark-mode .kmi-resok-vbkasten > b { color: #00251e !important; } .dark-mode .kmi-resok-vbkasten > span { color: #3d3a2e !important; }
+        .kmi-resok-vorbest { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 52px; margin: 4px 0 0; border: none; border-radius: 9999px; background: #ffd54f; color: #00251e; font-family: Inter, sans-serif; font-size: 15px; font-weight: 800; cursor: pointer; }
         .dark-mode .kmi-resok-vorbest { background: #ffd54f; color: #00251e; } /* Gold bleibt Gold, wie die anderen Hauptknoepfe */
+        .kmi-vb-res { margin: 0 0 12px; padding: 10px 12px; border-radius: 14px; background: #f0f7f4; border: 1.5px solid #ffd54f; display: flex; flex-direction: column; gap: 2px; font-family: Inter, sans-serif; }
+        .kmi-vb-res small { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; color: #8a6100; } .kmi-vb-res b { font-size: 14px; color: #00251e; } .kmi-vb-res span { font-size: 13px; color: #404946; }
+        .dark-mode .kmi-vb-res { background: rgba(255,255,255,0.06); border-color: rgba(255,213,79,0.55); } .dark-mode .kmi-vb-res small { color: #ffd54f; } .dark-mode .kmi-vb-res b { color: #ffffff; } .dark-mode .kmi-vb-res span { color: #c8d2ce; }
+        .kmi-wahlkarten { display: flex; flex-direction: column; gap: 8px; }
+        .kmi-wahlkarten button { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 14px; border-radius: 14px; border: 2px solid #e1e5e3; background: #ffffff; color: #00251e; font-family: Inter, sans-serif; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer; }
+        .kmi-wahlkarten button i { flex: 0 0 20px; width: 20px; height: 20px; box-sizing: border-box; border-radius: 9999px; border: 2px solid #c9cfcd; display: flex; align-items: center; justify-content: center; }
+        .kmi-wahlkarten button[aria-checked="true"] { border-color: #003d33; background: #f0f7f4; font-weight: 800; }
+        .kmi-wahlkarten button[aria-checked="true"] i { border-color: #003d33; } .kmi-wahlkarten button[aria-checked="true"] i::after { content: ''; width: 10px; height: 10px; border-radius: 9999px; background: #003d33; }
+        .dark-mode .kmi-wahlkarten button { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.16); color: #e8eeec; } .dark-mode .kmi-wahlkarten button i { border-color: rgba(255,255,255,0.4); }
+        .dark-mode .kmi-wahlkarten button[aria-checked="true"] { background: rgba(255,213,79,0.10); border-color: #ffd54f; } .dark-mode .kmi-wahlkarten button[aria-checked="true"] i { border-color: #ffd54f; } .dark-mode .kmi-wahlkarten button[aria-checked="true"] i::after { background: #ffd54f; }
         .kmi-falle { position: absolute !important; left: -9999px !important; width: 1px !important; height: 1px !important; opacity: 0 !important; pointer-events: none !important; }
         .kin-storno-text { margin: 0 0 12px; font-size: 13px; line-height: 1.45; color: #404946; }
         .kin-storno-label { display: block; margin: 0 0 6px; font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #404946; }
@@ -23337,12 +23350,11 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     <div class="res-settings-card" id="resVorbestKarte">
                         <h4>Essen mit der Reservierung vorbestellen</h4>
                         <p class="kin-storno-text">Nach dem Reservieren können Gäste gleich ihr Essen bestellen. Es kommt bei euch als Vorbestellung für die Uhrzeit des Tisches an – die Küche kann planen, und das Essen ist da, wenn sie sich setzen.</p>
-                        <label class="kin-storno-label" for="resVorbestWahl">Vorbestellen</label>
-                        <select id="resVorbestWahl" class="kin-storno-wahl" onchange="resVorbestSpeichern(this.value)">
-                            <option value="aus">Aus</option>
-                            <option value="an">An – Zahlung wie gewohnt</option>
-                            <option value="online">An – nur mit Online-Zahlung</option>
-                        </select>
+                        <div id="resVorbestWahl" class="kmi-wahlkarten" role="radiogroup" aria-label="Vorbestellen">
+                            <button type="button" role="radio" data-wert="aus" aria-checked="true" onclick="resVorbestSpeichern('aus')"><i></i>Aus</button>
+                            <button type="button" role="radio" data-wert="an" aria-checked="false" onclick="resVorbestSpeichern('an')"><i></i>An – Zahlung wie gewohnt</button>
+                            <button type="button" role="radio" data-wert="online" aria-checked="false" onclick="resVorbestSpeichern('online')"><i></i>An – nur mit Online-Zahlung</button>
+                        </div>
                         <p class="kin-storno-text" style="margin:8px 0 0">„Nur mit Online-Zahlung“: Wer vorbestellt, zahlt vorher mit PayPal. Kommt der Gast nicht, ist das Essen trotzdem bezahlt.</p>
                         <p id="resVorbestStand" class="kin-storno-stand"></p>
                     </div>
@@ -34301,7 +34313,8 @@ function resVorbestAnzeigen(restaurant) {
     var sel = document.getElementById('resVorbestWahl'), stand = document.getElementById('resVorbestStand');
     if (!sel) return;
     var an = resVorbestAn(restaurant), online = resVorbestNurOnline(restaurant);
-    sel.value = online ? 'online' : (an ? 'an' : 'aus');
+    var wert = online ? 'online' : (an ? 'an' : 'aus');
+    sel.querySelectorAll('[data-wert]').forEach(function (k) { k.setAttribute('aria-checked', k.getAttribute('data-wert') === wert ? 'true' : 'false'); });
     var f = (restaurant && restaurant.features) || [];
     if (stand) stand.textContent = online && f.indexOf('payment_paypal') < 0
         ? 'Achtung: PayPal ist bei euch nicht eingeschaltet – mit „nur Online-Zahlung“ sehen Gäste den Knopf dann nicht.'
@@ -35667,7 +35680,9 @@ function showReservationConfirmation(reservation) {
         +     '</div>'
         +   '</div>'
         +   '<div id="kmiResOkAktion"></div>'
-        +   (resVorbestMoeglich(r) ? '<button type="button" class="kmi-resok-vorbest" onclick="resVorbestStarten();event.stopPropagation();">' + symbol('<path d="M7 3v8a2 2 0 0 0 2 2v8M11 3v6M7 3v6M17 3c-2 2-2 6 0 8v10"></path>') + 'Essen schon vorbestellen</button>' : '')
+        // Entwurf "VbBestaetigung" (Claude Design, 30.10.2026): gelber Kasten mit Frage, Satz und Knopf.
+        +   (resVorbestMoeglich(r) ? '<div class="kmi-resok-vbkasten"><b>Hunger schon jetzt?</b><span>Bestell dein Essen gleich mit – es ist fertig, wenn ihr euch setzt.</span>'
+            + '<button type="button" class="kmi-resok-vorbest" onclick="resVorbestStarten();event.stopPropagation();">' + symbol('<path d="M7 3v8a2 2 0 0 0 2 2v8M11 3v6M7 3v6M17 3c-2 2-2 6 0 8v10"></path>') + 'Essen schon vorbestellen</button></div>' : '')
         +   '<div class="kmi-resok-knoepfe">'
         +     '<button type="button" class="haupt" onclick="kalenderFuerLetzteReservierung();event.stopPropagation();">' + symbol('<rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M3 10h18M8 3v4M16 3v4"></path>') + 'In den Kalender</button>'
         +     (route ? '<a href="' + escapeHtml(route) + '" target="_blank" rel="noopener"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 3L3 10.5l7.5 3 3 7.5L21 3z"></path></svg>Route</a>' : '')
@@ -65653,7 +65668,11 @@ function renderDashboardOrders() {
         // und die Kueche faengt sofort an. Genau davor hat die alte Sperre
         // geschuetzt; faellt sie weg, muss das hier stehen.
         var _vbHtml = '';
-        if (order.scheduled_at) {
+        var _vbRes = order.scheduled_at ? vbReservierungTeile(order) : null;
+        if (_vbRes) {
+            _vbHtml = '<div class="kmi-vb-res"><small>VORBESTELLUNG</small><b>Zur Reservierung: ' + escapeHtml(_vbRes.wann) + '</b>'
+                + '<span>' + escapeHtml([_vbRes.wer, 'Hier essen'].filter(Boolean).join(' · ')) + '</span></div>';
+        } else if (order.scheduled_at) {
             var _vbZeit = '';
             try {
                 var _d = new Date(order.scheduled_at);
@@ -65717,18 +65736,20 @@ function renderDashboardOrders() {
         // ein kleines Abzeichen wie im Entwurf.
         var _stKlein = (order.stempel_einloesen && _sp0 !== 'neu')
             ? '<span class="kin-stempel-klein" title="' + escapeHtml(_stHtml.replace(/<[^>]+>/g, '')) + '">' + kinSym('geschenk', false, 14) + ' Stempel einlösen</span>' : '';
+        // Bei der Vorbestellung zum Tisch steht die Reservierung schon oben im Kasten -- hier nur, was der Gast selbst schrieb.
+        var _hinw = _vbRes ? _vbRes.rest : bestellHinweis(order);
         var _koerper;
         if (_sp0 === 'neu' && _kompakt) {
             _koerper = '<div class="kin-pos-kurz">' + bestellPosKurz(order.items) + ' · ' + formatPrice(order.total) + ' · ' + _zahlHtml + '</div>'
-                + (bestellHinweis(order) ? '<div class="kin-hinweis">„' + escapeHtml(bestellHinweis(order)) + '“</div>' : '');
+                + (_hinw ? '<div class="kin-hinweis">„' + escapeHtml(_hinw) + '“</div>' : '');
         } else if (_sp0 === 'neu') {
             _koerper = '<div class="kin-order-items">' + bestellPosHtml(order.items, true) + '</div>'
-                + (bestellHinweis(order) ? '<div class="kin-hinweis"><b>Hinweis:</b> „' + escapeHtml(bestellHinweis(order)) + '“</div>' : '')
+                + (_hinw ? '<div class="kin-hinweis"><b>Hinweis:</b> „' + escapeHtml(_hinw) + '“</div>' : '')
                 + '<div class="kin-summe-zeile"><span>' + _zahlHtml + (order.delivery_address ? ' · ' + adresseHtml(order.delivery_address) : '') + '</span>'
                 + '<b class="kin-summe">' + formatPrice(order.total) + '</b></div>';
         } else if (_sp0 === 'arbeit') {
             _koerper = '<div class="kin-order-items">' + bestellPosHtml(order.items, false) + '</div>'
-                + (bestellHinweis(order) ? '<div class="kin-hinweis">„' + escapeHtml(bestellHinweis(order)) + '“</div>' : '')
+                + (_hinw ? '<div class="kin-hinweis">„' + escapeHtml(_hinw) + '“</div>' : '')
                 + _stKlein + bestellRestHtml(order);
         } else {
             _koerper = _stKlein + (order.delivery_address && order.status === 'out_for_delivery' ? '<div class="kin-pos-kurz">' + adresseHtml(order.delivery_address) + '</div>' : '');
@@ -66297,6 +66318,15 @@ function bestellArtChip(order) {
 
 // Der Hinweis des Gastes zur GANZEN Bestellung ("Bitte klingeln").
 // Er stand auf dem Bon, aber auf keiner Karte im Dashboard.
+// VORBESTELLUNG ZUR RESERVIERUNG in der Karte des Wirts (Entwurf "VbWirt",
+// 30.10.2026): aus der Notiz, die resVorbestKuechenText schreibt --
+// "VORBESTELLUNG für Reservierung Sa., 31.10., 19:00 Uhr · 4 Personen · Meyer"
+// und dahinter, was der Gast selbst notiert hat. null = keine solche.
+function vbReservierungTeile(order) {
+    var m = /^VORBESTELLUNG für Reservierung (.+? Uhr)((?: · \d+ Personen?)?)((?: · [^·]+?)?)(?: · ([\s\S]*))?$/.exec(String((order && (order.notes || order.customer_notes)) || '').trim());
+    if (!m) return null;
+    return { wann: m[1], wer: [m[2], m[3]].map(function (x) { return String(x || '').replace(/^ · /, '').trim(); }).filter(Boolean).join(' · '), rest: String(m[4] || '').trim() };
+}
 function bestellHinweis(order) {
     var teile = [];
     [order && order.notes, order && order.delivery_notes].forEach(function (t) {

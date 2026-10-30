@@ -33,7 +33,7 @@ t('nur online ohne PayPal -> kein Knopf (ginge sonst nicht zu bezahlen)', X.moeg
 var so0 = fn('submitOrder');
 t('submitOrder stoppt bei "nur online" ohne PayPal (nicht nur Knoepfe weg)', /if \(_resVb && resVorbestNurOnline\(currentOrderRestaurant\) && paymentMethod !== 'paypal'\) \{/.test(so0), '');
 t('Checkout blendet Bar und Karte aus', /if \(typeof resVorbestAktiv === 'function' && resVorbestAktiv\(\) && resVorbestNurOnline\(currentOrderRestaurant\)\) \{ hasCash = false; hasCard = false; \}/.test(fn('updateCheckoutPaymentMethods')), '');
-t('Einstellung hat drei Wahlen, speichert beide Eintraege', /<option value="online">An – nur mit Online-Zahlung<\/option>/.test(H) && /if \(online\) features\.push\(RES_VORBEST_ONLINE\);/.test(fn('resVorbestSpeichern')), '');
+t('Einstellung hat drei Wahlen, speichert beide Eintraege', /data-wert="online" aria-checked="false" onclick="resVorbestSpeichern\('online'\)"><i><\/i>An – nur mit Online-Zahlung<\/button>/.test(H) && /if \(online\) features\.push\(RES_VORBEST_ONLINE\);/.test(fn('resVorbestSpeichern')), '');
 
 // ---- Zeitpunkt und Kuechen-Text ----
 t('Zeitpunkt = Uhrzeit des Tisches (deutsche Zeit, Winter)', X.zeit('2026-10-31', '19:00') === '2026-10-31T18:00:00.000Z', X.zeit('2026-10-31', '19:00'));
@@ -56,9 +56,16 @@ t('… "jetzt zu"/Bestellschluss gilt nicht (Zeit steht fest)', /if \(_osRest &&
 t('… Zeitpunkt + Text gehen in die vorhandene Vorbestellung (scheduled_at + Notiz)', /if \(_resVb\) \{\s*window\._vorbestellungFuer = _resVb\.iso;\s*window\._vorbestellungText = _resVb\.text;/.test(so) && /_orderPayload\.scheduled_at = window\._vorbestellungFuer;/.test(so), '');
 t('… kein alter QR-Tisch', /var tableNumber = _resVb \? null :/.test(so), '');
 t('… erst NACH dem Speichern geloest (scheitert es, bleibt die Vorbestellung)', so.indexOf('if (_resVb) { window._resVorbest = null;') > so.indexOf('zeigeBestellungFehlgeschlagen(_saveErr);'), '');
-t('Bestaetigung zeigt den Knopf nur, wenn moeglich', /\(resVorbestMoeglich\(r\) \? '<button type="button" class="kmi-resok-vorbest" onclick="resVorbestStarten\(\);/.test(fn('showReservationConfirmation')), '');
+t('Bestaetigung wie im Entwurf: Kasten "Hunger schon jetzt?" mit Knopf, nur wenn moeglich', /\(resVorbestMoeglich\(r\) \? '<div class="kmi-resok-vbkasten"><b>Hunger schon jetzt\?<\/b>/.test(fn('showReservationConfirmation')) && /class="kmi-resok-vorbest" onclick="resVorbestStarten\(\);/.test(fn('showReservationConfirmation')), '');
+// Karte beim Wirt (Entwurf VbWirt)
+var VT = new Function(fn('vbReservierungTeile') + '; return vbReservierungTeile;')();
+var vt = VT({ notes: 'VORBESTELLUNG für Reservierung Sa., 31.10., 19:00 Uhr · 4 Personen · Meyer · bitte glutenfrei' });
+t('Wirt: Reservierung aus der Notiz gelesen (wann / wer / eigene Notiz getrennt)', vt && vt.wann === 'Sa., 31.10., 19:00 Uhr' && vt.wer === '4 Personen · Meyer' && vt.rest === 'bitte glutenfrei', JSON.stringify(vt));
+t('… normale Vorbestellung (ohne Reservierung) bleibt wie sie war', VT({ notes: 'VORBESTELLUNG für morgen 12:00 Uhr' }) === null, '');
+var rd = fn('renderDashboardOrders');
+t('… Karte zeigt den Kasten "Zur Reservierung" statt des orangen Streifens, Hinweis nur noch die eigene Notiz', /var _vbRes = order\.scheduled_at \? vbReservierungTeile\(order\) : null;/.test(rd) && /Zur Reservierung: ' \+ escapeHtml\(_vbRes\.wann\)/.test(rd) && /var _hinw = _vbRes \? _vbRes\.rest : bestellHinweis\(order\);/.test(rd), '');
 t('Speisekarte zeigt den Hinweis mit "Doch nicht"', /resVorbestBanner\(\);/.test(fn('openMenuModal')) && /onclick="resVorbestAbbrechen\(\)">Doch nicht/.test(fn('resVorbestBanner')), '');
-t('Einstellung unter "Zeiten": Aus/An, speichert mit Rueckmeldung', /id="resVorbestWahl"[^>]*onchange="resVorbestSpeichern\(this\.value\)"/.test(H) && /NICHT gespeichert – die Datenbank hat die Änderung nicht übernommen/.test(fn('resVorbestSpeichern')) && /resVorbestAnzeigen\(restaurant\)/.test(fn('loadResSettingsUI')), '');
+t('Einstellung unter "Zeiten": Aus/An, speichert mit Rueckmeldung', /id="resVorbestWahl" class="kmi-wahlkarten" role="radiogroup"/.test(H) && /k\.setAttribute\('aria-checked', k\.getAttribute\('data-wert'\) === wert \? 'true' : 'false'\)/.test(fn('resVorbestAnzeigen')) && /NICHT gespeichert – die Datenbank hat die Änderung nicht übernommen/.test(fn('resVorbestSpeichern')) && /resVorbestAnzeigen\(restaurant\)/.test(fn('loadResSettingsUI')), '');
 
 console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' Tests FEHLGESCHLAGEN.'));
 process.exit(ok === n ? 0 : 1);
