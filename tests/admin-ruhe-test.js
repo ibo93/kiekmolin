@@ -1,5 +1,13 @@
-// KEINE KOPIEN DER WIRTE-MELDUNGEN AUF DAS HANDY DES BETREIBERS.
+// WAS AUF DEM HANDY DES BETREIBERS ANKOMMT -- UND WAS NICHT.
 //
+// 27.10.2026: Reservierungen, Bestellungen und die 20-Minuten-Erinnerung
+// gehen WIEDER an ihn, immer, ohne Schalter ("ich will selber alles auch
+// kontrollieren der wirt ist selber oft vergesslich" / "ich will kein
+// schalter ich will das ich benachrichtigungen bekomme"). Genau EINMAL,
+// auch wenn sein Handy die restaurant_id traegt. Waechter, Absage und
+// Kellner-Ruf bleiben beim Wirt -- dafuer gilt der 14.10. weiter.
+//
+// Vorher:
 // Ibo, 14.10.2026: "ich will kein wächter nachrichten oder so bekommen als
 // admin". Auf Nachfrage: keine Kopien (Reservierung, Bestellung,
 // Erinnerung, Absage, Kellner-Ruf, Waechter). Der Wache-Alarm und neue
@@ -57,7 +65,7 @@ function laden(name) {
     netz([
         [/customers\?role=eq\.superadmin/, [{ email: 'ibo@kiekmolin.de' }]],
         [/push_subscriptions\?restaurant_id=/, [WIRT, WIRT2, IBO]],
-        [/push_subscriptions\?customer_email=/, [IBO]],
+        [/push_subscriptions\?or=/, [IBO]],
         [/reservations\?status=eq\.pending&push_sent_at=is\.null/, [{ id: 'r1', restaurant_id: RID, guest_name: 'Meier', reservation_date: '2026-10-15', reservation_time: '19:00', party_size: 4 }]],
         [/customers\?role=eq\.restaurant/, [{ id: 'c1', name: 'Neues Lokal', email: 'neu@lokal.de' }]],
         [/restaurants\?id=in/, [{ id: RID, name: 'Lütt Italia' }]]
@@ -67,10 +75,15 @@ function laden(name) {
     t('Melder läuft durch', r.statusCode === 200, r.statusCode + ' ' + r.body);
     var res = gesendet.filter(function (g) { return g.was.data && g.was.data.type === 'reservation'; });
     t('neue Reservierung geht an beide Wirte-Geräte (auch das ohne E-Mail)',
-      res.length === 2 && res.some(function (g) { return g.an === WIRT.endpoint; }) && res.some(function (g) { return g.an === WIRT2.endpoint; }),
+      res.length === 3 && res.some(function (g) { return g.an === WIRT.endpoint; }) && res.some(function (g) { return g.an === WIRT2.endpoint; }),
       JSON.stringify(res.map(function (g) { return g.an; })));
-    t('… und NICHT an das Handy des Betreibers, obwohl es die restaurant_id trägt',
-      res.every(function (g) { return g.an !== IBO.endpoint; }), JSON.stringify(res.map(function (g) { return g.an; })));
+    var anIbo = gesendet.filter(function (g) { return g.an === IBO.endpoint && g.was.data && g.was.data.type === 'reservation'; });
+    t('… und an das Handy des Betreibers, GENAU EINMAL (obwohl es auch die restaurant_id trägt)',
+      anIbo.length === 1, anIbo.length + '×');
+    t('… mit dem Namen des Lokals im Text (er hat viele)', anIbo.length === 1 && /Lütt Italia/.test(anIbo[0].was.body), anIbo[0] && anIbo[0].was.body);
+    var anfrage = abfragen.filter(function (u) { return /push_subscriptions\?or=/.test(u); })[0] || '';
+    t('seine Geräte werden ohne Groß/klein-Falle gesucht (ilike, nicht in.())',
+      /ilike/.test(decodeURIComponent(anfrage)), anfrage);
     var anm = gesendet.filter(function (g) { return g.was.data && g.was.data.type === 'gastro_registration'; });
     t('neue Gastronom-Anmeldung kommt weiter bei ihm an',
       anm.length === 1 && anm[0].an === IBO.endpoint, JSON.stringify(anm.map(function (g) { return g.an; })));
@@ -124,6 +137,28 @@ function laden(name) {
           !/push_subscriptions\?customer_email=in\./.test(q), 'Kopie an den Admin');
     });
 
+    // ---- Keine Mail-Flut: erst abhaken, dann mailen (Pruefung 29.10.2026) ----
+    process.env.RESEND_API_KEY = 're_test';
+    var mails = 0, patchOk = false;
+    function netzMail() {
+        global.fetch = async function (url, opt) {
+            url = String(url); opt = opt || {};
+            if (/api\.resend\.com/.test(url)) { mails++; return { ok: true, status: 200, json: async function () { return {}; }, text: async function () { return ''; } }; }
+            if (opt.method === 'PATCH') return { ok: patchOk, status: patchOk ? 200 : 500, json: async function () { return []; }, text: async function () { return 'kaputt'; } };
+            var body = [];
+            if (/customers\?role=eq\.superadmin/.test(url)) body = [{ email: 'ibo@kiekmolin.de' }];
+            else if (/reservations\?status=eq\.pending&push_sent_at=is\.null/.test(url)) body = [{ id: 'r7', restaurant_id: RID, guest_name: 'Flut', reservation_date: '2026-10-15', reservation_time: '19:00', party_size: 2 }];
+            else if (/restaurants\?id=in/.test(url)) body = [{ id: RID, name: 'Lütt Italia' }];
+            return { ok: true, status: 200, json: async function () { return body; }, text: async function () { return JSON.stringify(body); } };
+        };
+    }
+    netzMail(); mails = 0; patchOk = false;
+    try { await laden('pending-reminder').handler({}); } catch (e) {}
+    t('Abhaken scheitert -> KEINE Mail (sonst jede Minute dieselbe, bis zu 3 Std)', mails === 0, mails + ' Mails');
+    netzMail(); mails = 0; patchOk = true;
+    await laden('pending-reminder').handler({});
+    t('Abhaken klappt -> genau eine Mail an den Betreiber', mails === 1, mails + ' Mails');
+    delete process.env.RESEND_API_KEY;
     console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' Tests FEHLGESCHLAGEN.'));
     process.exit(ok === n ? 0 : 1);
 })().catch(function (e) { console.error(e); process.exit(1); });

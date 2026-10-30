@@ -112,8 +112,13 @@ t('auch order_items bekommt die Notiz',
 t('das Dashboard liest sie aus beiden Quellen',
   (H.match(/notes: item\.notes \|\| '',\s*\n\s*price:/g) || []).length === 2,
   (H.match(/notes: item\.notes \|\| '',\s*\n\s*price:/g) || []).length);
+// Seit dem neuen Design (27.10.2026) baut bestellPosHtml die Gerichte --
+// in Neu UND In Arbeit. Der Sonderwunsch bleibt hervorgehoben (Klasse
+// kin-pos-notiz, fett in Orange-Braun).
 t('die Bestellkarte im Dashboard zeigt sie an',
-  /item\.notes \? '<br><span style=&quot;font-size:12px;color:#b45309/.test(H));
+  /\(it\.notes \? '<div class="kin-pos-notiz">✎ ' \+ escapeHtml\(it\.notes\)/.test(H)
+  && /\.kin-pos-notiz \{[^}]*color: #b45309[^}]*font-weight: 700/.test(H)
+  && (H.match(/bestellPosHtml\(order\.items, (true|false)\)/g) || []).length >= 2);
 // Der Beleg wurde neu gesetzt (siehe tests/beleg-test.js). Die Regel bleibt:
 // der Sonderwunsch muss auffallen. Statt eines festen Inline-Stils traegt er
 // jetzt die Klasse "wunsch" -- und die ist in BEIDEN Papierformaten

@@ -122,7 +122,7 @@ console.log('\n-- 4. Nachreichen geht --');
 t('ein Grund laesst sich nach der Absage nachtragen',
   /if \(r\.status === 'cancelled'\) \{[\s\S]{0,700}?if \(grundText\) \{/.test(f), 'geht verloren');
 t('und der Gast bekommt eine Rueckmeldung',
-  /page\('Danke!'/.test(f), 'wortlos');
+  /(page|seite)\('Danke!'/.test(f), 'wortlos');
 
 console.log('\n-- 5. Der Wirt sieht ihn --');
 t('im Absagen-Block steht der Grund',

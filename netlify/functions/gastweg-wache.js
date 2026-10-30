@@ -57,6 +57,7 @@
 var alarmModul = require('./lib/alarm');
 var gedaechtnis = require('./lib/wache-gedaechtnis');
 var PROBE = require('./lib/probe');
+var WIRT = require('./lib/wirt-geraete');
 
 // EINE PRUEFUNG, DIE GERADE NICHT PRUEFBAR IST, IST KEIN "ALLES GUT".
 //
@@ -80,7 +81,7 @@ var UNPRUEFBAR = 'unpruefbar';
 //
 // tests/wache-test.js vergleicht beide Zahlen und wird rot, wenn eine
 // stehenbleibt.
-var CACHE_MINDESTENS = 108;
+var CACHE_MINDESTENS = 125;
 
 var SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co';
 var SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY || '';
@@ -378,6 +379,71 @@ async function pruefeMailversand() {
     }
 }
 
+// ---- PRUEFUNG: ERFAEHRT DER WIRT UEBERHAUPT VON SEINEN GAESTEN? ------
+//
+// Seit dem 27.10.2026. Bis dahin pruefte die Wache, ob ein Gast
+// reservieren KANN -- nicht, ob der Wirt davon ERFAEHRT. Gemessen an dem
+// Tag: jede Abfrage "Handys dieses Lokals" kam leer zurueck. Die App
+// speicherte die Handys der Wirte ohne Lokal (siehe push-geraet.js), und
+// die Wache war die ganze Zeit gruen.
+//
+// Geprueft werden nur Lokale, bei denen in den letzten 14 Tagen eine
+// Reservierung oder Bestellung einging -- dort kostet ein fehlendes Handy
+// wirklich Gaeste. Das Handy des Betreibers zaehlt nicht mit
+// (lib/wirt-geraete.js): er bekommt die Meldung, der Wirt nicht.
+async function pruefeWirtGeraete() {
+    try {
+        var seit = encodeURIComponent(new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString());
+        var ids = {};
+        // In Seiten zu 1000: Supabase liefert pro Abfrage hoechstens max-rows
+        // Zeilen (Standard 1000), auch bei limit=5000. Lokale jenseits davon
+        // waeren still nicht geprueft worden -- "alles gut" bei halbem Blick.
+        var SEITE = 1000;
+        for (var t of [['reservations', 'guest_name'], ['orders', 'customer_name']]) {
+            for (var ab = 0, runde = 0; runde < 50; runde++, ab += SEITE) {
+                var r = await fetch(SUPABASE_URL + '/rest/v1/' + t[0] + '?created_at=gte.' + seit
+                    + '&select=restaurant_id,' + t[1] + '&order=created_at.asc&limit=' + SEITE + '&offset=' + ab, { headers: kopf() });
+                if (!r.ok) return UNPRUEFBAR;
+                var zeilen0 = (await r.json()) || [];
+                zeilen0.forEach(function (z) {
+                    var n = String(z && z.restaurant_id || '');
+                    // Die eigenen Proben der Wache zaehlen nicht als "Betrieb".
+                    if (n && String(z[t[1]] || '').indexOf('[Probe]') !== 0) ids[n] = true;
+                });
+                if (zeilen0.length < SEITE) break;
+            }
+        }
+        var liste = Object.keys(ids);
+        if (!liste.length) return null;
+        var g = await fetch(SUPABASE_URL + '/rest/v1/push_subscriptions?restaurant_id=in.(' + liste.join(',')
+            + ')&select=restaurant_id,customer_email&limit=10000', { headers: kopf() });
+        if (!g.ok) return UNPRUEFBAR;
+        var geraete = WIRT.nurWirte(await g.json(), await WIRT.adminMails(SUPABASE_URL, SERVICE_KEY));
+        var mit = {};
+        geraete.forEach(function (x) { mit[x.restaurant_id] = true; });
+        var ohne = liste.filter(function (id) { return !mit[id]; });
+        if (!ohne.length) return null;
+        var namen = {};
+        var nr = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=in.(' + ohne.join(',') + ')&select=id,name,is_active',
+            { headers: kopf() });
+        var aktiv = ohne;
+        if (nr.ok) {
+            var zeilen = (await nr.json()) || [];
+            zeilen.forEach(function (z) { namen[z.id] = z.name; });
+            aktiv = ohne.filter(function (id) {
+                var z = zeilen.find(function (x) { return x.id === id; });
+                return !z || z.is_active !== false;
+            });
+        }
+        if (!aktiv.length) return null;
+        return 'Kein Handy fuer Meldungen bei ' + aktiv.length + (aktiv.length === 1 ? ' Lokal' : ' Lokalen') + ': '
+            + aktiv.map(function (id) { return namen[id] || id.slice(0, 8); }).join(', ')
+            + '. Neue Reservierungen und Bestellungen kommen dort bei keinem Wirt aufs Handy (an dich per E-Mail schon).';
+    } catch (e) {
+        return UNPRUEFBAR;
+    }
+}
+
 // ---- PRUEFUNG 0: IST DIE AUSGELIEFERTE SEITE UEBERHAUPT DIE NEUE? ---
 //
 // DAS WAR DER BLINDE FLECK, UND ER HAT EINEN GANZEN TAG GEKOSTET.
@@ -552,7 +618,9 @@ var PRUEFUNGEN = [
     { kennung: 'wache-mail',          fn: pruefeMailversand },
     // Seit dem 06.10.2026: der Tisch-QR. Vorher bestellte die Wache nur
     // als Abholung -- ob am Tisch etwas ankommt, wusste niemand.
-    { kennung: 'wache-tisch',         fn: pruefeTischBestellung }
+    { kennung: 'wache-tisch',         fn: pruefeTischBestellung },
+    // Seit dem 27.10.2026: kommt es beim Wirt AN? (Handy angemeldet)
+    { kennung: 'wache-wirt-handy',    fn: pruefeWirtGeraete }
 ];
 
 exports.handler = async function () {
@@ -685,6 +753,7 @@ function antwort(rumpf) {
 // "angekommen" zwei verschiedene Dinge sind.
 exports._intern = {
     pruefeTischBestellung: pruefeTischBestellung,
+    pruefeWirtGeraete: pruefeWirtGeraete,
     PROBE_TISCH: PROBE_TISCH,
     PROBE_NAME: PROBE_NAME,
     PRUEFUNGEN: PRUEFUNGEN

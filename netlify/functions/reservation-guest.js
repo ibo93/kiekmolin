@@ -241,6 +241,41 @@ exports.handler = async function (event) {
     var r = sauber((roh && roh.reservation) || roh || {});
     var fehler = pruefe(r);
     if (fehler.length) return json(400, { ok: false, error: fehler.join('; ') });
+    // SPAM-SCHUTZ (29.10.2026): vier gleiche Anfragen mit russischem
+    // Werbetext und der Nummer "3127" kamen durch. Eine Nummer, unter der man
+    // jemanden erreicht, hat mit Vorwahl immer mindestens 6 Ziffern. Der Satz
+    // steht so beim Gast (Formular zeigt antwort.error).
+    if (String(r.guest_phone || '').replace(/\D/g, '').length < 6) {
+        return json(400, { ok: false, error: 'Bitte die Telefonnummer mit Vorwahl angeben.' });
+    }
+    // UNSICHTBARES FELD: im Formular fuer Menschen nicht zu sehen und nicht
+    // per Tab erreichbar -- nur Roboter, die jedes Feld fuellen, schreiben
+    // hinein. Kein stilles "ok" (ein Mensch, dem der Browser es doch
+    // fuellt, muss es lesen koennen), sondern ein Satz mit Ausweg.
+    var falle = String((roh && (roh.kmi_feld || (roh.reservation && roh.reservation.kmi_feld))) || '').trim();
+    if (falle) {
+        console.warn('[reservation-guest] unsichtbares Feld ausgefuellt -- nicht gespeichert');
+        return json(400, { ok: false, error: 'Die Anfrage konnte nicht gesendet werden. Bitte ruf kurz im Restaurant an.' });
+    }
+    // GLEICHER TEXT NOCHMAL: dieselbe laengere Notiz in den letzten 24 Std
+    // (der Spam vom 29.10.2026 kam viermal wortgleich). Kurze Notizen wie
+    // "Kinderstuhl" sind ausgenommen, die Probe der Wache auch. Ist die
+    // Pruefung nicht moeglich, geht die Reservierung durch (faellt offen aus).
+    var notiz = String(r.notes || '').trim();
+    if (notiz.length >= 40 && String(r.guest_name || '').indexOf('[Probe]') !== 0) {
+        try {
+            var dRes = await fetch(SUPABASE_URL + '/rest/v1/reservations?notes=eq.' + encodeURIComponent(notiz)
+                + '&created_at=gte.' + encodeURIComponent(new Date(Date.now() - 24 * 3600 * 1000).toISOString())
+                + '&select=id&limit=1', { headers: kopf() });
+            if (dRes.ok) {
+                var dZeilen = await dRes.json();
+                if (Array.isArray(dZeilen) && dZeilen.length) {
+                    console.warn('[reservation-guest] gleiche Notiz schon in den letzten 24 Std -- nicht gespeichert');
+                    return json(400, { ok: false, doppelt: true, error: 'Diese Anfrage ist schon bei uns eingegangen. Bei Fragen ruf bitte kurz im Restaurant an.' });
+                }
+            }
+        } catch (e) { console.warn('[reservation-guest] Doppel-Pruefung nicht moeglich: ' + e.message); }
+    }
     var zeit = zeitFehler(r, Date.now());
     if (zeit) return json(400, { ok: false, error: zeit });
 

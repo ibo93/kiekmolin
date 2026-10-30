@@ -192,7 +192,7 @@ function lauf(sperren, uhrzeit, notes, kaputt, features, belegt, oh) {
         if (/\/reservations$/.test(url) && o && o.method === 'POST') { gespeichert = JSON.parse(o.body); return antw([Object.assign({ id: 'neu', track_token: 'tt' }, gespeichert)], 201); }
         return antw([]);
     };
-    return F.handler({ httpMethod: 'POST', body: JSON.stringify({ restaurant_id: '11111111-1111-4111-8111-111111111111', guest_name: 'Ayse', guest_phone: '0176 1', party_size: 2, reservation_date: plus(3), reservation_time: uhrzeit, notes: notes || '' }) })
+    return F.handler({ httpMethod: 'POST', body: JSON.stringify({ restaurant_id: '11111111-1111-4111-8111-111111111111', guest_name: 'Ayse', guest_phone: '0176 1234567', party_size: 2, reservation_date: plus(3), reservation_time: uhrzeit, notes: notes || '' }) })
         .then(function (r) { return { code: r.statusCode, body: JSON.parse(r.body), gespeichert: gespeichert }; })
         .finally(function () { global.fetch = alt; console.warn = w; console.log = l; });
 }

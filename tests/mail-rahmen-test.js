@@ -29,7 +29,7 @@ t('ohne Lokal / Lokal ohne Namen: kein leeres Band', !/Zum Lokal/.test(M.rahmen(
 // Die echten Mails benutzen den Rahmen
 var OE = require(path.join(R, 'order-email.js'))._baue;
 var L = { slug: 'die-millis', name: 'Die Millis', street: 'Auricher Straße 150', city: 'Emden', phone: '04921 9234444' };
-var r = OE.buildReservationEmail({ id: 'r1', reservation_date: '2026-10-17', reservation_time: '18:30:00', party_size: 3, guest_name: 'Blank', occasion: 'birthday' }, L, 'confirmed');
+var r = OE.buildReservationEmail({ id: 'r1', reservation_date: '2099-10-17', reservation_time: '18:30:00', party_size: 3, guest_name: 'Blank', occasion: 'birthday' }, L, 'confirmed');
 t('Reservierung bestätigt: Rahmen, Lokal-Link, Geburtstag statt birthday', /Zum Lokal/.test(r.html) && /Geburtstag/.test(r.html) && !/birthday/.test(r.html), '');
 t('… Route und Kalender als Verweise', /google\.com\/maps\/search/.test(r.html) && /calendar\.google\.com/.test(r.html), '');
 t('… Absagen-Link bleibt', /res-cancel\?id=r1/.test(r.html), '');

@@ -32,7 +32,7 @@ function t(l, c, x) { n++; if (c === true) ok++; console.log((c === true ? 'OK  
   var RG = require(path.join(FN, 'reservation-guest.js'));
   Module._load = echtLaden;
   var RID = '11111111-2222-3333-4444-555555555555', TID = '99999999-8888-4777-8666-555555555555';
-  var eingefuegt = [];
+  var eingefuegt = [], notizFragen = [], gleicheNotiz = [];
   global.fetch = async function (url, init) {
     url = String(url);
     if (/\/rest\/v1\/aktionen\?/.test(url)) return { ok: true, status: 200, json: async function () { return []; } };
@@ -40,6 +40,7 @@ function t(l, c, x) { n++; if (c === true) ok++; console.log((c === true ? 'OK  
     if (/\/rest\/v1\/restaurants\?/.test(url)) return { ok: true, json: async function () { return [{ id: RID, is_active: true, features: [] }]; } };
     if (/\/rest\/v1\/restaurant_tables\?id=eq\./.test(url)) return { ok: true, json: async function () { return [{ table_number: 4, table_name: 'Tisch 4' }]; } };
     if (/\/rest\/v1\/reservations\?guest_phone/.test(url)) return { ok: true, json: async function () { return []; } };
+    if (/\/rest\/v1\/reservations\?notes=eq\./.test(url)) { notizFragen.push(decodeURIComponent(url)); return { ok: true, json: async function () { return gleicheNotiz; } }; }
     if (/\/rest\/v1\/reservations$/.test(url) && init && init.method === 'POST') {
       var k = JSON.parse(init.body); eingefuegt.push(k);
       if (k.table_id) return { ok: false, status: 409, text: async function () { return '{"code":"23503","details":"Key is not present in table \\"tables\\".","message":"insert or update on table \\"reservations\\" violates foreign key constraint \\"reservations_table_id_fkey\\""}'; } };
@@ -47,12 +48,40 @@ function t(l, c, x) { n++; if (c === true) ok++; console.log((c === true ? 'OK  
     }
     return { ok: true, json: async function () { return []; } };
   };
-  var r = await RG.handler({ httpMethod: 'POST', body: JSON.stringify({ restaurant_id: RID, guest_name: 'Celina', guest_phone: '0151', party_size: 2, reservation_date: (function () { var d = new Date(Date.now() + 14 * 864e5); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(), reservation_time: '19:00', table_id: TID, notes: 'Kinderstuhl' }) });
+  var r = await RG.handler({ httpMethod: 'POST', body: JSON.stringify({ restaurant_id: RID, guest_name: 'Celina', guest_phone: '0151 2345678', party_size: 2, reservation_date: (function () { var d = new Date(Date.now() + 14 * 864e5); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })(), reservation_time: '19:00', table_id: TID, notes: 'Kinderstuhl' }) });
   var a = JSON.parse(r.body), zweiter = eingefuegt[1] || {};
   t('Gast mit Tischwunsch wird NICHT abgewiesen', a.ok === true && r.statusCode === 200, { code: r.statusCode, a: a });
   t('zweiter Versuch ohne table_id', eingefuegt.length === 2 && eingefuegt[0].table_id === TID && !('table_id' in zweiter), eingefuegt);
   t('Wunsch steht vorn in der Notiz, eigene Notiz bleibt', zweiter.notes === 'Tisch: Tisch 4 · Kinderstuhl', zweiter.notes);
   t('kein Alarm (der Gast hat ja reserviert)', alarmiert === 0, alarmiert);
+
+  // SPAM-SCHUTZ (29.10.2026): "3127" kam als Telefonnummer durch.
+  var vorher = eingefuegt.length;
+  var datum14 = (function () { var d = new Date(Date.now() + 14 * 864e5); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })();
+  var sp = await RG.handler({ httpMethod: 'POST', body: JSON.stringify({ restaurant_id: RID, guest_name: 'Spam', guest_phone: '3127', party_size: 1, reservation_date: datum14, reservation_time: '12:00' }) });
+  var spa = JSON.parse(sp.body);
+  t('Spam-Schutz: Nummer mit 4 Ziffern -> 400, nichts gespeichert, Satz fuer den Gast', sp.statusCode === 400 && spa.error === 'Bitte die Telefonnummer mit Vorwahl angeben.' && eingefuegt.length === vorher, { code: sp.statusCode, a: spa, n: eingefuegt.length - vorher });
+  var gut = await RG.handler({ httpMethod: 'POST', body: JSON.stringify({ restaurant_id: RID, guest_name: 'Gast', guest_phone: '+49 491 12', party_size: 2, reservation_date: datum14, reservation_time: '19:00' }) });
+  t('… 6 Ziffern mit Leerzeichen und + gehen durch', JSON.parse(gut.body).ok === true, gut.body);
+  t('Formular prueft es schon vor dem Absenden (gleicher Satz)', /var _telFeld = document\.getElementById\('guestPhone'\);\s*if \(_telFeld && String\(_telFeld\.value \|\| ''\)\.replace\(\/\\D\/g, ''\)\.length < 6\)/.test(H) && /if \(!name \|\| phone\.replace\(\/\\D\/g, ''\)\.length < 6\)/.test(H), '');
+
+  // Unsichtbares Feld (nur Roboter fuellen es)
+  vorher = eingefuegt.length;
+  var hp = await RG.handler({ httpMethod: 'POST', body: JSON.stringify({ restaurant_id: RID, guest_name: 'Bot', guest_phone: '0176 1234567', party_size: 2, reservation_date: datum14, reservation_time: '19:00', kmi_feld: 'http://spam.example' }) });
+  t('Spam-Falle ausgefuellt -> 400 mit Ausweg (anrufen), nichts gespeichert', hp.statusCode === 400 && /ruf kurz im Restaurant an/.test(JSON.parse(hp.body).error) && eingefuegt.length === vorher, hp.body);
+  t('Formular: Falle unsichtbar, nicht per Tab, kein Autofill, wird mitgeschickt', /<input type="text" id="kmiFeld" name="kmi_feld" class="kmi-falle" tabindex="-1" autocomplete="off" aria-hidden="true" value="">/.test(H) && /\.kmi-falle \{ position: absolute !important; left: -9999px !important;/.test(H) && /kmi_feld: \(typeof document !== 'undefined' && document\.getElementById\('kmiFeld'\)/.test(H), '');
+  // Gleicher langer Text nochmal
+  var langerText = 'Планирую семейную прогулку по Праге, но хочу оставить возможность быстро изменить маршрут';
+  gleicheNotiz = [{ id: 'alt' }]; vorher = eingefuegt.length;
+  var dp = await RG.handler({ httpMethod: 'POST', body: JSON.stringify({ restaurant_id: RID, guest_name: 'Spam', guest_phone: '0176 1234567', party_size: 1, reservation_date: datum14, reservation_time: '12:00', notes: langerText }) });
+  t('gleicher langer Text in 24 Std -> 400 "schon eingegangen", nichts gespeichert', dp.statusCode === 400 && JSON.parse(dp.body).doppelt === true && eingefuegt.length === vorher, dp.body);
+  t('… gesucht wird genau dieser Text, nur die letzten 24 Std', notizFragen.some(function (u) { return u.indexOf('notes=eq.' + langerText) >= 0 && /created_at=gte\./.test(u); }), notizFragen);
+  notizFragen = [];
+  var kurz = await RG.handler({ httpMethod: 'POST', body: JSON.stringify({ restaurant_id: RID, guest_name: 'Gast', guest_phone: '0176 1234567', party_size: 2, reservation_date: datum14, reservation_time: '19:00', notes: 'Kinderstuhl bitte' }) });
+  t('kurze Notiz ("Kinderstuhl bitte") wird nicht geprueft, geht durch', JSON.parse(kurz.body).ok === true && notizFragen.length === 0, kurz.body);
+  var probe = await RG.handler({ httpMethod: 'POST', body: JSON.stringify({ restaurant_id: RID, guest_name: '[Probe] Gastweg-Wache', guest_phone: '0000000000', party_size: 2, reservation_date: datum14, reservation_time: '12:00', notes: 'Automatische Pruefung, wird sofort geloescht.' }) });
+  t('die Probe der Wache ist ausgenommen (gleicher Text alle 15 Min)', JSON.parse(probe.body).ok === true, probe.body);
+  gleicheNotiz = [];
 
   // Tischplan
   t('Tischplan: bei reservations_table_id_fkey zweiter Versuch ohne Tisch, Notiz "Tisch: <Name>"',
@@ -62,7 +91,8 @@ function t(l, c, x) { n++; if (c === true) ok++; console.log((c === true ? 'OK  
   // Listen
   t('keine Liste mehr fest auf tables:table_id(...seats) -- alle ueber den Rueckfall',
     !/select=\*,tables:table_id\(id,table_number,seats\)/.test(H) && !/\.select\('\*, tables:table_id\(id, table_number, seats\)'\)/.test(H) && (H.match(/resMitTischLaden\(function \(sel\)/g) || []).length === 2 && /RES_TISCH_EINBETTUNG\[_st\]/.test(H), '');
-  t('Rueckfall-Reihenfolge: alt, neu (seats:max_capacity), ohne', /var RES_TISCH_EINBETTUNG = \['tables:table_id\(id,table_number,seats\)', 'tables:table_id\(id,table_number,seats:max_capacity\)', ''\];/.test(H), '');
+  // 27.10.2026: neu zuerst (gemessen: alt 207x 400, neu 829x 200).
+  t('Rueckfall-Reihenfolge: neu (seats:max_capacity), alt, ohne', /var RES_TISCH_EINBETTUNG = \['tables:table_id\(id,table_number,seats:max_capacity\)', 'tables:table_id\(id,table_number,seats\)', ''\];/.test(H), '');
   // SQL
   var sql = fs.readFileSync(path.join(__dirname, '..', 'datenbank', '40-tisch-zuordnung.sql'), 'utf8');
   t('SQL: Regel zeigt auf restaurant_tables, "not valid" (alte Zeilen unangetastet), on delete set null',

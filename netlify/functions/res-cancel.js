@@ -27,6 +27,7 @@
 
 var webpush = require('web-push');
 var WIRT = require('./lib/wirt-geraete');
+var FRIST = require('./lib/storno-frist');
 
 var SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co';
 var SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
@@ -102,7 +103,7 @@ async function notifyRestaurant(r, restName, grundText) {
     }
 }
 
-function page(title, text, ok, extra) {
+function page(title, text, ok, extra, mehr) {
     var color = ok ? '#16a34a' : '#b91c1c';
     var icon = ok ? 'M20 6L9 17l-5-5' : 'M18 6L6 18M6 6l12 12';
     return {
@@ -205,7 +206,18 @@ function grundFrage(id) {
 }
 
 exports.handler = async function (event) {
-    var id = (event.queryStringParameters && event.queryStringParameters.id) || '';
+    var q = event.queryStringParameters || {};
+    var id = q.id || '';
+    // Die App fragt mit format=json: sie muss wissen, OB abgesagt wurde.
+    // Vorher bekam sie immer 200 + HTML -- auch bei "Gerade nicht moeglich" --
+    // und zeigte "Reservierung abgesagt", obwohl nichts passiert war.
+    var alsJson = q.format === 'json', nurPruefen = q.pruefen === '1';
+    // LOKAL, nicht page ueberschreiben: eine warme Funktion behielte sonst
+    // fuer alle spaeteren Aufrufe (auch aus der Mail) die JSON-Fassung.
+    var seite = alsJson ? function (titel, text, ok, extra, mehr) {
+        return { statusCode: 200, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
+                 body: JSON.stringify(Object.assign({ ok: !!ok, titel: titel, text: String(text).replace(/<[^>]+>/g, '') }, mehr || {})) };
+    } : page;
     // NUR bekannte Schluessel. Was hier hereinkommt, landet im Dashboard
     // des Wirts -- freier Text von aussen hat da nichts verloren.
     var grundSchluessel = (event.queryStringParameters && event.queryStringParameters.grund) || '';
@@ -216,8 +228,8 @@ exports.handler = async function (event) {
     // geschrieben, gilt die Absage als ohne Grund.
     var frei = freitextSaeubern((event.queryStringParameters && event.queryStringParameters.frei) || '');
     if (grundSchluessel === 'sonstiges') grundText = frei;
-    if (!/^[0-9a-f-]{20,}$/i.test(id)) return page('Link ungültig', 'Dieser Absage-Link ist unvollständig. Bitte nutze den Link aus deiner E-Mail.', false);
-    if (!SUPABASE_KEY) return page('Gerade nicht möglich', 'Die Absage kann gerade nicht verarbeitet werden. Bitte ruf kurz im Restaurant an.', false);
+    if (!/^[0-9a-f-]{20,}$/i.test(id)) return seite('Link ungültig', 'Dieser Absage-Link ist unvollständig. Bitte nutze den Link aus deiner E-Mail.', false);
+    if (!SUPABASE_KEY) return seite('Gerade nicht möglich', 'Die Absage kann gerade nicht verarbeitet werden. Bitte ruf kurz im Restaurant an.', false);
 
     try {
         // Reservierung lesen
@@ -225,9 +237,32 @@ exports.handler = async function (event) {
             '&select=id,status,guest_name,reservation_date,reservation_time,restaurant_id', { headers: sbHeaders() });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         var rows = await res.json();
-        if (!rows.length) return page('Nicht gefunden', 'Diese Reservierung existiert nicht (mehr).', false);
+        if (!rows.length) return seite('Nicht gefunden', 'Diese Reservierung existiert nicht (mehr).', false);
         var r = rows[0];
         var timeStr = String(r.reservation_time || '').slice(0, 5);
+
+        // Lokal: Name, Telefon, Frist (features). Vor dem Stornieren -- die
+        // Frist entscheidet, OB storniert wird.
+        var lokal = {};
+        try {
+            var lr = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(r.restaurant_id) + '&select=name,phone,features,opening_hours,opening_time', { headers: sbHeaders() });
+            if (lr.ok) lokal = ((await lr.json()) || [])[0] || {};
+            else console.warn('[res-cancel] Lokal nicht lesbar (' + lr.status + ') -- Frist nicht pruefbar, Absage online erlaubt');
+        } catch (e) { console.warn('[res-cancel] Lokal nicht lesbar: ' + e.message + ' -- Absage online erlaubt'); }
+
+        if (r.status !== 'cancelled' && !FRIST.darfOnline(r.reservation_date, r.reservation_time, lokal.features, lokal.phone, null, lokal)) {
+            var h = FRIST.fristStunden(lokal.features);
+            var tel = String(lokal.phone || '').replace(/[^\d+]/g, '');
+            var esc = function (x) { return String(x || '').replace(/[<>&"]/g, ''); };
+            console.log('[res-cancel] Frist ' + h + ' Std vorbei -- nur telefonisch: ' + id.slice(0, 8));
+            return seite('Bitte kurz anrufen',
+                'Weniger als ' + h + (h === 1 ? ' Stunde' : ' Stunden') + ' vor deinem Tisch' + (timeStr ? ' um ' + timeStr + ' Uhr' : '')
+                + ' geht die Absage nur telefonisch – so erfährt ' + esc(lokal.name || 'das Restaurant') + ' sofort davon und kann den Tisch weitergeben.',
+                false,
+                '<a href="tel:' + esc(tel) + '" style="display:block;margin:0 0 12px;background:#003d33;color:#ffffff;text-decoration:none;padding:16px 24px;border-radius:9999px;font-weight:800;font-size:17px;">' + esc(lokal.phone) + ' anrufen</a>',
+                { abgesagt: false, nurTelefon: true, telefon: lokal.phone || '', fristStunden: h });
+        }
+        if (nurPruefen) return seite('Absagen möglich', 'Online absagen geht.', true, '', { abgesagt: false, nurTelefon: false });
 
         if (r.status === 'cancelled') {
             // Nachgereichter Grund: genau der Fall, wenn jemand auf der
@@ -241,9 +276,9 @@ exports.handler = async function (event) {
                         body: JSON.stringify({ cancel_reason: grundText })
                     });
                 } catch (e) {}
-                return page('Danke!', 'Wir haben es notiert. Das hilft dem Restaurant weiter – bis zum nächsten Mal!', true);
+                return seite('Danke!', 'Wir haben es notiert. Das hilft dem Restaurant weiter – bis zum nächsten Mal!', true, '', { abgesagt: true });
             }
-            return page('Schon abgesagt', 'Diese Reservierung wurde bereits storniert. Alles gut – bis zum nächsten Mal!', true);
+            return seite('Schon abgesagt', 'Diese Reservierung wurde bereits storniert. Alles gut – bis zum nächsten Mal!', true, '', { abgesagt: true });
         }
 
         // Stornieren
@@ -257,23 +292,19 @@ exports.handler = async function (event) {
         if (!upd.ok) throw new Error('HTTP ' + upd.status);
 
         // Restaurant-Name für die Bestätigung (optional)
-        var restName = 'das Restaurant';
-        try {
-            var rr = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(r.restaurant_id) + '&select=name', { headers: sbHeaders() });
-            if (rr.ok) { var rl = await rr.json(); if (rl[0] && rl[0].name) restName = rl[0].name; }
-        } catch (e) {}
+        var restName = lokal.name || 'das Restaurant';
 
         // Restaurant benachrichtigen -- Fehler hier dürfen die Absage nicht kippen
         try { await notifyRestaurant(r, restName, grundText); }
         catch (e) { console.error('[res-cancel] Benachrichtigung fehlgeschlagen:', e.message); }
 
-        return page('Reservierung abgesagt',
+        return seite('Reservierung abgesagt',
             'Danke für die Info' + (r.guest_name ? ', ' + String(r.guest_name).replace(/[<>&]/g, '') : '') + '! ' +
             'Dein Tisch' + (timeStr ? ' um ' + timeStr + ' Uhr' : '') + ' bei ' + String(restName).replace(/[<>&]/g, '') +
             ' wurde storniert – das Team kann ihn jetzt weitergeben. Bis zum nächsten Mal!', true,
-            grundText ? '' : grundFrage(id));
+            grundText ? '' : grundFrage(id), { abgesagt: true });
     } catch (e) {
         console.error('[res-cancel]', e.message);
-        return page('Gerade nicht möglich', 'Die Absage konnte nicht verarbeitet werden. Bitte ruf kurz im Restaurant an.', false);
+        return seite('Gerade nicht möglich', 'Die Absage konnte nicht verarbeitet werden. Bitte ruf kurz im Restaurant an.', false);
     }
 };

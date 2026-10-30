@@ -67,7 +67,7 @@ async function lauf(welt) {
     };
     var f = new Function('SUPA_URL', 'SUPABASE_URL', 'SUPA_KEY', 'sbRead', 'showToast', 'window',
         KMI_STUB + schneide('fehlerKlartext') + '\n' + schneide('istRechteFehler') + '\n'
-        + schneide('legeExtrasAn') + '; return legeExtrasAn("r1", {});');
+        + 'var EXTRAS_SCOPE_MAX = 100;' + schneide('extrasAufteilen') + '\n' + schneide('legeExtrasAn') + '; return legeExtrasAn("r1", {});');
     var erg = await f('https://x', 'https://x', 'k', function (u, o) { return fetch(u, o); },
         function (m) { toasts.push(m); }, { _scanExtras: EXTRAS });
     return { erg: erg, gruppen: gruppen, optionen: optionen, toasts: toasts };

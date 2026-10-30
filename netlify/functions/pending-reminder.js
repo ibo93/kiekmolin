@@ -52,6 +52,7 @@
 const webpush = require('web-push');
 const WIRT = require('./lib/wirt-geraete');
 const PA = require('./lib/push-antwort');
+const ADMIN = require('./lib/admin-geraete');
 
 const SUPABASE_URL = (process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co')
     .replace(/\/+$/, '').replace(/\/rest\/v1$/, '');
@@ -104,10 +105,9 @@ async function sbPatch(path, body) {
 // Er hat keinen eigenen Betrieb -- restaurant_id ist bei ihm NULL --
 // und wuerde von der Suche nach restaurant_id nie gefunden.
 //
-// SEIT 14.10.2026 NUR NOCH FUER NEUE GASTRONOM-ANMELDUNGEN. Vorher bekam
-// er hier auch jede Reservierung und Bestellung aller Lokale ("damit ich
-// es alles verfolgen kann"). Jetzt: "ich will kein wächter nachrichten
-// oder so bekommen als admin" -- die Kopien sind weg, siehe handleItem.
+// 14.10.-27.10.2026 nur fuer neue Gastronom-Anmeldungen ("ich will kein
+// wächter nachrichten oder so bekommen als admin"). Seit 27.10.2026 wieder
+// auch jede neue Reservierung und Bestellung aller Lokale, siehe handleItem.
 //
 // Wer Superadmin ist, entscheidet die Datenbank, nicht der Browser. Die
 // App speichert beim Anmelden nur die E-Mail mit; hier wird sie gegen
@@ -127,17 +127,42 @@ async function adminGeraete() {
   if (_adminGeraete) return _adminGeraete;
   _adminGeraete = [];
   try {
-    const admins = await sbGet('customers?role=eq.superadmin&select=email');
-    const mails = (admins || []).map(a => a && a.email).filter(Boolean);
-    if (!mails.length) return _adminGeraete;
-    const liste = mails.map(m => '"' + String(m).replace(/"/g, '') + '"').join(',');
-    _adminGeraete = await sbGet('push_subscriptions?customer_email=in.(' + encodeURIComponent(liste) +
-      ')&select=endpoint,p256dh_key,auth_key,id') || [];
+    _adminGeraete = await ADMIN.geraete(SUPABASE_URL, SUPABASE_SERVICE_KEY, await adminMailsEinmal());
   } catch (e) {
     console.error('[melder] Admin-Geraete nicht ladbar:', e.message);
     _adminGeraete = [];
   }
   return _adminGeraete;
+}
+
+// E-MAIL AN DEN BETREIBER (27.10.2026). Je Meldung genau einmal: der
+// Aufrufer hakt die Zeile danach ab (push_sent_at / reminder_sent_at).
+// Ohne RESEND_API_KEY bleibt eine Zeile im Protokoll statt Stille.
+const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
+const EMAIL_FROM = process.env.EMAIL_FROM || 'Kiek mol in <bestellung@kiekmolin.de>';
+function ohneHtml(t) { return String(t || '').replace(/[<>&"]/g, ''); }
+async function adminMail(titel, text, pfad) {
+  if (!RESEND_API_KEY) { console.error('[melder] RESEND_API_KEY fehlt -- keine E-Mail an den Betreiber'); return 0; }
+  const mails = await adminMailsEinmal();
+  if (!mails.length) { console.error('[melder] kein Superadmin in customers -- keine E-Mail'); return 0; }
+  const html = '<div style="font-family:system-ui,-apple-system,sans-serif;max-width:520px">'
+    + '<h2 style="margin:0 0 12px">' + ohneHtml(titel) + '</h2>'
+    + '<p style="font-size:16px;line-height:1.5">' + ohneHtml(text) + '</p>'
+    + '<p><a href="https://kiekmolin.de' + ohneHtml(pfad) + '" style="display:inline-block;padding:12px 18px;background:#16a34a;color:#fff;border-radius:10px;text-decoration:none;font-weight:600">Im Dashboard öffnen</a></p>'
+    + '</div>';
+  let gut = 0;
+  for (const an of mails) {
+    try {
+      const r = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from: EMAIL_FROM, to: [an], subject: ohneHtml(titel) + ' – ' + ohneHtml(text).slice(0, 60), html: html })
+      });
+      if (r.ok) gut++; else console.error('[melder] E-Mail Resend', r.status);
+    } catch (e) { console.error('[melder] E-Mail fehlgeschlagen:', e.message); }
+  }
+  console.log('[melder] E-Mail an Betreiber:', gut, 'von', mails.length);
+  return gut;
 }
 
 async function pushToSubscription(sub, payload) {
@@ -146,7 +171,9 @@ async function pushToSubscription(sub, payload) {
     keys: { p256dh: sub.p256dh_key, auth: sub.auth_key }
   };
   try {
-    await webpush.sendNotification(pushSub, JSON.stringify(payload));
+    // urgency high: weckt das Handy statt auf die naechste Gelegenheit zu
+    // warten. TTL 1 Tag: war es aus, kommt die Meldung beim Einschalten.
+    await webpush.sendNotification(pushSub, JSON.stringify(payload), { TTL: 86400, urgency: 'high' });
     return { ok: true };
   } catch (err) {
     return { ok: false, statusCode: err.statusCode, message: err.message };
@@ -188,16 +215,20 @@ async function handleItem(kind, item, restaurantNameById, stufe) {
   // wird es auch aus dieser Liste herausgenommen: lib/wirt-geraete.js.
   // tests/admin-ruhe-test.js.
   const eigene = await sbGet('push_subscriptions?restaurant_id=eq.' + encodeURIComponent(restId) + '&select=endpoint,p256dh_key,auth_key,id,customer_email') || [];
-  const subs = WIRT.nurWirte(eigene, await adminMailsEinmal());
-  if (!subs.length) {
-    console.log('[melder] keine Geraete fuer Betrieb', restId, '- uebersprungen:', kind, item.id);
-    // Trotzdem abhaken -- sonst versucht es die Funktion jede Minute neu.
-    // Meldet sich der Wirt spaeter mit einem Geraet an, bekommt er die
-    // alten Sachen nicht nachtraeglich; er sieht sie im Dashboard.
-    await sbPatch(tabelle + '?id=eq.' + item.id, { [spalte]: jetzt });
-    return;
-  }
-
+  const wirte = WIRT.nurWirte(eigene, await adminMailsEinmal());
+  // SEIT 27.10.2026 BEKOMMT ER WIEDER JEDE MELDUNG -- ohne Schalter.
+  // Ibo: "ich will selber alles auch kontrollieren der wirt ist selber
+  // oft vergesslich" / "ich will kein schalter ich will das ich
+  // benachrichtigungen bekomme". Neue Reservierung, neue Bestellung,
+  // Erinnerung nach 20 Minuten. Auch wenn der Wirt kein Geraet hat --
+  // dann ist er der Einzige, der es erfaehrt. Waechter, Kellner-Ruf und
+  // Absagen bleiben bei den Wirten (14.10.2026 gilt dafuer weiter).
+  // Erst seine Geraete aus der Wirte-Liste nehmen und dann einmal anhaengen
+  // -- sonst klingelt sein Handy doppelt, wenn es die restaurant_id traegt.
+  const subs = wirte.slice();
+  const schon = {};
+  wirte.forEach(s => { schon[s.endpoint] = true; });
+  (await adminGeraete()).forEach(s => { if (!schon[s.endpoint]) { schon[s.endpoint] = true; subs.push(s); } });
   const restName = restaurantNameById[restId] || 'dein Restaurant';
   const zeitStr = (item.reservation_time || '').slice(0, 5);
   let title, body;
@@ -261,6 +292,28 @@ async function handleItem(kind, item, restaurantNameById, stufe) {
     }
   }
 
+  // UND PER E-MAIL AN IHN -- unabhaengig vom Browser.
+  // Ibo, 27.10.2026: "wir haben es oft gebaut es ging nie wegen browser
+  // blockt ich will auch nachrichten bekommen wenn mein handy aus ist".
+  // Push haengt am Browser (iPhone: nur als Home-Bildschirm-App, Erlaubnis,
+  // Fokus-Modus ...). Gemessen am 27.10.2026: jede Geraete-Abfrage eines
+  // Lokals kam leer zurueck ([] = 2 Bytes). Die Mail zeigt die Mail-App
+  // auf dem Handy von selbst an; war es aus, liegt sie danach da.
+  // ERST ABHAKEN, DANN MAILEN (Pruefung 29.10.2026): scheitert das Abhaken
+  // oder bricht der Lauf ab, kaeme sonst jede Minute dieselbe Mail -- bis zu
+  // FRISCH_STUNDEN lang. Eine Push-Wiederholung stoert wenig, 180 Mails schon.
+  const mailDanach = async function () { try { await adminMail(title, body, targetUrl); } catch (e) { console.error('[melder] Mail an Betreiber:', e.message); } };
+
+  if (!subs.length) {
+    console.log('[melder] keine Geraete fuer Betrieb', restId, '- nur E-Mail:', kind, item.id);
+    // Trotzdem abhaken -- sonst versucht es die Funktion jede Minute neu.
+    // Meldet sich der Wirt spaeter mit einem Geraet an, bekommt er die
+    // alten Sachen nicht nachtraeglich; er sieht sie im Dashboard.
+    await sbPatch(tabelle + '?id=eq.' + item.id, { [spalte]: jetzt });
+    await mailDanach();
+    return;
+  }
+
   const results = await Promise.all(subs.map(s => pushToSubscription(s, payload)));
   const successful = results.filter(r => r.ok).length;
   console.log('[melder]', stufe, kind, item.id, '->', successful, 'von', subs.length, 'Geraeten');
@@ -276,6 +329,7 @@ async function handleItem(kind, item, restaurantNameById, stufe) {
 
   // Abhaken -- nicht nochmal melden
   await sbPatch(tabelle + '?id=eq.' + item.id, { [spalte]: jetzt });
+  await mailDanach();
 }
 
 // NEUE GASTRONOM-ANMELDUNG -- geht nur an den Superadmin.
@@ -312,6 +366,10 @@ async function meldeAnmeldung(zeile) {
 }
 
 exports.handler = async function() {
+  // Je Durchlauf neu: eine warme Instanz behaelt Modul-Variablen. Sonst
+  // faende ein heute neu angemeldetes Handy erst nach dem naechsten
+  // Kaltstart Beachtung.
+  _adminMails = null; _adminGeraete = null;
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !VAPID_PUBLIC || !VAPID_PRIVATE) {
     console.error('[melder] ENV-Variablen fehlen. Need SUPABASE_URL, SUPABASE_SERVICE_KEY, VAPID_PUBLIC, VAPID_PRIVATE.');
     return { statusCode: 500, body: 'missing env' };
