@@ -228,7 +228,8 @@ async function handleItem(kind, item, restaurantNameById, stufe) {
   const subs = wirte.slice();
   const schon = {};
   wirte.forEach(s => { schon[s.endpoint] = true; });
-  (await adminGeraete()).forEach(s => { if (!schon[s.endpoint]) { schon[s.endpoint] = true; subs.push(s); } });
+  const seineGeraete = {};
+  (await adminGeraete()).forEach(s => { seineGeraete[s.endpoint] = true; if (!schon[s.endpoint]) { schon[s.endpoint] = true; subs.push(s); } });
   const restName = restaurantNameById[restId] || 'dein Restaurant';
   const zeitStr = (item.reservation_time || '').slice(0, 5);
   let title, body;
@@ -329,7 +330,13 @@ async function handleItem(kind, item, restaurantNameById, stufe) {
 
   // Abhaken -- nicht nochmal melden
   await sbPatch(tabelle + '?id=eq.' + item.id, { [spalte]: jetzt });
-  await mailDanach();
+  // MAIL NUR ALS ERSATZ (Ibo, 30.10.2026: "wenn ich Nachrichten aufs Handy
+  // bekomme, brauche ich keine Mail"). Hat der Push-Dienst die Meldung fuer
+  // eines SEINER Geraete angenommen, kommt sie dort an -- auch wenn das
+  // Handy gerade aus ist (TTL 1 Tag). Sonst: Mail.
+  const anIhn = results.some((r, i) => r.ok && seineGeraete[subs[i].endpoint]);
+  if (anIhn) console.log('[melder] Push an Betreiber angekommen -- keine Mail:', kind, item.id);
+  else await mailDanach();
 }
 
 // NEUE GASTRONOM-ANMELDUNG -- geht nur an den Superadmin.
