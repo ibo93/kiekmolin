@@ -11699,6 +11699,20 @@
         .kmi-wahlkarten button[aria-checked="true"] i { border-color: #003d33; } .kmi-wahlkarten button[aria-checked="true"] i::after { content: ''; width: 10px; height: 10px; border-radius: 9999px; background: #003d33; }
         .dark-mode .kmi-wahlkarten button { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.16); color: #e8eeec; } .dark-mode .kmi-wahlkarten button i { border-color: rgba(255,255,255,0.4); }
         .dark-mode .kmi-wahlkarten button[aria-checked="true"] { background: rgba(255,213,79,0.10); border-color: #ffd54f; } .dark-mode .kmi-wahlkarten button[aria-checked="true"] i { border-color: #ffd54f; } .dark-mode .kmi-wahlkarten button[aria-checked="true"] i::after { background: #ffd54f; }
+        .kmi-team { font-family: Inter, sans-serif; display: flex; flex-direction: column; gap: 12px; }
+        .kmi-team-hinweis { margin: 0; font-size: 13px; line-height: 1.45; color: var(--text-secondary, #404946); }
+        .kmi-team-fehler { margin: 0; padding: 10px 12px; border-radius: 12px; background: #fef2f2; color: #991b1b; font-size: 13px; font-weight: 600; }
+        .kmi-team-tabelle { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 14px; background: var(--bg-secondary, #f3f4f5); font-size: 12px; }
+        .kmi-team-tabelle > div { display: grid; grid-template-columns: 1fr 60px 60px 72px; gap: 6px; align-items: center; } .kmi-team-tabelle i { font-style: normal; text-align: center; font-weight: 800; }
+        .kmi-team-zeile { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--border-color, #eef0ef); }
+        .kmi-team-zeile > div { flex: 1; min-width: 0; display: flex; flex-direction: column; } .kmi-team-zeile small { color: var(--text-secondary, #57534e); font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
+        .kmi-team-rolle { padding: 4px 10px; border-radius: 9999px; background: #f0f7f4; color: #003d33; font-size: 11px; font-weight: 800; }
+        .kmi-team-weg { min-height: 36px; padding: 0 12px; font-size: 13px; font-family: Inter, sans-serif; border-radius: 9999px; border: 1.5px solid #f3d0d0; background: transparent; color: #b91c1c; font-weight: 700; cursor: pointer; }
+        .kmi-team-neu { display: flex; flex-wrap: wrap; gap: 8px; } .kmi-team-neu input { flex: 1 1 200px; min-height: 44px; padding: 0 12px; border-radius: 12px; border: 1.5px solid var(--border-color, #d6dbd9); }
+        .kmi-team-neu select { min-height: 44px; padding: 0 10px; font-size: 14px; font-family: Inter, sans-serif; border-radius: 12px; border: 1.5px solid var(--border-color, #d6dbd9); }
+        .kmi-team-neu button { min-height: 44px; padding: 0 18px; border: none; border-radius: 9999px; background: #003d33; color: #ffffff; font-weight: 800; cursor: pointer; }
+        .dark-mode .kmi-team-rolle { background: rgba(255,213,79,0.12); color: #ffd54f; } .dark-mode .kmi-team-fehler { background: rgba(239,68,68,0.15); color: #fca5a5; }
+        .dark-mode .kmi-team-neu button { background: #ffd54f; color: #00251e; }
         .kmi-falle { position: absolute !important; left: -9999px !important; width: 1px !important; height: 1px !important; opacity: 0 !important; pointer-events: none !important; }
         .kin-storno-text { margin: 0 0 12px; font-size: 13px; line-height: 1.45; color: #404946; }
         .kin-storno-label { display: block; margin: 0 0 6px; font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #404946; }
@@ -18086,6 +18100,10 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
             <div class="dash-nav-item admin-only-nav" id="navSelbstcheck" onclick="openSelbstcheck()">
                 <span class="material-symbols-outlined" style="font-size:20px;">monitor_heart</span>
                 Selbstcheck
+            </div>
+            <div class="dash-nav-item" id="navTeam" onclick="teamOeffnen()" style="display:none;">
+                <span class="material-symbols-outlined" style="font-size:20px;">group</span>
+                Team
             </div>
             <div class="dash-nav-item admin-only-nav" id="navVertraege" onclick="openVertraege()">
                 <span class="material-symbols-outlined" style="font-size:20px;">fact_check</span>
@@ -35960,6 +35978,12 @@ document.addEventListener('DOMContentLoaded', function () {
 function showDashboardSection(section) {
     // Auf dem Handy: nach der Auswahl die Navigations-Schublade schließen
     try { toggleDashSidebar(false); } catch (e) {}
+    // Team-Rechte: ein gesperrter Bereich oeffnet nicht (auch nicht ueber einen Knopf im Dashboard).
+    // Die Startseite (dashboard) leitet still um -- sonst begruesst den Mitarbeiter ein Verbot.
+    if (typeof teamDarfNicht === 'function' && teamDarfNicht(section)) {
+        if (section !== 'dashboard' && typeof showToast === 'function') showToast('Dafür fehlt dir die Berechtigung – frag den Inhaber.', 'info');
+        section = 'orders';
+    }
 
     // Hide all sections - sowohl class als auch style
     document.querySelectorAll('.dash-section').forEach(s => {
@@ -45870,6 +45894,7 @@ async function showGastroDashboard(customer) {
         name: customer.name || 'Gastronom',
         email: currentUser ? currentUser.email : '',
         role: 'Gastronom',
+        teamRolle: teamRolleVon(customer),
         restaurant_id: customer.restaurant_id,
         restaurant_name: restaurant ? restaurant.name : 'Mein Restaurant',
         isAdmin: false
@@ -45903,7 +45928,7 @@ async function showGastroDashboard(customer) {
     // Gastro-Einschränkungen anwenden
     applyGastroRestrictions();
 
-    // Dashboard laden
+    // Dashboard laden -- ein Mitarbeiter sieht keine Umsaetze, er startet bei den Bestellungen.
     showDashboardSection('dashboard');
     initSupabase().then(function() {
         updateDashboard();
@@ -45919,12 +45944,108 @@ async function showGastroDashboard(customer) {
 }
 
 // Gastro-Einschränkungen: Admin-only Sections verstecken, Restaurant auto-selecten
+// ===== TEAM-ZUGANG (Ibo 31.10.2026: "auch Arbeiter oder Manager, auch deren E-Mail") =====
+// Freigegebene Rechte: Mitarbeiter = Bestellungen, Reservierungen, Kueche,
+// Tischplan. Manager = alles ausser Einstellungen (PayPal, Zahlung,
+// Fristen), Vertraege, Team. Inhaber = alles. Die Datenbank prueft in der
+// ersten Fassung nur "gehoert zum Lokal" (netlify/functions/team.js).
+function teamRolleVon(customer) {
+    if (String((customer && customer.role) || '').trim().toLowerCase() !== 'team') return 'inhaber';
+    return String(customer.team_rolle || '').trim().toLowerCase() === 'manager' ? 'manager' : 'mitarbeiter';
+}
+function teamRolle() {
+    if (typeof currentAdmin === 'undefined' || !currentAdmin || currentAdmin.isAdmin) return 'inhaber';
+    return currentAdmin.teamRolle || 'inhaber';
+}
+var TEAM_BEREICHE_GESPERRT = {
+    mitarbeiter: ['dashboard', 'marketing', 'offers', 'options', 'rewards', 'revenue', 'statistics', 'accommodationsDash', 'jobsDash', 'speisekarte'],
+    manager: []
+};
+var TEAM_ELEMENTE_GESPERRT = {
+    mitarbeiter: ['navDashboard', 'navDayClose', 'navMarketing', 'navEvents', 'navSelbstcheck', 'navVertraege', 'navOffers', 'navOptions', 'navRewards', 'navRevenue', 'navStatistics',
+                  'navSpeisekarte2', 'navTvMode', 'navAccommodationsDash', 'navJobsDash', 'navTeam', 'ordersEinstKnopf', 'resTabBtnSettings'],
+    manager: ['navVertraege', 'navTeam', 'ordersEinstKnopf', 'stornoFristKarte', 'resVorbestKarte']
+};
+function teamDarfNicht(section) {
+    var l = TEAM_BEREICHE_GESPERRT[teamRolle()];
+    return !!(l && l.indexOf(String(section || '')) >= 0);
+}
+function teamRechteAnwenden() {
+    var rolle = teamRolle();
+    var team = document.getElementById('navTeam');
+    if (team) team.style.display = rolle === 'inhaber' && !(currentAdmin && currentAdmin.isAdmin) ? '' : 'none';
+    (TEAM_ELEMENTE_GESPERRT[rolle] || []).forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) { el.style.display = 'none'; el.setAttribute('data-team-gesperrt', rolle); }
+    });
+}
+window.teamDarfNicht = teamDarfNicht;
+
+// Team verwalten (nur Inhaber): Liste, hinzufuegen, entfernen.
+async function teamOeffnen() {
+    var rid = currentAdmin && currentAdmin.restaurant_id;
+    if (!rid || teamRolle() !== 'inhaber') return;
+    showGenericModal('Team', '<div id="kmiTeamBox" class="kmi-team"><p class="kmi-team-hinweis">Lade …</p></div>');
+    await teamLaden();
+}
+window.teamOeffnen = teamOeffnen;
+function teamRolleText(r) { return r === 'manager' ? 'Manager' : 'Mitarbeiter'; }
+async function teamLaden() {
+    var box = document.getElementById('kmiTeamBox'), rid = currentAdmin && currentAdmin.restaurant_id;
+    if (!box || !rid) return;
+    var j = null;
+    try {
+        var res = await fetch('/.netlify/functions/team?r=' + encodeURIComponent(rid), { headers: { Authorization: 'Bearer ' + kmiToken() } });
+        j = await res.json().catch(function () { return { ok: false, error: 'HTTP ' + res.status }; });
+    } catch (e) { j = { ok: false, error: 'Keine Verbindung' }; }
+    if (!j || !j.ok) { box.innerHTML = '<p class="kmi-team-fehler" role="alert">Team nicht geladen: ' + escapeHtml((j && j.error) || 'unbekannt') + '</p>'; return; }
+    var liste = (j.team || []).map(function (m) {
+        return '<div class="kmi-team-zeile"><div><b>' + escapeHtml(m.name || m.email) + '</b><small>' + escapeHtml(m.email) + '</small></div>'
+            + '<span class="kmi-team-rolle">' + teamRolleText(m.team_rolle) + '</span>'
+            + '<button type="button" class="kmi-team-weg" onclick="teamEntfernen(\'' + escapeHtml(String(m.id)) + '\', \'' + escapeHtml(String(m.name || m.email)).replace(/'/g, '') + '\')">Entfernen</button></div>';
+    }).join('');
+    box.innerHTML = '<p class="kmi-team-hinweis">Jede Person meldet sich mit <b>ihrer eigenen E-Mail</b> über „Mit Google anmelden“ an und sieht dann euer Lokal.</p>'
+        + '<div class="kmi-team-tabelle"><div class="kmi-team-kopf"><span></span><b>Inhaber</b><b>Manager</b><b>Mitarbeiter</b></div>'
+        + '<div><span>Bestellungen, Reservierungen, Küche, Tischplan</span><i>✓</i><i>✓</i><i>✓</i></div>'
+        + '<div><span>Speisekarte, Angebote, Umsatz</span><i>✓</i><i>✓</i><i>–</i></div>'
+        + '<div><span>Einstellungen (PayPal, Zahlung, Fristen), Team</span><i>✓</i><i>–</i><i>–</i></div></div>'
+        + (liste || '<p class="kmi-team-hinweis">Noch niemand im Team.</p>')
+        + '<form class="kmi-team-neu" onsubmit="event.preventDefault(); teamHinzufuegen();">'
+        + '<input type="email" id="kmiTeamMail" required placeholder="E-Mail der Person" aria-label="E-Mail der Person" autocomplete="off">'
+        + '<select id="kmiTeamRolle" aria-label="Rolle"><option value="mitarbeiter">Mitarbeiter</option><option value="manager">Manager</option></select>'
+        + '<button type="submit">Hinzufügen</button></form>';
+}
+async function teamHinzufuegen() {
+    var rid = currentAdmin && currentAdmin.restaurant_id, mail = (document.getElementById('kmiTeamMail') || {}).value || '', rolle = (document.getElementById('kmiTeamRolle') || {}).value || 'mitarbeiter';
+    try {
+        var res = await fetch('/.netlify/functions/team', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + kmiToken() }, body: JSON.stringify({ r: rid, email: mail.trim(), rolle: rolle }) });
+        var j = await res.json().catch(function () { return { ok: false, error: 'HTTP ' + res.status }; });
+        if (!j.ok) { showToast('Nicht hinzugefügt: ' + (j.error || 'unbekannt'), 'error'); return; }
+        showToast(mail.trim() + ' ist jetzt ' + teamRolleText(rolle) + ' – Anmeldung mit Google und dieser E-Mail.', 'success');
+        teamLaden();
+    } catch (e) { showToast('Keine Verbindung – nicht hinzugefügt', 'error'); }
+}
+window.teamHinzufuegen = teamHinzufuegen;
+async function teamEntfernen(id, name) {
+    var rid = currentAdmin && currentAdmin.restaurant_id;
+    if (typeof kinConfirm === 'function' && !await kinConfirm('„' + name + '“ aus dem Team entfernen? Der Zugang ist sofort weg, das Handy bekommt keine Bestellungen mehr.')) return;
+    try {
+        var res = await fetch('/.netlify/functions/team', { method: 'DELETE', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + kmiToken() }, body: JSON.stringify({ r: rid, id: id }) });
+        var j = await res.json().catch(function () { return { ok: false, error: 'HTTP ' + res.status }; });
+        if (!j.ok) { showToast('Nicht entfernt: ' + (j.error || 'unbekannt'), 'error'); return; }
+        showToast(name + ' wurde entfernt' + (j.handysEntfernt === false ? ' – Achtung: das Handy konnte nicht abgemeldet werden.' : '.'), j.handysEntfernt === false ? 'error' : 'success');
+        teamLaden();
+    } catch (e) { showToast('Keine Verbindung – nicht entfernt', 'error'); }
+}
+window.teamEntfernen = teamEntfernen;
+
 function applyGastroRestrictions() {
     if (!currentAdmin || currentAdmin.isAdmin) return;
 
     // Kein Waechter fuer den Gastronomen -- und einen etwa schon laufenden
     // Takt abschalten, sonst misst er nach einem Kontowechsel weiter.
     if (typeof selbstcheckHintergrundStoppen === 'function') selbstcheckHintergrundStoppen();
+    try { teamRechteAnwenden(); } catch (e) { console.warn('Team-Rechte:', e && e.message); }
 
     // Alle admin-only Elemente verstecken (per CSS-Klasse)
     var adminOnlyEls = document.querySelectorAll('.admin-only-nav');
