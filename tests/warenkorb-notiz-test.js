@@ -118,7 +118,7 @@ t('das Dashboard liest sie aus beiden Quellen',
 t('die Bestellkarte im Dashboard zeigt sie an',
   /\(it\.notes \? '<div class="kin-pos-notiz">✎ ' \+ escapeHtml\(it\.notes\)/.test(H)
   && /\.kin-pos-notiz \{[^}]*color: #b45309[^}]*font-weight: 700/.test(H)
-  && (H.match(/bestellPosHtml\(order\.items, (true|false)\)/g) || []).length >= 2);
+  && (H.match(/bestellPosHtml\(order\.items, (true|false)(, order)?\)/g) || []).length >= 2);
 // Der Beleg wurde neu gesetzt (siehe tests/beleg-test.js). Die Regel bleibt:
 // der Sonderwunsch muss auffallen. Statt eines festen Inline-Stils traegt er
 // jetzt die Klasse "wunsch" -- und die ist in BEIDEN Papierformaten

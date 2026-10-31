@@ -143,7 +143,7 @@ function weiter() {
     t('neue Bestellungen: die AELTESTE oben', /if \(a\.status === 'received'\) return new Date\(a\.created_at\) - new Date\(b\.created_at\);/.test(rd), '');
     t('weitere neue Bestellungen kompakt in einer Zeile', /_kompakt = _brett && _sp0 === 'neu' && \(_neuGezeigt\+\+ > 0\)/.test(rd) && /bestellPosKurz\(order\.items\)/.test(rd), '');
     t('Zeit aendern / Stornieren / Fuer Kasse hinter "⋯" (nicht weg)', /kin-links-offen/.test(rd) && /zeitAendern\(/.test(rd) && /openCancelOrderDialog\(/.test(rd) && /\.kin-links \{ display: none !important; \}/.test(H), '');
-    var P = new Function('escapeHtml', 'formatPrice', fn('bestellExtrasText') + fn('bestellPosHtml') + '; return bestellPosHtml;')(function (x) { return String(x); }, function (x) { return x + ' €'; });
+    var P = new Function('escapeHtml', 'formatPrice', 'var GANG_TEXT = {};' + fn('gangGruppen') + fn('gangJetzt') + fn('bestellExtrasText') + fn('bestellPosHtml') + '; return bestellPosHtml;')(function (x) { return String(x); }, function (x) { return x + ' €'; });
     var pos = P([{ quantity: 2, name: 'Pizza', options: 'Extra Käse, Peperoni', notes: 'ohne Zwiebeln', price: 23 }], false);
     t('Extras gold darunter: "+ Extra Käse, + Peperoni"', /kin-pos-extra">\+ Extra Käse, \+ Peperoni/.test(pos), pos);
     t('Sonderwunsch der Position steht da', /kin-pos-notiz">✎ ohne Zwiebeln/.test(pos), pos);
