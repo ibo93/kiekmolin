@@ -11700,6 +11700,29 @@
         .dark-mode .kin-allergie small, .dark-mode .kin-order-card .kin-allergie small { color: #fca5a5 !important; }
         .dark-mode .kin-order-card .kin-allergie-fehler { color: #ffd54f !important; }
         .dark-mode .kmi-allergie-chip { background: rgba(239,68,68,0.18); color: #fecaca; }
+        .kmi-woh-raster { display: grid; grid-template-columns: 30px minmax(0, 1fr) minmax(0, 1fr); gap: 6px 8px; align-items: center; margin: 0 0 12px; }
+        .kmi-woh-raster input.form-input { padding: 8px 10px !important; min-width: 0; min-height: 40px; font-size: 15px; }
+        .kmi-woh-raster input.kmi-woh-s2 { min-height: 34px; padding: 4px 10px !important; font-size: 13px; opacity: 0.85; margin-bottom: 6px; }
+        .kmi-woh-zwei { font-size: 11px; font-weight: 600; color: var(--text-secondary); text-align: right; margin-bottom: 6px; }
+        .kmi-woh-breit { display: none; }
+        @media (min-width: 700px) {
+            .kmi-woh-raster { grid-template-columns: 30px repeat(2, minmax(0, 1fr)) 20px repeat(2, minmax(0, 1fr)); }
+            .kmi-woh-breit { display: block; }
+            .kmi-woh-raster input.kmi-woh-s2, .kmi-woh-zwei { margin-bottom: 0; min-height: 40px; }
+        }
+        .kmi-woh-kopf { font-size: 11px; font-weight: 700; color: var(--text-secondary); text-align: center; }
+        .kmi-woh-tag { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+        .kmi-woh-speichern { margin-top: 12px; }
+        .kmi-urlaub { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-color, #e1e5e3); }
+        .kmi-urlaub-zeile { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+        .kmi-urlaub-zeile input { flex: 1; min-width: 130px; }
+        .kmi-urlaub-ja, .kmi-urlaub-nein { min-height: 44px; padding: 0 18px; border-radius: 9999px; font-family: Inter, sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; }
+        .kmi-urlaub-ja { border: none; background: #003d33; color: #ffffff; }
+        .kmi-urlaub-nein { border: 1.5px solid #003d33; background: transparent; color: #003d33; }
+        .kmi-urlaub-stand { font-size: 12px; line-height: 1.4; color: var(--text-secondary); }
+        .dark-mode .kmi-oh-schnell input.form-input, .dark-mode .kmi-woh-raster input.form-input, .dark-mode .kmi-urlaub input.form-input, .dark-mode #wRuhetag { background: rgba(255,255,255,0.08) !important; color: #e8eeec !important; border: 1px solid rgba(255,255,255,0.22) !important; color-scheme: dark; }
+        .dark-mode .kmi-urlaub-ja { background: #ffd54f; color: #00251e; }
+        .dark-mode .kmi-urlaub-nein { border-color: rgba(255,255,255,0.35); color: #e8eeec; }
         .kmi-oh-schnell { margin: 0 0 14px; padding: 12px; border-radius: 14px; background: #f0f7f4; border: 1px solid #d6e6df; }
         .kmi-oh-titel { font-family: Inter, sans-serif; font-size: 13px; font-weight: 800; color: #003d33; margin-bottom: 8px; }
         .kmi-oh-tage { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
@@ -17106,7 +17129,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 <!-- Mehrere Tage auf einmal (Ibo, 02.11.2026: "die Tage auf einmal
                      waehlen, eine Zeit, nicht jedes Mal einzeln"). Fuellt nur die
                      Felder darunter -- gespeichert wird wie immer mit Speichern. -->
-                <div class="kmi-oh-schnell" id="ohSchnell">
+                <div class="kmi-oh-schnell" id="ohSchnell" data-feld="open">
                     <div class="kmi-oh-titel">Mehrere Tage auf einmal</div>
                     <div class="kmi-oh-tage" role="group" aria-label="Tage wählen">
                         <button type="button" data-tag="Mo" aria-pressed="false" onclick="ohTagWahl(this)">Mo</button>
@@ -17123,7 +17146,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         <label>Auf 2. <input type="time" class="form-input" id="ohSchnellStart2" aria-label="Gewählte Tage öffnen wieder"></label>
                         <label>Zu 2. <input type="time" class="form-input" id="ohSchnellEnd2" aria-label="Gewählte Tage schließen endgültig"></label>
                     </div>
-                    <button type="button" class="kmi-oh-los" onclick="ohSchnellUebernehmen()">Für gewählte Tage übernehmen</button>
+                    <button type="button" class="kmi-oh-los" onclick="ohSchnellUebernehmen(this.closest('.kmi-oh-schnell'))">Für gewählte Tage übernehmen</button>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 30px 1fr 1fr 14px 1fr 1fr; gap: 6px; align-items: center; font-size: 11px; margin-bottom: 4px;">
@@ -17197,6 +17220,21 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         <option value="5">Samstag</option>
                         <option value="6">Sonntag</option>
                     </select>
+                </div>
+                <!-- Betriebsurlaub (Ibo, 02.11.2026: "und Betriebsurlaub auch rein").
+                     Derselbe Eintrag wie im Dashboard unter "Betrieb" (features
+                     "vacation:von:bis") -- sofort gespeichert, wie die Neueroeffnung. -->
+                <div class="form-group kmi-urlaub" data-urlaub-wo="formular">
+                    <label class="form-label" for="formUrlaubVon">Betriebsurlaub</label>
+                    <div class="kmi-urlaub-zeile">
+                        <input type="date" class="form-input" id="formUrlaubVon" aria-label="Betriebsurlaub von">
+                        <input type="date" class="form-input" id="formUrlaubBis" aria-label="Betriebsurlaub bis">
+                    </div>
+                    <div class="kmi-urlaub-zeile">
+                        <button type="button" class="kmi-urlaub-ja" data-urlaub="speichern">Eintragen</button>
+                        <button type="button" class="kmi-urlaub-nein" data-urlaub="loeschen">Löschen</button>
+                    </div>
+                    <div id="formUrlaubStand" class="kmi-urlaub-stand" role="status" aria-live="polite">Kein Betriebsurlaub eingetragen.</div>
                 </div>
 
                 <hr style="margin: 16px 0; border: none; border-top: 1px solid var(--sand);">
@@ -23344,6 +23382,110 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             <button type="button" onclick="pushHierAktivieren()" style="padding:9px 16px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-weight:600;font-size:13px;cursor:pointer;">Auf diesem Gerät</button>
                         </div>
                         <p style="font-size:12px;color:var(--text-secondary);margin:10px 0 0;line-height:1.45;">Neue Reservierungen haben in der Benachrichtigung die Knöpfe <b>Annehmen</b> und <b>Ablehnen</b> (Android, Computer). Auf dem iPhone öffnet das Antippen die Reservierung – dort kommen Benachrichtigungen nur, wenn Kiek mol in über „Teilen → Zum Home-Bildschirm“ geöffnet wird.</p>
+                    </div>
+                    <!-- OEFFNUNGSZEITEN FUER DEN WIRT (Ibo, 02.11.2026: "Oeffnungszeiten
+                         auch fuer Wirt"). Bisher nur im Admin-Formular. Speichert
+                         opening_hours (die Wochentage, alles andere darin bleibt) und
+                         rest_day -- NICHT opening_time/closing_time, das sind hier die
+                         Reservierungszeiten der Karte darunter. -->
+                    <div class="res-settings-card" id="wirtOhKarte">
+                        <h4>
+                            <span class="settings-icon green">
+                                <span class="material-symbols-outlined" style="font-size:20px;">storefront</span>
+                            </span>
+                            Öffnungszeiten
+                        </h4>
+                        <p class="kin-storno-text">Wann euer Lokal offen hat. Danach richten sich Bestellen, Reservieren und „jetzt geöffnet“ bei den Gästen. Bei Mittagspause die zweite Schicht ausfüllen, sonst leer lassen.</p>
+                        <div class="kmi-oh-schnell" id="wOhSchnell" data-feld="wOpen">
+                            <div class="kmi-oh-titel">Mehrere Tage auf einmal</div>
+                            <div class="kmi-oh-tage" role="group" aria-label="Tage wählen">
+                                <button type="button" data-tag="Mo" aria-pressed="false" onclick="ohTagWahl(this)">Mo</button>
+                                <button type="button" data-tag="Di" aria-pressed="false" onclick="ohTagWahl(this)">Di</button>
+                                <button type="button" data-tag="Mi" aria-pressed="false" onclick="ohTagWahl(this)">Mi</button>
+                                <button type="button" data-tag="Do" aria-pressed="false" onclick="ohTagWahl(this)">Do</button>
+                                <button type="button" data-tag="Fr" aria-pressed="false" onclick="ohTagWahl(this)">Fr</button>
+                                <button type="button" data-tag="Sa" aria-pressed="false" onclick="ohTagWahl(this)">Sa</button>
+                                <button type="button" data-tag="So" aria-pressed="false" onclick="ohTagWahl(this)">So</button>
+                            </div>
+                            <div class="kmi-oh-zeiten">
+                                <label>Auf <input type="time" class="form-input" id="wOhSchnellStart" value="11:00" aria-label="Gewählte Tage öffnen"></label>
+                                <label>Zu <input type="time" class="form-input" id="wOhSchnellEnd" value="22:00" aria-label="Gewählte Tage schließen"></label>
+                                <label>Auf 2. <input type="time" class="form-input" id="wOhSchnellStart2" aria-label="Gewählte Tage öffnen wieder"></label>
+                                <label>Zu 2. <input type="time" class="form-input" id="wOhSchnellEnd2" aria-label="Gewählte Tage schließen endgültig"></label>
+                            </div>
+                            <button type="button" class="kmi-oh-los" onclick="ohSchnellUebernehmen(this.closest('.kmi-oh-schnell'))">Für gewählte Tage übernehmen</button>
+                        </div>
+                        <div class="kmi-woh-raster">
+                            <span></span><span class="kmi-woh-kopf">Auf</span><span class="kmi-woh-kopf">Zu</span><span class="kmi-woh-kopf kmi-woh-breit"></span><span class="kmi-woh-kopf kmi-woh-breit">Auf 2.</span><span class="kmi-woh-kopf kmi-woh-breit">Zu 2.</span>
+                            <span class="kmi-woh-tag">Mo</span>
+                            <input type="time" class="form-input" id="wOpenMoStart" aria-label="Montag öffnet">
+                            <input type="time" class="form-input" id="wOpenMoEnd" aria-label="Montag schließt">
+                            <span class="kmi-woh-zwei" title="zweite Schicht">2.</span>
+                            <input type="time" class="form-input kmi-woh-s2" id="wOpenMoStart2" aria-label="Montag öffnet wieder">
+                            <input type="time" class="form-input kmi-woh-s2" id="wOpenMoEnd2" aria-label="Montag schließt endgültig">
+                            <span class="kmi-woh-tag">Di</span>
+                            <input type="time" class="form-input" id="wOpenDiStart" aria-label="Dienstag öffnet">
+                            <input type="time" class="form-input" id="wOpenDiEnd" aria-label="Dienstag schließt">
+                            <span class="kmi-woh-zwei" title="zweite Schicht">2.</span>
+                            <input type="time" class="form-input kmi-woh-s2" id="wOpenDiStart2" aria-label="Dienstag öffnet wieder">
+                            <input type="time" class="form-input kmi-woh-s2" id="wOpenDiEnd2" aria-label="Dienstag schließt endgültig">
+                            <span class="kmi-woh-tag">Mi</span>
+                            <input type="time" class="form-input" id="wOpenMiStart" aria-label="Mittwoch öffnet">
+                            <input type="time" class="form-input" id="wOpenMiEnd" aria-label="Mittwoch schließt">
+                            <span class="kmi-woh-zwei" title="zweite Schicht">2.</span>
+                            <input type="time" class="form-input kmi-woh-s2" id="wOpenMiStart2" aria-label="Mittwoch öffnet wieder">
+                            <input type="time" class="form-input kmi-woh-s2" id="wOpenMiEnd2" aria-label="Mittwoch schließt endgültig">
+                            <span class="kmi-woh-tag">Do</span>
+                            <input type="time" class="form-input" id="wOpenDoStart" aria-label="Donnerstag öffnet">
+                            <input type="time" class="form-input" id="wOpenDoEnd" aria-label="Donnerstag schließt">
+                            <span class="kmi-woh-zwei" title="zweite Schicht">2.</span>
+                            <input type="time" class="form-input kmi-woh-s2" id="wOpenDoStart2" aria-label="Donnerstag öffnet wieder">
+                            <input type="time" class="form-input kmi-woh-s2" id="wOpenDoEnd2" aria-label="Donnerstag schließt endgültig">
+                            <span class="kmi-woh-tag">Fr</span>
+                            <input type="time" class="form-input" id="wOpenFrStart" aria-label="Freitag öffnet">
+                            <input type="time" class="form-input" id="wOpenFrEnd" aria-label="Freitag schließt">
+                            <span class="kmi-woh-zwei" title="zweite Schicht">2.</span>
+                            <input type="time" class="form-input kmi-woh-s2" id="wOpenFrStart2" aria-label="Freitag öffnet wieder">
+                            <input type="time" class="form-input kmi-woh-s2" id="wOpenFrEnd2" aria-label="Freitag schließt endgültig">
+                            <span class="kmi-woh-tag">Sa</span>
+                            <input type="time" class="form-input" id="wOpenSaStart" aria-label="Samstag öffnet">
+                            <input type="time" class="form-input" id="wOpenSaEnd" aria-label="Samstag schließt">
+                            <span class="kmi-woh-zwei" title="zweite Schicht">2.</span>
+                            <input type="time" class="form-input kmi-woh-s2" id="wOpenSaStart2" aria-label="Samstag öffnet wieder">
+                            <input type="time" class="form-input kmi-woh-s2" id="wOpenSaEnd2" aria-label="Samstag schließt endgültig">
+                            <span class="kmi-woh-tag">So</span>
+                            <input type="time" class="form-input" id="wOpenSoStart" aria-label="Sonntag öffnet">
+                            <input type="time" class="form-input" id="wOpenSoEnd" aria-label="Sonntag schließt">
+                            <span class="kmi-woh-zwei" title="zweite Schicht">2.</span>
+                            <input type="time" class="form-input kmi-woh-s2" id="wOpenSoStart2" aria-label="Sonntag öffnet wieder">
+                            <input type="time" class="form-input kmi-woh-s2" id="wOpenSoEnd2" aria-label="Sonntag schließt endgültig">
+                        </div>
+                        <label class="kin-storno-label" for="wRuhetag">Ruhetag</label>
+                        <select id="wRuhetag" class="kin-storno-wahl">
+                            <option value="">Kein Ruhetag</option>
+                            <option value="0">Montag</option>
+                            <option value="1">Dienstag</option>
+                            <option value="2">Mittwoch</option>
+                            <option value="3">Donnerstag</option>
+                            <option value="4">Freitag</option>
+                            <option value="5">Samstag</option>
+                            <option value="6">Sonntag</option>
+                        </select>
+                        <button type="button" class="kmi-oh-los kmi-woh-speichern" onclick="wirtOhSpeichern()">Öffnungszeiten speichern</button>
+                        <p id="wirtOhStand" class="kin-storno-stand" role="status" aria-live="polite"></p>
+                        <div class="kmi-urlaub" data-urlaub-wo="wirt">
+                            <label class="kin-storno-label" for="wUrlaubVon">Betriebsurlaub</label>
+                            <p class="kin-storno-text" style="margin:0 0 8px">In der Zeit können Gäste weder bestellen noch reservieren und sehen „Betriebsferien bis …“. Danach geht alles von selbst wieder.</p>
+                            <div class="kmi-urlaub-zeile">
+                                <input type="date" class="form-input" id="wUrlaubVon" aria-label="Betriebsurlaub von">
+                                <input type="date" class="form-input" id="wUrlaubBis" aria-label="Betriebsurlaub bis">
+                            </div>
+                            <div class="kmi-urlaub-zeile">
+                                <button type="button" class="kmi-urlaub-ja" data-urlaub="speichern">Eintragen</button>
+                                <button type="button" class="kmi-urlaub-nein" data-urlaub="loeschen">Löschen</button>
+                            </div>
+                            <div id="wUrlaubStand" class="kmi-urlaub-stand" role="status" aria-live="polite">Kein Betriebsurlaub eingetragen.</div>
+                        </div>
                     </div>
                     <!-- Reservierungszeiten -->
                     <div class="res-settings-card">
@@ -34497,6 +34639,7 @@ function loadResSettingsUI() {
     _resSettingsLoadedFor = rid;
     try { stornoFristAnzeigen(restaurant); } catch (e) {}
     try { resVorbestAnzeigen(restaurant); } catch (e) {}
+    try { wirtOhAnzeigen(restaurant); } catch (e) {}
 
     var startEl = document.getElementById('resSettingsStart');
     var endEl = document.getElementById('resSettingsEnd');
@@ -34539,24 +34682,170 @@ function loadResSettingsUI() {
 function ohTagWahl(btn) {
     btn.setAttribute('aria-pressed', btn.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
 }
-function ohSchnellUebernehmen() {
+function ohSchnellUebernehmen(box) {
+    // box: der Kasten (Admin-Formular #ohSchnell oder Wirt #wOhSchnell).
+    // data-feld sagt, in welche Tabelle: "open" -> openMoStart, "wOpen" -> wOpenMoStart.
+    box = box || document.getElementById('ohSchnell');
+    if (!box) return 0;
+    var feld = box.getAttribute('data-feld') || 'open', bid = box.id;
     var tage = [];
-    document.querySelectorAll('#ohSchnell .kmi-oh-tage button[aria-pressed="true"]').forEach(function (b) { tage.push(b.getAttribute('data-tag')); });
+    box.querySelectorAll('.kmi-oh-tage button[aria-pressed="true"]').forEach(function (b) { tage.push(b.getAttribute('data-tag')); });
     var wert = function (id) { var e = document.getElementById(id); return e ? String(e.value || '') : ''; };
-    var auf = wert('ohSchnellStart'), zu = wert('ohSchnellEnd'), auf2 = wert('ohSchnellStart2'), zu2 = wert('ohSchnellEnd2');
+    var auf = wert(bid + 'Start'), zu = wert(bid + 'End'), auf2 = wert(bid + 'Start2'), zu2 = wert(bid + 'End2');
     if (!tage.length) { showToast('Bitte zuerst die Tage antippen', 'error'); return 0; }
     if (!auf || !zu) { showToast('Bitte „Auf“ und „Zu“ ausfüllen', 'error'); return 0; }
     if (!!auf2 !== !!zu2) { showToast('Zweite Schicht: bitte beide Zeiten ausfüllen oder beide leer lassen', 'error'); return 0; }
     var setze = function (id, v) { var e = document.getElementById(id); if (e) { e.value = v; return 1; } return 0; };
     var n = 0;
     tage.forEach(function (t) {
-        n += setze('open' + t + 'Start', auf) & setze('open' + t + 'End', zu) & setze('open' + t + 'Start2', auf2) & setze('open' + t + 'End2', zu2);
+        n += setze(feld + t + 'Start', auf) & setze(feld + t + 'End', zu) & setze(feld + t + 'Start2', auf2) & setze(feld + t + 'End2', zu2);
     });
     if (n !== tage.length) { showToast('Nicht alle Tage gefunden – bitte Formular neu öffnen', 'error'); return n; }
-    document.querySelectorAll('#ohSchnell .kmi-oh-tage button').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); });
+    box.querySelectorAll('.kmi-oh-tage button').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); });
     showToast(tage.join(', ') + ': ' + auf + '–' + zu + (auf2 ? ', ' + auf2 + '–' + zu2 : '') + ' eingetragen. Zum Sichern unten speichern.', 'success');
     return n;
 }
+
+// ---- Oeffnungszeiten fuer den Wirt (Karte #wirtOhKarte unter Reservierungen > Zeiten) ----
+var OH_TAGE = ['mo', 'di', 'mi', 'do', 'fr', 'sa', 'so'];
+function ohGross(k) { return k.charAt(0).toUpperCase() + k.slice(1); }
+// Liest die Wochentabelle. Fehler -> { fehler: 'Mo: ...' }, sonst { oh: {mo_start..} }.
+function ohAusTabelle(feld, ruhetag) {
+    var wert = function (id) { var e = document.getElementById(id); return e ? String(e.value || '') : ''; };
+    var oh = {};
+    for (var i = 0; i < OH_TAGE.length; i++) {
+        var k = OH_TAGE[i], g = feld + ohGross(k);
+        var a = wert(g + 'Start'), z = wert(g + 'End'), a2 = wert(g + 'Start2'), z2 = wert(g + 'End2');
+        // Am Ruhetag duerfen die Zeiten leer sein -- geschlossen ist er ueber rest_day.
+        if ((!a || !z) && String(i) !== String(ruhetag)) return { fehler: ohGross(k) + ': bitte „Auf“ und „Zu“ ausfüllen (oder als Ruhetag wählen)' };
+        if (!!a2 !== !!z2) return { fehler: ohGross(k) + ': zweite Schicht bitte ganz ausfüllen oder ganz leer lassen' };
+        oh[k + '_start'] = a; oh[k + '_end'] = z; oh[k + '_start2'] = a2; oh[k + '_end2'] = z2;
+    }
+    return { oh: oh };
+}
+function wirtOhAnzeigen(restaurant) {
+    if (!document.getElementById('wirtOhKarte') || !restaurant) return;
+    var oh = restaurant.opening_hours;
+    if (typeof oh === 'string') { try { oh = JSON.parse(oh); } catch (e) { oh = null; } }
+    oh = oh && typeof oh === 'object' ? oh : {};
+    var setze = function (id, v) { var e = document.getElementById(id); if (e) e.value = v || ''; };
+    OH_TAGE.forEach(function (k) {
+        var g = 'wOpen' + ohGross(k);
+        // Ohne eigene Zeiten pro Tag: die bisherige Tageszeit vorbelegen, nicht leer.
+        setze(g + 'Start', oh[k + '_start'] || restaurant.opening_time || '');
+        setze(g + 'End', oh[k + '_end'] || restaurant.closing_time || '');
+        setze(g + 'Start2', oh[k + '_start2']); setze(g + 'End2', oh[k + '_end2']);
+    });
+    setze('wRuhetag', restaurant.rest_day != null ? String(restaurant.rest_day) : '');
+    var st = document.getElementById('wirtOhStand'); if (st) st.textContent = '';
+    urlaubFelderZeigen(restaurant.features, 'wUrlaub');
+}
+async function wirtOhSpeichern() {
+    var rid = window.resCurrentRestaurant, st = document.getElementById('wirtOhStand');
+    var restaurant = rid && APP_DATA.restaurants ? APP_DATA.restaurants.find(function (r) { return r.id === rid; }) : null;
+    if (!restaurant) { showToast('Kein Restaurant ausgewählt', 'error'); return false; }
+    var rt = (document.getElementById('wRuhetag') || {}).value || '';
+    var t = ohAusTabelle('wOpen', rt);
+    if (t.fehler) { showToast(t.fehler, 'error'); if (st) st.textContent = 'Nicht gespeichert – ' + t.fehler + '.'; return false; }
+    var alt = restaurant.opening_hours;
+    if (typeof alt === 'string') { try { alt = JSON.parse(alt); } catch (e) { alt = null; } }
+    // Nur die Wochentage ersetzen: Pause, abgeschaltete Uhrzeiten, res_fenster und Sonderzeiten bleiben.
+    var oh = Object.assign({}, (alt && typeof alt === 'object') ? alt : {}, t.oh);
+    var daten = { opening_hours: oh, rest_day: rt === '' ? null : parseInt(rt, 10) };
+    try {
+        var r = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(rid) + '&select=id,opening_hours,rest_day', {
+            method: 'PATCH',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+            body: JSON.stringify(daten)
+        });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        var zeilen = await r.json();
+        // 0 Zeilen = keine Berechtigung (RLS). Ohne diese Pruefung stand "gespeichert" da.
+        if (!Array.isArray(zeilen) || !zeilen.length) throw new Error('keine Berechtigung für dieses Lokal – bitte neu anmelden');
+        restaurant.opening_hours = zeilen[0].opening_hours || oh;
+        restaurant.rest_day = zeilen[0].rest_day;
+        if (st) st.textContent = 'Gespeichert – Gäste sehen die neuen Zeiten.';
+        showToast('Öffnungszeiten gespeichert', 'success');
+        try { resTageHinweis(restaurant); } catch (e) {}
+        return true;
+    } catch (e) {
+        if (st) st.textContent = 'Nicht gespeichert: ' + (e && e.message || e) + '. Gäste sehen die alten Zeiten.';
+        showToast('Öffnungszeiten nicht gespeichert', 'error');
+        return false;
+    }
+}
+
+// ---- Betriebsurlaub: ein Eintrag "vacation:von:bis" in features ----
+// Derselbe wie im Dashboard unter "Betrieb" (saveVacation). Gelesen wird
+// frisch aus der Datenbank, damit kein anderer Schalter verloren geht.
+function urlaubFelderZeigen(features, vorsilbe) {
+    var von = document.getElementById(vorsilbe + 'Von'), bis = document.getElementById(vorsilbe + 'Bis'), st = document.getElementById(vorsilbe + 'Stand');
+    if (!von || !bis) return;
+    var roh = (Array.isArray(features) ? features : []).map(String).filter(function (f) { return /^vacation:\d{4}-\d{2}-\d{2}:\d{4}-\d{2}-\d{2}$/.test(f); })[0];
+    var m = roh ? roh.split(':') : null;
+    von.value = m ? m[1] : ''; bis.value = m ? m[2] : '';
+    if (!st) return;
+    if (!m) { st.textContent = 'Kein Betriebsurlaub eingetragen.'; return; }
+    var heute = new Date().toLocaleDateString('sv-SE');
+    var schoen = function (d) { return new Date(d + 'T12:00:00').toLocaleDateString('de-DE', { day: 'numeric', month: 'long' }); };
+    st.textContent = m[2] < heute ? 'Der eingetragene Urlaub ist vorbei – Gäste sehen nichts mehr davon.'
+        : (heute >= m[1] ? 'JETZT im Urlaub: Gäste sehen „Betriebsferien bis ' + schoen(m[2]) + '“.'
+        : 'Geplant: ' + schoen(m[1]) + ' bis ' + schoen(m[2]) + '. Bis dahin läuft alles normal.');
+}
+async function urlaubSchreiben(restId, eintrag) {
+    var res = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(restId) + '&select=features', {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
+    });
+    var data = await res.json();
+    if (!Array.isArray(data) || !data[0]) throw new Error('Restaurant nicht lesbar');
+    var features = (data[0].features || []).filter(function (f) { return String(f).indexOf('vacation:') !== 0; });
+    if (eintrag) features.push(eintrag);
+    var upd = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(restId) + '&select=id,features', {
+        method: 'PATCH',
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+        body: JSON.stringify({ features: features })
+    });
+    if (!upd.ok) throw new Error('HTTP ' + upd.status);
+    var zeilen = await upd.json();
+    if (!Array.isArray(zeilen) || !zeilen.length) throw new Error('keine Berechtigung – nichts gespeichert');
+    var neu = zeilen[0].features || features;
+    var appR = APP_DATA.restaurants ? APP_DATA.restaurants.find(function (r) { return r.id === restId; }) : null;
+    if (appR) appR.features = neu;
+    // Alle Stellen, an denen der Urlaub steht, auf denselben Stand.
+    try { updateVacationUI(neu); } catch (e) {}
+    try { urlaubFelderZeigen(neu, 'wUrlaub'); urlaubFelderZeigen(neu, 'formUrlaub'); } catch (e) {}
+    return neu;
+}
+async function urlaubKnopf(wo, aktion) {
+    var vorsilbe = wo === 'formular' ? 'formUrlaub' : 'wUrlaub';
+    var restId = wo === 'formular'
+        ? ((document.getElementById('addRestaurantForm') || { dataset: {} }).dataset.editId || '')
+        : (window.resCurrentRestaurant || '');
+    var st = document.getElementById(vorsilbe + 'Stand');
+    if (!restId) { showToast(wo === 'formular' ? 'Erst das Restaurant anlegen, dann den Urlaub eintragen' : 'Kein Restaurant ausgewählt', 'error'); return false; }
+    var eintrag = null;
+    if (aktion !== 'loeschen') {
+        var von = (document.getElementById(vorsilbe + 'Von') || {}).value || '', bis = (document.getElementById(vorsilbe + 'Bis') || {}).value || '';
+        if (!von || !bis) { showToast('Bitte Von- und Bis-Datum wählen', 'error'); return false; }
+        if (bis < von) { showToast('Das Bis-Datum liegt vor dem Von-Datum', 'error'); return false; }
+        eintrag = 'vacation:' + von + ':' + bis;
+    }
+    try {
+        await urlaubSchreiben(restId, eintrag);
+        showToast(eintrag ? 'Betriebsurlaub eingetragen – Gäste sehen den Hinweis' : 'Betriebsurlaub gelöscht', 'success');
+        return true;
+    } catch (e) {
+        if (st) st.textContent = 'Nicht gespeichert: ' + (e && e.message || e) + '. Gäste sehen den alten Stand.';
+        showToast('Betriebsurlaub nicht gespeichert', 'error');
+        return false;
+    }
+}
+document.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest ? e.target.closest('[data-urlaub]') : null;
+    if (!b) return;
+    var box = b.closest('[data-urlaub-wo]');
+    urlaubKnopf(box ? box.getAttribute('data-urlaub-wo') : 'wirt', b.getAttribute('data-urlaub'));
+});
 
 function resTageHinweis(restaurant) {
     var el = document.getElementById('resSettingsTageHinweis');
@@ -37733,6 +38022,8 @@ function editRestaurant(restaurantId) {
     setVal('newRestaurantIBAN', restaurant.iban || '');
     setVal('newRestaurantContractStart', restaurant.contract_start || '');
     eroeffnungUI(restaurant.features || []);
+    // Das Formular wird wiederverwendet: ohne das stuende der Urlaub des vorigen Lokals drin.
+    urlaubFelderZeigen(restaurant.features || [], 'formUrlaub');
 
     // Logo-Vorschau wenn vorhanden
     uploadedLogoBase64 = null; // Reset
@@ -40440,21 +40731,9 @@ async function _patchVacation(newEntry) {
     var restId = getControlRestaurantId();
     if (!restId) { showToast('Kein Restaurant gefunden', 'error'); return; }
     try {
-        var res = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
-        });
-        var data = await res.json();
-        var features = ((data[0] && data[0].features) || []).filter(function (f) { return String(f).indexOf('vacation:') !== 0; });
-        if (newEntry) features.push(newEntry);
-        var upd = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
-            method: 'PATCH',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-            body: JSON.stringify({ features: features })
-        });
-        if (!upd.ok) throw new Error('HTTP ' + upd.status);
-        var appR = APP_DATA.restaurants ? APP_DATA.restaurants.find(function (r) { return r.id === restId; }) : null;
-        if (appR) appR.features = features;
-        updateVacationUI(features);
+        // Vorher mit return=minimal: 0 geaenderte Zeilen (keine Berechtigung)
+        // meldeten trotzdem "gespeichert". urlaubSchreiben prueft die Antwort.
+        await urlaubSchreiben(restId, newEntry);
         showToast(newEntry ? 'Betriebsferien gespeichert – Gäste sehen jetzt den Hinweis' : 'Betriebsferien gelöscht', 'success');
     } catch (err) {
         showToast('Fehler beim Speichern: ' + err.message, 'error');
