@@ -8,7 +8,9 @@ var n = 0, ok = 0;
 function t(l, c, x) { n++; if (c === true) ok++; console.log((c === true ? 'OK  ' : 'FAIL') + ' | ' + l + (c === true ? '' : '  -> ' + x)); }
 function fn(name) { var i = H.indexOf('function ' + name + '('); if (i < 0) throw new Error('fehlt: ' + name); var a = H.lastIndexOf('\n', i) + 1; var d = 0, j = H.indexOf('{', i); for (var k = j; k < H.length; k++) { if (H[k] === '{') d++; else if (H[k] === '}') { d--; if (!d) return H.slice(a, k + 1); } } }
 var vb = H.match(/var GP_BESUCHT = \{[^}]*\};/); if (!vb) throw new Error('GP_BESUCHT fehlt');
-var G = new Function(vb[0] + fn('waNummer') + fn('gastProfil') + fn('gpChipText') + '; return { p: gastProfil, chip: gpChipText };')();
+var AK = H.match(/var ALLERGIE_KONTEXT = [^\n]+/)[0];
+var AA = H.slice(H.indexOf('var ALLERGIE_ARTEN = ['), H.indexOf('];', H.indexOf('var ALLERGIE_ARTEN = [')) + 2);
+var G = new Function(vb[0] + AK + '\n' + AA + '\n' + fn('waNummer') + fn('allergienAus') + fn('allergienVerlauf') + fn('gastProfil') + fn('gpChipText') + '; return { p: gastProfil, chip: gpChipText };')();
 
 var daten = {
     reservierungen: [
@@ -29,6 +31,7 @@ var daten = {
     tischNr: { t5: '5', t2: '2', t9: '9', t1: '1' }
 };
 var p = G.p('0176 / 123 45 67', daten, '2026-10-09');
+t('Allergie aus einer frueheren Notiz ("Allergie Nüsse") steht im Profil', JSON.stringify(p.allergien) === '["Nüsse"]', JSON.stringify(p.allergien));
 t('alle Schreibweisen derselben Nummer = ein Gast; fremde Nummer nicht dabei', p.besuche === 3 && p.bestellungen === 2, JSON.stringify(p));
 t('Besuche zählen nur stattgefundene, vor heute (nicht Absage/No-Show/heutige)', p.besuche === 3 && p.abgesagt === 1 && p.nichtErschienen === 1, JSON.stringify(p));
 t('Umsatz aus App-Bestellungen ohne Storno', p.umsatz === 40, p.umsatz);

@@ -11692,6 +11692,30 @@
         .kmi-vb-res { margin: 0 0 12px; padding: 10px 12px; border-radius: 14px; background: #f0f7f4; border: 1.5px solid #ffd54f; display: flex; flex-direction: column; gap: 2px; font-family: Inter, sans-serif; }
         .kmi-vb-res small { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; color: #8a6100; } .kmi-vb-res b { font-size: 14px; color: #00251e; } .kmi-vb-res span { font-size: 13px; color: #404946; }
         .dark-mode .kmi-vb-res { background: rgba(255,255,255,0.06); border-color: rgba(255,213,79,0.55); } .dark-mode .kmi-vb-res small { color: #ffd54f; } .dark-mode .kmi-vb-res b { color: #ffffff; } .dark-mode .kmi-vb-res span { color: #c8d2ce; }
+        .kin-allergie { margin: 8px 0 0; padding: 8px 12px; border-radius: 12px; background: #fdecec; border: 1.5px solid #f3b4b4; color: #991b1b; font-family: Inter, sans-serif; font-size: 14px; font-weight: 800; }
+        .kin-allergie small { font-size: 11px; font-weight: 600; color: #b45454; }
+        .kin-allergie-fehler { margin: 8px 0 0; font-size: 11px; color: #8a6100; }
+        .kmi-allergie-chip { display: inline-block; margin-left: 6px; vertical-align: middle; padding: 3px 10px; border-radius: 9999px; background: #fdecec; color: #991b1b; font-family: Inter, sans-serif; font-size: 11px; font-weight: 800; }
+        .dark-mode .kin-allergie, .dark-mode .kin-order-card .kin-allergie { background: rgba(239,68,68,0.16) !important; border-color: rgba(239,68,68,0.45) !important; color: #fecaca !important; }
+        .dark-mode .kin-allergie small, .dark-mode .kin-order-card .kin-allergie small { color: #fca5a5 !important; }
+        .dark-mode .kin-order-card .kin-allergie-fehler { color: #ffd54f !important; }
+        .dark-mode .kmi-allergie-chip { background: rgba(239,68,68,0.18); color: #fecaca; }
+        .kmi-oh-schnell { margin: 0 0 14px; padding: 12px; border-radius: 14px; background: #f0f7f4; border: 1px solid #d6e6df; }
+        .kmi-oh-titel { font-family: Inter, sans-serif; font-size: 13px; font-weight: 800; color: #003d33; margin-bottom: 8px; }
+        .kmi-oh-tage { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+        .kmi-oh-tage button { min-width: 44px; min-height: 40px; padding: 0 10px; border-radius: 9999px; border: 2px solid #c9cfcd; background: #ffffff; color: #00251e; font-family: Inter, sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; }
+        .kmi-oh-tage button[aria-pressed="true"] { border-color: #003d33; background: #003d33; color: #ffffff; }
+        .kmi-oh-zeiten { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
+        .kmi-oh-zeiten label { display: flex; flex-direction: column; gap: 2px; font-size: 11px; font-weight: 600; color: var(--slate, #5a6b66); }
+        .kmi-oh-zeiten input { padding: 6px; }
+        @media (max-width: 420px) { .kmi-oh-zeiten { grid-template-columns: 1fr 1fr; } }
+        .kmi-oh-los { width: 100%; min-height: 44px; border: none; border-radius: 9999px; background: #ffd54f; color: #00251e; font-family: Inter, sans-serif; font-size: 14px; font-weight: 800; cursor: pointer; }
+        .dark-mode .kmi-oh-schnell { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.12); }
+        .dark-mode .kmi-oh-titel { color: #e8eeec; }
+        .dark-mode .kmi-oh-tage button { background: transparent; border-color: rgba(255,255,255,0.25); color: #e8eeec; }
+        .dark-mode .kmi-oh-tage button[aria-pressed="true"] { background: #ffd54f; border-color: #ffd54f; color: #00251e; }
+        .dark-mode .kmi-oh-zeiten label { color: #c8d2ce; }
+        .dark-mode .kmi-oh-los { background: #ffd54f !important; color: #00251e !important; }
         .kmi-wahlkarten { display: flex; flex-direction: column; gap: 8px; }
         .kmi-wahlkarten button { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 14px; border-radius: 14px; border: 2px solid #e1e5e3; background: #ffffff; color: #00251e; font-family: Inter, sans-serif; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer; }
         .kmi-wahlkarten button i { flex: 0 0 20px; width: 20px; height: 20px; box-sizing: border-box; border-radius: 9999px; border: 2px solid #c9cfcd; display: flex; align-items: center; justify-content: center; }
@@ -17078,6 +17102,29 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 <hr style="margin: 16px 0; border: none; border-top: 1px solid var(--sand);">
                 <h4 style="margin-bottom: 12px; color: var(--dark);">Öffnungszeiten</h4>
                 <p style="font-size:12px;color:var(--slate);margin:0 0 8px;">Bei Mittagspause: zweite Schicht ausfüllen. Sonst leer lassen.</p>
+
+                <!-- Mehrere Tage auf einmal (Ibo, 02.11.2026: "die Tage auf einmal
+                     waehlen, eine Zeit, nicht jedes Mal einzeln"). Fuellt nur die
+                     Felder darunter -- gespeichert wird wie immer mit Speichern. -->
+                <div class="kmi-oh-schnell" id="ohSchnell">
+                    <div class="kmi-oh-titel">Mehrere Tage auf einmal</div>
+                    <div class="kmi-oh-tage" role="group" aria-label="Tage wählen">
+                        <button type="button" data-tag="Mo" aria-pressed="false" onclick="ohTagWahl(this)">Mo</button>
+                        <button type="button" data-tag="Di" aria-pressed="false" onclick="ohTagWahl(this)">Di</button>
+                        <button type="button" data-tag="Mi" aria-pressed="false" onclick="ohTagWahl(this)">Mi</button>
+                        <button type="button" data-tag="Do" aria-pressed="false" onclick="ohTagWahl(this)">Do</button>
+                        <button type="button" data-tag="Fr" aria-pressed="false" onclick="ohTagWahl(this)">Fr</button>
+                        <button type="button" data-tag="Sa" aria-pressed="false" onclick="ohTagWahl(this)">Sa</button>
+                        <button type="button" data-tag="So" aria-pressed="false" onclick="ohTagWahl(this)">So</button>
+                    </div>
+                    <div class="kmi-oh-zeiten">
+                        <label>Auf <input type="time" class="form-input" id="ohSchnellStart" value="11:00" aria-label="Gewählte Tage öffnen"></label>
+                        <label>Zu <input type="time" class="form-input" id="ohSchnellEnd" value="22:00" aria-label="Gewählte Tage schließen"></label>
+                        <label>Auf 2. <input type="time" class="form-input" id="ohSchnellStart2" aria-label="Gewählte Tage öffnen wieder"></label>
+                        <label>Zu 2. <input type="time" class="form-input" id="ohSchnellEnd2" aria-label="Gewählte Tage schließen endgültig"></label>
+                    </div>
+                    <button type="button" class="kmi-oh-los" onclick="ohSchnellUebernehmen()">Für gewählte Tage übernehmen</button>
+                </div>
 
                 <div style="display: grid; grid-template-columns: 30px 1fr 1fr 14px 1fr 1fr; gap: 6px; align-items: center; font-size: 11px; margin-bottom: 4px;">
                     <span></span>
@@ -34485,6 +34532,32 @@ function loadResSettingsUI() {
 // WAS FUER GAESTE WIRKLICH GILT. Hat das Lokal Oeffnungszeiten pro
 // Wochentag, bestimmen die die Uhrzeiten -- das stand nirgends, und
 // Beginn/Ende hier sahen aus, als haetten sie keine Wirkung (14.10.2026).
+// OEFFNUNGSZEITEN: MEHRERE TAGE AUF EINMAL (02.11.2026). Ibo: "die Tage
+// auf einmal waehlen, eine Zeit, nicht jedes Mal einzeln". Traegt die Zeit
+// in die Felder der gewaehlten Tage ein; gespeichert wird mit Speichern.
+// Keine Tage gewaehlt oder Auf/Zu leer -> Meldung statt stillem Nichts.
+function ohTagWahl(btn) {
+    btn.setAttribute('aria-pressed', btn.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
+}
+function ohSchnellUebernehmen() {
+    var tage = [];
+    document.querySelectorAll('#ohSchnell .kmi-oh-tage button[aria-pressed="true"]').forEach(function (b) { tage.push(b.getAttribute('data-tag')); });
+    var wert = function (id) { var e = document.getElementById(id); return e ? String(e.value || '') : ''; };
+    var auf = wert('ohSchnellStart'), zu = wert('ohSchnellEnd'), auf2 = wert('ohSchnellStart2'), zu2 = wert('ohSchnellEnd2');
+    if (!tage.length) { showToast('Bitte zuerst die Tage antippen', 'error'); return 0; }
+    if (!auf || !zu) { showToast('Bitte „Auf“ und „Zu“ ausfüllen', 'error'); return 0; }
+    if (!!auf2 !== !!zu2) { showToast('Zweite Schicht: bitte beide Zeiten ausfüllen oder beide leer lassen', 'error'); return 0; }
+    var setze = function (id, v) { var e = document.getElementById(id); if (e) { e.value = v; return 1; } return 0; };
+    var n = 0;
+    tage.forEach(function (t) {
+        n += setze('open' + t + 'Start', auf) & setze('open' + t + 'End', zu) & setze('open' + t + 'Start2', auf2) & setze('open' + t + 'End2', zu2);
+    });
+    if (n !== tage.length) { showToast('Nicht alle Tage gefunden – bitte Formular neu öffnen', 'error'); return n; }
+    document.querySelectorAll('#ohSchnell .kmi-oh-tage button').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); });
+    showToast(tage.join(', ') + ': ' + auf + '–' + zu + (auf2 ? ', ' + auf2 + '–' + zu2 : '') + ' eingetragen. Zum Sichern unten speichern.', 'success');
+    return n;
+}
+
 function resTageHinweis(restaurant) {
     var el = document.getElementById('resSettingsTageHinweis');
     if (!el) return;
@@ -36208,8 +36281,114 @@ function gastProfil(telefon, daten, heute) {
     return { telefon: z, besuche: besuche.length, abgesagt: frueher.filter(function (r) { return r.status === 'cancelled'; }).length,
              nichtErschienen: frueher.filter(function (r) { return r.status === 'no_show'; }).length,
              bestellungen: ord.length, umsatz: umsatz, letzterBesuch: letzte, lieblingsTisch: lieb, lieblingsTischMal: lieb ? tische[lieb] : 0,
-             notizen: notizen, stamm: stamm, neu: !besuche.length && !ord.length };
+             notizen: notizen, stamm: stamm, neu: !besuche.length && !ord.length,
+             allergien: allergienVerlauf(telefon, daten, null, heute).arten };
 }
+// ==================== ALLERGIE MERKT SICH DIE APP (02.11.2026) ====================
+// Ibo: Idee 5 -- "Hat ein Gast einmal Nuesse angegeben, steht das beim
+// naechsten Besuch automatisch auf dem Bon." Keine neue Spalte, kein neues
+// Feld fuer den Gast: Die App liest die Notizen FRUEHERER Reservierungen und
+// Bestellungen desselben Gastes (gleiche Telefonnummer, nur dieses Lokal).
+//
+// Nur wenn die Notiz wirklich von Allergie/Unvertraeglichkeit spricht --
+// "ohne Zwiebeln" oder "Krabbenbroetchen bitte" ist ein Wunsch, keine
+// Allergie. Spricht sie davon, nennt aber nichts Bekanntes, steht
+// "Allergie (siehe Notiz)" da statt nichts.
+var ALLERGIE_KONTEXT = /allerg|unvertr(ä|ae)glich|intoleran|z(ö|oe)liak|glutenfrei|laktosefrei|lactosefrei|vertr(ä|ae)gt kein|darf kein|allergic|intolerance/i;
+var ALLERGIE_ARTEN = [
+    ['Erdnüsse', /erdn(u|ü|ue)ss|peanut/i],
+    ['Nüsse', /n(u|ü|ue)ss|mandel|cashew|pistazie|\bnuts?\b/i],
+    ['Gluten', /gluten|z(ö|oe)liak|weizen|celiac/i],
+    ['Laktose', /laktose|lactose|milch|dairy/i],
+    ['Ei', /eiallerg|ei-allerg|h(ü|ue)hnerei|\beier?\b|\beggs?\b/i],
+    ['Fisch', /fisch|\bfish\b/i],
+    ['Krebstiere', /krebstier|meeresfr(ü|ue)cht|garnele|shrimp|krabbe|schalentier|muschel|shellfish/i],
+    ['Sellerie', /sellerie|celery/i],
+    ['Senf', /senf|mustard/i],
+    ['Sesam', /sesam/i],
+    ['Soja', /soja|\bsoy/i],
+    ['Lupine', /lupine/i],
+    ['Sulfite', /sulfit|schwefel/i]
+];
+function allergienAus(text) {
+    var t = String(text || '');
+    if (!ALLERGIE_KONTEXT.test(t)) return [];
+    var arten = [];
+    ALLERGIE_ARTEN.forEach(function (a) {
+        // "Erdnuss" ist keine (Baum-)Nuss: fuer den Nuss-Test die Erdnuesse herausnehmen.
+        var probe = a[0] === 'Nüsse' ? t.replace(/erdn(u|ü|ue)ss\w*|peanuts?/gi, '') : t;
+        if (a[1].test(probe)) arten.push(a[0]);
+    });
+    return arten.length ? arten : ['Allergie (siehe Notiz)'];
+}
+// Aus allen FRUEHEREN Notizen dieses Gastes. ausserId: die Bestellung bzw.
+// Reservierung, um die es gerade geht -- deren Notiz steht ohnehin da.
+// heute (optional): Reservierungen erst ab gestern zaehlen.
+function allergienVerlauf(telefon, daten, ausserId, heute) {
+    var z = waNummer(telefon); if (!z || !daten) return { arten: [], quelle: null };
+    var funde = [];
+    (daten.reservierungen || []).forEach(function (r) {
+        if (r.id && r.id === ausserId) return;
+        if (heute && !(String(r.reservation_date || '') < heute)) return;
+        if (waNummer(r.guest_phone) !== z || !r.notes) return;
+        var a = allergienAus(r.notes); if (a.length) funde.push({ datum: String(r.reservation_date || ''), text: String(r.notes).trim(), arten: a });
+    });
+    (daten.bestellungen || []).forEach(function (o) {
+        if (o.id && o.id === ausserId) return;
+        if (waNummer(o.customer_phone) !== z) return;
+        var n = o.customer_notes || o.notes; if (!n) return;
+        var a = allergienAus(n); if (a.length) funde.push({ datum: String(o.created_at || '').slice(0, 10), text: String(n).trim(), arten: a });
+    });
+    if (!funde.length) return { arten: [], quelle: null };
+    funde.sort(function (a, b) { return a.datum < b.datum ? 1 : -1; });
+    var arten = [];
+    funde.forEach(function (f) { f.arten.forEach(function (x) { if (arten.indexOf(x) < 0) arten.push(x); }); });
+    // Bekannte Arten zuerst, "siehe Notiz" nur, wenn sonst nichts erkannt ist.
+    if (arten.length > 1) arten = arten.filter(function (x) { return x !== 'Allergie (siehe Notiz)'; });
+    return { arten: arten, quelle: funde[0] };
+}
+function allergieText(arten) { return arten && arten.length ? 'Allergie: ' + arten.join(', ') : ''; }
+
+// Verlauf fuer die Bestellungen (Karte, Kuechenmonitor, Bon). Einmal pro
+// Lokal geladen und 10 Minuten behalten -- dashboardNetz laedt die
+// Bestellungen alle 15 Sekunden neu, der Verlauf aendert sich kaum.
+var _allerg = { rid: null, zeit: 0, daten: null, fehler: null, laeuft: null };
+async function allergieVerlaufLaden(rid, neuZeichnen) {
+    if (!rid) return;
+    if (_allerg.rid === rid && _allerg.daten && Date.now() - _allerg.zeit < 600000) return;
+    if (_allerg.laeuft && _allerg.rid === rid) return _allerg.laeuft;
+    _allerg.rid = rid;
+    var q = 'restaurant_id=eq.' + encodeURIComponent(rid);
+    _allerg.laeuft = Promise.all([
+        supabaseGet('reservations', q + '&select=id,guest_phone,reservation_date,notes&guest_phone=not.is.null&notes=not.is.null&order=reservation_date.desc&limit=5000'),
+        supabaseGet('orders', q + '&select=id,customer_phone,customer_notes,created_at&customer_phone=not.is.null&customer_notes=not.is.null&order=created_at.desc&limit=5000')
+    ]).then(function (erg) {
+        _allerg.daten = { reservierungen: erg[0] || [], bestellungen: erg[1] || [] };
+        _allerg.zeit = Date.now(); _allerg.fehler = null;
+        if (neuZeichnen) { try { neuZeichnen(); } catch (e) {} }
+    }).catch(function (e) {
+        // Nicht still (Regel 6): ohne Verlauf saehe jede Karte aus wie "keine Allergie".
+        if (!_allerg.fehler) console.warn('[allergie] Verlauf nicht geladen:', e && e.message || e);
+        _allerg.fehler = String(e && e.message || e);
+    }).then(function () { _allerg.laeuft = null; });
+    return _allerg.laeuft;
+}
+// Fuer eine Bestellung: bekannte Allergien aus FRUEHEREN Besuchen.
+function allergieBekannt(order) {
+    if (!order || !_allerg.daten) return [];
+    // Admin-Ansicht "alle Lokale": fremde Bestellungen nicht mit dem Verlauf
+    // eines anderen Lokals abgleichen. Beim Wirt bleibt es sein Lokal, auch
+    // wenn eine alte Bestellung unter einer anderen restaurant_id steht.
+    if (order.restaurant_id && order.restaurant_id !== _allerg.rid && !window._gastroOnlyRestaurantId) return [];
+    return allergienVerlauf(order.customer_phone, _allerg.daten, order.id).arten;
+}
+function allergieZeileHtml(order) {
+    var a = allergieBekannt(order);
+    if (a.length) return '<div class="kin-allergie" title="Aus früheren Notizen dieses Gastes (gleiche Telefonnummer)">' + escapeHtml(allergieText(a)) + ' <small>· von früher</small></div>';
+    if (_allerg.fehler && order && order.customer_phone) return '<div class="kin-allergie-fehler">Allergie-Verlauf gerade nicht geladen</div>';
+    return '';
+}
+
 function gpChipText(p) {
     if (!p) return '';
     // Wer schon mal nicht gekommen ist, steht VORNE -- der Wirt soll es
@@ -36227,7 +36406,7 @@ async function gastProfileLaden(rid) {
     try {
         var erg = await Promise.all([
             supabaseGet('reservations', q + '&select=guest_phone,reservation_date,status,notes,table_id&guest_phone=not.is.null&order=reservation_date.desc&limit=5000'),
-            supabaseGet('orders', q + '&select=customer_phone,total,status,created_at&customer_phone=not.is.null&order=created_at.desc&limit=5000'),
+            supabaseGet('orders', q + '&select=id,customer_phone,customer_notes,total,status,created_at&customer_phone=not.is.null&order=created_at.desc&limit=5000'),
             supabaseGet('restaurant_tables', q + '&select=id,table_number').catch(function () { return []; })
         ]);
         // table_id zeigt auf restaurant_tables (SQL 40). Gelöschte Tische tragen
@@ -36248,6 +36427,16 @@ async function gastProfileLaden(rid) {
         if (p.nichtErschienen) c.classList.add('kmi-gp-warn');
         else if (p.stamm) { c.style.background = 'rgba(22,163,74,0.12)'; c.style.color = '#15803d'; }
         c.onclick = function (ev) { ev.stopPropagation(); gastProfilZeigen(c.getAttribute('data-tel'), c.getAttribute('data-name')); };
+        // Allergie aus frueheren Besuchen: eigenes rotes Abzeichen direkt daneben.
+        var alt = c.nextElementSibling;
+        if (alt && alt.classList && alt.classList.contains('kmi-allergie-chip')) alt.remove();
+        if (p.allergien && p.allergien.length) {
+            var a = document.createElement('span');
+            a.className = 'kmi-allergie-chip';
+            a.textContent = allergieText(p.allergien);
+            a.title = 'Aus früheren Notizen dieses Gastes';
+            c.insertAdjacentElement('afterend', a);
+        }
     });
 }
 function gastProfilZeigen(telefon, name) {
@@ -36261,7 +36450,8 @@ function gastProfilZeigen(telefon, name) {
         + zeile('Letzter Besuch', p.letzterBesuch ? waDatum(p.letzterBesuch) : '–')
         + zeile('Lieblingstisch', p.lieblingsTisch ? 'Tisch ' + escapeHtml(p.lieblingsTisch) + ' (' + p.lieblingsTischMal + '×)' : '–')
         + (p.abgesagt ? zeile('Abgesagt', p.abgesagt + '×') : '')
-        + (p.nichtErschienen ? zeile('Nicht erschienen', p.nichtErschienen + '×') : '');
+        + (p.nichtErschienen ? zeile('Nicht erschienen', p.nichtErschienen + '×') : '')
+        + (p.allergien && p.allergien.length ? zeile('<span style="color:#b91c1c;">Allergie (von früher)</span>', '<span style="color:#b91c1c;">' + escapeHtml(p.allergien.join(', ')) + '</span>') : '');
     if (p.notizen.length) h += '<div style="margin-top:12px;font-size:13px;font-weight:700;">Notizen früherer Besuche</div>'
         + p.notizen.map(function (n) { return '<div style="margin-top:6px;padding:8px 12px;border-radius:12px;background:var(--bg-secondary);font-size:13px;"><span style="color:var(--text-secondary);">' + waDatum(n.datum) + ':</span> ' + escapeHtml(n.text) + '</div>'; }).join('');
     h += '<p style="margin:12px 0 0;font-size:11px;color:var(--slate);">Nur dieses Lokal, zugeordnet über die Telefonnummer.</p></div>';
@@ -65122,6 +65312,9 @@ async function loadDashboardOrders() {
         ladeStandSetzen('bestellungen', false, e.message, loadDashboardOrders);
     }
 
+    // Allergien aus frueheren Besuchen (Karte + Bon). Laedt im Hintergrund,
+    // zeichnet nach dem ersten Laden einmal neu.
+    try { allergieVerlaufLaden(_gastroForce || ordersRestaurantFilter, renderDashboardOrders); } catch (e) {}
     renderDashboardOrders();
     updateOrderStats();
     renderBestseller(dashboardOrders);
@@ -65872,20 +66065,22 @@ function renderDashboardOrders() {
             ? '<span class="kin-stempel-klein" title="' + escapeHtml(_stHtml.replace(/<[^>]+>/g, '')) + '">' + kinSym('geschenk', false, 14) + ' Stempel einlösen</span>' : '';
         // Bei der Vorbestellung zum Tisch steht die Reservierung schon oben im Kasten -- hier nur, was der Gast selbst schrieb.
         var _hinw = _vbRes ? _vbRes.rest : bestellHinweis(order);
+        // Allergie aus frueheren Besuchen -- in jeder Ansicht, in der gekocht wird.
+        var _allergHtml = allergieZeileHtml(order);
         var _koerper;
         if (_sp0 === 'neu' && _kompakt) {
             _koerper = '<div class="kin-pos-kurz">' + bestellPosKurz(order.items) + ' · ' + formatPrice(order.total) + ' · ' + _zahlHtml + '</div>'
-                + (_hinw ? '<div class="kin-hinweis">„' + escapeHtml(_hinw) + '“</div>' : '');
+                + _allergHtml + (_hinw ? '<div class="kin-hinweis">„' + escapeHtml(_hinw) + '“</div>' : '');
         } else if (_sp0 === 'neu') {
             _koerper = '<div class="kin-order-items">' + bestellPosHtml(order.items, true, order) + '</div>'
-                + (_hinw ? '<div class="kin-hinweis"><b>Hinweis:</b> „' + escapeHtml(_hinw) + '“</div>' : '')
+                + _allergHtml + (_hinw ? '<div class="kin-hinweis"><b>Hinweis:</b> „' + escapeHtml(_hinw) + '“</div>' : '')
                 + '<div class="kin-summe-zeile"><span>' + _zahlHtml + (order.delivery_address ? ' · ' + adresseHtml(order.delivery_address) : '') + '</span>'
                 + '<b class="kin-summe">' + formatPrice(order.total) + '</b></div>';
         } else if (_sp0 === 'arbeit') {
             var _gN = order.order_type === 'dine_in' ? gangNaechster(order) : null;
             _koerper = '<div class="kin-order-items">' + bestellPosHtml(order.items, false, order) + '</div>'
                 + (_gN ? '<button type="button" class="kin-gang-abruf" onclick="gangAbrufen(\'' + order.id + '\')">' + GANG_TEXT[_gN].replace(' · ', ' abrufen · ') + '</button>' : '')
-                + (_hinw ? '<div class="kin-hinweis">„' + escapeHtml(_hinw) + '“</div>' : '')
+                + _allergHtml + (_hinw ? '<div class="kin-hinweis">„' + escapeHtml(_hinw) + '“</div>' : '')
                 + _stKlein + bestellRestHtml(order);
         } else {
             _koerper = _stKlein + (order.delivery_address && order.status === 'out_for_delivery' ? '<div class="kin-pos-kurz">' + adresseHtml(order.delivery_address) + '</div>' : '');
@@ -67893,7 +68088,9 @@ function printOrderBrowser(orderId) {
     if (order.scheduled_at) {
         try { var _vb = new Date(order.scheduled_at); _vorbest = _vb.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' }) + ', ' + _vb.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr'; } catch (e) {}
     }
-    var hinweisHtml = (_vorbest ? '<div class="hinweis"><div class="feldname">Vorbestellung</div><div class="hinweis-text">' + escapeHtml(_vorbest) + '</div></div>' : '')
+    var _allergBon = allergieBekannt(order);
+    var hinweisHtml = (_allergBon.length ? '<div class="hinweis"><div class="feldname">!! Allergie (von früher)</div><div class="hinweis-text">' + escapeHtml(_allergBon.join(', ')) + '</div></div>' : '')
+        + (_vorbest ? '<div class="hinweis"><div class="feldname">Vorbestellung</div><div class="hinweis-text">' + escapeHtml(_vorbest) + '</div></div>' : '')
         + (_hinweis ? '<div class="hinweis"><div class="feldname">Hinweis zur Bestellung</div><div class="hinweis-text">' + escapeHtml(_hinweis) + '</div></div>' : '');
 
     // Fertig-Zeitpunkt, wenn das Restaurant einen genannt hat.
@@ -68653,6 +68850,13 @@ function generateESCPOS(order) {
     }
     cmd += CENTER + '[' + zahlStr + ']' + LF;
     cmd += LEFT;
+
+    // Allergie aus frueheren Besuchen -- vor den Sonderwuenschen, fett.
+    var _allergEsc = allergieBekannt(order);
+    if (_allergEsc.length) {
+        cmd += LINE;
+        cmd += BOLD_ON + '!! ALLERGIE (von frueher): ' + _allergEsc.join(', ').replace(/ü/g, 'ue').replace(/Ü/g, 'Ue') + LF + BOLD_OFF;
+    }
 
     // Sonderwünsche
     var notes = order.notes || order.delivery_notes || '';
@@ -72311,6 +72515,11 @@ function generateEposXML(order) {
         var cityLine = [a.zip, a.city].filter(Boolean).join(' ');
         if (addrLine) xml += '<text>Adresse: <![CDATA[' + addrLine + ']]>&#10;</text>';
         if (cityLine) xml += '<text>         <![CDATA[' + cityLine + ']]>&#10;</text>';
+    }
+    var _allergEpos = allergieBekannt(order);
+    if (_allergEpos.length) {
+        xml += '<text>&#10;</text>';
+        xml += '<text width="1" height="2"><![CDATA[!! Allergie (von früher): ' + _allergEpos.join(', ') + ']]>&#10;</text>';
     }
     if (order.notes || order.delivery_notes || order.customer_notes) {
         xml += '<text>&#10;</text>';
@@ -88649,6 +88858,8 @@ function _kdsRenderCard(o, colType) {
         '</div>' +
         // Kunden-Notiz
         (o.customer_notes ? '<div style="margin:0 20px 12px;padding:10px 14px;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.12);border-radius:20px;font-size:13px;color:#92400e;font-weight:500;display:flex;align-items:flex-start;gap:8px;line-height:1.4;"><svg viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" width="16" height="16" style="flex-shrink:0;margin-top:1px;"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>' + escapeHtml(o.customer_notes) + '</div>' : '') +
+        // Allergie aus frueheren Besuchen
+        (function () { var _a = allergieZeileHtml(o); return _a ? '<div style="margin:0 20px 12px;">' + _a + '</div>' : ''; })() +
         // Trennlinie
         '<div style="margin:0 20px;height:1px;background:linear-gradient(90deg,transparent,rgba(0,61,51,0.08),transparent);"></div>' +
         // Items
@@ -88693,6 +88904,8 @@ async function refreshKitchenOrders() {
             orders = _retry.data;
         }
         if (!orders) orders = [];
+        // Allergien aus frueheren Besuchen fuer die Karten (laedt einmal, dann aus dem Speicher).
+        try { allergieVerlaufLaden(restaurantId, refreshKitchenOrders); } catch (e) {}
 
         // Sound bei neuen Bestellungen
         var newIds = new Set(orders.map(function(o) { return o.id; }));
