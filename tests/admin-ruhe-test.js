@@ -25,12 +25,12 @@ var FN = path.join(__dirname, '..', 'netlify', 'functions');
 var n = 0, ok = 0;
 function t(l, c, x) { n++; if (c === true) ok++; console.log((c === true ? 'OK  ' : 'FAIL') + ' | ' + l + (c === true ? '' : '  -> ' + x)); }
 
-var gesendet = [];
+var gesendet = [], pushKaputt = false;
 var echtLaden = Module._load;
 Module._load = function (anfrage) {
     if (anfrage === 'web-push') return {
         setVapidDetails: function () {},
-        sendNotification: async function (sub, text) { gesendet.push({ an: sub.endpoint, was: JSON.parse(text) }); return { statusCode: 201 }; }
+        sendNotification: async function (sub, text) { if (pushKaputt) { var e = new Error('Push-Dienst 500'); e.statusCode = 500; throw e; } gesendet.push({ an: sub.endpoint, was: JSON.parse(text) }); return { statusCode: 201 }; }
     };
     return echtLaden.apply(this, arguments);
 };
@@ -139,7 +139,7 @@ function laden(name) {
 
     // ---- Keine Mail-Flut: erst abhaken, dann mailen (Pruefung 29.10.2026) ----
     process.env.RESEND_API_KEY = 're_test';
-    var mails = 0, patchOk = false;
+    var mails = 0, patchOk = false, mitHandy = false;
     function netzMail() {
         global.fetch = async function (url, opt) {
             url = String(url); opt = opt || {};
@@ -149,6 +149,7 @@ function laden(name) {
             if (/customers\?role=eq\.superadmin/.test(url)) body = [{ email: 'ibo@kiekmolin.de' }];
             else if (/reservations\?status=eq\.pending&push_sent_at=is\.null/.test(url)) body = [{ id: 'r7', restaurant_id: RID, guest_name: 'Flut', reservation_date: '2026-10-15', reservation_time: '19:00', party_size: 2 }];
             else if (/restaurants\?id=in/.test(url)) body = [{ id: RID, name: 'Lütt Italia' }];
+            else if (mitHandy && /push_subscriptions\?or=/.test(url)) body = [IBO];
             return { ok: true, status: 200, json: async function () { return body; }, text: async function () { return JSON.stringify(body); } };
         };
     }
@@ -158,6 +159,14 @@ function laden(name) {
     netzMail(); mails = 0; patchOk = true;
     await laden('pending-reminder').handler({});
     t('Abhaken klappt -> genau eine Mail an den Betreiber', mails === 1, mails + ' Mails');
+    // Mail nur als Ersatz (Ibo, 30.10.2026: "wenn ich Nachrichten aufs Handy bekomme, brauche ich keine Mail")
+    netzMail(); mails = 0; patchOk = true; mitHandy = true; gesendet = [];
+    await laden('pending-reminder').handler({});
+    t('Push auf sein Handy angekommen -> KEINE Mail', mails === 0 && gesendet.some(function (g) { return g.an === IBO.endpoint; }), mails + ' Mails, Push: ' + gesendet.length);
+    netzMail(); mails = 0; pushKaputt = true;
+    await laden('pending-reminder').handler({});
+    t('Push an sein Handy gescheitert -> Mail als Ersatz', mails === 1, mails + ' Mails');
+    pushKaputt = false; mitHandy = false;
     delete process.env.RESEND_API_KEY;
     console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' Tests FEHLGESCHLAGEN.'));
     process.exit(ok === n ? 0 : 1);
