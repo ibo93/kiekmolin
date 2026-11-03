@@ -11692,6 +11692,124 @@
         .kmi-vb-res { margin: 0 0 12px; padding: 10px 12px; border-radius: 14px; background: #f0f7f4; border: 1.5px solid #ffd54f; display: flex; flex-direction: column; gap: 2px; font-family: Inter, sans-serif; }
         .kmi-vb-res small { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; color: #8a6100; } .kmi-vb-res b { font-size: 14px; color: #00251e; } .kmi-vb-res span { font-size: 13px; color: #404946; }
         .dark-mode .kmi-vb-res { background: rgba(255,255,255,0.06); border-color: rgba(255,213,79,0.55); } .dark-mode .kmi-vb-res small { color: #ffd54f; } .dark-mode .kmi-vb-res b { color: #ffffff; } .dark-mode .kmi-vb-res span { color: #c8d2ce; }
+        /* ===== GESCHENKGUTSCHEIN (03.11.2026) ===== */
+        .gg-karte { position: relative; aspect-ratio: 900 / 560; width: 100%; box-sizing: border-box; padding: 6% 6.2% 0; border-radius: 22px; color: var(--gg-text); background: var(--gg-muster) repeat, radial-gradient(circle at 96% 8%, rgba(255,255,255,0.09) 0 30%, transparent 31%), linear-gradient(135deg, var(--gg-grund), var(--gg-grund2)); box-shadow: 0 18px 40px -14px rgba(0,37,30,0.45), inset 0 0 0 1px rgba(255,255,255,0.08); overflow: hidden; display: flex; flex-direction: column; font-family: Inter, sans-serif; container-type: inline-size; }
+        .gg-k-oben { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+        .gg-k-wort { font-size: 12px; font-size: 3.4cqw; font-weight: 700; letter-spacing: 0.45em; text-transform: uppercase; color: var(--gg-akzent); }
+        .gg-k-lokal { font-family: Epilogue, Inter, sans-serif; font-size: 12px; font-size: 3.2cqw; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gg-leise); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; }
+        .gg-k-mitte { flex: 1; display: flex; flex-direction: column; justify-content: center; min-height: 0; }
+        .gg-k-betrag { font-family: Epilogue, Inter, sans-serif; font-size: 54px; font-size: 15cqw; font-weight: 800; line-height: 0.95; letter-spacing: -0.04em; }
+        .gg-k-fuer { font-size: 14px; font-size: 4cqw; font-weight: 600; margin-top: 6px; margin-top: 1.6cqw; }
+        .gg-k-gruss { font-size: 11px; font-size: 3.1cqw; font-style: italic; color: var(--gg-leise); margin-top: 4px; margin-top: 1.2cqw; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .gg-k-gruss span { font-style: normal; }
+        .gg-k-rest { display: inline-block; align-self: flex-start; margin-top: 5px; margin-top: 1.4cqw; padding: 2px 7px; padding: 0.6cqw 2cqw; border-radius: 999px; background: var(--gg-akzent); color: var(--gg-grund); font-size: 10px; font-size: 2.8cqw; font-weight: 800; }
+        .gg-k-schnitt { position: relative; height: 0; border-top: 2px dashed var(--gg-leise); opacity: 0.7; margin: 0 -2%; }
+        .gg-k-schnitt::before, .gg-k-schnitt::after { content: ''; position: absolute; top: -13px; width: 24px; height: 24px; border-radius: 50%; background: var(--gg-loch, #f6f7f6); }
+        .gg-k-schnitt::before { left: -4.5%; } .gg-k-schnitt::after { right: -4.5%; }
+        .gg-k-unten { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 13px 0 16px; padding: 3.6cqw 0 4.4cqw; }
+        .gg-k-code { font-family: Menlo, Consolas, monospace; font-size: 14px; font-size: 3.8cqw; font-weight: 700; letter-spacing: 0.06em; }
+        .gg-k-gueltig { font-size: 9px; font-size: 2.6cqw; color: var(--gg-leise); text-align: right; }
+        /* Farben auf der Karte fest -- ".dark-mode *" faerbt sonst jede Schrift grau (gemessen 03.11.2026). */
+        .gg-karte .gg-k-betrag, .gg-karte .gg-k-fuer, .gg-karte .gg-k-code, .gg-karte .gg-k-gruss span { color: var(--gg-text); }
+        .gg-karte .gg-k-gruss, .gg-karte .gg-k-lokal, .gg-karte .gg-k-gueltig { color: var(--gg-leise); }
+        .gg-karte .gg-k-wort { color: var(--gg-akzent); }
+        .gg-karte .gg-k-rest { color: var(--gg-grund); }
+        .dark-mode .gg-karte { --gg-loch: #13241f; }
+
+        .gg-teaser { display: grid; grid-template-columns: 1.1fr 1fr; gap: 28px; align-items: center; max-width: 1080px; margin: 0 auto 72px; padding: 32px; border-radius: 28px; background: #f0f7f4; border: 1px solid #d6e6df; }
+        .gg-teaser .gg-karte { --gg-loch: #f0f7f4; transform: rotate(-3deg); }
+        .gg-teaser-bild { width: 100%; max-width: 420px; justify-self: center; }
+        .gg-teaser-klein { font-family: Inter, sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: #8a6100; }
+        .gg-teaser h2 { font-family: Epilogue, sans-serif; font-size: 28px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; color: #00251e; margin: 8px 0 10px; }
+        .gg-teaser p { font-family: Inter, sans-serif; font-size: 15px; line-height: 1.55; color: #3d4f4a; margin: 0 0 18px; }
+        @media (max-width: 700px) { .gg-teaser { grid-template-columns: 1fr; margin: 0 16px 56px; padding: 22px; } .gg-teaser-bild { order: -1; padding: 6px 10px 0; } .gg-teaser h2 { font-size: 23px; } }
+        .dark-mode .gg-teaser { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1); }
+        .dark-mode .gg-teaser .gg-karte { --gg-loch: #16251f; }
+        .dark-mode .gg-teaser h2 { color: #f2f5f4; } .dark-mode .gg-teaser p { color: #c8d2ce; } .dark-mode .gg-teaser-klein { color: #ffd54f; }
+
+        .gg-knopf { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 24px; border-radius: 9999px; border: none; background: #003d33; color: #ffffff; font-family: Inter, sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; text-decoration: none; }
+        .gg-knopf.gg-voll { width: 100%; background: #ffd54f; color: #00251e; font-weight: 800; }
+        .gg-knopf.gg-rand { background: transparent; color: #003d33; border: 1.5px solid #003d33; }
+        .dark-mode .gg-knopf { background: #ffd54f; color: #00251e; }
+        .dark-mode .gg-knopf.gg-voll { background: #ffd54f; color: #00251e; }
+        .dark-mode .gg-w-schalter button { background: rgba(255,255,255,0.2); }
+        .dark-mode .gg-w-schalter button i { background: #e8eeec; }
+        .dark-mode .gg-knopf.gg-rand { background: transparent; color: #e8eeec; border-color: rgba(255,255,255,0.35); }
+
+        .gg-overlay { position: fixed; inset: 0; z-index: 10030; background: rgba(0,20,16,0.55); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); display: flex; align-items: flex-end; justify-content: center; }
+        @media (min-width: 640px) { .gg-overlay { align-items: center; } }
+        .gg-fenster { position: relative; width: 100%; max-width: 480px; max-height: 92vh; overflow-y: auto; box-sizing: border-box; padding: 22px 20px 24px; background: #f6f7f6; border-radius: 26px 26px 0 0; font-family: Inter, sans-serif; color: #00251e; }
+        @media (min-width: 640px) { .gg-fenster { border-radius: 26px; } }
+        .gg-zu { position: absolute; top: 12px; right: 12px; width: 40px; height: 40px; border-radius: 50%; border: none; background: rgba(0,37,30,0.07); color: #00251e; font-size: 24px; line-height: 1; cursor: pointer; }
+        .gg-titel { font-family: Epilogue, sans-serif; font-size: 22px; font-weight: 800; letter-spacing: -0.02em; margin: 2px 48px 14px 0; }
+        .gg-vorschau { margin: 0 0 16px; }
+        .gg-klein-vorschau { max-width: 300px; margin: 0 auto 14px; }
+        .gg-feld { display: block; margin: 0 0 12px; }
+        .gg-label { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: #3d4f4a; margin-bottom: 6px; }
+        .gg-label small { font-weight: 500; color: #6b7570; }
+        .gg-feld input, .gg-feld textarea, .gg-eigen input { width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 14px; border: 1.5px solid #d6dedb; background: #ffffff; color: #00251e; font-family: Inter, sans-serif; font-size: 16px; resize: none; }
+        .gg-feld input:focus, .gg-feld textarea:focus, .gg-eigen input:focus { outline: none; border-color: #003d33; box-shadow: 0 0 0 3px rgba(0,61,51,0.12); }
+        .gg-betraege { display: grid; grid-template-columns: repeat(4, 1fr) 1.3fr; gap: 6px; }
+        .gg-betraege button, .gg-motive button { min-height: 44px; border-radius: 14px; border: 1.5px solid #d6dedb; background: #ffffff; color: #00251e; font-family: Inter, sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; }
+        .gg-betraege button[aria-pressed="true"], .gg-motive button[aria-pressed="true"] { border-color: #003d33; background: #003d33; color: #ffffff; }
+        .gg-eigen { display: flex; align-items: center; gap: 4px; font-weight: 700; }
+        .gg-eigen input { padding: 10px 8px; text-align: center; font-weight: 700; }
+        @media (max-width: 380px) { .gg-betraege { grid-template-columns: repeat(4, 1fr); } .gg-eigen { grid-column: 1 / -1; } }
+        .gg-motive { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+        .gg-motive button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; font-size: 12px; }
+        .gg-motive i { width: 28px; height: 18px; border-radius: 5px; border: 2px solid; display: block; }
+        .gg-zwei { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        @media (max-width: 420px) { .gg-zwei { grid-template-columns: 1fr; gap: 0; } }
+        .gg-meldung { min-height: 18px; margin: 4px 0 10px; font-size: 13px; line-height: 1.45; color: #3d4f4a; }
+        .gg-meldung.gg-rot { color: #b91c1c; font-weight: 600; }
+        .gg-klein { font-size: 12px; line-height: 1.5; color: #6b7570; margin: 12px 0 0; text-align: center; }
+        .gg-klein a { color: inherit; font-weight: 600; }
+        .gg-hinweis { font-size: 14px; line-height: 1.55; color: #3d4f4a; margin: 0 0 14px; }
+        .gg-laden { padding: 40px 0; text-align: center; color: #6b7570; }
+        .gg-geschafft { display: flex; align-items: center; gap: 8px; margin: 2px 48px 14px 0; font-family: Epilogue, sans-serif; font-size: 18px; font-weight: 800; color: #003d33; }
+        .gg-aktionen { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; }
+        #ggPaypal { min-height: 50px; margin-bottom: 6px; }
+        .dark-mode .gg-fenster { background: #13241f; color: #e8eeec; }
+        .dark-mode .gg-zu { background: rgba(255,255,255,0.08); color: #e8eeec; }
+        .dark-mode .gg-label, .dark-mode .gg-hinweis, .dark-mode .gg-meldung { color: #c8d2ce; }
+        .dark-mode .gg-label small, .dark-mode .gg-klein, .dark-mode .gg-laden { color: #9fb0aa; }
+        .dark-mode .gg-feld input, .dark-mode .gg-feld textarea, .dark-mode .gg-eigen input, .dark-mode .gg-betraege button, .dark-mode .gg-motive button { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.18); color: #e8eeec; }
+        .dark-mode .gg-betraege button[aria-pressed="true"], .dark-mode .gg-motive button[aria-pressed="true"] { background: #ffd54f; border-color: #ffd54f; color: #00251e; }
+        .dark-mode .gg-meldung.gg-rot { color: #fca5a5; }
+        .dark-mode .gg-geschafft { color: #ffd54f; }
+        .gg-wirt { font-family: Inter, sans-serif; }
+        .gg-w-einloesen { padding: 14px; border-radius: 18px; background: #f0f7f4; border: 1px solid #d6e6df; margin-bottom: 14px; }
+        .gg-w-einloesen > b { display: block; font-size: 15px; margin-bottom: 8px; color: #00251e; }
+        .gg-w-reihe { display: grid; grid-template-columns: 1.4fr 1fr auto; gap: 8px; }
+        @media (max-width: 460px) { .gg-w-reihe { grid-template-columns: 1fr 1fr; } .gg-w-reihe button { grid-column: 1 / -1; } }
+        .gg-w-reihe input { min-width: 0; min-height: 46px; padding: 0 12px; border-radius: 12px; border: 1.5px solid #c9d6d1; background: #ffffff; color: #00251e; font-size: 16px; font-family: Inter, sans-serif; }
+        #ggWCode { font-family: Menlo, Consolas, monospace; text-transform: uppercase; letter-spacing: 0.04em; }
+        .gg-w-reihe button { min-height: 46px; padding: 0 18px; border: none; border-radius: 9999px; background: #003d33; color: #ffffff; font-weight: 800; font-size: 15px; cursor: pointer; }
+        .gg-w-stand { font-size: 13px; line-height: 1.45; color: #3d4f4a; margin: 8px 0 0; }
+        .gg-w-rot { color: #b91c1c; font-weight: 600; } .gg-w-gruen { color: #15803d; font-weight: 700; }
+        .gg-w-fehler { color: #b91c1c; font-size: 14px; }
+        .gg-w-schalter { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 2px 14px; border-bottom: 1px solid var(--border-color, #e1e5e3); margin-bottom: 12px; }
+        .gg-w-schalter b { display: block; font-size: 15px; } .gg-w-schalter small { display: block; font-size: 12px; line-height: 1.4; color: var(--text-secondary, #5a6b66); margin-top: 2px; }
+        .gg-w-schalter button { flex: 0 0 52px; width: 52px; height: 30px; border-radius: 9999px; border: none; background: #c9cfcd; position: relative; cursor: pointer; }
+        .gg-w-schalter button i { position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #ffffff; transition: left .2s; }
+        .gg-w-schalter button[aria-checked="true"] { background: #003d33; } .gg-w-schalter button[aria-checked="true"] i { left: 25px; }
+        .gg-w-summen { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+        .gg-w-summen > div { padding: 10px 12px; border-radius: 14px; background: var(--bg-secondary, #f3f4f5); }
+        .gg-w-summen small { display: block; font-size: 11px; color: var(--text-secondary, #5a6b66); } .gg-w-summen b { display: block; font-family: Epilogue, sans-serif; font-size: 18px; font-weight: 800; margin: 2px 0; }
+        .gg-w-zeile { display: flex; justify-content: space-between; gap: 10px; padding: 10px 2px; border-top: 1px solid var(--border-color, #e1e5e3); }
+        .gg-w-zeile small { display: block; font-size: 12px; color: var(--text-secondary, #5a6b66); margin-top: 2px; }
+        .gg-w-code { font-family: Menlo, Consolas, monospace; font-size: 14px; }
+        .gg-w-betrag { text-align: right; white-space: nowrap; }
+        .dark-mode .gg-w-einloesen { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.12); }
+        .dark-mode .gg-w-einloesen > b { color: #e8eeec; }
+        .dark-mode .gg-w-reihe input { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.22); color: #e8eeec; }
+        .dark-mode .gg-w-reihe button, .dark-mode .gg-w-schalter button[aria-checked="true"] { background: #ffd54f; color: #00251e; }
+        .dark-mode .gg-w-stand { color: #c8d2ce; } .dark-mode .gg-w-rot, .dark-mode .gg-w-fehler { color: #fca5a5; } .dark-mode .gg-w-gruen { color: #86efac; }
+        .dark-mode .gg-w-summen > div { background: rgba(255,255,255,0.06); }
+        /* ".dark-mode .modal-overlay.active p" und ".dark-mode p" setzen jede Zeile mit !important grau --
+           auch eine rote Fehlermeldung (gemessen 03.11.2026). Fehler und Erfolg muessen erkennbar bleiben. */
+        .dark-mode .modal-overlay.active .gg-wirt p.gg-w-rot, .dark-mode .modal-overlay.active .gg-wirt p.gg-w-fehler, .dark-mode .gg-fenster p.gg-meldung.gg-rot { color: #fca5a5 !important; }
+        .dark-mode .modal-overlay.active .gg-wirt p.gg-w-gruen { color: #86efac !important; }
         .kin-allergie { margin: 8px 0 0; padding: 8px 12px; border-radius: 12px; background: #fdecec; border: 1.5px solid #f3b4b4; color: #991b1b; font-family: Inter, sans-serif; font-size: 14px; font-weight: 800; }
         .kin-allergie small { font-size: 11px; font-weight: 600; color: #b45454; }
         .kin-allergie-fehler { margin: 8px 0 0; font-size: 11px; color: #8a6100; }
@@ -18191,6 +18309,10 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
             <div class="dash-nav-item admin-only-nav" id="navSelbstcheck" onclick="openSelbstcheck()">
                 <span class="material-symbols-outlined" style="font-size:20px;">monitor_heart</span>
                 Selbstcheck
+            </div>
+            <div class="dash-nav-item" id="navGutscheine" onclick="ggWirtOeffnen()">
+                <span class="material-symbols-outlined" style="font-size:20px;">redeem</span>
+                Geschenkgutscheine
             </div>
             <div class="dash-nav-item" id="navTeam" onclick="teamOeffnen()" style="display:none;">
                 <span class="material-symbols-outlined" style="font-size:20px;">group</span>
@@ -48469,6 +48591,12 @@ function checkRestaurantSlugURL() {
 
     // Order-Bon Route: ?order=NUMMER oder /order/NUMMER
     var orderParam = urlParams.get('order');
+    // Geschenkgutschein per Link (aus der Mail oder geteilt): ?gutschein=KIN-XXXX-XXXX
+    var ggParam = urlParams.get('gutschein');
+    if (ggParam) {
+        setTimeout(function () { ggAnsehen(ggParam); }, 600);
+        return;
+    }
     if (orderParam) {
         setTimeout(function() { showOrderBon(orderParam); }, 1000);
         return;
@@ -48996,6 +49124,9 @@ async function showRestaurantLanding(rest) {
                 return bar;
             })()}
         </div>
+
+        <!-- Geschenkgutschein (03.11.2026): nur, wenn der Wirt es eingeschaltet hat -->
+        ${ggTeaserHtml(rest)}
 
         <!-- Neueroeffnung: der grosse Kasten aus dem Entwurf (nur vor und am Tag) -->
         ${(function () { var _k = typeof eroeffnungKastenHtml === 'function' ? eroeffnungKastenHtml(rest, false) : ''; return _k ? '<div class="lp-eroeffnung" style="max-width:720px;margin:0 auto;padding:0 24px 48px;">' + _k + '</div>' : ''; })()}
@@ -74450,6 +74581,394 @@ var PPC = {
     }
 };
 window.PPC = PPC;
+
+// ==================== GESCHENKGUTSCHEINE (03.11.2026) ====================
+// Ibo: "ja mach gutschein mit schoenen design". Der Gast kauft auf der
+// Lokalseite einen Gutschein, bezahlt per PayPal DIREKT an den Wirt und
+// bekommt einen gestalteten Gutschein mit Code -- als Bild zum Verschenken,
+// per Link und per Mail. Eingeloest wird im Lokal (Dashboard > Gutscheine).
+//
+// Server: netlify/functions/geschenkgutschein.js. Kein Gutschein ohne Geld:
+// der Gutschein entsteht erst, wenn PayPal die Zahlung bestaetigt hat.
+var GG_MOTIVE = {
+    klassisch:  { name: 'Klassisch',  grund: '#003d33', grund2: '#00594a', text: '#ffffff', akzent: '#ffd54f', leise: 'rgba(255,255,255,0.72)', muster: 'linien' },
+    festlich:   { name: 'Festlich',   grund: '#5b1a1a', grund2: '#7f2525', text: '#fff8ec', akzent: '#f3c969', leise: 'rgba(255,248,236,0.75)', muster: 'sterne' },
+    geburtstag: { name: 'Geburtstag', grund: '#ffd54f', grund2: '#ffe48a', text: '#00251e', akzent: '#003d33', leise: 'rgba(0,37,30,0.7)', muster: 'konfetti' },
+    danke:      { name: 'Danke',      grund: '#f4efe4', grund2: '#fbf8f1', text: '#00251e', akzent: '#003d33', leise: 'rgba(0,37,30,0.65)', muster: 'blaetter' }
+};
+var GG_BETRAEGE = [25, 50, 75, 100];
+function ggEuro(n) { var z = Math.round(Number(n) * 100) / 100; return (z % 1 ? z.toFixed(2).replace('.', ',') : String(z)) + ' €'; }
+function ggDatum(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || '')); return m ? m[3] + '.' + m[2] + '.' + m[1] : ''; }
+function ggVerkauft(rest) { return !!(rest && Array.isArray(rest.features) && rest.features.indexOf('geschenkgutschein') >= 0); }
+
+// Die Muster als kleines SVG im Hintergrund (inline, nichts nachladen).
+function ggMuster(art, farbe) {
+    var f = farbe, s = '';
+    if (art === 'sterne') s = '<path d="M20 6l2.4 5 5.4.6-4 3.7 1.1 5.3L20 18l-4.9 2.6 1.1-5.3-4-3.7 5.4-.6z" fill="' + f + '" opacity=".13"/><circle cx="62" cy="40" r="1.6" fill="' + f + '" opacity=".35"/><circle cx="44" cy="70" r="1.1" fill="' + f + '" opacity=".3"/>';
+    else if (art === 'konfetti') s = '<rect x="10" y="14" width="7" height="3" rx="1.5" transform="rotate(-25 13 15)" fill="' + f + '" opacity=".22"/><circle cx="58" cy="22" r="2.2" fill="' + f + '" opacity=".2"/><rect x="40" y="58" width="8" height="3" rx="1.5" transform="rotate(30 44 59)" fill="' + f + '" opacity=".2"/><circle cx="18" cy="66" r="1.6" fill="' + f + '" opacity=".25"/>';
+    else if (art === 'blaetter') s = '<path d="M14 60c0-14 10-24 24-24-1 14-10 24-24 24z" fill="none" stroke="' + f + '" stroke-width="1.2" opacity=".18"/><path d="M14 60L32 42" stroke="' + f + '" stroke-width="1" opacity=".18"/>';
+    else s = '<path d="M0 80L80 0" stroke="' + f + '" stroke-width="1" opacity=".08"/><path d="M-20 80L60 0" stroke="' + f + '" stroke-width="1" opacity=".05"/>';
+    // url('...') mit EINFACHEN Anfuehrungszeichen: der Wert steht in einem
+    // style="..."-Attribut, ein " darin beendet das Attribut (gemessen:
+    // Karte ohne Hintergrund). encodeURIComponent laesst ' stehen, aber das
+    // SVG enthaelt keines.
+    return "url('data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80">' + s + '</svg>') + "')";
+}
+
+// DER GUTSCHEIN. d = { lokal, betrag, empfaenger, nachricht, von, code, gueltig_bis, motiv, rest }
+function ggKarteHtml(d) {
+    var m = GG_MOTIVE[d.motiv] || GG_MOTIVE.klassisch;
+    var rest = d.rest != null && Number(d.rest) < Number(d.betrag) ? '<div class="gg-k-rest">Noch ' + escapeHtml(ggEuro(d.rest)) + ' übrig</div>' : '';
+    return '<div class="gg-karte" style="--gg-grund:' + m.grund + ';--gg-grund2:' + m.grund2 + ';--gg-text:' + m.text + ';--gg-akzent:' + m.akzent + ';--gg-leise:' + m.leise + ';--gg-muster:' + ggMuster(m.muster, m.akzent) + ';">'
+        + '<div class="gg-k-oben"><span class="gg-k-wort">Gutschein</span><span class="gg-k-lokal">' + escapeHtml(d.lokal || '') + '</span></div>'
+        + '<div class="gg-k-mitte">'
+        + '<div class="gg-k-betrag">' + escapeHtml(ggEuro(d.betrag || 0)) + '</div>'
+        + (d.empfaenger ? '<div class="gg-k-fuer">für ' + escapeHtml(d.empfaenger) + '</div>' : '')
+        + (d.nachricht ? '<div class="gg-k-gruss">„' + escapeHtml(d.nachricht) + '“' + (d.von ? '<span> – ' + escapeHtml(d.von) + '</span>' : '') + '</div>' : (d.von ? '<div class="gg-k-gruss"><span>von ' + escapeHtml(d.von) + '</span></div>' : ''))
+        + rest
+        + '</div>'
+        + '<div class="gg-k-schnitt" aria-hidden="true"></div>'
+        + '<div class="gg-k-unten"><span class="gg-k-code">' + escapeHtml(d.code || 'KIN-••••-••••') + '</span>'
+        + '<span class="gg-k-gueltig">' + (d.gueltig_bis ? 'gültig bis ' + escapeHtml(ggDatum(d.gueltig_bis)) : 'kiekmolin.de') + '</span></div>'
+        + '</div>';
+}
+
+// Teaser auf der Lokalseite -- nur, wenn der Wirt Gutscheine verkauft.
+function ggTeaserHtml(rest) {
+    if (!ggVerkauft(rest)) return '';
+    return '<section class="gg-teaser" aria-label="Gutschein verschenken">'
+        + '<div class="gg-teaser-text"><span class="gg-teaser-klein">Geschenkidee</span>'
+        + '<h2>Ein Abend bei ' + escapeHtml(rest.name || 'uns') + ' – zum Verschenken</h2>'
+        + '<p>Betrag wählen, Gruß dazu, mit PayPal bezahlen. Der Gutschein kommt sofort als Bild und per Mail.</p>'
+        + '<button type="button" class="gg-knopf" onclick="ggOeffnen(\'' + rest.id + '\')">Gutschein verschenken</button></div>'
+        + '<div class="gg-teaser-bild" aria-hidden="true">' + ggKarteHtml({ lokal: rest.name, betrag: 50, empfaenger: 'dich', motiv: 'klassisch' }) + '</div>'
+        + '</section>';
+}
+
+var _gg = null;   // { rest, info, d: {betrag, motiv, empfaenger, nachricht, von, email} }
+function ggWert(id) { var e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; }
+function ggFenster(innen) {
+    var alt = document.getElementById('ggFenster'); if (alt) alt.remove();
+    var o = document.createElement('div');
+    o.id = 'ggFenster'; o.className = 'gg-overlay'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', 'Gutschein');
+    o.innerHTML = '<div class="gg-fenster"><button type="button" class="gg-zu" aria-label="Schließen" onclick="ggSchliessen()">×</button>' + innen + '</div>';
+    o.addEventListener('click', function (e) { if (e.target === o) ggSchliessen(); });
+    document.body.appendChild(o);
+    return o;
+}
+function ggSchliessen() { var o = document.getElementById('ggFenster'); if (o) o.remove(); }
+window.ggSchliessen = ggSchliessen;
+
+async function ggOeffnen(rid) {
+    var rest = (APP_DATA.restaurants || []).find(function (r) { return r.id === rid; }) || { id: rid, name: '' };
+    _gg = { rest: rest, info: null, d: { betrag: 50, motiv: 'klassisch', empfaenger: '', nachricht: '', von: '', email: '' } };
+    ggFenster('<div class="gg-laden">Einen Moment …</div>');
+    try {
+        var res = await fetch('/.netlify/functions/geschenkgutschein', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'info', r: rid }) });
+        _gg.info = await res.json();
+    } catch (e) { _gg.info = { ok: false }; }
+    if (!_gg.info || !_gg.info.ok || !_gg.info.aktiv) {
+        // Nicht still: der Gast soll wissen, dass es gerade nicht geht -- und wie doch.
+        ggFenster('<h2 class="gg-titel">Gutschein verschenken</h2><p class="gg-hinweis">Online-Gutscheine sind bei ' + escapeHtml(rest.name || 'diesem Lokal') + ' gerade nicht möglich.'
+            + (rest.phone ? ' Frag gern direkt im Lokal: <a href="tel:' + escapeHtml(String(rest.phone).replace(/[^0-9+]/g, '')) + '">' + escapeHtml(rest.phone) + '</a>' : '') + '</p>');
+        return;
+    }
+    ggFormular();
+}
+window.ggOeffnen = ggOeffnen;
+
+function ggFormular() {
+    var d = _gg.d;
+    var betraege = GG_BETRAEGE.map(function (b) { return '<button type="button" data-gg-betrag="' + b + '" aria-pressed="' + (d.betrag === b) + '">' + b + ' €</button>'; }).join('');
+    var motive = Object.keys(GG_MOTIVE).map(function (k) { var m = GG_MOTIVE[k]; return '<button type="button" data-gg-motiv="' + k + '" aria-pressed="' + (d.motiv === k) + '"><i style="background:linear-gradient(135deg,' + m.grund + ',' + m.grund2 + ');border-color:' + m.akzent + '"></i>' + m.name + '</button>'; }).join('');
+    ggFenster('<h2 class="gg-titel">Gutschein verschenken</h2>'
+        + '<div id="ggVorschau" class="gg-vorschau">' + ggKarteHtml(Object.assign({ lokal: _gg.rest.name }, d)) + '</div>'
+        + '<div class="gg-feld"><span class="gg-label">Motiv</span><div class="gg-motive" id="ggMotive">' + motive + '</div></div>'
+        + '<div class="gg-feld"><span class="gg-label">Betrag</span><div class="gg-betraege" id="ggBetraege">' + betraege
+        + '<label class="gg-eigen"><input type="number" inputmode="numeric" id="ggBetragEigen" min="' + _gg.info.min + '" max="' + _gg.info.max + '" step="1" placeholder="anderer" aria-label="Anderer Betrag in Euro"' + (GG_BETRAEGE.indexOf(d.betrag) < 0 ? ' value="' + d.betrag + '"' : '') + '> €</label></div></div>'
+        + '<label class="gg-feld"><span class="gg-label">Für wen?</span><input type="text" id="ggEmpfaenger" maxlength="60" placeholder="z. B. Oma Gerda" value="' + escapeHtml(d.empfaenger) + '"></label>'
+        + '<label class="gg-feld"><span class="gg-label">Dein Gruß <small id="ggGrussZahl">' + d.nachricht.length + '/200</small></span><textarea id="ggNachricht" maxlength="200" rows="2" placeholder="z. B. Frohe Weihnachten! Lass es dir schmecken.">' + escapeHtml(d.nachricht) + '</textarea></label>'
+        + '<div class="gg-zwei"><label class="gg-feld"><span class="gg-label">Von</span><input type="text" id="ggVon" maxlength="60" placeholder="Dein Name" value="' + escapeHtml(d.von) + '"></label>'
+        + '<label class="gg-feld"><span class="gg-label">Deine E-Mail</span><input type="email" id="ggEmail" maxlength="120" placeholder="für den Gutschein" value="' + escapeHtml(d.email) + '"></label></div>'
+        + '<p id="ggMeldung" class="gg-meldung" role="status" aria-live="polite"></p>'
+        + '<button type="button" class="gg-knopf gg-voll" id="ggWeiter" onclick="ggZurZahlung()">Weiter zur Zahlung · ' + escapeHtml(ggEuro(d.betrag)) + '</button>'
+        + '<p class="gg-klein">Bezahlt wird per PayPal direkt an ' + escapeHtml(_gg.rest.name || 'das Lokal') + '. Gültig 3 Jahre, auch in Teilbeträgen einlösbar.</p>');
+    var fenster = document.getElementById('ggFenster');
+    fenster.addEventListener('input', ggLesen);
+    fenster.addEventListener('click', function (e) {
+        var b = e.target.closest && e.target.closest('[data-gg-betrag],[data-gg-motiv]');
+        if (!b) return;
+        if (b.hasAttribute('data-gg-betrag')) { _gg.d.betrag = Number(b.getAttribute('data-gg-betrag')); var ei = document.getElementById('ggBetragEigen'); if (ei) ei.value = ''; }
+        else _gg.d.motiv = b.getAttribute('data-gg-motiv');
+        ggLesen();
+    });
+}
+// Felder -> _gg.d, Vorschau und Knoepfe nachziehen.
+function ggLesen() {
+    if (!_gg) return;
+    var d = _gg.d, eigen = ggWert('ggBetragEigen');
+    if (eigen) d.betrag = Number(eigen);
+    d.empfaenger = ggWert('ggEmpfaenger'); d.nachricht = ggWert('ggNachricht'); d.von = ggWert('ggVon'); d.email = ggWert('ggEmail');
+    var v = document.getElementById('ggVorschau'); if (v) v.innerHTML = ggKarteHtml(Object.assign({ lokal: _gg.rest.name }, d));
+    document.querySelectorAll('#ggBetraege [data-gg-betrag]').forEach(function (b) { b.setAttribute('aria-pressed', String(!eigen && Number(b.getAttribute('data-gg-betrag')) === d.betrag)); });
+    document.querySelectorAll('#ggMotive [data-gg-motiv]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-gg-motiv') === d.motiv)); });
+    var z = document.getElementById('ggGrussZahl'); if (z) z.textContent = d.nachricht.length + '/200';
+    var w = document.getElementById('ggWeiter'); if (w) w.textContent = 'Weiter zur Zahlung · ' + (isFinite(d.betrag) && d.betrag > 0 ? ggEuro(d.betrag) : '–');
+}
+// Was fehlt? Text oder ''.
+function ggPruefen(d, info) {
+    var min = (info && info.min) || 10, max = (info && info.max) || 300;
+    if (!isFinite(d.betrag) || Math.round(d.betrag) !== d.betrag || d.betrag < min || d.betrag > max) return 'Bitte einen Betrag von ' + min + ' bis ' + max + ' € in ganzen Euro wählen.';
+    if (!/^[^\s@<>"',;]+@[^\s@<>"',;]+\.[A-Za-z]{2,}$/.test(d.email)) return 'Bitte deine E-Mail-Adresse angeben – dorthin schicken wir den Gutschein.';
+    return '';
+}
+function ggMelden(t, rot) { var m = document.getElementById('ggMeldung'); if (m) { m.textContent = t; m.classList.toggle('gg-rot', !!rot); } }
+
+async function ggZurZahlung() {
+    ggLesen();
+    var d = _gg.d, fehler = ggPruefen(d, _gg.info);
+    if (fehler) { ggMelden(fehler, true); return; }
+    ggFenster('<h2 class="gg-titel">Bezahlen</h2>'
+        + '<div class="gg-vorschau gg-klein-vorschau">' + ggKarteHtml(Object.assign({ lokal: _gg.rest.name }, d)) + '</div>'
+        + '<p class="gg-hinweis">' + escapeHtml(ggEuro(d.betrag)) + ' per PayPal an ' + escapeHtml(_gg.rest.name || 'das Lokal') + '. Der Gutschein entsteht erst, wenn PayPal die Zahlung bestätigt hat.</p>'
+        + '<div id="ggPaypal"></div><p id="ggMeldung" class="gg-meldung" role="status" aria-live="polite"></p>'
+        + '<button type="button" class="gg-knopf gg-rand" onclick="ggFormular()">Zurück</button>');
+    var paypal;
+    try { paypal = await PPC.skript(_gg.info.client_id); }
+    catch (e) { ggMelden('PayPal ist gerade nicht erreichbar. Es wurde nichts abgebucht.', true); return; }
+    var rid = _gg.rest.id;
+    try {
+        await paypal.Buttons({
+            style: { layout: 'vertical', label: 'paypal' },
+            createOrder: async function () {
+                var r = await fetch('/.netlify/functions/geschenkgutschein', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'anlegen', r: rid, betrag: d.betrag }) });
+                var j = await r.json();
+                if (!r.ok || !j.ok || !j.id) { ggMelden((j && j.error) || 'Die Zahlung konnte nicht angelegt werden. Es wurde nichts abgebucht.', true); throw new Error('anlegen'); }
+                return j.id;
+            },
+            onApprove: async function (daten) {
+                ggMelden('Zahlung wird bestätigt – bitte dieses Fenster nicht schließen.');
+                try {
+                    var r = await fetch('/.netlify/functions/geschenkgutschein', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'buchen', r: rid, paypal_id: daten.orderID, betrag: d.betrag, empfaenger: d.empfaenger, nachricht: d.nachricht, kaeufer_name: d.von, kaeufer_email: d.email, motiv: d.motiv }) });
+                    var j = await r.json();
+                    if (j && j.ok && j.gutschein) { ggFertig(j.gutschein, j.mail); return; }
+                    // Bezahlt, aber kein Gutschein: nie ein schlichtes "ging nicht".
+                    ggMelden((j && j.error) || ('Die Zahlung ist angekommen, der Gutschein aber nicht. Bitte melde dich beim Lokal und nenne: ' + daten.orderID), true);
+                } catch (e) {
+                    ggMelden('Verbindungsfehler nach der Zahlung. Bitte NICHT erneut bezahlen – melde dich beim Lokal und nenne: ' + daten.orderID, true);
+                }
+            },
+            onCancel: function () { ggMelden('Abgebrochen – es wurde nichts abgebucht.'); },
+            onError: function () { ggMelden('PayPal meldet einen Fehler. Es wurde nichts abgebucht.', true); }
+        }).render('#ggPaypal');
+    } catch (e) { ggMelden('PayPal-Knöpfe nicht darstellbar. Es wurde nichts abgebucht.', true); }
+}
+window.ggZurZahlung = ggZurZahlung;
+window.ggFormular = ggFormular;
+
+function ggDaten(g) { return { lokal: g.lokal && g.lokal.name, betrag: g.betrag, rest: g.rest, empfaenger: g.empfaenger, nachricht: g.nachricht, von: g.von, code: g.code, gueltig_bis: g.gueltig_bis, motiv: g.motiv }; }
+function ggLink(code) { return 'https://kiekmolin.de/?gutschein=' + encodeURIComponent(code); }
+function ggFertig(g, gemailt) {
+    _gg = _gg || {}; _gg.fertig = g;
+    ggFenster('<div class="gg-geschafft"><span class="material-symbols-outlined" aria-hidden="true">redeem</span> Bezahlt – dein Gutschein ist fertig!</div>'
+        + '<div class="gg-vorschau">' + ggKarteHtml(ggDaten(g)) + '</div>'
+        + '<div class="gg-aktionen">'
+        + '<button type="button" class="gg-knopf gg-voll" onclick="ggBildSpeichern()">Als Bild speichern</button>'
+        + '<button type="button" class="gg-knopf gg-rand" onclick="ggTeilen()">Teilen</button></div>'
+        + '<p class="gg-klein">' + (gemailt ? 'Wir haben ihn dir auch per Mail geschickt.' : 'Die Mail konnte gerade nicht verschickt werden – bitte speichere das Bild oder den Link.') + ' Link: <a href="' + ggLink(g.code) + '">' + escapeHtml(ggLink(g.code).replace('https://', '')) + '</a></p>');
+}
+
+// Ansicht per Link: kiekmolin.de/?gutschein=KIN-XXXX-XXXX
+async function ggAnsehen(code) {
+    ggFenster('<div class="gg-laden">Gutschein wird geladen …</div>');
+    try {
+        var r = await fetch('/.netlify/functions/geschenkgutschein', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'ansehen', code: code }) });
+        var j = await r.json();
+        if (!j.ok) { ggFenster('<h2 class="gg-titel">Gutschein</h2><p class="gg-hinweis">' + escapeHtml(j.error || 'Nicht gefunden.') + '</p>'); return; }
+        var g = j.gutschein; _gg = { fertig: g };
+        var zu = g.status === 'eingeloest' ? '<p class="gg-hinweis">Dieser Gutschein ist ganz eingelöst.</p>' : '';
+        ggFenster('<h2 class="gg-titel">Dein Gutschein</h2><div class="gg-vorschau">' + ggKarteHtml(ggDaten(g)) + '</div>' + zu
+            + '<div class="gg-aktionen"><button type="button" class="gg-knopf gg-voll" onclick="ggBildSpeichern()">Als Bild speichern</button>'
+            + (g.lokal && (g.lokal.slug || g.lokal.id) ? '<a class="gg-knopf gg-rand" href="/?r=' + encodeURIComponent(g.lokal.slug || g.lokal.id) + '">Zum Lokal</a>' : '') + '</div>'
+            + '<p class="gg-klein">Einlösen: im Lokal den Code zeigen. Auch in mehreren Besuchen – der Rest bleibt drauf.</p>');
+    } catch (e) { ggFenster('<h2 class="gg-titel">Gutschein</h2><p class="gg-hinweis">Gerade nicht erreichbar – bitte gleich noch einmal öffnen.</p>'); }
+}
+window.ggAnsehen = ggAnsehen;
+
+async function ggTeilen() {
+    var g = _gg && _gg.fertig; if (!g) return;
+    var url = ggLink(g.code), txt = 'Ein Gutschein für dich' + (g.lokal ? ' – ' + g.lokal.name : '') + ' 🎁';
+    try { if (navigator.share) { await navigator.share({ title: 'Gutschein', text: txt, url: url }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+    try { await navigator.clipboard.writeText(url); showToast('Link kopiert', 'success'); } catch (e) { showToast('Link: ' + url, 'info'); }
+}
+window.ggTeilen = ggTeilen;
+
+// Das Bild: der Gutschein auf eine Leinwand gemalt (gleiches Design wie oben),
+// 2x fuer scharfe Handys. Kein html2canvas, keine fremde Bibliothek.
+function ggUmbruch(ctx, text, breite) {
+    var woerter = String(text).split(' '), zeilen = [], z = '';
+    woerter.forEach(function (w) { var t = z ? z + ' ' + w : w; if (ctx.measureText(t).width > breite && z) { zeilen.push(z); z = w; } else z = t; });
+    if (z) zeilen.push(z);
+    return zeilen.slice(0, 3);
+}
+async function ggBildSpeichern() {
+    var g = _gg && _gg.fertig; if (!g) return;
+    try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (e) {}
+    var m = GG_MOTIVE[g.motiv] || GG_MOTIVE.klassisch, S = 2, W = 900, H = 560;
+    var c = document.createElement('canvas'); c.width = W * S; c.height = H * S;
+    var x = c.getContext('2d'); x.scale(S, S);
+    var r = 36;
+    x.beginPath(); x.moveTo(r, 0); x.arcTo(W, 0, W, H, r); x.arcTo(W, H, 0, H, r); x.arcTo(0, H, 0, 0, r); x.arcTo(0, 0, W, 0, r); x.closePath(); x.clip();
+    var grad = x.createLinearGradient(0, 0, W, H); grad.addColorStop(0, m.grund); grad.addColorStop(1, m.grund2); x.fillStyle = grad; x.fillRect(0, 0, W, H);
+    x.fillStyle = m.akzent; x.globalAlpha = 0.12; x.beginPath(); x.arc(W - 40, 60, 190, 0, Math.PI * 2); x.fill(); x.globalAlpha = 1;
+    x.fillStyle = m.akzent; x.font = '700 22px Inter, sans-serif'; x.textBaseline = 'top';
+    x.fillText('G U T S C H E I N', 56, 52);
+    x.fillStyle = m.leise; x.font = '700 22px Epilogue, Inter, sans-serif'; x.textAlign = 'right';
+    x.fillText(String((g.lokal && g.lokal.name) || '').toUpperCase().slice(0, 32), W - 56, 52); x.textAlign = 'left';
+    x.fillStyle = m.text; x.font = '800 132px Epilogue, Inter, sans-serif';
+    x.fillText(ggEuro(g.betrag).replace(' €', '') + ' €', 52, 110);
+    var y = 262;
+    if (g.empfaenger) { x.font = '600 32px Inter, sans-serif'; x.fillStyle = m.text; x.fillText('für ' + g.empfaenger, 56, y); y += 50; }
+    if (g.nachricht) { x.font = 'italic 400 25px Inter, sans-serif'; x.fillStyle = m.leise; ggUmbruch(x, '„' + g.nachricht + '“' + (g.von ? ' – ' + g.von : ''), W - 112).forEach(function (z) { x.fillText(z, 56, y); y += 34; }); }
+    else if (g.von) { x.font = 'italic 400 25px Inter, sans-serif'; x.fillStyle = m.leise; x.fillText('von ' + g.von, 56, y); }
+    // Abriss-Linie mit Kerben wie bei einer Eintrittskarte
+    var ly = H - 108;
+    x.save(); x.globalCompositeOperation = 'destination-out'; x.beginPath(); x.arc(0, ly, 22, 0, Math.PI * 2); x.arc(W, ly, 22, 0, Math.PI * 2); x.fill(); x.restore();
+    x.strokeStyle = m.leise; x.setLineDash([10, 9]); x.lineWidth = 2; x.beginPath(); x.moveTo(40, ly); x.lineTo(W - 40, ly); x.stroke(); x.setLineDash([]);
+    x.fillStyle = m.text; x.font = '700 34px Menlo, Consolas, monospace'; x.fillText(g.code, 56, ly + 34);
+    x.fillStyle = m.leise; x.font = '500 21px Inter, sans-serif'; x.textAlign = 'right';
+    x.fillText('gültig bis ' + ggDatum(g.gueltig_bis) + '  ·  kiekmolin.de', W - 56, ly + 42); x.textAlign = 'left';
+    var name = 'Gutschein-' + String((g.lokal && g.lokal.name) || 'kiekmolin').replace(/[^A-Za-z0-9äöüÄÖÜß]+/g, '-') + '-' + g.code + '.png';
+    c.toBlob(async function (blob) {
+        if (!blob) { showToast('Bild konnte nicht erstellt werden', 'error'); return; }
+        // Handy: direkt teilen (WhatsApp, Fotos ...). Sonst herunterladen.
+        try {
+            var datei = new File([blob], name, { type: 'image/png' });
+            if (navigator.canShare && navigator.canShare({ files: [datei] })) { await navigator.share({ files: [datei], title: 'Gutschein' }); return; }
+        } catch (e) { if (e && e.name === 'AbortError') return; }
+        var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
+        setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+        showToast('Gutschein als Bild gespeichert', 'success');
+    }, 'image/png');
+}
+window.ggBildSpeichern = ggBildSpeichern;
+
+// ==================== GESCHENKGUTSCHEINE IM DASHBOARD (03.11.2026) ====================
+// Einloesen (alle im Team -- passiert an der Kasse), Liste, und der Schalter
+// "online verkaufen" (nur Inhaber: das ist eine Einstellung wie PayPal).
+function ggWirtRid() {
+    try { return (typeof getControlRestaurantId === 'function' && getControlRestaurantId()) || (currentAdmin && currentAdmin.restaurant_id) || ''; } catch (e) { return ''; }
+}
+async function ggWirtAufruf(daten) {
+    try {
+        var res = await fetch('/.netlify/functions/geschenkgutschein', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + kmiToken() }, body: JSON.stringify(daten) });
+        var j = await res.json().catch(function () { return { ok: false, error: 'HTTP ' + res.status }; });
+        j._status = res.status; return j;
+    } catch (e) { return { ok: false, error: 'Keine Verbindung' }; }
+}
+async function ggWirtOeffnen() {
+    var rid = ggWirtRid();
+    if (!rid) { showToast('Kein Restaurant gefunden', 'error'); return; }
+    showGenericModal('Geschenkgutscheine', '<div id="ggWirt" class="gg-wirt">'
+        + '<form class="gg-w-einloesen" onsubmit="event.preventDefault(); ggWirtEinloesen();">'
+        + '<b>Gutschein einlösen</b>'
+        + '<div class="gg-w-reihe"><input id="ggWCode" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="KIN-XXXX-XXXX" aria-label="Gutschein-Code">'
+        + '<input id="ggWBetrag" type="text" inputmode="decimal" autocomplete="off" placeholder="Betrag €" aria-label="Betrag in Euro">'
+        + '<button type="submit">Einlösen</button></div>'
+        + '<p id="ggWStand" class="gg-w-stand" role="status" aria-live="polite">Code vom Gutschein eintippen und den Betrag der Rechnung. Ist die Rechnung höher, zahlt der Gast den Rest normal.</p></form>'
+        + '<div id="ggWSchalter"></div><div id="ggWListe"><p class="gg-w-stand">Lade …</p></div></div>');
+    ggWirtLaden();
+}
+window.ggWirtOeffnen = ggWirtOeffnen;
+
+// Summen fuer die Liste -- im Test ausgefuehrt.
+function ggWirtSummen(liste) {
+    var s = { anzahl: 0, verkauft: 0, offen: 0, eingeloest: 0 };
+    (liste || []).forEach(function (g) {
+        if (g.status === 'storniert') return;
+        s.anzahl++; s.verkauft += Number(g.betrag) || 0; s.offen += Number(g.rest) || 0;
+    });
+    s.eingeloest = Math.round((s.verkauft - s.offen) * 100) / 100;
+    return s;
+}
+async function ggWirtLaden() {
+    var rid = ggWirtRid(), box = document.getElementById('ggWListe'), sch = document.getElementById('ggWSchalter');
+    if (!box) return;
+    var rest = (APP_DATA.restaurants || []).find(function (r) { return r.id === rid; }) || {};
+    var an = ggVerkauft(rest);
+    // Schalter: nur der Inhaber (und Ibo). Mit ehrlichem Stand, was fehlt.
+    if (sch && teamRolle() === 'inhaber') {
+        var info = await ggWirtAufruf({ action: 'info', r: rid });
+        var grund = !an ? 'Aus – Gäste sehen auf eurer Seite nichts davon.'
+            : (info && info.aktiv) ? 'An – Gäste sehen auf eurer Lokalseite „Gutschein verschenken“. Das Geld geht direkt auf euer PayPal.'
+            : (info && info.grund === 'kein_paypal') ? 'An, aber PayPal ist noch nicht eingerichtet – ohne PayPal können Gäste nichts kaufen (Einstellungen › Zahlung).'
+            : (info && info.grund === 'sql51') ? 'An, aber die Datenbank ist noch nicht vorbereitet (SQL 51) – Gäste sehen eine Meldung statt der Kasse.'
+            : 'An – Stand gerade nicht prüfbar.';
+        sch.innerHTML = '<div class="gg-w-schalter"><div><b>Online verkaufen</b><small id="ggWSchalterText">' + escapeHtml(grund) + '</small></div>'
+            + '<button type="button" role="switch" aria-checked="' + an + '" id="ggWSchalterKnopf" onclick="ggWirtSchalter(' + (!an) + ')"><i></i></button></div>';
+    }
+    var j = await ggWirtAufruf({ action: 'liste', r: rid });
+    if (!j.ok) {
+        // Nicht still leer: eine leere Liste sähe aus wie "noch nichts verkauft".
+        box.innerHTML = '<p class="gg-w-fehler" role="alert">Liste nicht geladen: ' + escapeHtml(j.error || 'unbekannt') + '</p>';
+        return;
+    }
+    var liste = j.gutscheine || [], s = ggWirtSummen(liste);
+    var zeilen = liste.map(function (g) {
+        var st = g.status === 'eingeloest' ? 'eingelöst' : g.status === 'storniert' ? 'storniert' : (String(g.gueltig_bis) < new Date().toLocaleDateString('sv-SE') ? 'abgelaufen' : 'offen');
+        return '<div class="gg-w-zeile"><div><b class="gg-w-code">' + escapeHtml(g.code) + '</b><small>'
+            + escapeHtml([g.empfaenger_name ? 'für ' + g.empfaenger_name : '', g.kaeufer_name ? 'von ' + g.kaeufer_name : '', ggDatum(String(g.erstellt || '').slice(0, 10))].filter(Boolean).join(' · ')) + '</small></div>'
+            + '<div class="gg-w-betrag"><b>' + escapeHtml(ggEuro(g.rest)) + '</b><small>von ' + escapeHtml(ggEuro(g.betrag)) + ' · ' + st + '</small></div></div>';
+    }).join('');
+    box.innerHTML = '<div class="gg-w-summen"><div><small>Verkauft</small><b>' + escapeHtml(ggEuro(s.verkauft)) + '</b><small>' + s.anzahl + ' Gutscheine</small></div>'
+        + '<div><small>Noch offen</small><b>' + escapeHtml(ggEuro(s.offen)) + '</b><small>auf den Gutscheinen</small></div>'
+        + '<div><small>Eingelöst</small><b>' + escapeHtml(ggEuro(s.eingeloest)) + '</b><small>bisher</small></div></div>'
+        + (zeilen || '<p class="gg-w-stand">Noch keine Gutscheine verkauft.</p>');
+}
+async function ggWirtEinloesen() {
+    var rid = ggWirtRid(), st = document.getElementById('ggWStand');
+    var code = ((document.getElementById('ggWCode') || {}).value || '').trim(), betrag = Number(String((document.getElementById('ggWBetrag') || {}).value || '').replace(',', '.'));
+    if (!code) { if (st) { st.textContent = 'Bitte den Code eintippen.'; st.className = 'gg-w-stand gg-w-rot'; } return false; }
+    if (!(betrag > 0)) { if (st) { st.textContent = 'Bitte den Betrag eintippen.'; st.className = 'gg-w-stand gg-w-rot'; } return false; }
+    var j = await ggWirtAufruf({ action: 'einloesen', r: rid, code: code, betrag: betrag });
+    if (!j.ok) {
+        if (st) { st.textContent = 'Nicht eingelöst: ' + (j.error || 'unbekannt') + (j.gutschein ? ' (Rest: ' + ggEuro(j.gutschein.rest) + ')' : ''); st.className = 'gg-w-stand gg-w-rot'; }
+        return false;
+    }
+    if (st) { st.textContent = '✓ ' + ggEuro(j.eingeloest) + ' eingelöst. ' + (j.rest > 0 ? 'Auf ' + j.code + ' sind noch ' + ggEuro(j.rest) + '.' : 'Der Gutschein ist jetzt ganz verbraucht.'); st.className = 'gg-w-stand gg-w-gruen'; }
+    var c = document.getElementById('ggWCode'), b = document.getElementById('ggWBetrag'); if (c) c.value = ''; if (b) b.value = '';
+    showToast(ggEuro(j.eingeloest) + ' vom Gutschein abgezogen', 'success');
+    ggWirtLaden();
+    return true;
+}
+window.ggWirtEinloesen = ggWirtEinloesen;
+async function ggWirtSchalter(an) {
+    var rid = ggWirtRid(), txt = document.getElementById('ggWSchalterText');
+    try {
+        var res = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(rid) + '&select=features', { headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + kmiToken() } });
+        var data = await res.json();
+        if (!Array.isArray(data) || !data[0]) throw new Error('Restaurant nicht lesbar');
+        var f = (data[0].features || []).filter(function (x) { return x !== 'geschenkgutschein'; });
+        if (an) f.push('geschenkgutschein');
+        var up = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(rid) + '&select=id,features', {
+            method: 'PATCH', headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', Prefer: 'return=representation' }, body: JSON.stringify({ features: f })
+        });
+        if (!up.ok) throw new Error('HTTP ' + up.status);
+        var z = await up.json();
+        if (!Array.isArray(z) || !z.length) throw new Error('keine Berechtigung – nichts gespeichert');
+        var appR = (APP_DATA.restaurants || []).find(function (r) { return r.id === rid; });
+        if (appR) appR.features = z[0].features || f;
+        showToast(an ? 'Gutscheine sind jetzt online zu kaufen' : 'Online-Verkauf ausgeschaltet', 'success');
+        ggWirtLaden();
+        return true;
+    } catch (e) {
+        if (txt) txt.textContent = 'Nicht gespeichert: ' + (e && e.message || e) + '. Es gilt der alte Stand.';
+        showToast('Schalter nicht gespeichert', 'error');
+        return false;
+    }
+}
+window.ggWirtSchalter = ggWirtSchalter;
 
 // Die zwei Schluessel aus dem Dashboard heraus setzen.
 //
