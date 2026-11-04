@@ -177,7 +177,7 @@ function rufe(body, tok) { return F.handler({ httpMethod: 'POST', headers: tok ?
     r = await rufe({ action: 'einloesen', r: RID, code: welt.gutscheine[0].code, betrag: 10 }, 'tok');
     t('vor Ort verkaufter Gutschein laesst sich normal einloesen', r.j.ok && r.j.rest === 2.5, JSON.stringify(r.j));
     neueWelt(); await rufe(kauf);
-    t('Mail (online): Gutschein-Karte mit Betrag, Code, gueltig bis; "per PayPal"', /GUTSCHEIN/.test(welt.mails[0].html) && />50&nbsp;€</.test(welt.mails[0].html) && /gültig bis 31\.12\./.test(welt.mails[0].html) && /Bezahlt per PayPal an Hafenkate/.test(welt.mails[0].html), welt.mails[0].html.slice(0, 160));
+    t('Mail (online): Geschenk-Kopf "Für Oma Gerda", Karte mit Betrag/Code/gueltig bis, Weiterleiten-Tipp, "per PayPal"', /GUTSCHEIN/.test(welt.mails[0].html) && />50<span[^>]*>&nbsp;€</.test(welt.mails[0].html) && /gültig bis<br>31\.12\./.test(welt.mails[0].html) && /Für <i>Oma Gerda<\/i>/.test(welt.mails[0].html) && /Ein Geschenk für Oma Gerda/.test(welt.mails[0].subject) && /Leite diese Mail einfach an Oma Gerda weiter/.test(welt.mails[0].html) && /Bezahlt per PayPal an Hafenkate/.test(welt.mails[0].html), welt.mails[0].html.slice(0, 160));
     t('Hilfe: Betrag vor Ort mit Komma, 5-500 €', F._test.betragVorOrt('12,50') === 12.5 && F._test.betragVorOrt(4.99) === null && F._test.betragVorOrt(501) === null, '');
     welt.user = 'wirt@hafenkate.de';
     r = await rufe({ action: 'liste', r: RID }, 'tok');

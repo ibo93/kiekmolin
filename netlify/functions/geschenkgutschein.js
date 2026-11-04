@@ -182,49 +182,82 @@ async function einfuegen(neu) {
 // Vor Ort: Betrag in Euro und Cent, 5 bis 500.
 function betragVorOrt(b) { var z = Math.round(Number(String(b == null ? '' : b).replace(',', '.')) * 100) / 100; return isFinite(z) && z >= 5 && z <= 500 ? z : null; }
 
-// Der Gutschein IN der Mail: Tabellen und Inline-Farben (Outlook/Gmail),
-// Farben wie auf der Karte. Motiv Geburtstag/Danke: helle Karte, dunkle Schrift.
+// Der Gutschein IN der Mail -- so nah an der echten Karte, wie Mailprogramme
+// es zulassen: Tabellen, Inline-Farben, bgcolor als Rueckfall fuer den Verlauf
+// (Outlook malt nur bgcolor), Goldrahmen als innere Tabelle, Siegel, Abriss.
+// Kein Bild: viele Programme laden Bilder erst auf Nachfrage.
+// [grund, verlauf-hell, text, gold, leise, rahmen]
 var MAIL_MOTIV = {
-    klassisch: ['#003d33', '#fbf6e9', '#e9c866', 'rgba(251,246,233,0.75)'],
-    festlich: ['#5b1a1a', '#fff6ea', '#e9c866', 'rgba(255,246,234,0.78)'],
-    geburtstag: ['#f6c544', '#00251e', '#00483c', 'rgba(0,37,30,0.72)'],
-    danke: ['#f3ecdc', '#00251e', '#8a6a1c', 'rgba(0,37,30,0.66)']
+    klassisch: ['#002a23', '#00513f', '#fbf6e9', '#e9c866', '#cfd8cc', '#8a7a3f'],
+    festlich: ['#3f0d12', '#8a2329', '#fff6ea', '#e9c866', '#e8cfc6', '#9a7a3a'],
+    geburtstag: ['#f2b12c', '#ffdc72', '#00251e', '#00483c', '#3d5a50', '#3d5a50'],
+    danke: ['#e9dfc8', '#fdfaf2', '#00251e', '#8a6a1c', '#5b6b64', '#b9a77f']
 };
+var M_SERIF = "Georgia,'Times New Roman',serif", M_SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 function mailKarte(g, rest) {
-    var f = MAIL_MOTIV[g.motiv] || MAIL_MOTIV.klassisch, E = MAIL.esc, serif = "Georgia,'Times New Roman',serif", sans = "-apple-system,'Segoe UI',Roboto,Arial,sans-serif";
-    var betrag = betragStr(g.betrag).replace('.', ',').replace(',00', '') + '&nbsp;€';
-    return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0;border-collapse:separate;"><tr>'
-        + '<td bgcolor="' + f[0] + '" style="background:' + f[0] + ';border-radius:16px;padding:0;border:1px solid ' + f[2] + ';">'
-        + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>'
-        + '<td style="padding:22px 22px 20px;vertical-align:top;">'
-        + '<div style="font-family:' + sans + ';font-size:11px;font-weight:700;letter-spacing:4px;color:' + f[2] + ';">GUTSCHEIN</div>'
-        + '<div style="font-family:' + sans + ';font-size:11px;font-weight:700;letter-spacing:2px;color:' + f[3] + ';margin-top:3px;">' + E(String(rest.name || '').toUpperCase()) + '</div>'
-        + '<div style="font-family:' + serif + ';font-size:52px;line-height:1;font-weight:700;color:' + f[1] + ';margin-top:16px;">' + betrag + '</div>'
-        + (g.empfaenger_name ? '<div style="font-family:' + serif + ';font-size:18px;font-style:italic;color:' + f[1] + ';margin-top:10px;">für <b style="font-style:normal;">' + E(g.empfaenger_name) + '</b></div>' : '')
-        + (g.nachricht ? '<div style="font-family:' + serif + ';font-size:14px;font-style:italic;color:' + f[3] + ';margin-top:6px;">„' + E(g.nachricht) + '“' + (g.kaeufer_name ? '<br>– ' + E(g.kaeufer_name) : '') + '</div>' : '')
+    var f = MAIL_MOTIV[g.motiv] || MAIL_MOTIV.klassisch, E = MAIL.esc;
+    var mono = E(String(rest.name || 'K').trim().charAt(0).toUpperCase());
+    var betrag = betragStr(g.betrag).replace('.', ',').replace(',00', '');
+    var lokalZeile = E([rest.name, rest.city].filter(Boolean).join(' · ').toUpperCase());
+    return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0 22px;border-collapse:separate;">'
+        + '<tr><td bgcolor="' + f[0] + '" style="background-color:' + f[0] + ';background-image:linear-gradient(135deg,' + f[1] + ' 0%,' + f[0] + ' 75%);border-radius:18px;padding:9px;box-shadow:0 18px 36px -18px rgba(0,37,30,0.55);">'
+        // Goldrahmen
+        + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ' + f[5] + ';border-radius:12px;border-collapse:separate;"><tr>'
+        // Hauptteil
+        + '<td valign="top" style="padding:20px 18px 20px 20px;">'
+        + '<table role="presentation" cellpadding="0" cellspacing="0"><tr>'
+        + '<td width="40" height="40" align="center" valign="middle" style="width:40px;height:40px;border:2px solid ' + f[3] + ';border-radius:50%;font-family:' + M_SERIF + ';font-size:20px;font-weight:700;color:' + f[3] + ';line-height:36px;">' + mono + '</td>'
+        + '<td style="padding-left:12px;">'
+        + '<div style="font-family:' + M_SANS + ';font-size:11px;font-weight:700;letter-spacing:5px;color:' + f[3] + ';">GUTSCHEIN</div>'
+        + '<div style="font-family:' + M_SANS + ';font-size:10px;font-weight:800;letter-spacing:2px;color:' + f[4] + ';margin-top:3px;">' + lokalZeile + '</div></td></tr></table>'
+        + '<div style="margin-top:18px;font-family:' + M_SERIF + ';font-size:62px;line-height:0.95;font-weight:700;color:' + f[2] + ';letter-spacing:-1px;">' + E(betrag)
+        + '<span style="font-size:30px;vertical-align:top;color:' + f[3] + ';font-weight:400;">&nbsp;€</span></div>'
+        + (g.empfaenger_name ? '<div style="margin-top:12px;font-family:' + M_SERIF + ';font-size:19px;font-style:italic;color:' + f[2] + ';">für <b style="font-style:normal;">' + E(g.empfaenger_name) + '</b></div>' : '')
+        + (g.nachricht ? '<div style="margin-top:6px;font-family:' + M_SERIF + ';font-size:14px;line-height:1.45;font-style:italic;color:' + f[4] + ';">„' + E(g.nachricht) + '“</div>' : '')
+        + (g.kaeufer_name ? '<div style="margin-top:4px;font-family:' + M_SERIF + ';font-size:14px;color:' + f[4] + ';">– ' + E(g.kaeufer_name) + '</div>' : '')
         + '</td>'
-        + '<td width="150" style="width:150px;padding:18px 14px;border-left:2px dashed ' + f[3] + ';text-align:center;vertical-align:middle;">'
-        + '<div style="font-family:' + serif + ';font-size:40px;font-weight:700;color:' + f[2] + ';line-height:1;">' + E(String(rest.name || 'K').trim().charAt(0).toUpperCase()) + '</div>'
-        + '<div style="font-family:' + sans + ';font-size:9px;font-weight:700;letter-spacing:3px;color:' + f[3] + ';margin-top:12px;">CODE</div>'
-        + '<div style="font-family:Menlo,Consolas,monospace;font-size:14px;font-weight:700;color:' + f[1] + ';margin-top:4px;">' + E(g.code) + '</div>'
-        + '<div style="font-family:' + sans + ';font-size:10px;color:' + f[3] + ';margin-top:8px;">gültig bis ' + E(g.gueltig_bis.split('-').reverse().join('.')) + '</div>'
+        // Abriss
+        + '<td width="132" valign="middle" align="center" style="width:132px;padding:18px 10px;border-left:2px dashed ' + f[5] + ';">'
+        + '<div style="font-family:' + M_SERIF + ';font-size:46px;font-weight:700;line-height:1;color:' + f[3] + ';">' + mono + '</div>'
+        + '<div style="margin-top:14px;font-family:' + M_SANS + ';font-size:9px;font-weight:700;letter-spacing:3px;color:' + f[4] + ';">CODE</div>'
+        + '<div style="margin-top:5px;font-family:Menlo,Consolas,monospace;font-size:13px;font-weight:700;color:' + f[2] + ';white-space:nowrap;">' + E(g.code) + '</div>'
+        + '<div style="margin-top:9px;font-family:' + M_SANS + ';font-size:10px;line-height:1.5;color:' + f[4] + ';">gültig bis<br>' + E(String(g.gueltig_bis).split('-').reverse().join('.')) + '</div>'
         + '</td></tr></table></td></tr></table>';
+}
+// Kopf der Mail: das Geschenk zuerst.
+function mailGeschenkKopf(g, rest, vorOrt) {
+    var E = MAIL.esc;
+    return '<div style="text-align:center;padding:4px 0 14px;">'
+        + '<div style="font-family:' + M_SANS + ';font-size:11px;font-weight:800;letter-spacing:4px;color:#8a6100;">EIN GESCHENK' + (g.empfaenger_name ? '' : ' VON KIEK MOL IN') + '</div>'
+        + '<div style="margin-top:8px;font-family:' + M_SERIF + ';font-size:30px;line-height:1.15;color:#00251e;">' + (g.empfaenger_name ? 'Für <i>' + E(g.empfaenger_name) + '</i>' : 'Ein Abend bei ' + E(rest.name)) + '</div>'
+        + '<div style="margin-top:6px;font-family:' + M_SANS + ';font-size:14px;color:#57534e;">' + (g.kaeufer_name ? 'von ' + E(g.kaeufer_name) + ' · ' : '') + 'bei ' + E(rest.name) + (rest.city ? ' in ' + E(rest.city) : '') + '</div></div>';
+}
+function mailSchritte(rest) {
+    var E = MAIL.esc, zelle = function (n, t) { return '<td width="33%" valign="top" style="padding:0 6px;text-align:center;"><div style="width:30px;height:30px;line-height:30px;margin:0 auto;border-radius:50%;background:#e8f1ed;font-family:' + M_SANS + ';font-size:13px;font-weight:800;color:#0b3d33;">' + n + '</div><div style="margin-top:8px;font-family:' + M_SANS + ';font-size:12px;line-height:1.45;color:#44403c;">' + t + '</div></td>'; };
+    return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:22px 0 4px;"><tr>'
+        + zelle(1, 'Bei ' + E(rest.name) + ' den Code zeigen oder sagen') + zelle(2, 'Betrag wird von der Rechnung abgezogen') + zelle(3, 'Rest bleibt drauf – für den nächsten Besuch')
+        + '</tr></table>';
+}
+function mailGoldKnopf(text, url) {
+    return '<table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto;"><tr><td bgcolor="#ffd54f" style="background:#ffd54f;border-radius:999px;">'
+        + '<a href="' + MAIL.esc(url) + '" style="display:inline-block;padding:15px 30px;font-family:' + M_SANS + ';font-size:15px;font-weight:800;color:#00251e;text-decoration:none;border-radius:999px;">' + text + '</a></td></tr></table>';
 }
 async function mailSchicken(g, rest) {
     if (!RESEND_API_KEY || !g.kaeufer_email) return false;
     var url = MAIL.SITE + '/?gutschein=' + encodeURIComponent(g.code);
     var betrag = betragStr(g.betrag).replace('.', ',') + ' €';
     var vorOrt = g.verkauft_ueber === 'bar' || g.verkauft_ueber === 'karte';
-    var inhalt = '<p style="margin:0 0 4px;">' + (vorOrt ? 'Danke für deinen Besuch bei ' + MAIL.esc(rest.name) + '!' : 'Danke für deinen Kauf!') + ' Hier ist dein Gutschein'
-        + (g.empfaenger_name ? ' für <b>' + MAIL.esc(g.empfaenger_name) + '</b>' : '') + ' – zum Ausdrucken (21 × 10 cm) oder Weiterschicken.</p>'
+    var inhalt = mailGeschenkKopf(g, rest, vorOrt)
         + mailKarte(g, rest)
-        + MAIL.knopf('Gutschein ansehen, drucken &amp; teilen', url, 'voll')
-        + MAIL.kasten('<b>So löst du ihn ein:</b> Bei ' + MAIL.esc(rest.name) + ' den Code zeigen oder sagen. Der Betrag wird von der Rechnung abgezogen – was übrig bleibt, gilt für den nächsten Besuch. '
-            + (vorOrt ? 'Bezahlt im Lokal.' : 'Bezahlt per PayPal an ' + MAIL.esc(rest.name) + '.'), 'gruen');
+        + mailGoldKnopf('Gutschein ansehen &amp; drucken', url)
+        + '<p style="margin:10px 0 0;text-align:center;font-family:' + M_SANS + ';font-size:12px;color:#78716c;">Zum Ausdrucken in 21 × 10 cm oder als Bild aufs Handy.</p>'
+        + mailSchritte(rest)
+        + (g.empfaenger_name ? MAIL.kasten('<b>Tipp:</b> Leite diese Mail einfach an ' + MAIL.esc(g.empfaenger_name) + ' weiter – oder druck den Gutschein aus und steck ihn in eine Karte.', 'gruen') : '')
+        + '<p style="margin:14px 0 0;font-family:' + M_SANS + ';font-size:12px;color:#78716c;">' + (vorOrt ? 'Bezahlt im Lokal.' : 'Bezahlt per PayPal an ' + MAIL.esc(rest.name) + '.') + ' 3 Jahre gültig, auch in Teilbeträgen einlösbar.</p>';
     var body = Object.assign(MAIL.versandKopf(rest, EMAIL_FROM), {
         to: [g.kaeufer_email],
-        subject: 'Dein Gutschein für ' + rest.name + ' (' + betrag + ')',
-        html: MAIL.rahmen({ lokal: rest, titel: 'Dein Gutschein über ' + betrag, inhalt: inhalt, vorschau: 'Code ' + g.code + ' · gültig bis ' + g.gueltig_bis, titelText: 'Gutschein' })
+        subject: (g.empfaenger_name ? '🎁 Ein Geschenk für ' + g.empfaenger_name + ': ' : '🎁 Dein Gutschein: ') + betrag.replace(',00', '') + ' bei ' + rest.name,
+        html: MAIL.rahmen({ lokal: rest, inhalt: inhalt, vorschau: (g.empfaenger_name ? 'Ein Geschenk für ' + g.empfaenger_name + ' – ' : '') + betrag + ' bei ' + rest.name + ' · Code ' + g.code, titelText: 'Gutschein' })
     });
     try {
         var res = await MAIL.senden(RESEND_API_KEY, body, EMAIL_FROM);
