@@ -160,6 +160,26 @@ function rufe(body, tok) { return F.handler({ httpMethod: 'POST', headers: tok ?
     t('Rest ganz einloesen -> Status eingeloest', r.j.ok && g.status === 'eingeloest' && g.rest === 0, JSON.stringify(g));
     r = await rufe({ action: 'einloesen', r: RID, code: g.code, betrag: 1 }, 'tok');
     t('danach nochmal -> "schon ganz eingelöst"', r.code === 409 && /schon ganz eingelöst/.test(r.j.error), JSON.stringify(r.j));
+    // ---- Vor Ort verkaufen ----
+    neueWelt(); welt.konto = []; welt.lokal.features = [];   // ohne PayPal und ohne Online-Schalter
+    r = await rufe({ action: 'vorort', r: RID, betrag: '12,50', zahlart: 'bar', empfaenger: 'Mia' });
+    t('vor Ort ohne Anmeldung -> 403', r.code === 403 && !welt.gutscheine.length, r.code);
+    r = await rufe({ action: 'vorort', r: RID, betrag: 50, zahlart: '' }, 'tok');
+    t('vor Ort ohne Zahlart -> 400, nichts angelegt', r.code === 400 && !welt.gutscheine.length && /bar oder Karte/.test(r.j.error), JSON.stringify(r.j));
+    r = await rufe({ action: 'vorort', r: RID, betrag: 3, zahlart: 'bar' }, 'tok');
+    t('vor Ort 3 € -> 400', r.code === 400 && !welt.gutscheine.length, r.code);
+    r = await rufe({ action: 'vorort', r: RID, betrag: '12,50', zahlart: 'bar', empfaenger: 'Mia', motiv: 'geburtstag' }, 'tok');
+    var gv = welt.gutscheine[0];
+    t('vor Ort bar 12,50 € (ohne PayPal, ohne Schalter) -> Gutschein, gleicher Code-Typ', r.j.ok && gv && gv.betrag === 12.5 && gv.rest === 12.5 && gv.verkauft_ueber === 'bar' && !gv.paypal_order_id && /^KIN-/.test(gv.code) && gv.motiv === 'geburtstag', JSON.stringify(gv));
+    t('vor Ort ohne E-Mail -> keine Mail', welt.mails.length === 0 && r.j.mail === null, welt.mails.length);
+    r = await rufe({ action: 'vorort', r: RID, betrag: 40, zahlart: 'karte', kaeufer_email: 'gast@x.de', empfaenger: 'Jan' }, 'tok');
+    t('vor Ort mit E-Mail -> Mail mit dem Gutschein, "Bezahlt im Lokal"', r.j.mail === true && welt.mails.length === 1 && /Bezahlt im Lokal/.test(welt.mails[0].html) && welt.mails[0].html.indexOf(welt.gutscheine[1].code) > -1, JSON.stringify(r.j));
+    r = await rufe({ action: 'einloesen', r: RID, code: welt.gutscheine[0].code, betrag: 10 }, 'tok');
+    t('vor Ort verkaufter Gutschein laesst sich normal einloesen', r.j.ok && r.j.rest === 2.5, JSON.stringify(r.j));
+    neueWelt(); await rufe(kauf);
+    t('Mail (online): Gutschein-Karte mit Betrag, Code, gueltig bis; "per PayPal"', /GUTSCHEIN/.test(welt.mails[0].html) && />50&nbsp;€</.test(welt.mails[0].html) && /gültig bis 31\.12\./.test(welt.mails[0].html) && /Bezahlt per PayPal an Hafenkate/.test(welt.mails[0].html), welt.mails[0].html.slice(0, 160));
+    t('Hilfe: Betrag vor Ort mit Komma, 5-500 €', F._test.betragVorOrt('12,50') === 12.5 && F._test.betragVorOrt(4.99) === null && F._test.betragVorOrt(501) === null, '');
+    welt.user = 'wirt@hafenkate.de';
     r = await rufe({ action: 'liste', r: RID }, 'tok');
     t('liste fuer den Wirt -> seine Gutscheine', r.j.ok && r.j.gutscheine.length === 1, JSON.stringify(r.j).slice(0, 120));
 

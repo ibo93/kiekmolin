@@ -21,6 +21,10 @@
 //   ansehen    { code }                       -> Gutschein (ohne Kaeufer-Mail)
 //   liste      { r }      (angemeldet, Lokal) -> alle Gutscheine des Lokals
 //   einloesen  { r, code, betrag } (angemeldet, Lokal)
+//   vorort     { r, betrag, zahlart: bar|karte, empfaenger, nachricht, kaeufer_name, kaeufer_email, motiv }
+//              (angemeldet, Lokal) -- der Gast kauft im Lokal und zahlt dort.
+//              Kein PayPal, kein Online-Schalter noetig: das Geld hat der Wirt
+//              schon in der Kasse. Gleicher Gutschein, gleicher Code, gleiches Einloesen.
 //
 // Tabelle: datenbank/51-geschenkgutscheine.sql. Tests: tests/geschenkgutschein-test.js.
 'use strict';
@@ -160,19 +164,63 @@ async function darfLokal(event, rid) {
     return rows.some(function (z) { return z.restaurant_id === rid; });
 }
 
+// Neuen Gutschein speichern -- mit frischem Code; bei doppeltem Code (sehr
+// selten) noch einmal. Rueckgabe { zeile } oder { fehler, status, text }.
+async function einfuegen(neu) {
+    var letzter = '', status = 0;
+    for (var v = 0; v < 4; v++) {
+        neu.code = neuerCode();
+        var ins = await fetch(SUPABASE_URL + '/rest/v1/geschenkgutscheine', {
+            method: 'POST', headers: kopf({ 'Content-Type': 'application/json', Prefer: 'return=representation' }), body: JSON.stringify(neu)
+        });
+        letzter = await ins.text(); status = ins.status;
+        if (ins.ok) { var z = null; try { z = JSON.parse(letzter)[0]; } catch (e) {} return z ? { zeile: z } : { fehler: true, status: status, text: 'leere Antwort' }; }
+        if (ins.status !== 409 || /paypal_order_id/.test(letzter)) break;
+    }
+    return { fehler: true, status: status, text: letzter };
+}
+// Vor Ort: Betrag in Euro und Cent, 5 bis 500.
+function betragVorOrt(b) { var z = Math.round(Number(String(b == null ? '' : b).replace(',', '.')) * 100) / 100; return isFinite(z) && z >= 5 && z <= 500 ? z : null; }
+
+// Der Gutschein IN der Mail: Tabellen und Inline-Farben (Outlook/Gmail),
+// Farben wie auf der Karte. Motiv Geburtstag/Danke: helle Karte, dunkle Schrift.
+var MAIL_MOTIV = {
+    klassisch: ['#003d33', '#fbf6e9', '#e9c866', 'rgba(251,246,233,0.75)'],
+    festlich: ['#5b1a1a', '#fff6ea', '#e9c866', 'rgba(255,246,234,0.78)'],
+    geburtstag: ['#f6c544', '#00251e', '#00483c', 'rgba(0,37,30,0.72)'],
+    danke: ['#f3ecdc', '#00251e', '#8a6a1c', 'rgba(0,37,30,0.66)']
+};
+function mailKarte(g, rest) {
+    var f = MAIL_MOTIV[g.motiv] || MAIL_MOTIV.klassisch, E = MAIL.esc, serif = "Georgia,'Times New Roman',serif", sans = "-apple-system,'Segoe UI',Roboto,Arial,sans-serif";
+    var betrag = betragStr(g.betrag).replace('.', ',').replace(',00', '') + '&nbsp;€';
+    return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0;border-collapse:separate;"><tr>'
+        + '<td bgcolor="' + f[0] + '" style="background:' + f[0] + ';border-radius:16px;padding:0;border:1px solid ' + f[2] + ';">'
+        + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>'
+        + '<td style="padding:22px 22px 20px;vertical-align:top;">'
+        + '<div style="font-family:' + sans + ';font-size:11px;font-weight:700;letter-spacing:4px;color:' + f[2] + ';">GUTSCHEIN</div>'
+        + '<div style="font-family:' + sans + ';font-size:11px;font-weight:700;letter-spacing:2px;color:' + f[3] + ';margin-top:3px;">' + E(String(rest.name || '').toUpperCase()) + '</div>'
+        + '<div style="font-family:' + serif + ';font-size:52px;line-height:1;font-weight:700;color:' + f[1] + ';margin-top:16px;">' + betrag + '</div>'
+        + (g.empfaenger_name ? '<div style="font-family:' + serif + ';font-size:18px;font-style:italic;color:' + f[1] + ';margin-top:10px;">für <b style="font-style:normal;">' + E(g.empfaenger_name) + '</b></div>' : '')
+        + (g.nachricht ? '<div style="font-family:' + serif + ';font-size:14px;font-style:italic;color:' + f[3] + ';margin-top:6px;">„' + E(g.nachricht) + '“' + (g.kaeufer_name ? '<br>– ' + E(g.kaeufer_name) : '') + '</div>' : '')
+        + '</td>'
+        + '<td width="150" style="width:150px;padding:18px 14px;border-left:2px dashed ' + f[3] + ';text-align:center;vertical-align:middle;">'
+        + '<div style="font-family:' + serif + ';font-size:40px;font-weight:700;color:' + f[2] + ';line-height:1;">' + E(String(rest.name || 'K').trim().charAt(0).toUpperCase()) + '</div>'
+        + '<div style="font-family:' + sans + ';font-size:9px;font-weight:700;letter-spacing:3px;color:' + f[3] + ';margin-top:12px;">CODE</div>'
+        + '<div style="font-family:Menlo,Consolas,monospace;font-size:14px;font-weight:700;color:' + f[1] + ';margin-top:4px;">' + E(g.code) + '</div>'
+        + '<div style="font-family:' + sans + ';font-size:10px;color:' + f[3] + ';margin-top:8px;">gültig bis ' + E(g.gueltig_bis.split('-').reverse().join('.')) + '</div>'
+        + '</td></tr></table></td></tr></table>';
+}
 async function mailSchicken(g, rest) {
     if (!RESEND_API_KEY || !g.kaeufer_email) return false;
     var url = MAIL.SITE + '/?gutschein=' + encodeURIComponent(g.code);
     var betrag = betragStr(g.betrag).replace('.', ',') + ' €';
-    var inhalt = '<p style="margin:0 0 12px;">Danke für deinen Kauf! Hier ist dein Gutschein'
-        + (g.empfaenger_name ? ' für <b>' + MAIL.esc(g.empfaenger_name) + '</b>' : '') + '.</p>'
-        + MAIL.detailKarte([
-            ['Code', '<span style="font-family:Menlo,Consolas,monospace;font-size:16px;letter-spacing:1px;">' + MAIL.esc(g.code) + '</span>'],
-            ['Gültig bis', MAIL.esc(g.gueltig_bis.split('-').reverse().join('.'))],
-            ['Gruß', g.nachricht ? '„' + MAIL.esc(g.nachricht) + '“' : '']
-        ], { links: 'Gutschein', rechts: betrag })
-        + MAIL.knopf('Gutschein ansehen &amp; ausdrucken', url, 'voll')
-        + MAIL.kasten('Einlösen im Lokal: Code zeigen oder sagen – auch in mehreren Besuchen, der Rest bleibt auf dem Gutschein. Bezahlt per PayPal an ' + MAIL.esc(rest.name) + '.', 'gruen');
+    var vorOrt = g.verkauft_ueber === 'bar' || g.verkauft_ueber === 'karte';
+    var inhalt = '<p style="margin:0 0 4px;">' + (vorOrt ? 'Danke für deinen Besuch bei ' + MAIL.esc(rest.name) + '!' : 'Danke für deinen Kauf!') + ' Hier ist dein Gutschein'
+        + (g.empfaenger_name ? ' für <b>' + MAIL.esc(g.empfaenger_name) + '</b>' : '') + ' – zum Ausdrucken (21 × 10 cm) oder Weiterschicken.</p>'
+        + mailKarte(g, rest)
+        + MAIL.knopf('Gutschein ansehen, drucken &amp; teilen', url, 'voll')
+        + MAIL.kasten('<b>So löst du ihn ein:</b> Bei ' + MAIL.esc(rest.name) + ' den Code zeigen oder sagen. Der Betrag wird von der Rechnung abgezogen – was übrig bleibt, gilt für den nächsten Besuch. '
+            + (vorOrt ? 'Bezahlt im Lokal.' : 'Bezahlt per PayPal an ' + MAIL.esc(rest.name) + '.'), 'gruen');
     var body = Object.assign(MAIL.versandKopf(rest, EMAIL_FROM), {
         to: [g.kaeufer_email],
         subject: 'Dein Gutschein für ' + rest.name + ' (' + betrag + ')',
@@ -286,20 +334,11 @@ exports.handler = async function (event) {
                 motiv: MOTIVE[b.motiv] ? b.motiv : 'klassisch', paypal_order_id: pid, paypal_capture_id: zahlung.id || null,
                 gueltig_bis: gueltigBis()
             };
-            var zeile = null, letzter = '';
-            for (var v = 0; v < 4 && !zeile; v++) {
-                neu.code = neuerCode();
-                var ins = await fetch(SUPABASE_URL + '/rest/v1/geschenkgutscheine', {
-                    method: 'POST', headers: kopf({ 'Content-Type': 'application/json', Prefer: 'return=representation' }), body: JSON.stringify(neu)
-                });
-                letzter = await ins.text();
-                if (ins.ok) { try { zeile = JSON.parse(letzter)[0]; } catch (e) {} break; }
-                // Doppelter Code (sehr selten) -> neuer Code. Doppelte PayPal-Nummer -> schon da.
-                if (ins.status === 409 && /paypal_order_id/.test(letzter)) {
-                    var d2 = await hol('geschenkgutscheine?paypal_order_id=eq.' + encodeURIComponent(pid) + '&select=*&limit=1');
-                    if (d2.length) return json(200, { ok: true, doppelt: true, gutschein: oeffentlich(d2[0], r3) });
-                }
-                if (ins.status !== 409) break;
+            neu.verkauft_ueber = 'online';
+            var erg = await einfuegen(neu), zeile = erg.zeile || null, letzter = erg.text || '';
+            if (!zeile && erg.status === 409 && /paypal_order_id/.test(letzter)) {
+                var d2 = await hol('geschenkgutscheine?paypal_order_id=eq.' + encodeURIComponent(pid) + '&select=*&limit=1');
+                if (d2.length) return json(200, { ok: true, doppelt: true, gutschein: oeffentlich(d2[0], r3) });
             }
             if (!zeile) {
                 // DER SCHLIMMSTE FALL: Geld ist da, Gutschein nicht. Laut.
@@ -319,12 +358,33 @@ exports.handler = async function (event) {
         }
 
         // ---------------- Ab hier nur fuer Leute dieses Lokals ----------------
-        if (aktion === 'liste' || aktion === 'einloesen') {
+        if (aktion === 'liste' || aktion === 'einloesen' || aktion === 'vorort') {
             if (!(await darfLokal(event, rid))) return json(403, { ok: false, error: 'Nicht angemeldet oder kein Zugriff auf dieses Lokal.' });
+            if (aktion === 'vorort') {
+                var bv = betragVorOrt(b.betrag);
+                if (bv == null) return json(400, { ok: false, error: 'Bitte einen Betrag von 5 bis 500 € eingeben.' });
+                var zahlart = b.zahlart === 'bar' || b.zahlart === 'karte' ? b.zahlart : '';
+                if (!zahlart) return json(400, { ok: false, error: 'Bitte angeben, wie der Gast bezahlt hat (bar oder Karte).' });
+                var mv = text(b.kaeufer_email, 120).toLowerCase();
+                var rv = await lokal(rid);
+                var erg2 = await einfuegen({
+                    restaurant_id: rid, betrag: bv, rest: bv, status: 'aktiv', verkauft_ueber: zahlart,
+                    kaeufer_name: text(b.kaeufer_name, 60) || null, kaeufer_email: mailOk(mv) ? mv : null,
+                    empfaenger_name: text(b.empfaenger, 60) || null, nachricht: text(b.nachricht, 200) || null,
+                    motiv: MOTIVE[b.motiv] ? b.motiv : 'klassisch', gueltig_bis: gueltigBis()
+                });
+                if (!erg2.zeile) {
+                    console.error('[gutschein] vor Ort nicht gespeichert: ' + erg2.status + ' ' + String(erg2.text).slice(0, 200));
+                    if (/verkauft_ueber|geschenkgutscheine/.test(String(erg2.text))) return json(409, { ok: false, sqlFehlt: true, error: 'Bitte einmal datenbank/51-geschenkgutscheine.sql in Supabase einspielen.' });
+                    return json(502, { ok: false, error: 'Nicht gespeichert (' + erg2.status + ') – bitte noch einmal versuchen.' });
+                }
+                var gm = erg2.zeile.kaeufer_email ? await mailSchicken(erg2.zeile, rv) : null;
+                return json(200, { ok: true, gutschein: oeffentlich(erg2.zeile, rv), mail: gm });
+            }
             var liste;
             try {
                 if (aktion === 'liste') {
-                    liste = await hol('geschenkgutscheine?restaurant_id=eq.' + encodeURIComponent(rid) + '&select=id,code,betrag,rest,status,kaeufer_name,kaeufer_email,empfaenger_name,gueltig_bis,erstellt,einloesungen&order=erstellt.desc&limit=500');
+                    liste = await hol('geschenkgutscheine?restaurant_id=eq.' + encodeURIComponent(rid) + '&select=*&order=erstellt.desc&limit=500');
                     return json(200, { ok: true, gutscheine: liste });
                 }
                 var c2 = codeNormal(b.code);
@@ -358,4 +418,4 @@ exports.handler = async function (event) {
     }
 };
 
-exports._test = { neuerCode: neuerCode, codeNormal: codeNormal, betragOk: betragOk, gueltigBis: gueltigBis, oeffentlich: oeffentlich, einloesePlan: einloesePlan, verkauftAn: verkauftAn };
+exports._test = { betragVorOrt: betragVorOrt, neuerCode: neuerCode, codeNormal: codeNormal, betragOk: betragOk, gueltigBis: gueltigBis, oeffentlich: oeffentlich, einloesePlan: einloesePlan, verkauftAn: verkauftAn };

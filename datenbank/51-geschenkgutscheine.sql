@@ -1,10 +1,13 @@
 -- GESCHENKGUTSCHEINE (03.11.2026).
 --
--- Ibo: "ja mach gutschein mit schoenen design". Ein Gast kauft auf der
--- Lokalseite einen Gutschein (z. B. 50 EUR), bezahlt mit PayPal -- das Geld
--- geht DIREKT auf das PayPal-Konto des Wirts (paypal_konten, wie beim
--- Bestellen) -- und bekommt einen Gutschein mit Code zum Verschenken. Der
--- Wirt loest ihn im Lokal ein, auch in Teilbetraegen.
+-- Ibo: "ja mach gutschein mit schoenen design". Zwei Wege zum Gutschein:
+--   * ONLINE: Der Gast kauft auf der Lokalseite (z. B. 50 EUR) und bezahlt
+--     mit PayPal -- das Geld geht DIREKT auf das PayPal-Konto des Wirts
+--     (paypal_konten, wie beim Bestellen).
+--   * VOR ORT (04.11.2026): Der Gast zahlt im Lokal bar oder mit Karte, der
+--     Wirt legt den Gutschein im Dashboard an und druckt ihn (21 x 10 cm).
+-- Beide bekommen denselben Gutschein mit Code. Der Wirt loest ihn im Lokal
+-- ein, auch in Teilbetraegen.
 --
 -- Nicht verwechseln mit der Tabelle coupons: das sind Rabatt-Codes
 -- ("10 % fuer Stammgaeste"). Ein Geschenkgutschein ist bezahltes Guthaben.
@@ -14,7 +17,8 @@
 -- RLS an, KEINE Regeln: weder Gast noch Wirt lesen oder schreiben die
 -- Tabelle direkt. Alles laeuft ueber netlify/functions/geschenkgutschein.js
 -- mit dem Dienstschluessel:
---   * Anlegen NUR nach bestaetigter PayPal-Zahlung (Status UND Betrag).
+--   * Online anlegen NUR nach bestaetigter PayPal-Zahlung (Status UND Betrag).
+--   * Vor Ort anlegen NUR durch angemeldete Leute dieses Lokals.
 --   * Einloesen NUR durch angemeldete Leute dieses Lokals, in EINEM Schritt
 --     (update ... where rest = <alter Rest>) -- doppelt einloesen geht nicht.
 --   * Ansehen per Code (der Code ist das Geheimnis, wie bei einem
@@ -39,6 +43,7 @@ create table if not exists public.geschenkgutscheine (
     empfaenger_name  text,
     nachricht        text,
     motiv            text not null default 'klassisch',
+    verkauft_ueber   text not null default 'online',   -- online (PayPal) | bar | karte (vor Ort)
     paypal_order_id  text unique,
     paypal_capture_id text,
     gueltig_bis      date not null,
@@ -49,6 +54,10 @@ create table if not exists public.geschenkgutscheine (
     constraint gg_rest check (rest >= 0 and rest <= betrag),
     constraint gg_status check (status in ('aktiv', 'eingeloest', 'storniert'))
 );
+-- Vor Ort verkauft (04.11.2026): auch fuer Tabellen, die schon ohne die Spalte angelegt wurden.
+alter table public.geschenkgutscheine add column if not exists verkauft_ueber text not null default 'online';
+alter table public.geschenkgutscheine drop constraint if exists gg_verkauf;
+alter table public.geschenkgutscheine add constraint gg_verkauf check (verkauft_ueber in ('online', 'bar', 'karte'));
 create index if not exists geschenkgutscheine_haus on public.geschenkgutscheine (restaurant_id, erstellt desc);
 
 alter table public.geschenkgutscheine enable row level security;

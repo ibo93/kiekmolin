@@ -405,6 +405,9 @@
     @font-face{font-family:'Epilogue';font-style:normal;font-display:swap;font-weight:100 900;src:url(/public/fonts/epilogue-latin-ext.woff2) format('woff2-variations');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;}
     @font-face{font-family:'Inter';font-style:normal;font-display:swap;font-weight:100 900;src:url(/public/fonts/inter-latin.woff2) format('woff2-variations');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
     @font-face{font-family:'Inter';font-style:normal;font-display:swap;font-weight:100 900;src:url(/public/fonts/inter-latin-ext.woff2) format('woff2-variations');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;}
+    /* Fraunces (Serifen) nur fuer den Geschenkgutschein -- geladen wird sie erst, wenn ein Gutschein zu sehen ist. @fontsource-variable/fraunces 5.2.5, OFL-1.1 (public/fonts/LIZENZ-Fraunces.txt). */
+    @font-face{font-family:'Fraunces';font-style:normal;font-display:swap;font-weight:100 900;src:url(/public/fonts/fraunces-latin.woff2) format('woff2-variations');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
+    @font-face{font-family:'Fraunces';font-style:italic;font-display:swap;font-weight:100 900;src:url(/public/fonts/fraunces-latin-italic.woff2) format('woff2-variations');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
     
 /* Online-Tische: "noch 2 Tische" an der Uhrzeit */
 .slot-noch{display:block;font-size:10px;font-weight:700;color:#92400e;margin-top:2px;letter-spacing:.02em;}
@@ -11692,39 +11695,67 @@
         .kmi-vb-res { margin: 0 0 12px; padding: 10px 12px; border-radius: 14px; background: #f0f7f4; border: 1.5px solid #ffd54f; display: flex; flex-direction: column; gap: 2px; font-family: Inter, sans-serif; }
         .kmi-vb-res small { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; color: #8a6100; } .kmi-vb-res b { font-size: 14px; color: #00251e; } .kmi-vb-res span { font-size: 13px; color: #404946; }
         .dark-mode .kmi-vb-res { background: rgba(255,255,255,0.06); border-color: rgba(255,213,79,0.55); } .dark-mode .kmi-vb-res small { color: #ffd54f; } .dark-mode .kmi-vb-res b { color: #ffffff; } .dark-mode .kmi-vb-res span { color: #c8d2ce; }
-        /* ===== GESCHENKGUTSCHEIN (03.11.2026) ===== */
-        .gg-karte { position: relative; aspect-ratio: 900 / 560; width: 100%; box-sizing: border-box; padding: 6% 6.2% 0; border-radius: 22px; color: var(--gg-text); background: var(--gg-muster) repeat, radial-gradient(circle at 96% 8%, rgba(255,255,255,0.09) 0 30%, transparent 31%), linear-gradient(135deg, var(--gg-grund), var(--gg-grund2)); box-shadow: 0 18px 40px -14px rgba(0,37,30,0.45), inset 0 0 0 1px rgba(255,255,255,0.08); overflow: hidden; display: flex; flex-direction: column; font-family: Inter, sans-serif; container-type: inline-size; }
-        .gg-k-oben { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
-        .gg-k-wort { font-size: 12px; font-size: 3.4cqw; font-weight: 700; letter-spacing: 0.45em; text-transform: uppercase; color: var(--gg-akzent); }
-        .gg-k-lokal { font-family: Epilogue, Inter, sans-serif; font-size: 12px; font-size: 3.2cqw; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gg-leise); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; }
+        /* ===== GESCHENKGUTSCHEIN (04.11.2026): 21 x 10 cm, Abriss rechts, 3D ===== */
+        .gg-karte { position: relative; width: 100%; aspect-ratio: 21 / 10; max-width: 100%; border-radius: 4.5cqw; border-radius: 18px; overflow: hidden; container-type: inline-size; color: var(--gg-text); font-family: Inter, sans-serif; background: radial-gradient(120% 95% at 86% 8%, var(--gg-a) 0%, var(--gg-b) 72%); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06); }
+        .gg-karte.gg-hinten { background: linear-gradient(160deg, var(--gg-b), var(--gg-a)); }
+        .gg-karte svg.gg-muster, .gg-karte svg.gg-korn { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+        .gg-karte svg.gg-korn { opacity: 0.17; mix-blend-mode: overlay; }
+        .gg-k-rahmen { position: absolute; inset: 1.6cqw; border-radius: 1.8cqw; border: 1px solid var(--gg-rahmen); pointer-events: none; }
+        .gg-folie { background: var(--gg-gold); background-size: 260% 100%; background-position: var(--gg-fx, 50%) 50%; -webkit-background-clip: text; background-clip: text; color: transparent !important; }
+        .gg-k-haupt { position: absolute; left: 5cqw; top: 4.2cqw; bottom: 4.2cqw; width: 62cqw; display: flex; flex-direction: column; }
+        .gg-k-oben { display: flex; align-items: center; gap: 1.8cqw; }
+        .gg-k-siegel { flex: 0 0 7cqw; width: 7cqw; height: 7cqw; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 0 0.25cqw var(--gg-siegel), inset 0 0 0 0.7cqw transparent, inset 0 0 0 0.85cqw var(--gg-siegel2); font-family: Fraunces, Georgia, serif; font-weight: 600; font-size: 3.8cqw; line-height: 1; }
+        .gg-k-kopf { display: flex; flex-direction: column; gap: 0.5cqw; min-width: 0; }
+        .gg-k-wort { font-weight: 700; font-size: 1.9cqw; letter-spacing: 0.48em; }
+        .gg-karte .gg-k-lokal { font-family: Epilogue, Inter, sans-serif; font-weight: 800; font-size: 1.8cqw; letter-spacing: 0.16em; color: var(--gg-leise); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .gg-k-mitte { flex: 1; display: flex; flex-direction: column; justify-content: center; min-height: 0; }
-        .gg-k-betrag { font-family: Epilogue, Inter, sans-serif; font-size: 54px; font-size: 15cqw; font-weight: 800; line-height: 0.95; letter-spacing: -0.04em; }
-        .gg-k-fuer { font-size: 14px; font-size: 4cqw; font-weight: 600; margin-top: 6px; margin-top: 1.6cqw; }
-        .gg-k-gruss { font-size: 11px; font-size: 3.1cqw; font-style: italic; color: var(--gg-leise); margin-top: 4px; margin-top: 1.2cqw; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-        .gg-k-gruss span { font-style: normal; }
-        .gg-k-rest { display: inline-block; align-self: flex-start; margin-top: 5px; margin-top: 1.4cqw; padding: 2px 7px; padding: 0.6cqw 2cqw; border-radius: 999px; background: var(--gg-akzent); color: var(--gg-grund); font-size: 10px; font-size: 2.8cqw; font-weight: 800; }
-        .gg-k-schnitt { position: relative; height: 0; border-top: 2px dashed var(--gg-leise); opacity: 0.7; margin: 0 -2%; }
-        .gg-k-schnitt::before, .gg-k-schnitt::after { content: ''; position: absolute; top: -13px; width: 24px; height: 24px; border-radius: 50%; background: var(--gg-loch, #f6f7f6); }
-        .gg-k-schnitt::before { left: -4.5%; } .gg-k-schnitt::after { right: -4.5%; }
-        .gg-k-unten { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 13px 0 16px; padding: 3.6cqw 0 4.4cqw; }
-        .gg-k-code { font-family: Menlo, Consolas, monospace; font-size: 14px; font-size: 3.8cqw; font-weight: 700; letter-spacing: 0.06em; }
-        .gg-k-gueltig { font-size: 9px; font-size: 2.6cqw; color: var(--gg-leise); text-align: right; }
-        /* Farben auf der Karte fest -- ".dark-mode *" faerbt sonst jede Schrift grau (gemessen 03.11.2026). */
-        .gg-karte .gg-k-betrag, .gg-karte .gg-k-fuer, .gg-karte .gg-k-code, .gg-karte .gg-k-gruss span { color: var(--gg-text); }
-        .gg-karte .gg-k-gruss, .gg-karte .gg-k-lokal, .gg-karte .gg-k-gueltig { color: var(--gg-leise); }
-        .gg-karte .gg-k-wort { color: var(--gg-akzent); }
-        .gg-karte .gg-k-rest { color: var(--gg-grund); }
-        .dark-mode .gg-karte { --gg-loch: #13241f; }
+        .gg-k-betrag { display: flex; align-items: flex-start; gap: 0.8cqw; line-height: 0.86; }
+        .gg-karte .gg-k-zahl { font-family: Fraunces, Georgia, serif; font-weight: 600; font-size: 15cqw; letter-spacing: -0.035em; color: var(--gg-text); text-shadow: 0 0.2cqw 0 rgba(0,0,0,0.22), 0 -0.1cqw 0 rgba(255,255,255,0.12); }
+        .gg-k-euro { font-family: Fraunces, Georgia, serif; font-weight: 500; font-size: 6.5cqw; margin-top: 1.4cqw; }
+        .gg-karte .gg-k-fuer { margin-top: 1.6cqw; font-family: Fraunces, Georgia, serif; font-style: italic; font-size: 3.2cqw; font-weight: 400; color: var(--gg-text); }
+        .gg-karte .gg-k-fuer b { font-style: normal; font-weight: 600; color: var(--gg-text); }
+        .gg-karte .gg-k-gruss { margin-top: 1cqw; font-family: Fraunces, Georgia, serif; font-size: 2.3cqw; line-height: 1.4; font-style: italic; color: var(--gg-leise); max-width: 58cqw; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .gg-karte .gg-k-von { margin-top: 0.6cqw; font-family: Fraunces, Georgia, serif; font-size: 2.3cqw; font-weight: 500; color: var(--gg-leise); }
+        .gg-karte .gg-k-rest { display: inline-block; align-self: flex-start; margin-top: 1.2cqw; padding: 0.5cqw 1.6cqw; border-radius: 999px; background: var(--gg-siegel); color: var(--gg-b); font-size: 1.9cqw; font-weight: 800; }
+        .gg-k-schnitt { position: absolute; top: 0; bottom: 0; left: 72cqw; border-left: 0.25cqw dashed var(--gg-leise); opacity: 0.5; }
+        .gg-k-loch { position: absolute; left: 70.3cqw; width: 3.4cqw; height: 3.4cqw; border-radius: 50%; background: var(--gg-loch, #f6f7f6); box-shadow: inset 0 0.3cqw 0.6cqw rgba(0,0,0,0.35); }
+        .gg-k-loch.gg-o { top: -1.7cqw; } .gg-k-loch.gg-u { bottom: -1.7cqw; }
+        .gg-k-abriss { position: absolute; left: 72cqw; right: 0; top: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.6cqw; text-align: center; padding: 4cqw 2.6cqw; box-sizing: border-box; }
+        .gg-karte .gg-k-abriss small { font-size: 1.4cqw; font-weight: 700; letter-spacing: 0.3em; color: var(--gg-leise); }
+        .gg-k-mono { font-family: Fraunces, Georgia, serif; font-weight: 600; font-size: 9cqw; line-height: 1; }
+        .gg-karte .gg-k-code { font-family: Menlo, Consolas, monospace; font-weight: 700; font-size: 2.1cqw; letter-spacing: 0.06em; color: var(--gg-text); }
+        .gg-karte .gg-k-gueltig { font-size: 1.5cqw; color: var(--gg-leise); line-height: 1.45; }
+        .gg-k-glanz { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: soft-light; background: radial-gradient(60% 80% at var(--gg-gx, 30%) var(--gg-gy, 20%), rgba(255,255,255,0.5), rgba(255,255,255,0) 60%); }
+        .gg-r-inhalt { position: absolute; left: 5cqw; top: 4.4cqw; bottom: 6cqw; width: 62cqw; display: flex; flex-direction: column; justify-content: center; gap: 1.8cqw; }
+        .gg-r-titel { font-weight: 700; font-size: 1.8cqw; letter-spacing: 0.36em; }
+        .gg-karte .gg-r-schritt { display: flex; gap: 1.6cqw; align-items: center; font-size: 2.1cqw; line-height: 1.35; color: var(--gg-text); }
+        .gg-karte .gg-r-schritt i { flex: 0 0 3.6cqw; height: 3.6cqw; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-style: normal; font-weight: 800; font-size: 1.8cqw; background: var(--gg-siegel2); color: var(--gg-text); }
+        .gg-karte .gg-r-guthaben { font-family: Fraunces, Georgia, serif; font-size: 6.2cqw; font-weight: 600; line-height: 1; color: var(--gg-text); }
+        .gg-karte .gg-r-fuss { position: absolute; left: 5cqw; bottom: 3cqw; font-size: 1.5cqw; color: var(--gg-leise); }
+        /* 3D */
+        .gg-3d { position: relative; width: 100%; aspect-ratio: 21 / 10; perspective: 1300px; touch-action: pan-y; }
+        .gg-3d-kippen { touch-action: none; cursor: grab; } .gg-3d-kippen:active { cursor: grabbing; }
+        .gg-3d-kippen:focus-visible { outline: 3px solid #b8891f; outline-offset: 6px; border-radius: 18px; }
+        .gg-3d-boden { position: absolute; left: 10%; right: 10%; bottom: -14%; height: 18%; border-radius: 50%; background: radial-gradient(closest-side, rgba(0,37,30,0.35), transparent); filter: blur(10px); pointer-events: none; }
+        .gg-3d-k { position: absolute; inset: 0; transform-style: preserve-3d; transform: rotateX(10deg) rotateY(-16deg); will-change: transform; }
+        .gg-3d-schicht { position: absolute; inset: 0; border-radius: 18px; background: var(--gg-schnitt); background-size: 300% 100%; background-position: var(--gg-fx, 50%) 50%; }
+        .gg-3d-v, .gg-3d-r { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+        .gg-3d-v { transform: translateZ(3.5px); } .gg-3d-r { transform: rotateY(180deg) translateZ(3.5px); }
+        .gg-3d-schwebt .gg-3d-k { animation: ggSchweben 7s ease-in-out infinite; }
+        @keyframes ggSchweben { 0%, 100% { transform: rotateX(10deg) rotateY(-16deg) translateY(0); } 50% { transform: rotateX(6deg) rotateY(-8deg) translateY(-6px); } }
+        @media (prefers-reduced-motion: reduce) { .gg-3d-schwebt .gg-3d-k { animation: none; } }
+        .dark-mode .gg-3d-boden { background: radial-gradient(closest-side, rgba(0,0,0,0.6), transparent); }
+        .dark-mode .gg-fenster { --gg-loch: #13241f; }
 
         .gg-teaser { display: grid; grid-template-columns: 1.1fr 1fr; gap: 28px; align-items: center; max-width: 1080px; margin: 0 auto 72px; padding: 32px; border-radius: 28px; background: #f0f7f4; border: 1px solid #d6e6df; }
-        .gg-teaser .gg-karte { --gg-loch: #f0f7f4; transform: rotate(-3deg); }
-        .gg-teaser-bild { width: 100%; max-width: 420px; justify-self: center; }
+        .gg-teaser { --gg-loch: #f0f7f4; }
+        .gg-teaser-bild { width: 100%; max-width: 480px; justify-self: center; padding: 10px 0 18px; }
         .gg-teaser-klein { font-family: Inter, sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: #8a6100; }
         .gg-teaser h2 { font-family: Epilogue, sans-serif; font-size: 28px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; color: #00251e; margin: 8px 0 10px; }
         .gg-teaser p { font-family: Inter, sans-serif; font-size: 15px; line-height: 1.55; color: #3d4f4a; margin: 0 0 18px; }
         @media (max-width: 700px) { .gg-teaser { grid-template-columns: 1fr; margin: 0 16px 56px; padding: 22px; } .gg-teaser-bild { order: -1; padding: 6px 10px 0; } .gg-teaser h2 { font-size: 23px; } }
         .dark-mode .gg-teaser { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1); }
-        .dark-mode .gg-teaser .gg-karte { --gg-loch: #16251f; }
+        .dark-mode .gg-teaser { --gg-loch: #16251f; }
         .dark-mode .gg-teaser h2 { color: #f2f5f4; } .dark-mode .gg-teaser p { color: #c8d2ce; } .dark-mode .gg-teaser-klein { color: #ffd54f; }
 
         .gg-knopf { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 24px; border-radius: 9999px; border: none; background: #003d33; color: #ffffff; font-family: Inter, sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; text-decoration: none; }
@@ -11768,6 +11799,10 @@
         .gg-laden { padding: 40px 0; text-align: center; color: #6b7570; }
         .gg-geschafft { display: flex; align-items: center; gap: 8px; margin: 2px 48px 14px 0; font-family: Epilogue, sans-serif; font-size: 18px; font-weight: 800; color: #003d33; }
         .gg-aktionen { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; }
+        .gg-vorschau .gg-3d { margin: 6px auto 18px; max-width: 440px; }
+        .gg-kippbox .gg-3d { margin: 10px auto 22px; }
+        .gg-kipp-hinweis { margin: -6px 0 12px; }
+        .gg-knopf.gg-breit { width: 100%; margin-top: 8px; }
         #ggPaypal { min-height: 50px; margin-bottom: 6px; }
         .dark-mode .gg-fenster { background: #13241f; color: #e8eeec; }
         .dark-mode .gg-zu { background: rgba(255,255,255,0.08); color: #e8eeec; }
@@ -11778,6 +11813,35 @@
         .dark-mode .gg-meldung.gg-rot { color: #fca5a5; }
         .dark-mode .gg-geschafft { color: #ffd54f; }
         .gg-wirt { font-family: Inter, sans-serif; }
+        .gg-w-vorort-knopf { width: 100%; min-height: 50px; margin: 0 0 14px; border-radius: 9999px; border: 1.5px dashed #003d33; background: transparent; color: #003d33; font-family: Inter, sans-serif; font-size: 15px; font-weight: 800; cursor: pointer; }
+        .gg-vo { --gg-loch: #ffffff; padding: 16px; margin: 0 0 14px; border-radius: 20px; background: #ffffff; border: 1px solid #d6e6df; box-shadow: 0 10px 30px -18px rgba(0,37,30,0.35); display: flex; flex-direction: column; gap: 10px; font-family: Inter, sans-serif; }
+        .gg-vo-kopf { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 15px; color: #00251e; }
+        .gg-vo-zu { width: 36px; height: 36px; border-radius: 50%; border: none; background: rgba(0,37,30,0.07); color: #00251e; font-size: 20px; cursor: pointer; }
+        .gg-vo-vorschau { padding: 6px 14px 22px; }
+        .gg-vo-motive { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+        .gg-vo-motive button, .gg-vo-zahl button { min-height: 42px; border-radius: 12px; border: 1.5px solid #d6dedb; background: #ffffff; color: #00251e; font-family: Inter, sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 6px 2px; }
+        .gg-vo-motive i { width: 26px; height: 16px; border-radius: 4px; display: block; }
+        .gg-vo-zahl { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .gg-vo-zahl button { font-size: 15px; flex-direction: row; }
+        .gg-vo-motive button[aria-pressed="true"], .gg-vo-zahl button[aria-pressed="true"] { background: #003d33; border-color: #003d33; color: #ffffff; }
+        .gg-vo label, .gg-vo-reihe > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+        .gg-vo label > span, .gg-vo-reihe > div > span { font-size: 12px; font-weight: 700; color: #3d4f4a; }
+        .gg-vo input { min-height: 44px; padding: 0 12px; border-radius: 12px; border: 1.5px solid #c9d6d1; background: #ffffff; color: #00251e; font-size: 16px; font-family: Inter, sans-serif; min-width: 0; }
+        .gg-vo-reihe { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        @media (max-width: 420px) { .gg-vo-reihe { grid-template-columns: 1fr; } }
+        .gg-vo-los { min-height: 50px; border-radius: 9999px; border: none; background: #ffd54f; color: #00251e; font-family: Inter, sans-serif; font-size: 15px; font-weight: 800; cursor: pointer; padding: 0 18px; }
+        .gg-vo-los:disabled { opacity: 0.6; cursor: wait; }
+        .gg-vo-rand { min-height: 46px; border-radius: 9999px; border: 1.5px solid #003d33; background: transparent; color: #003d33; font-family: Inter, sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; padding: 0 14px; }
+        .gg-vo-aktionen { display: grid; grid-template-columns: 1.6fr 1fr 1fr; gap: 6px; }
+        @media (max-width: 460px) { .gg-vo-aktionen { grid-template-columns: 1fr 1fr; } .gg-vo-aktionen .gg-vo-los { grid-column: 1 / -1; } }
+        .dark-mode .gg-w-vorort-knopf { border-color: #ffd54f; color: #ffd54f; }
+        .dark-mode .gg-vo { --gg-loch: #1b2a26; background: #1b2a26; border-color: rgba(255,255,255,0.12); }
+        .dark-mode .gg-vo-kopf, .dark-mode .gg-vo-zu { color: #e8eeec; } .dark-mode .gg-vo-zu { background: rgba(255,255,255,0.08); }
+        .dark-mode .gg-vo label > span, .dark-mode .gg-vo-reihe > div > span { color: #c8d2ce; }
+        .dark-mode .gg-vo input, .dark-mode .gg-vo-motive button, .dark-mode .gg-vo-zahl button { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.2); color: #e8eeec; }
+        .dark-mode .gg-vo-motive button[aria-pressed="true"], .dark-mode .gg-vo-zahl button[aria-pressed="true"] { background: #ffd54f; border-color: #ffd54f; color: #00251e; }
+        .dark-mode .gg-vo-los { background: #ffd54f; color: #00251e; }
+        .dark-mode .gg-vo-rand { border-color: rgba(255,255,255,0.35); color: #e8eeec; background: transparent; }
         .gg-w-einloesen { padding: 14px; border-radius: 18px; background: #f0f7f4; border: 1px solid #d6e6df; margin-bottom: 14px; }
         .gg-w-einloesen > b { display: block; font-size: 15px; margin-bottom: 8px; color: #00251e; }
         .gg-w-reihe { display: grid; grid-template-columns: 1.4fr 1fr auto; gap: 8px; }
@@ -74590,48 +74654,119 @@ window.PPC = PPC;
 //
 // Server: netlify/functions/geschenkgutschein.js. Kein Gutschein ohne Geld:
 // der Gutschein entsteht erst, wenn PayPal die Zahlung bestaetigt hat.
+// Format 21 x 10 cm (Ibo, 04.11.2026): Querformat mit Abriss rechts,
+// Goldschnitt an den Kanten, Folie, edle Serifenschrift (Fraunces, im Haus).
+var GG_GOLD = 'linear-gradient(100deg,#a87a22 0%,#e9c866 18%,#fff3c4 34%,#d8ae45 50%,#f6e08a 66%,#b9892c 84%,#f1d27a 100%)';
+var GG_SCHNITT_GOLD = 'linear-gradient(90deg,#7d5a14,#e9c866 18%,#fff3c4 30%,#b8891f 46%,#f6e08a 62%,#8a6a1c 80%,#e9c866)';
 var GG_MOTIVE = {
-    klassisch:  { name: 'Klassisch',  grund: '#003d33', grund2: '#00594a', text: '#ffffff', akzent: '#ffd54f', leise: 'rgba(255,255,255,0.72)', muster: 'linien' },
-    festlich:   { name: 'Festlich',   grund: '#5b1a1a', grund2: '#7f2525', text: '#fff8ec', akzent: '#f3c969', leise: 'rgba(255,248,236,0.75)', muster: 'sterne' },
-    geburtstag: { name: 'Geburtstag', grund: '#ffd54f', grund2: '#ffe48a', text: '#00251e', akzent: '#003d33', leise: 'rgba(0,37,30,0.7)', muster: 'konfetti' },
-    danke:      { name: 'Danke',      grund: '#f4efe4', grund2: '#fbf8f1', text: '#00251e', akzent: '#003d33', leise: 'rgba(0,37,30,0.65)', muster: 'blaetter' }
+    klassisch:  { name: 'Klassisch',  a: '#00513f', b: '#002a23', kante: '#001b16', text: '#fbf6e9', leise: 'rgba(251,246,233,0.74)', gold: GG_GOLD, rahmen: 'rgba(233,200,102,0.5)', siegel: 'rgba(233,200,102,0.95)', siegel2: 'rgba(233,200,102,0.35)', muster: 'guilloche', farbe: '#e9c866', schnitt: GG_SCHNITT_GOLD, goldStopps: ['#a87a22', '#e9c866', '#fff3c4', '#d8ae45', '#b9892c'] },
+    festlich:   { name: 'Festlich',   a: '#8a2329', b: '#3f0d12', kante: '#28070a', text: '#fff6ea', leise: 'rgba(255,246,234,0.76)', gold: GG_GOLD, rahmen: 'rgba(233,200,102,0.5)', siegel: 'rgba(233,200,102,0.95)', siegel2: 'rgba(233,200,102,0.35)', muster: 'sterne', farbe: '#e9c866', schnitt: GG_SCHNITT_GOLD, goldStopps: ['#a87a22', '#e9c866', '#fff3c4', '#d8ae45', '#b9892c'] },
+    geburtstag: { name: 'Geburtstag', a: '#ffdc72', b: '#f2b12c', kante: '#b97f0c', text: '#00251e', leise: 'rgba(0,37,30,0.72)', gold: 'linear-gradient(100deg,#00251e,#00594a 50%,#00251e)', rahmen: 'rgba(0,37,30,0.25)', siegel: 'rgba(0,37,30,0.85)', siegel2: 'rgba(0,37,30,0.18)', muster: 'konfetti', farbe: '#00483c', schnitt: 'linear-gradient(90deg,#00251e,#00594a 30%,#2a8a74 45%,#00483c 60%,#00251e)', goldStopps: ['#00251e', '#00594a', '#00251e'] },
+    danke:      { name: 'Danke',      a: '#fdfaf2', b: '#e9dfc8', kante: '#b9a77f', text: '#00251e', leise: 'rgba(0,37,30,0.66)', gold: 'linear-gradient(100deg,#8a6a1c,#d4b05a 30%,#8a6a1c 55%,#c9a24a 80%,#7d5f16)', rahmen: 'rgba(138,106,28,0.4)', siegel: 'rgba(138,106,28,0.9)', siegel2: 'rgba(138,106,28,0.25)', muster: 'blaetter', farbe: '#00483c', schnitt: GG_SCHNITT_GOLD, goldStopps: ['#8a6a1c', '#d4b05a', '#8a6a1c', '#c9a24a'] }
 };
 var GG_BETRAEGE = [25, 50, 75, 100];
 function ggEuro(n) { var z = Math.round(Number(n) * 100) / 100; return (z % 1 ? z.toFixed(2).replace('.', ',') : String(z)) + ' €'; }
 function ggDatum(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || '')); return m ? m[3] + '.' + m[2] + '.' + m[1] : ''; }
 function ggVerkauft(rest) { return !!(rest && Array.isArray(rest.features) && rest.features.indexOf('geschenkgutschein') >= 0); }
-
-// Die Muster als kleines SVG im Hintergrund (inline, nichts nachladen).
-function ggMuster(art, farbe) {
-    var f = farbe, s = '';
-    if (art === 'sterne') s = '<path d="M20 6l2.4 5 5.4.6-4 3.7 1.1 5.3L20 18l-4.9 2.6 1.1-5.3-4-3.7 5.4-.6z" fill="' + f + '" opacity=".13"/><circle cx="62" cy="40" r="1.6" fill="' + f + '" opacity=".35"/><circle cx="44" cy="70" r="1.1" fill="' + f + '" opacity=".3"/>';
-    else if (art === 'konfetti') s = '<rect x="10" y="14" width="7" height="3" rx="1.5" transform="rotate(-25 13 15)" fill="' + f + '" opacity=".22"/><circle cx="58" cy="22" r="2.2" fill="' + f + '" opacity=".2"/><rect x="40" y="58" width="8" height="3" rx="1.5" transform="rotate(30 44 59)" fill="' + f + '" opacity=".2"/><circle cx="18" cy="66" r="1.6" fill="' + f + '" opacity=".25"/>';
-    else if (art === 'blaetter') s = '<path d="M14 60c0-14 10-24 24-24-1 14-10 24-24 24z" fill="none" stroke="' + f + '" stroke-width="1.2" opacity=".18"/><path d="M14 60L32 42" stroke="' + f + '" stroke-width="1" opacity=".18"/>';
-    else s = '<path d="M0 80L80 0" stroke="' + f + '" stroke-width="1" opacity=".08"/><path d="M-20 80L60 0" stroke="' + f + '" stroke-width="1" opacity=".05"/>';
-    // url('...') mit EINFACHEN Anfuehrungszeichen: der Wert steht in einem
-    // style="..."-Attribut, ein " darin beendet das Attribut (gemessen:
-    // Karte ohne Hintergrund). encodeURIComponent laesst ' stehen, aber das
-    // SVG enthaelt keines.
-    return "url('data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80">' + s + '</svg>') + "')";
+function ggMono(lokal) { var c = String(lokal || 'K').trim().charAt(0).toUpperCase(); return /[A-ZÄÖÜ0-9]/.test(c) ? c : 'K'; }
+// Kleiner Zufall mit festem Startwert: das Muster sieht bei jedem Aufruf gleich aus.
+function ggZufall(seed) { return function () { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }; }
+// Muster als SVG-Elemente in einer 1000 x 476 Flaeche (= 21 x 10).
+function ggMuster(art, f) {
+    var W = 1000, H = 476, k = '', i;
+    if (art === 'guilloche') {
+        for (i = 40; i < 560; i += 18) k += '<circle cx="860" cy="238" r="' + i + '" fill="none" stroke="' + f + '" stroke-width="1" opacity="' + (0.24 - i / 4000).toFixed(3) + '"/>';
+        for (i = 60; i < 520; i += 34) k += '<ellipse cx="860" cy="238" rx="' + i + '" ry="' + (i * 0.55) + '" fill="none" stroke="' + f + '" stroke-width="0.7" opacity="0.11" transform="rotate(25 860 238)"/>';
+    } else if (art === 'sterne') {
+        var z = ggZufall(4);
+        for (i = 0; i < 40; i++) k += '<circle cx="' + (z() * W).toFixed(0) + '" cy="' + (z() * H * 0.9).toFixed(0) + '" r="' + [1.2, 1.2, 2, 3][Math.floor(z() * 4)] + '" fill="' + f + '" opacity="' + [0.25, 0.45, 0.7][Math.floor(z() * 3)] + '"/>';
+        [[640, 90, 1.3], [560, 300, 0.8], [470, 150, 0.6], [690, 380, 0.55]].forEach(function (s) { k += '<path transform="translate(' + s[0] + ' ' + s[1] + ') scale(' + s[2] + ')" d="M0-10 2.4-3.1 9.5-3.1 3.8 1.2 5.9 8.1 0 4 -5.9 8.1 -3.8 1.2 -9.5-3.1 -2.4-3.1Z" fill="' + f + '" opacity="0.6"/>'; });
+    } else if (art === 'konfetti') {
+        var z2 = ggZufall(7), farben = ['#00483c', '#ffffff', '#e85d4a', '#00483c'];
+        for (i = 0; i < 46; i++) { var x = (z2() * W).toFixed(0), y = (z2() * H * 0.9).toFixed(0), c = farben[Math.floor(z2() * 4)]; k += i % 2 ? '<rect x="' + x + '" y="' + y + '" width="18" height="6" rx="3" fill="' + c + '" opacity="0.55" transform="rotate(' + Math.floor(z2() * 180) + ' ' + x + ' ' + y + ')"/>' : '<circle cx="' + x + '" cy="' + y + '" r="5" fill="' + c + '" opacity="0.5"/>'; }
+    } else {
+        [[560, 80, -20, 1.8], [610, 300, 30, 1.4], [470, 220, -60, 1.2]].forEach(function (b) { k += '<g transform="translate(' + b[0] + ' ' + b[1] + ') rotate(' + b[2] + ') scale(' + b[3] + ')"><path d="M0 0C10-18 34-22 52-14 44 4 22 14 0 0Z" fill="none" stroke="' + f + '" stroke-width="1.4" opacity="0.3"/><path d="M0 0 44-10" stroke="' + f + '" stroke-width="1" opacity="0.25"/></g>'; });
+    }
+    return '<svg class="gg-muster" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid slice" aria-hidden="true">' + k + '</svg>';
 }
+var GG_KORN = '<svg class="gg-korn" aria-hidden="true"><filter id="ggKornF"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.9 0"/></filter><rect width="100%" height="100%" filter="url(#ggKornF)"/></svg>';
+// Farben des Motivs als CSS-Variablen. Werte ohne Anfuehrungszeichen -- sie
+// stehen in einem style="..."-Attribut (gemessen 03.11.: ein " beendet es).
+function ggVars(m) {
+    return '--gg-a:' + m.a + ';--gg-b:' + m.b + ';--gg-text:' + m.text + ';--gg-leise:' + m.leise + ';--gg-gold:' + m.gold + ';--gg-rahmen:' + m.rahmen
+        + ';--gg-siegel:' + m.siegel + ';--gg-siegel2:' + m.siegel2 + ';--gg-kante:' + m.kante + ';--gg-schnitt:' + m.schnitt;
+}
+function ggAbriss(inhalt) { return '<div class="gg-k-schnitt"></div><div class="gg-k-loch gg-o"></div><div class="gg-k-loch gg-u"></div><div class="gg-k-abriss">' + inhalt + '</div>'; }
 
-// DER GUTSCHEIN. d = { lokal, betrag, empfaenger, nachricht, von, code, gueltig_bis, motiv, rest }
+// DER GUTSCHEIN, Vorderseite. d = { lokal, ort, betrag, rest, empfaenger, nachricht, von, code, gueltig_bis, motiv }
 function ggKarteHtml(d) {
-    var m = GG_MOTIVE[d.motiv] || GG_MOTIVE.klassisch;
+    var m = GG_MOTIVE[d.motiv] || GG_MOTIVE.klassisch, mono = ggMono(d.lokal);
     var rest = d.rest != null && Number(d.rest) < Number(d.betrag) ? '<div class="gg-k-rest">Noch ' + escapeHtml(ggEuro(d.rest)) + ' übrig</div>' : '';
-    return '<div class="gg-karte" style="--gg-grund:' + m.grund + ';--gg-grund2:' + m.grund2 + ';--gg-text:' + m.text + ';--gg-akzent:' + m.akzent + ';--gg-leise:' + m.leise + ';--gg-muster:' + ggMuster(m.muster, m.akzent) + ';">'
-        + '<div class="gg-k-oben"><span class="gg-k-wort">Gutschein</span><span class="gg-k-lokal">' + escapeHtml(d.lokal || '') + '</span></div>'
-        + '<div class="gg-k-mitte">'
-        + '<div class="gg-k-betrag">' + escapeHtml(ggEuro(d.betrag || 0)) + '</div>'
-        + (d.empfaenger ? '<div class="gg-k-fuer">für ' + escapeHtml(d.empfaenger) + '</div>' : '')
-        + (d.nachricht ? '<div class="gg-k-gruss">„' + escapeHtml(d.nachricht) + '“' + (d.von ? '<span> – ' + escapeHtml(d.von) + '</span>' : '') + '</div>' : (d.von ? '<div class="gg-k-gruss"><span>von ' + escapeHtml(d.von) + '</span></div>' : ''))
-        + rest
-        + '</div>'
-        + '<div class="gg-k-schnitt" aria-hidden="true"></div>'
-        + '<div class="gg-k-unten"><span class="gg-k-code">' + escapeHtml(d.code || 'KIN-••••-••••') + '</span>'
-        + '<span class="gg-k-gueltig">' + (d.gueltig_bis ? 'gültig bis ' + escapeHtml(ggDatum(d.gueltig_bis)) : 'kiekmolin.de') + '</span></div>'
+    return '<div class="gg-karte" style="' + ggVars(m) + '">' + ggMuster(m.muster, m.farbe) + GG_KORN + '<div class="gg-k-rahmen"></div>'
+        + '<div class="gg-k-haupt"><div class="gg-k-oben"><div class="gg-k-siegel"><span class="gg-folie">' + escapeHtml(mono) + '</span></div>'
+        + '<div class="gg-k-kopf"><span class="gg-k-wort gg-folie">GUTSCHEIN</span><span class="gg-k-lokal">' + escapeHtml([d.lokal, d.ort].filter(Boolean).join(' · ')) + '</span></div></div>'
+        + '<div class="gg-k-mitte"><div class="gg-k-betrag"><span class="gg-k-zahl">' + escapeHtml(ggEuro(d.betrag || 0).replace(' €', '')) + '</span><span class="gg-k-euro gg-folie">€</span></div>'
+        + (d.empfaenger ? '<div class="gg-k-fuer">für <b>' + escapeHtml(d.empfaenger) + '</b></div>' : '')
+        + (d.nachricht ? '<div class="gg-k-gruss">„' + escapeHtml(d.nachricht) + '“</div>' : '')
+        + (d.von ? '<div class="gg-k-von">– ' + escapeHtml(d.von) + '</div>' : '') + rest + '</div></div>'
+        + ggAbriss('<span class="gg-k-mono gg-folie">' + escapeHtml(mono) + '</span><small>CODE</small><span class="gg-k-code">' + escapeHtml(d.code || 'KIN-••••-••••') + '</span>'
+            + '<span class="gg-k-gueltig">' + (d.gueltig_bis ? 'gültig bis ' + escapeHtml(ggDatum(d.gueltig_bis)) + '<br>' : '') + 'kiekmolin.de</span>')
+        + '<div class="gg-k-glanz"></div></div>';
+}
+// Rueckseite: wie man einloest, und das Guthaben.
+function ggRueckHtml(d) {
+    var m = GG_MOTIVE[d.motiv] || GG_MOTIVE.klassisch, lokal = escapeHtml(d.lokal || 'dem Lokal');
+    var guthaben = d.rest != null ? d.rest : d.betrag;
+    return '<div class="gg-karte gg-hinten" style="' + ggVars(m) + '">' + GG_KORN + '<div class="gg-k-rahmen"></div>'
+        + '<div class="gg-r-inhalt"><span class="gg-r-titel gg-folie">SO LÖST DU IHN EIN</span>'
+        + '<div class="gg-r-schritt"><i>1</i>Bei ' + lokal + ' den Code zeigen oder sagen.</div>'
+        + '<div class="gg-r-schritt"><i>2</i>Der Betrag wird von der Rechnung abgezogen.</div>'
+        + '<div class="gg-r-schritt"><i>3</i>Der Rest bleibt drauf – für den nächsten Besuch.</div></div>'
+        + '<div class="gg-r-fuss">3 Jahre gültig · auch in Teilbeträgen</div>'
+        + ggAbriss('<small>GUTHABEN</small><b class="gg-r-guthaben">' + escapeHtml(ggEuro(guthaben || 0)) + '</b><span class="gg-k-code">' + escapeHtml(d.code || 'KIN-••••-••••') + '</span><span class="gg-k-gueltig">kiekmolin.de</span>')
         + '</div>';
 }
+// In 3D: Vorder- und Rueckseite, dazwischen Schichten fuer die Dicke (Goldschnitt).
+// art: 'schwebt' (langsam, von selbst) oder 'kippen' (Finger/Maus, Tipp = umdrehen).
+function gg3dHtml(d, art) {
+    var m = GG_MOTIVE[d.motiv] || GG_MOTIVE.klassisch, schichten = '';
+    for (var i = -6; i <= 6; i++) schichten += '<div class="gg-3d-schicht" style="transform:translateZ(' + (i * 0.5) + 'px)"></div>';
+    return '<div class="gg-3d gg-3d-' + (art || 'schwebt') + '"><div class="gg-3d-boden"></div><div class="gg-3d-k" style="' + ggVars(m) + '">' + schichten
+        + '<div class="gg-3d-v">' + ggKarteHtml(d) + '</div><div class="gg-3d-r">' + ggRueckHtml(d) + '</div></div></div>';
+}
+// Kippen mit Finger oder Maus, antippen = umdrehen. Ohne Bewegung erlaubt
+// (prefers-reduced-motion) bleibt die Karte ruhig stehen -- umdrehen geht trotzdem.
+function ggKippen(box) {
+    var huelle = box && box.querySelector('.gg-3d'), k = box && box.querySelector('.gg-3d-k');
+    if (!huelle || !k) return;
+    var ruhig = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    var rot = { x: 10, y: -16 }, ziel = { x: 10, y: -16 }, dreh = 0, drehZiel = 0, zug = null, t0 = performance.now(), weg = false;
+    function setzen() {
+        k.style.transform = 'rotateX(' + rot.x.toFixed(2) + 'deg) rotateY(' + (rot.y + dreh).toFixed(2) + 'deg)';
+        k.style.setProperty('--gg-fx', (50 + rot.y * 1.4 - rot.x * 0.6).toFixed(1) + '%');
+        k.style.setProperty('--gg-gx', (50 - rot.y * 1.6).toFixed(1) + '%');
+        k.style.setProperty('--gg-gy', (30 + rot.x * 1.6).toFixed(1) + '%');
+    }
+    function schritt(t) {
+        if (weg || !document.body.contains(k)) return;
+        if (!zug && !ruhig) { var s = (t - t0) / 1000; ziel.x = 9 + Math.sin(s * 0.7) * 5; ziel.y = -14 + Math.sin(s * 0.45) * 12; }
+        rot.x += (ziel.x - rot.x) * 0.09; rot.y += (ziel.y - rot.y) * 0.09; dreh += (drehZiel - dreh) * 0.1;
+        setzen(); requestAnimationFrame(schritt);
+    }
+    huelle.addEventListener('pointerdown', function (e) { zug = { x: e.clientX, y: e.clientY, rx: ziel.x, ry: ziel.y, weg: 0 }; try { huelle.setPointerCapture(e.pointerId); } catch (x) {} });
+    huelle.addEventListener('pointermove', function (e) {
+        if (!zug) return;
+        var dx = e.clientX - zug.x, dy = e.clientY - zug.y; zug.weg = Math.max(zug.weg, Math.abs(dx) + Math.abs(dy));
+        ziel.y = Math.max(-55, Math.min(55, zug.ry + dx * 0.35)); ziel.x = Math.max(-40, Math.min(40, zug.rx - dy * 0.35));
+    });
+    huelle.addEventListener('pointerup', function () { if (zug && zug.weg < 6) drehZiel += 180; zug = null; t0 = performance.now(); });
+    huelle.addEventListener('pointercancel', function () { zug = null; });
+    huelle.setAttribute('role', 'button'); huelle.setAttribute('tabindex', '0'); huelle.setAttribute('aria-label', 'Gutschein umdrehen');
+    huelle.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); drehZiel += 180; } });
+    box._ggUmdrehen = function () { drehZiel += 180; };
+    setzen(); requestAnimationFrame(schritt);
+}
+window.ggUmdrehen = function (id) { var b = document.getElementById(id); if (b && b._ggUmdrehen) b._ggUmdrehen(); };
 
 // Teaser auf der Lokalseite -- nur, wenn der Wirt Gutscheine verkauft.
 function ggTeaserHtml(rest) {
@@ -74641,7 +74776,7 @@ function ggTeaserHtml(rest) {
         + '<h2>Ein Abend bei ' + escapeHtml(rest.name || 'uns') + ' – zum Verschenken</h2>'
         + '<p>Betrag wählen, Gruß dazu, mit PayPal bezahlen. Der Gutschein kommt sofort als Bild und per Mail.</p>'
         + '<button type="button" class="gg-knopf" onclick="ggOeffnen(\'' + rest.id + '\')">Gutschein verschenken</button></div>'
-        + '<div class="gg-teaser-bild" aria-hidden="true">' + ggKarteHtml({ lokal: rest.name, betrag: 50, empfaenger: 'dich', motiv: 'klassisch' }) + '</div>'
+        + '<div class="gg-teaser-bild" aria-hidden="true">' + gg3dHtml({ lokal: rest.name, ort: rest.city, betrag: 50, empfaenger: 'dich', motiv: 'klassisch' }, 'schwebt') + '</div>'
         + '</section>';
 }
 
@@ -74682,7 +74817,7 @@ function ggFormular() {
     var betraege = GG_BETRAEGE.map(function (b) { return '<button type="button" data-gg-betrag="' + b + '" aria-pressed="' + (d.betrag === b) + '">' + b + ' €</button>'; }).join('');
     var motive = Object.keys(GG_MOTIVE).map(function (k) { var m = GG_MOTIVE[k]; return '<button type="button" data-gg-motiv="' + k + '" aria-pressed="' + (d.motiv === k) + '"><i style="background:linear-gradient(135deg,' + m.grund + ',' + m.grund2 + ');border-color:' + m.akzent + '"></i>' + m.name + '</button>'; }).join('');
     ggFenster('<h2 class="gg-titel">Gutschein verschenken</h2>'
-        + '<div id="ggVorschau" class="gg-vorschau">' + ggKarteHtml(Object.assign({ lokal: _gg.rest.name }, d)) + '</div>'
+        + '<div id="ggVorschau" class="gg-vorschau">' + gg3dHtml(Object.assign({ lokal: _gg.rest.name, ort: _gg.rest.city }, d), 'schwebt') + '</div>'
         + '<div class="gg-feld"><span class="gg-label">Motiv</span><div class="gg-motive" id="ggMotive">' + motive + '</div></div>'
         + '<div class="gg-feld"><span class="gg-label">Betrag</span><div class="gg-betraege" id="ggBetraege">' + betraege
         + '<label class="gg-eigen"><input type="number" inputmode="numeric" id="ggBetragEigen" min="' + _gg.info.min + '" max="' + _gg.info.max + '" step="1" placeholder="anderer" aria-label="Anderer Betrag in Euro"' + (GG_BETRAEGE.indexOf(d.betrag) < 0 ? ' value="' + d.betrag + '"' : '') + '> €</label></div></div>'
@@ -74709,7 +74844,7 @@ function ggLesen() {
     var d = _gg.d, eigen = ggWert('ggBetragEigen');
     if (eigen) d.betrag = Number(eigen);
     d.empfaenger = ggWert('ggEmpfaenger'); d.nachricht = ggWert('ggNachricht'); d.von = ggWert('ggVon'); d.email = ggWert('ggEmail');
-    var v = document.getElementById('ggVorschau'); if (v) v.innerHTML = ggKarteHtml(Object.assign({ lokal: _gg.rest.name }, d));
+    var v = document.getElementById('ggVorschau'); if (v) v.innerHTML = gg3dHtml(Object.assign({ lokal: _gg.rest.name, ort: _gg.rest.city }, d), 'schwebt');
     document.querySelectorAll('#ggBetraege [data-gg-betrag]').forEach(function (b) { b.setAttribute('aria-pressed', String(!eigen && Number(b.getAttribute('data-gg-betrag')) === d.betrag)); });
     document.querySelectorAll('#ggMotive [data-gg-motiv]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-gg-motiv') === d.motiv)); });
     var z = document.getElementById('ggGrussZahl'); if (z) z.textContent = d.nachricht.length + '/200';
@@ -74729,7 +74864,7 @@ async function ggZurZahlung() {
     var d = _gg.d, fehler = ggPruefen(d, _gg.info);
     if (fehler) { ggMelden(fehler, true); return; }
     ggFenster('<h2 class="gg-titel">Bezahlen</h2>'
-        + '<div class="gg-vorschau gg-klein-vorschau">' + ggKarteHtml(Object.assign({ lokal: _gg.rest.name }, d)) + '</div>'
+        + '<div class="gg-vorschau gg-klein-vorschau">' + gg3dHtml(Object.assign({ lokal: _gg.rest.name, ort: _gg.rest.city }, d), 'schwebt') + '</div>'
         + '<p class="gg-hinweis">' + escapeHtml(ggEuro(d.betrag)) + ' per PayPal an ' + escapeHtml(_gg.rest.name || 'das Lokal') + '. Der Gutschein entsteht erst, wenn PayPal die Zahlung bestätigt hat.</p>'
         + '<div id="ggPaypal"></div><p id="ggMeldung" class="gg-meldung" role="status" aria-live="polite"></p>'
         + '<button type="button" class="gg-knopf gg-rand" onclick="ggFormular()">Zurück</button>');
@@ -74767,16 +74902,19 @@ async function ggZurZahlung() {
 window.ggZurZahlung = ggZurZahlung;
 window.ggFormular = ggFormular;
 
-function ggDaten(g) { return { lokal: g.lokal && g.lokal.name, betrag: g.betrag, rest: g.rest, empfaenger: g.empfaenger, nachricht: g.nachricht, von: g.von, code: g.code, gueltig_bis: g.gueltig_bis, motiv: g.motiv }; }
+function ggDaten(g) { return { lokal: g.lokal && g.lokal.name, ort: g.lokal && g.lokal.city, betrag: g.betrag, rest: g.rest, empfaenger: g.empfaenger, nachricht: g.nachricht, von: g.von, code: g.code, gueltig_bis: g.gueltig_bis, motiv: g.motiv }; }
 function ggLink(code) { return 'https://kiekmolin.de/?gutschein=' + encodeURIComponent(code); }
 function ggFertig(g, gemailt) {
     _gg = _gg || {}; _gg.fertig = g;
     ggFenster('<div class="gg-geschafft"><span class="material-symbols-outlined" aria-hidden="true">redeem</span> Bezahlt – dein Gutschein ist fertig!</div>'
-        + '<div class="gg-vorschau">' + ggKarteHtml(ggDaten(g)) + '</div>'
+        + '<div class="gg-vorschau gg-kippbox" id="ggKippbox">' + gg3dHtml(ggDaten(g), 'kippen') + '</div>'
+        + '<p class="gg-klein gg-kipp-hinweis">Karte ziehen = kippen · antippen = umdrehen</p>'
         + '<div class="gg-aktionen">'
         + '<button type="button" class="gg-knopf gg-voll" onclick="ggBildSpeichern()">Als Bild speichern</button>'
         + '<button type="button" class="gg-knopf gg-rand" onclick="ggTeilen()">Teilen</button></div>'
+        + '<button type="button" class="gg-knopf gg-rand gg-breit" onclick="ggDrucken()">Drucken (21 × 10 cm)</button>'
         + '<p class="gg-klein">' + (gemailt ? 'Wir haben ihn dir auch per Mail geschickt.' : 'Die Mail konnte gerade nicht verschickt werden – bitte speichere das Bild oder den Link.') + ' Link: <a href="' + ggLink(g.code) + '">' + escapeHtml(ggLink(g.code).replace('https://', '')) + '</a></p>');
+    ggKippen(document.getElementById('ggKippbox'));
 }
 
 // Ansicht per Link: kiekmolin.de/?gutschein=KIN-XXXX-XXXX
@@ -74788,10 +74926,14 @@ async function ggAnsehen(code) {
         if (!j.ok) { ggFenster('<h2 class="gg-titel">Gutschein</h2><p class="gg-hinweis">' + escapeHtml(j.error || 'Nicht gefunden.') + '</p>'); return; }
         var g = j.gutschein; _gg = { fertig: g };
         var zu = g.status === 'eingeloest' ? '<p class="gg-hinweis">Dieser Gutschein ist ganz eingelöst.</p>' : '';
-        ggFenster('<h2 class="gg-titel">Dein Gutschein</h2><div class="gg-vorschau">' + ggKarteHtml(ggDaten(g)) + '</div>' + zu
+        ggFenster('<h2 class="gg-titel">' + (g.empfaenger ? 'Für dich, ' + escapeHtml(g.empfaenger) + '!' : 'Dein Gutschein') + '</h2>'
+            + (g.von ? '<p class="gg-hinweis">' + escapeHtml(g.von) + ' schenkt dir einen Abend bei ' + escapeHtml((g.lokal && g.lokal.name) || 'uns') + '.</p>' : '')
+            + '<div class="gg-vorschau gg-kippbox" id="ggKippbox">' + gg3dHtml(ggDaten(g), 'kippen') + '</div><p class="gg-klein gg-kipp-hinweis">Karte ziehen = kippen · antippen = umdrehen</p>' + zu
             + '<div class="gg-aktionen"><button type="button" class="gg-knopf gg-voll" onclick="ggBildSpeichern()">Als Bild speichern</button>'
             + (g.lokal && (g.lokal.slug || g.lokal.id) ? '<a class="gg-knopf gg-rand" href="/?r=' + encodeURIComponent(g.lokal.slug || g.lokal.id) + '">Zum Lokal</a>' : '') + '</div>'
+            + '<button type="button" class="gg-knopf gg-rand gg-breit" onclick="ggDrucken()">Drucken (21 × 10 cm)</button>'
             + '<p class="gg-klein">Einlösen: im Lokal den Code zeigen. Auch in mehreren Besuchen – der Rest bleibt drauf.</p>');
+        ggKippen(document.getElementById('ggKippbox'));
     } catch (e) { ggFenster('<h2 class="gg-titel">Gutschein</h2><p class="gg-hinweis">Gerade nicht erreichbar – bitte gleich noch einmal öffnen.</p>'); }
 }
 window.ggAnsehen = ggAnsehen;
@@ -74804,42 +74946,80 @@ async function ggTeilen() {
 }
 window.ggTeilen = ggTeilen;
 
-// Das Bild: der Gutschein auf eine Leinwand gemalt (gleiches Design wie oben),
-// 2x fuer scharfe Handys. Kein html2canvas, keine fremde Bibliothek.
-function ggUmbruch(ctx, text, breite) {
+function ggUmbruch(ctx, text, breite, max) {
     var woerter = String(text).split(' '), zeilen = [], z = '';
     woerter.forEach(function (w) { var t = z ? z + ' ' + w : w; if (ctx.measureText(t).width > breite && z) { zeilen.push(z); z = w; } else z = t; });
     if (z) zeilen.push(z);
-    return zeilen.slice(0, 3);
+    return zeilen.slice(0, max || 2);
 }
-async function ggBildSpeichern() {
-    var g = _gg && _gg.fertig; if (!g) return;
-    try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (e) {}
-    var m = GG_MOTIVE[g.motiv] || GG_MOTIVE.klassisch, S = 2, W = 900, H = 560;
-    var c = document.createElement('canvas'); c.width = W * S; c.height = H * S;
-    var x = c.getContext('2d'); x.scale(S, S);
-    var r = 36;
+// Druckbild 21 x 10 cm bei 300 dpi = 2480 x 1181 Pixel. Gleiches Design wie
+// die Karte: Verlauf, Muster, Goldrahmen, Siegel, Folie, Abriss mit Kerben.
+var GG_DRUCK = { w: 2480, h: 1181 };
+async function ggBildMalen(g) {
+    try { if (document.fonts && document.fonts.load) await Promise.all(['600 100px Fraunces', 'italic 400 40px Fraunces', '800 40px Epilogue', '700 40px Inter'].map(function (f) { return document.fonts.load(f).catch(function () {}); })); } catch (e) {}
+    var m = GG_MOTIVE[g.motiv] || GG_MOTIVE.klassisch, W = GG_DRUCK.w, H = GG_DRUCK.h, u = W / 100;
+    var c = document.createElement('canvas'); c.width = W; c.height = H;
+    var x = c.getContext('2d');
+    var lokal = (g.lokal && g.lokal.name) || '', ort = (g.lokal && g.lokal.city) || '', mono = ggMono(lokal);
+    var r = 4.2 * u;
     x.beginPath(); x.moveTo(r, 0); x.arcTo(W, 0, W, H, r); x.arcTo(W, H, 0, H, r); x.arcTo(0, H, 0, 0, r); x.arcTo(0, 0, W, 0, r); x.closePath(); x.clip();
-    var grad = x.createLinearGradient(0, 0, W, H); grad.addColorStop(0, m.grund); grad.addColorStop(1, m.grund2); x.fillStyle = grad; x.fillRect(0, 0, W, H);
-    x.fillStyle = m.akzent; x.globalAlpha = 0.12; x.beginPath(); x.arc(W - 40, 60, 190, 0, Math.PI * 2); x.fill(); x.globalAlpha = 1;
-    x.fillStyle = m.akzent; x.font = '700 22px Inter, sans-serif'; x.textBaseline = 'top';
-    x.fillText('G U T S C H E I N', 56, 52);
-    x.fillStyle = m.leise; x.font = '700 22px Epilogue, Inter, sans-serif'; x.textAlign = 'right';
-    x.fillText(String((g.lokal && g.lokal.name) || '').toUpperCase().slice(0, 32), W - 56, 52); x.textAlign = 'left';
-    x.fillStyle = m.text; x.font = '800 132px Epilogue, Inter, sans-serif';
-    x.fillText(ggEuro(g.betrag).replace(' €', '') + ' €', 52, 110);
-    var y = 262;
-    if (g.empfaenger) { x.font = '600 32px Inter, sans-serif'; x.fillStyle = m.text; x.fillText('für ' + g.empfaenger, 56, y); y += 50; }
-    if (g.nachricht) { x.font = 'italic 400 25px Inter, sans-serif'; x.fillStyle = m.leise; ggUmbruch(x, '„' + g.nachricht + '“' + (g.von ? ' – ' + g.von : ''), W - 112).forEach(function (z) { x.fillText(z, 56, y); y += 34; }); }
-    else if (g.von) { x.font = 'italic 400 25px Inter, sans-serif'; x.fillStyle = m.leise; x.fillText('von ' + g.von, 56, y); }
-    // Abriss-Linie mit Kerben wie bei einer Eintrittskarte
-    var ly = H - 108;
-    x.save(); x.globalCompositeOperation = 'destination-out'; x.beginPath(); x.arc(0, ly, 22, 0, Math.PI * 2); x.arc(W, ly, 22, 0, Math.PI * 2); x.fill(); x.restore();
-    x.strokeStyle = m.leise; x.setLineDash([10, 9]); x.lineWidth = 2; x.beginPath(); x.moveTo(40, ly); x.lineTo(W - 40, ly); x.stroke(); x.setLineDash([]);
-    x.fillStyle = m.text; x.font = '700 34px Menlo, Consolas, monospace'; x.fillText(g.code, 56, ly + 34);
-    x.fillStyle = m.leise; x.font = '500 21px Inter, sans-serif'; x.textAlign = 'right';
-    x.fillText('gültig bis ' + ggDatum(g.gueltig_bis) + '  ·  kiekmolin.de', W - 56, ly + 42); x.textAlign = 'left';
-    var name = 'Gutschein-' + String((g.lokal && g.lokal.name) || 'kiekmolin').replace(/[^A-Za-z0-9äöüÄÖÜß]+/g, '-') + '-' + g.code + '.png';
+    var bg = x.createRadialGradient(W * 0.86, H * 0.08, 0, W * 0.86, H * 0.08, W * 1.05); bg.addColorStop(0, m.a); bg.addColorStop(0.72, m.b); bg.addColorStop(1, m.b);
+    x.fillStyle = bg; x.fillRect(0, 0, W, H);
+    // Muster: dieselbe SVG wie auf der Karte, als Bild gemalt.
+    try {
+        var svg = ggMuster(m.muster, m.farbe).replace('<svg class="gg-muster"', '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '"');
+        var bild = new Image(); bild.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+        await new Promise(function (ok) { bild.onload = ok; bild.onerror = ok; });
+        if (bild.width) x.drawImage(bild, 0, 0, W, H);
+    } catch (e) {}
+    var gold = function (x0, x1) { var gr = x.createLinearGradient(x0, 0, x1, 0); m.goldStopps.forEach(function (f, i) { gr.addColorStop(i / (m.goldStopps.length - 1), f); }); return gr; };
+    // Goldrahmen
+    x.strokeStyle = m.rahmen; x.lineWidth = 3; x.beginPath();
+    var ri = 1.6 * u, rr = 1.8 * u; x.moveTo(ri + rr, ri); x.arcTo(W - ri, ri, W - ri, H - ri, rr); x.arcTo(W - ri, H - ri, ri, H - ri, rr); x.arcTo(ri, H - ri, ri, ri, rr); x.arcTo(ri, ri, W - ri, ri, rr); x.closePath(); x.stroke();
+    // Siegel
+    var sx = 5 * u + 3.5 * u, sy = 4.2 * u + 3.5 * u;
+    x.strokeStyle = m.siegel; x.lineWidth = 0.25 * u; x.beginPath(); x.arc(sx, sy, 3.4 * u, 0, Math.PI * 2); x.stroke();
+    x.strokeStyle = m.siegel2; x.lineWidth = 0.15 * u; x.beginPath(); x.arc(sx, sy, 2.7 * u, 0, Math.PI * 2); x.stroke();
+    x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = gold(sx - 3 * u, sx + 3 * u); x.font = '600 ' + (3.8 * u) + 'px Fraunces, Georgia, serif'; x.fillText(mono, sx, sy + 0.2 * u);
+    x.textAlign = 'left'; x.textBaseline = 'alphabetic';
+    // GUTSCHEIN + Lokal
+    var tx = 5 * u + 8.8 * u;
+    x.fillStyle = gold(tx, tx + 24 * u); x.font = '700 ' + (1.9 * u) + 'px Inter, sans-serif';
+    'GUTSCHEIN'.split('').reduce(function (px, ch) { x.fillText(ch, px, sy - 0.3 * u); return px + x.measureText(ch).width + 0.9 * u; }, tx);
+    x.fillStyle = m.leise; x.font = '800 ' + (1.8 * u) + 'px Epilogue, Inter, sans-serif';
+    var lz = [lokal, ort].filter(Boolean).join(' · ').toUpperCase();
+    lz.split('').reduce(function (px, ch) { x.fillText(ch, px, sy + 2.4 * u); return px + x.measureText(ch).width + 0.28 * u; }, tx);
+    // Betrag
+    var bx = 5 * u, by = H * 0.6;
+    x.fillStyle = 'rgba(0,0,0,0.22)'; x.font = '600 ' + (15 * u) + 'px Fraunces, Georgia, serif';
+    var zahl = ggEuro(g.betrag).replace(' €', ''); x.fillText(zahl, bx, by + 0.2 * u);
+    x.fillStyle = m.text; x.fillText(zahl, bx, by);
+    var zw = x.measureText(zahl).width;
+    x.fillStyle = gold(bx + zw, bx + zw + 7 * u); x.font = '500 ' + (6.5 * u) + 'px Fraunces, Georgia, serif'; x.fillText('€', bx + zw + 0.8 * u, by - 7 * u);
+    var y = by + 4.6 * u;
+    if (g.empfaenger) { x.fillStyle = m.text; x.font = 'italic 400 ' + (3.2 * u) + 'px Fraunces, Georgia, serif'; x.fillText('für ', bx, y); var fw = x.measureText('für ').width; x.font = '600 ' + (3.2 * u) + 'px Fraunces, Georgia, serif'; x.fillText(g.empfaenger, bx + fw, y); y += 3.8 * u; }
+    if (g.nachricht) { x.fillStyle = m.leise; x.font = 'italic 400 ' + (2.3 * u) + 'px Fraunces, Georgia, serif'; ggUmbruch(x, '„' + g.nachricht + '“', 60 * u, 2).forEach(function (z) { x.fillText(z, bx, y); y += 3.2 * u; }); }
+    if (g.von) { x.fillStyle = m.leise; x.font = '500 ' + (2.3 * u) + 'px Fraunces, Georgia, serif'; x.fillText('– ' + g.von, bx, y); }
+    // Abriss: gestrichelte Linie + Kerben
+    var ax = 72 * u;
+    x.save(); x.globalCompositeOperation = 'destination-out'; x.fillStyle = '#000';
+    x.beginPath(); x.arc(ax, 0, 1.7 * u, 0, Math.PI * 2); x.fill(); x.beginPath(); x.arc(ax, H, 1.7 * u, 0, Math.PI * 2); x.fill(); x.restore();
+    x.strokeStyle = m.leise; x.globalAlpha = 0.5; x.setLineDash([1.2 * u, 0.9 * u]); x.lineWidth = 0.25 * u; x.beginPath(); x.moveTo(ax, 2.2 * u); x.lineTo(ax, H - 2.2 * u); x.stroke(); x.setLineDash([]); x.globalAlpha = 1;
+    var mx = ax + 14 * u; x.textAlign = 'center';
+    x.fillStyle = gold(mx - 5 * u, mx + 5 * u); x.font = '600 ' + (9 * u) + 'px Fraunces, Georgia, serif'; x.fillText(mono, mx, H * 0.44);
+    x.fillStyle = m.leise; x.font = '700 ' + (1.4 * u) + 'px Inter, sans-serif'; x.fillText('C O D E', mx, H * 0.55);
+    x.fillStyle = m.text; x.font = '700 ' + (2.1 * u) + 'px Menlo, Consolas, monospace'; x.fillText(g.code, mx, H * 0.63);
+    x.fillStyle = m.leise; x.font = '500 ' + (1.5 * u) + 'px Inter, sans-serif';
+    if (g.gueltig_bis) x.fillText('gültig bis ' + ggDatum(g.gueltig_bis), mx, H * 0.71);
+    x.fillText('kiekmolin.de', mx, H * 0.76);
+    if (g.rest != null && Number(g.rest) < Number(g.betrag)) { x.fillStyle = m.siegel; x.font = '800 ' + (1.9 * u) + 'px Inter, sans-serif'; x.fillText('Noch ' + ggEuro(g.rest) + ' übrig', mx, H * 0.86); }
+    x.textAlign = 'left';
+    return c;
+}
+function ggDateiname(g) { return 'Gutschein-' + String((g.lokal && g.lokal.name) || 'kiekmolin').replace(/[^A-Za-z0-9äöüÄÖÜß]+/g, '-') + '-' + g.code + '.png'; }
+async function ggBildSpeichern(g) {
+    g = g || (_gg && _gg.fertig); if (!g) return;
+    var c = await ggBildMalen(g), name = ggDateiname(g);
     c.toBlob(async function (blob) {
         if (!blob) { showToast('Bild konnte nicht erstellt werden', 'error'); return; }
         // Handy: direkt teilen (WhatsApp, Fotos ...). Sonst herunterladen.
@@ -74849,10 +75029,24 @@ async function ggBildSpeichern() {
         } catch (e) { if (e && e.name === 'AbortError') return; }
         var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
         setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-        showToast('Gutschein als Bild gespeichert', 'success');
+        showToast('Gutschein als Bild gespeichert (21 × 10 cm)', 'success');
     }, 'image/png');
 }
 window.ggBildSpeichern = ggBildSpeichern;
+// Drucken in Originalgroesse 21 x 10 cm: eigene Druckseite mit @page in genau
+// dieser Groesse. Im Druckfenster "Tatsaechliche Groesse / 100 %" lassen.
+async function ggDrucken(g) {
+    g = g || (_gg && _gg.fertig); if (!g) return;
+    var c = await ggBildMalen(g), url = c.toDataURL('image/png');
+    var f = document.createElement('iframe');
+    f.setAttribute('aria-hidden', 'true'); f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+    document.body.appendChild(f);
+    var d = f.contentWindow.document;
+    d.open(); d.write('<!doctype html><html><head><title>Gutschein ' + escapeHtml(g.code) + '</title><style>@page{size:210mm 100mm;margin:0}html,body{margin:0;padding:0}img{display:block;width:210mm;height:100mm}</style></head><body><img alt="Gutschein" src="' + url + '"></body></html>'); d.close();
+    var los = function () { try { f.contentWindow.focus(); f.contentWindow.print(); } catch (e) { showToast('Drucken geht hier nicht – bitte „Als Bild speichern“ und das Bild drucken (21 × 10 cm).', 'error'); } setTimeout(function () { f.remove(); }, 60000); };
+    var img = d.querySelector('img'); if (img && !img.complete) img.onload = los; else setTimeout(los, 50);
+}
+window.ggDrucken = ggDrucken;
 
 // ==================== GESCHENKGUTSCHEINE IM DASHBOARD (03.11.2026) ====================
 // Einloesen (alle im Team -- passiert an der Kasse), Liste, und der Schalter
@@ -74877,10 +75071,92 @@ async function ggWirtOeffnen() {
         + '<input id="ggWBetrag" type="text" inputmode="decimal" autocomplete="off" placeholder="Betrag €" aria-label="Betrag in Euro">'
         + '<button type="submit">Einlösen</button></div>'
         + '<p id="ggWStand" class="gg-w-stand" role="status" aria-live="polite">Code vom Gutschein eintippen und den Betrag der Rechnung. Ist die Rechnung höher, zahlt der Gast den Rest normal.</p></form>'
+        + '<button type="button" class="gg-w-vorort-knopf" onclick="ggVorOrtFormular()">+ Gutschein vor Ort verkaufen</button><div id="ggWVorOrt"></div>'
         + '<div id="ggWSchalter"></div><div id="ggWListe"><p class="gg-w-stand">Lade …</p></div></div>');
     ggWirtLaden();
 }
 window.ggWirtOeffnen = ggWirtOeffnen;
+
+// ---- VOR ORT VERKAUFEN (04.11.2026) ----
+// Ibo: "der Gast kann auch vor Ort den Gutschein kriegen". Der Gast zahlt im
+// Lokal bar oder mit Karte; hier wird derselbe Gutschein angelegt -- zum
+// Drucken (21 x 10 cm), als Bild oder per Mail. Kein PayPal, kein Online-Schalter.
+var _ggVo = null;
+function ggVorOrtFormular() {
+    var box = document.getElementById('ggWVorOrt'); if (!box) return;
+    var rid = ggWirtRid(), rest = (APP_DATA.restaurants || []).find(function (r) { return r.id === rid; }) || {};
+    _ggVo = { rest: rest, d: { betrag: 50, motiv: 'klassisch', zahlart: '', empfaenger: '', nachricht: '', von: '', email: '' } };
+    var motive = Object.keys(GG_MOTIVE).map(function (k) { var m = GG_MOTIVE[k]; return '<button type="button" data-vo-motiv="' + k + '" aria-pressed="' + (k === 'klassisch') + '"><i style="background:radial-gradient(circle at 80% 20%,' + m.a + ',' + m.b + ');box-shadow:0 3px 0 ' + m.kante + '"></i>' + m.name + '</button>'; }).join('');
+    box.innerHTML = '<div class="gg-vo">'
+        + '<div class="gg-vo-kopf"><b>Gutschein vor Ort verkaufen</b><button type="button" class="gg-vo-zu" onclick="ggVorOrtZu()" aria-label="Schließen">×</button></div>'
+        + '<div id="ggVoVorschau" class="gg-vo-vorschau">' + gg3dHtml(ggVorOrtDaten(), 'schwebt') + '</div>'
+        + '<div class="gg-vo-motive" id="ggVoMotive">' + motive + '</div>'
+        + '<div class="gg-vo-reihe"><label><span>Betrag</span><input id="ggVoBetrag" type="text" inputmode="decimal" autocomplete="off" value="50" aria-label="Betrag in Euro"></label>'
+        + '<div><span>Bezahlt</span><div class="gg-vo-zahl" id="ggVoZahl"><button type="button" data-vo-zahl="bar" aria-pressed="false">Bar</button><button type="button" data-vo-zahl="karte" aria-pressed="false">Karte</button></div></div></div>'
+        + '<label><span>Für wen? (steht auf dem Gutschein)</span><input id="ggVoFuer" maxlength="60" placeholder="z. B. Oma Gerda"></label>'
+        + '<label><span>Gruß (optional)</span><input id="ggVoGruss" maxlength="200" placeholder="z. B. Frohe Weihnachten!"></label>'
+        + '<div class="gg-vo-reihe"><label><span>Von (optional)</span><input id="ggVoVon" maxlength="60" placeholder="Name"></label>'
+        + '<label><span>E-Mail (optional)</span><input id="ggVoMail" type="email" maxlength="120" placeholder="schickt ihn per Mail"></label></div>'
+        + '<p id="ggVoStand" class="gg-w-stand" role="status" aria-live="polite">Erst kassieren, dann anlegen. Der Gutschein ist sofort gültig.</p>'
+        + '<button type="button" class="gg-vo-los" id="ggVoLos" onclick="ggVorOrtAnlegen()">Gutschein anlegen · 50 €</button></div>';
+    box.querySelector('.gg-vo').addEventListener('input', ggVorOrtLesen);
+    box.querySelector('.gg-vo').addEventListener('click', function (e) {
+        var b = e.target.closest && e.target.closest('[data-vo-motiv],[data-vo-zahl]'); if (!b) return;
+        if (b.hasAttribute('data-vo-motiv')) _ggVo.d.motiv = b.getAttribute('data-vo-motiv'); else _ggVo.d.zahlart = b.getAttribute('data-vo-zahl');
+        ggVorOrtLesen();
+    });
+    box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+window.ggVorOrtFormular = ggVorOrtFormular;
+function ggVorOrtZu() { var box = document.getElementById('ggWVorOrt'); if (box) box.innerHTML = ''; _ggVo = null; }
+window.ggVorOrtZu = ggVorOrtZu;
+function ggVorOrtDaten() { var d = _ggVo.d, r = _ggVo.rest; return { lokal: r.name, ort: r.city, betrag: d.betrag > 0 ? d.betrag : 0, empfaenger: d.empfaenger, nachricht: d.nachricht, von: d.von, motiv: d.motiv }; }
+function ggVoWert(id) { var e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; }
+function ggVorOrtLesen() {
+    if (!_ggVo) return;
+    var d = _ggVo.d;
+    d.betrag = Math.round(Number(ggVoWert('ggVoBetrag').replace(',', '.')) * 100) / 100;
+    d.empfaenger = ggVoWert('ggVoFuer'); d.nachricht = ggVoWert('ggVoGruss'); d.von = ggVoWert('ggVoVon'); d.email = ggVoWert('ggVoMail');
+    var v = document.getElementById('ggVoVorschau'); if (v) v.innerHTML = gg3dHtml(ggVorOrtDaten(), 'schwebt');
+    document.querySelectorAll('#ggVoMotive [data-vo-motiv]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-vo-motiv') === d.motiv)); });
+    document.querySelectorAll('#ggVoZahl [data-vo-zahl]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-vo-zahl') === d.zahlart)); });
+    var l = document.getElementById('ggVoLos'); if (l) l.textContent = 'Gutschein anlegen · ' + (d.betrag > 0 ? ggEuro(d.betrag) : '–');
+}
+// Was fehlt? Text oder '' -- im Test ausgefuehrt.
+function ggVorOrtPruefen(d) {
+    if (!(d.betrag >= 5 && d.betrag <= 500)) return 'Bitte einen Betrag von 5 bis 500 € eingeben.';
+    if (d.zahlart !== 'bar' && d.zahlart !== 'karte') return 'Bitte antippen, wie der Gast bezahlt hat: Bar oder Karte.';
+    if (d.email && !/^[^\s@<>"',;]+@[^\s@<>"',;]+\.[A-Za-z]{2,}$/.test(d.email)) return 'Die E-Mail-Adresse sieht nicht richtig aus – oder das Feld leer lassen.';
+    return '';
+}
+async function ggVorOrtAnlegen() {
+    if (!_ggVo) return false;
+    ggVorOrtLesen();
+    var d = _ggVo.d, st = document.getElementById('ggVoStand'), f = ggVorOrtPruefen(d);
+    if (f) { if (st) { st.textContent = f; st.className = 'gg-w-stand gg-w-rot'; } return false; }
+    var los = document.getElementById('ggVoLos'); if (los) los.disabled = true;
+    var j = await ggWirtAufruf({ action: 'vorort', r: ggWirtRid(), betrag: d.betrag, zahlart: d.zahlart, empfaenger: d.empfaenger, nachricht: d.nachricht, kaeufer_name: d.von, kaeufer_email: d.email, motiv: d.motiv });
+    if (los) los.disabled = false;
+    if (!j.ok || !j.gutschein) {
+        // Nicht still: der Gast steht vor dem Wirt und hat schon bezahlt.
+        if (st) { st.textContent = 'Nicht angelegt: ' + (j.error || 'unbekannt') + ' Bitte noch einmal versuchen.'; st.className = 'gg-w-stand gg-w-rot'; }
+        return false;
+    }
+    var g = j.gutschein; _gg = { fertig: g };
+    var box = document.getElementById('ggWVorOrt');
+    box.innerHTML = '<div class="gg-vo">'
+        + '<div class="gg-vo-kopf"><b>✓ Gutschein angelegt · ' + escapeHtml(ggEuro(g.betrag)) + ' · ' + (d.zahlart === 'bar' ? 'bar' : 'Karte') + '</b><button type="button" class="gg-vo-zu" onclick="ggVorOrtZu()" aria-label="Schließen">×</button></div>'
+        + '<div id="ggVoKipp" class="gg-vo-vorschau">' + gg3dHtml(ggDaten(g), 'kippen') + '</div>'
+        + '<div class="gg-vo-aktionen"><button type="button" class="gg-vo-los" onclick="ggDrucken()">Drucken (21 × 10 cm)</button>'
+        + '<button type="button" class="gg-vo-rand" onclick="ggBildSpeichern()">Als Bild</button><button type="button" class="gg-vo-rand" onclick="ggTeilen()">Link teilen</button></div>'
+        + '<p class="gg-w-stand">' + (j.mail ? 'Per Mail an ' + escapeHtml(d.email) + ' geschickt. ' : (d.email ? 'Die Mail ging nicht raus – bitte drucken oder den Link teilen. ' : '')) + 'Code: <b>' + escapeHtml(g.code) + '</b> · gültig bis ' + escapeHtml(ggDatum(g.gueltig_bis)) + '</p>'
+        + '<button type="button" class="gg-vo-rand gg-vo-neu" onclick="ggVorOrtFormular()">Noch einen verkaufen</button></div>';
+    ggKippen(document.getElementById('ggVoKipp'));
+    showToast('Gutschein ' + g.code + ' angelegt', 'success');
+    ggWirtLaden();
+    return true;
+}
+window.ggVorOrtAnlegen = ggVorOrtAnlegen;
 
 // Summen fuer die Liste -- im Test ausgefuehrt.
 function ggWirtSummen(liste) {
@@ -74919,7 +75195,7 @@ async function ggWirtLaden() {
         var st = g.status === 'eingeloest' ? 'eingelöst' : g.status === 'storniert' ? 'storniert' : (String(g.gueltig_bis) < new Date().toLocaleDateString('sv-SE') ? 'abgelaufen' : 'offen');
         return '<div class="gg-w-zeile"><div><b class="gg-w-code">' + escapeHtml(g.code) + '</b><small>'
             + escapeHtml([g.empfaenger_name ? 'für ' + g.empfaenger_name : '', g.kaeufer_name ? 'von ' + g.kaeufer_name : '', ggDatum(String(g.erstellt || '').slice(0, 10))].filter(Boolean).join(' · ')) + '</small></div>'
-            + '<div class="gg-w-betrag"><b>' + escapeHtml(ggEuro(g.rest)) + '</b><small>von ' + escapeHtml(ggEuro(g.betrag)) + ' · ' + st + '</small></div></div>';
+            + '<div class="gg-w-betrag"><b>' + escapeHtml(ggEuro(g.rest)) + '</b><small>von ' + escapeHtml(ggEuro(g.betrag)) + ' · ' + st + ' · ' + ({ bar: 'vor Ort bar', karte: 'vor Ort Karte' }[g.verkauft_ueber] || 'online') + '</small></div></div>';
     }).join('');
     box.innerHTML = '<div class="gg-w-summen"><div><small>Verkauft</small><b>' + escapeHtml(ggEuro(s.verkauft)) + '</b><small>' + s.anzahl + ' Gutscheine</small></div>'
         + '<div><small>Noch offen</small><b>' + escapeHtml(ggEuro(s.offen)) + '</b><small>auf den Gutscheinen</small></div>'
