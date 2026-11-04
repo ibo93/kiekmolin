@@ -17,7 +17,9 @@
 // Aktionen (POST, JSON { action, ... }):
 //   info       { r }                         -> kann dieses Lokal verkaufen?
 //   anlegen    { r, betrag }                  -> { id } (PayPal-Auftrag)
-//   buchen     { r, paypal_id, betrag, empfaenger, nachricht, kaeufer_name, kaeufer_email, motiv }
+//   buchen     { r, paypal_id, betrag, empfaenger, nachricht, kaeufer_name, kaeufer_email, motiv,
+//                empfaenger_email?, versand_am? }  -- direkt an den Beschenkten:
+//                sofort, oder am Wunschtag ab 8 Uhr (gutschein-versand.js)
 //   ansehen    { code }                       -> Gutschein (ohne Kaeufer-Mail)
 //   liste      { r }      (angemeldet, Lokal) -> alle Gutscheine des Lokals
 //   einloesen  { r, code, betrag } (angemeldet, Lokal)
@@ -107,6 +109,16 @@ function oeffentlich(g, rest) {
         motiv: g.motiv || 'klassisch', gueltig_bis: g.gueltig_bis, erstellt: g.erstellt,
         lokal: rest ? { id: rest.id, name: rest.name, slug: rest.slug || '', city: rest.city || '', logo_url: rest.logo_url || '' } : null
     };
+}
+// Heute in Deutschland (YYYY-MM-DD) und die Stunde -- der Server laeuft in UTC.
+function heuteBerlin(jetzt) { return (jetzt || new Date()).toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' }); }
+function stundeBerlin(jetzt) { return Number((jetzt || new Date()).toLocaleString('en-GB', { timeZone: 'Europe/Berlin', hour: '2-digit', hour12: false })); }
+// Wunschtag: ab heute, hoechstens ein Jahr voraus. Sonst null (= sofort).
+function versandTag(roh, heute) {
+    var d = String(roh || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || d < heute) return null;
+    var max = new Date(heute + 'T12:00:00Z'); max.setUTCDate(max.getUTCDate() + 366);
+    return d > max.toISOString().slice(0, 10) ? null : d;
 }
 // Einloesen: neuer Rest und Status. Fehler als Text, sonst null.
 function einloesePlan(g, betrag, heute) {
@@ -242,6 +254,52 @@ function mailGoldKnopf(text, url) {
     return '<table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto;"><tr><td bgcolor="#ffd54f" style="background:#ffd54f;border-radius:999px;">'
         + '<a href="' + MAIL.esc(url) + '" style="display:inline-block;padding:15px 30px;font-family:' + M_SANS + ';font-size:15px;font-weight:800;color:#00251e;text-decoration:none;border-radius:999px;">' + text + '</a></td></tr></table>';
 }
+// DIE GESCHENK-MAIL AN DEN BESCHENKTEN. Ohne Tipp zum Weiterleiten, ohne
+// Zahlungsdetails -- nur das Geschenk.
+async function mailEmpfaengerSchicken(g, rest) {
+    if (!RESEND_API_KEY || !g.empfaenger_email) return false;
+    var url = MAIL.SITE + '/?gutschein=' + encodeURIComponent(g.code), E = MAIL.esc;
+    var betrag = betragStr(g.betrag).replace('.', ',').replace(',00', '') + ' €';
+    var von = g.kaeufer_name || 'Jemand';
+    var inhalt = '<div style="text-align:center;padding:4px 0 14px;">'
+        + '<div style="font-family:' + M_SANS + ';font-size:11px;font-weight:800;letter-spacing:4px;color:#8a6100;">EIN GESCHENK FÜR DICH</div>'
+        + '<div style="margin-top:8px;font-family:' + M_SERIF + ';font-size:30px;line-height:1.15;color:#00251e;">' + (g.empfaenger_name ? 'Für <i>' + E(g.empfaenger_name) + '</i>' : 'Für <i>dich</i>') + '</div>'
+        + '<div style="margin-top:6px;font-family:' + M_SANS + ';font-size:15px;color:#57534e;">' + E(von) + ' schenkt dir einen Abend bei ' + E(rest.name) + (rest.city ? ' in ' + E(rest.city) : '') + '.</div></div>'
+        + mailKarte(g, rest)
+        + mailGoldKnopf('Meinen Gutschein ansehen', url)
+        + '<p style="margin:10px 0 0;text-align:center;font-family:' + M_SANS + ';font-size:12px;color:#78716c;">Als Bild aufs Handy speichern oder in 21 × 10 cm ausdrucken.</p>'
+        + mailSchritte(rest)
+        + '<p style="margin:16px 0 0;font-family:' + M_SANS + ';font-size:12px;color:#78716c;">Gültig bis ' + E(String(g.gueltig_bis).split('-').reverse().join('.')) + ', auch in mehreren Besuchen einlösbar. Viel Freude bei ' + E(rest.name) + '!</p>';
+    var body = Object.assign(MAIL.versandKopf(rest, EMAIL_FROM), {
+        to: [g.empfaenger_email],
+        subject: '🎁 ' + von + ' schenkt dir einen Abend bei ' + rest.name,
+        html: MAIL.rahmen({ lokal: rest, inhalt: inhalt, vorschau: von + ' schenkt dir ' + betrag + ' bei ' + rest.name + (g.nachricht ? ' – „' + g.nachricht + '“' : ''), titelText: 'Ein Geschenk für dich' })
+    });
+    try {
+        var res = await MAIL.senden(RESEND_API_KEY, body, EMAIL_FROM);
+        if (!res.ok) { console.error('[gutschein] Geschenk-Mail nicht verschickt: HTTP ' + res.status); return false; }
+        return true;
+    } catch (e) { console.error('[gutschein] Geschenk-Mail-Fehler: ' + e.message); return false; }
+}
+// Zustellen, aber nie doppelt: erst versendet_am setzen (nur wenn noch leer),
+// dann schicken; geht die Mail nicht raus, wieder freigeben -- der stuendliche
+// Versand versucht es dann noch einmal.
+async function zustellen(g, rest) {
+    var jetzt = new Date().toISOString();
+    var r = await fetch(SUPABASE_URL + '/rest/v1/geschenkgutscheine?id=eq.' + encodeURIComponent(g.id) + '&versendet_am=is.null', {
+        method: 'PATCH', headers: kopf({ 'Content-Type': 'application/json', Prefer: 'return=representation' }), body: JSON.stringify({ versendet_am: jetzt })
+    });
+    var z = []; try { z = await r.json(); } catch (e) {}
+    if (!r.ok || !Array.isArray(z) || !z.length) return false;   // schon unterwegs oder nicht lesbar
+    var ok = await mailEmpfaengerSchicken(g, rest);
+    if (!ok) {
+        await fetch(SUPABASE_URL + '/rest/v1/geschenkgutscheine?id=eq.' + encodeURIComponent(g.id) + '&versendet_am=eq.' + encodeURIComponent(jetzt), {
+            method: 'PATCH', headers: kopf({ 'Content-Type': 'application/json', Prefer: 'return=minimal' }), body: JSON.stringify({ versendet_am: null })
+        }).catch(function () {});
+    }
+    return ok;
+}
+
 async function mailSchicken(g, rest) {
     if (!RESEND_API_KEY || !g.kaeufer_email) return false;
     var url = MAIL.SITE + '/?gutschein=' + encodeURIComponent(g.code);
@@ -252,7 +310,9 @@ async function mailSchicken(g, rest) {
         + mailGoldKnopf('Gutschein ansehen &amp; drucken', url)
         + '<p style="margin:10px 0 0;text-align:center;font-family:' + M_SANS + ';font-size:12px;color:#78716c;">Zum Ausdrucken in 21 × 10 cm oder als Bild aufs Handy.</p>'
         + mailSchritte(rest)
-        + (g.empfaenger_name ? MAIL.kasten('<b>Tipp:</b> Leite diese Mail einfach an ' + MAIL.esc(g.empfaenger_name) + ' weiter – oder druck den Gutschein aus und steck ihn in eine Karte.', 'gruen') : '')
+        + (g.empfaenger_email
+            ? MAIL.kasten('<b>Zustellung:</b> Wir schicken den Gutschein ' + (g.versand_am && g.versand_am > heuteBerlin() ? 'am <b>' + MAIL.esc(g.versand_am.split('-').reverse().join('.')) + '</b> ab 8 Uhr' : '<b>jetzt</b>') + ' als Geschenk-Mail an ' + MAIL.esc(g.empfaenger_email) + '. Diese Mail hier ist dein Beleg.', 'gruen')
+            : '<p style="margin:16px 0 0;text-align:center;font-family:' + M_SANS + ';font-size:13px;color:#57534e;">Zum Weiterschenken: Mail weiterleiten, den Link teilen oder ausdrucken.</p>')
         + '<p style="margin:14px 0 0;font-family:' + M_SANS + ';font-size:12px;color:#78716c;">' + (vorOrt ? 'Bezahlt im Lokal.' : 'Bezahlt per PayPal an ' + MAIL.esc(rest.name) + '.') + ' 3 Jahre gültig, auch in Teilbeträgen einlösbar.</p>';
     var body = Object.assign(MAIL.versandKopf(rest, EMAIL_FROM), {
         to: [g.kaeufer_email],
@@ -367,6 +427,11 @@ exports.handler = async function (event) {
                 motiv: MOTIVE[b.motiv] ? b.motiv : 'klassisch', paypal_order_id: pid, paypal_capture_id: zahlung.id || null,
                 gueltig_bis: gueltigBis()
             };
+            // Direkt an den Beschenkten. Eine kaputte Adresse darf den bezahlten
+            // Gutschein nicht verhindern -- dann eben ohne Zustellung (und der Gast
+            // sieht es auf der Fertig-Seite).
+            var em = text(b.empfaenger_email, 120).toLowerCase();
+            if (mailOk(em)) { neu.empfaenger_email = em; neu.versand_am = versandTag(b.versand_am, heuteBerlin()); }
             neu.verkauft_ueber = 'online';
             var erg = await einfuegen(neu), zeile = erg.zeile || null, letzter = erg.text || '';
             if (!zeile && erg.status === 409 && /paypal_order_id/.test(letzter)) {
@@ -386,8 +451,15 @@ exports.handler = async function (event) {
                 } catch (e) {}
                 return json(500, { ok: false, bezahlt: true, paypal_id: pid, error: 'Deine Zahlung ist angekommen, aber der Gutschein konnte nicht gespeichert werden. Das Lokal wurde benachrichtigt – bitte nenne diese Nummer: ' + pid });
             }
+            var zustellung = null;
+            if (zeile.empfaenger_email) {
+                var spaeter = zeile.versand_am && zeile.versand_am > heuteBerlin();
+                zustellung = { am: zeile.versand_am || null, gesendet: spaeter ? false : await zustellen(zeile, r3) };
+            } else if (text(b.empfaenger_email, 120)) {
+                zustellung = { fehler: 'Die E-Mail-Adresse des Beschenkten sah nicht richtig aus – bitte Bild oder Link weitergeben.' };
+            }
             var gemailt = await mailSchicken(zeile, r3);
-            return json(200, { ok: true, gutschein: oeffentlich(zeile, r3), mail: gemailt });
+            return json(200, { ok: true, gutschein: oeffentlich(zeile, r3), mail: gemailt, zustellung: zustellung });
         }
 
         // ---------------- Ab hier nur fuer Leute dieses Lokals ----------------
@@ -451,4 +523,5 @@ exports.handler = async function (event) {
     }
 };
 
-exports._test = { betragVorOrt: betragVorOrt, neuerCode: neuerCode, codeNormal: codeNormal, betragOk: betragOk, gueltigBis: gueltigBis, oeffentlich: oeffentlich, einloesePlan: einloesePlan, verkauftAn: verkauftAn };
+exports._intern = { hol: hol, lokal: lokal, zustellen: zustellen, heuteBerlin: heuteBerlin, stundeBerlin: stundeBerlin };
+exports._test = { versandTag: versandTag, betragVorOrt: betragVorOrt, neuerCode: neuerCode, codeNormal: codeNormal, betragOk: betragOk, gueltigBis: gueltigBis, oeffentlich: oeffentlich, einloesePlan: einloesePlan, verkauftAn: verkauftAn };

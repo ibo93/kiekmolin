@@ -11800,6 +11800,17 @@
         .gg-geschafft { display: flex; align-items: center; gap: 8px; margin: 2px 48px 14px 0; font-family: Epilogue, sans-serif; font-size: 18px; font-weight: 800; color: #003d33; }
         .gg-aktionen { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; }
         .gg-vorschau .gg-3d { margin: 6px auto 18px; max-width: 440px; }
+        .gg-direkt { margin: 2px 0 6px; padding: 12px 12px 4px; border-radius: 16px; background: #f0f7f4; border: 1px solid #d6e6df; }
+        .gg-direkt-titel { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 800; color: #00251e; margin-bottom: 8px; }
+        .gg-direkt-titel .material-symbols-outlined { font-size: 18px; } .gg-direkt-titel small { font-weight: 500; color: #6b7570; }
+        .gg-klein.gg-links { text-align: left; margin: 0 0 8px; }
+        .gg-zustellung { margin: -4px 0 12px; padding: 10px 12px; border-radius: 12px; background: #e8f1ed; font-size: 13px; font-weight: 600; color: #0b3d33; text-align: center; }
+        .gg-zustellung.gg-rot { background: #fdecec; color: #991b1b; }
+        .dark-mode .gg-direkt { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.12); }
+        .dark-mode .gg-direkt-titel { color: #e8eeec; }
+        .dark-mode .gg-zustellung { background: rgba(134,239,172,0.12); color: #bbf7d0; } .dark-mode .gg-zustellung.gg-rot { background: rgba(239,68,68,0.15); color: #fecaca; }
+        .dark-mode .gg-fenster p.gg-zustellung { background: rgba(134,239,172,0.12); color: #bbf7d0 !important; }
+        .dark-mode .gg-fenster p.gg-zustellung.gg-rot { background: rgba(239,68,68,0.15); color: #fecaca !important; }
         .gg-kippbox .gg-3d { margin: 10px auto 22px; }
         .gg-kipp-hinweis { margin: -6px 0 12px; }
         .gg-knopf.gg-breit { width: 100%; margin-top: 8px; }
@@ -74796,7 +74807,7 @@ window.ggSchliessen = ggSchliessen;
 
 async function ggOeffnen(rid) {
     var rest = (APP_DATA.restaurants || []).find(function (r) { return r.id === rid; }) || { id: rid, name: '' };
-    _gg = { rest: rest, info: null, d: { betrag: 50, motiv: 'klassisch', empfaenger: '', nachricht: '', von: '', email: '' } };
+    _gg = { rest: rest, info: null, d: { betrag: 50, motiv: 'klassisch', empfaenger: '', nachricht: '', von: '', email: '', empfMail: '', versandAm: '' } };
     ggFenster('<div class="gg-laden">Einen Moment …</div>');
     try {
         var res = await fetch('/.netlify/functions/geschenkgutschein', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'info', r: rid }) });
@@ -74825,6 +74836,11 @@ function ggFormular() {
         + '<label class="gg-feld"><span class="gg-label">Dein Gruß <small id="ggGrussZahl">' + d.nachricht.length + '/200</small></span><textarea id="ggNachricht" maxlength="200" rows="2" placeholder="z. B. Frohe Weihnachten! Lass es dir schmecken.">' + escapeHtml(d.nachricht) + '</textarea></label>'
         + '<div class="gg-zwei"><label class="gg-feld"><span class="gg-label">Von</span><input type="text" id="ggVon" maxlength="60" placeholder="Dein Name" value="' + escapeHtml(d.von) + '"></label>'
         + '<label class="gg-feld"><span class="gg-label">Deine E-Mail</span><input type="email" id="ggEmail" maxlength="120" placeholder="für den Gutschein" value="' + escapeHtml(d.email) + '"></label></div>'
+        // Direkt an den Beschenkten (optional): eigene Geschenk-Mail, sofort oder am Wunschtag.
+        + '<div class="gg-direkt"><div class="gg-direkt-titel"><span class="material-symbols-outlined" aria-hidden="true">mail</span>Direkt verschicken <small>optional</small></div>'
+        + '<div class="gg-zwei"><label class="gg-feld"><span class="gg-label">E-Mail des Beschenkten</span><input type="email" id="ggEmpfMail" maxlength="120" placeholder="oma@beispiel.de" value="' + escapeHtml(d.empfMail) + '"></label>'
+        + '<label class="gg-feld"><span class="gg-label">Zustellen am <small>leer = sofort</small></span><input type="date" id="ggVersandAm" min="' + new Date().toLocaleDateString('sv-SE') + '" value="' + escapeHtml(d.versandAm) + '"></label></div>'
+        + '<p class="gg-klein gg-links">Am Wunschtag ab 8 Uhr – z. B. Heiligabend. Du bekommst den Gutschein trotzdem auch selbst.</p></div>'
         + '<p id="ggMeldung" class="gg-meldung" role="status" aria-live="polite"></p>'
         + '<button type="button" class="gg-knopf gg-voll" id="ggWeiter" onclick="ggZurZahlung()">Weiter zur Zahlung · ' + escapeHtml(ggEuro(d.betrag)) + '</button>'
         + '<p class="gg-klein">Bezahlt wird per PayPal direkt an ' + escapeHtml(_gg.rest.name || 'das Lokal') + '. Gültig 3 Jahre, auch in Teilbeträgen einlösbar.</p>');
@@ -74844,6 +74860,7 @@ function ggLesen() {
     var d = _gg.d, eigen = ggWert('ggBetragEigen');
     if (eigen) d.betrag = Number(eigen);
     d.empfaenger = ggWert('ggEmpfaenger'); d.nachricht = ggWert('ggNachricht'); d.von = ggWert('ggVon'); d.email = ggWert('ggEmail');
+    d.empfMail = ggWert('ggEmpfMail'); d.versandAm = ggWert('ggVersandAm');
     var v = document.getElementById('ggVorschau'); if (v) v.innerHTML = gg3dHtml(Object.assign({ lokal: _gg.rest.name, ort: _gg.rest.city }, d), 'schwebt');
     document.querySelectorAll('#ggBetraege [data-gg-betrag]').forEach(function (b) { b.setAttribute('aria-pressed', String(!eigen && Number(b.getAttribute('data-gg-betrag')) === d.betrag)); });
     document.querySelectorAll('#ggMotive [data-gg-motiv]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-gg-motiv') === d.motiv)); });
@@ -74851,10 +74868,13 @@ function ggLesen() {
     var w = document.getElementById('ggWeiter'); if (w) w.textContent = 'Weiter zur Zahlung · ' + (isFinite(d.betrag) && d.betrag > 0 ? ggEuro(d.betrag) : '–');
 }
 // Was fehlt? Text oder ''.
-function ggPruefen(d, info) {
+function ggPruefen(d, info, heute) {
     var min = (info && info.min) || 10, max = (info && info.max) || 300;
     if (!isFinite(d.betrag) || Math.round(d.betrag) !== d.betrag || d.betrag < min || d.betrag > max) return 'Bitte einen Betrag von ' + min + ' bis ' + max + ' € in ganzen Euro wählen.';
     if (!/^[^\s@<>"',;]+@[^\s@<>"',;]+\.[A-Za-z]{2,}$/.test(d.email)) return 'Bitte deine E-Mail-Adresse angeben – dorthin schicken wir den Gutschein.';
+    if (d.empfMail && !/^[^\s@<>"',;]+@[^\s@<>"',;]+\.[A-Za-z]{2,}$/.test(d.empfMail)) return 'Die E-Mail des Beschenkten sieht nicht richtig aus – oder das Feld leer lassen.';
+    if (d.versandAm && !d.empfMail) return 'Für die Zustellung am Wunschtag bitte die E-Mail des Beschenkten angeben.';
+    if (d.versandAm && d.versandAm < (heute || new Date().toLocaleDateString('sv-SE'))) return 'Der Wunschtag liegt in der Vergangenheit.';
     return '';
 }
 function ggMelden(t, rot) { var m = document.getElementById('ggMeldung'); if (m) { m.textContent = t; m.classList.toggle('gg-rot', !!rot); } }
@@ -74885,9 +74905,9 @@ async function ggZurZahlung() {
                 ggMelden('Zahlung wird bestätigt – bitte dieses Fenster nicht schließen.');
                 try {
                     var r = await fetch('/.netlify/functions/geschenkgutschein', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'buchen', r: rid, paypal_id: daten.orderID, betrag: d.betrag, empfaenger: d.empfaenger, nachricht: d.nachricht, kaeufer_name: d.von, kaeufer_email: d.email, motiv: d.motiv }) });
+                        body: JSON.stringify({ action: 'buchen', r: rid, paypal_id: daten.orderID, betrag: d.betrag, empfaenger: d.empfaenger, nachricht: d.nachricht, kaeufer_name: d.von, kaeufer_email: d.email, motiv: d.motiv, empfaenger_email: d.empfMail || '', versand_am: d.versandAm || '' }) });
                     var j = await r.json();
-                    if (j && j.ok && j.gutschein) { ggFertig(j.gutschein, j.mail); return; }
+                    if (j && j.ok && j.gutschein) { ggFertig(j.gutschein, j.mail, j.zustellung); return; }
                     // Bezahlt, aber kein Gutschein: nie ein schlichtes "ging nicht".
                     ggMelden((j && j.error) || ('Die Zahlung ist angekommen, der Gutschein aber nicht. Bitte melde dich beim Lokal und nenne: ' + daten.orderID), true);
                 } catch (e) {
@@ -74902,13 +74922,24 @@ async function ggZurZahlung() {
 window.ggZurZahlung = ggZurZahlung;
 window.ggFormular = ggFormular;
 
+// Was mit der Geschenk-Mail passiert -- im Test ausgefuehrt.
+function ggZustellText(z, g) {
+    if (!z) return null;
+    if (z.fehler) return { text: z.fehler, rot: true };
+    var wem = g && g.empfaenger ? g.empfaenger : 'den Beschenkten';
+    if (z.am && !z.gesendet && z.am > new Date().toLocaleDateString('sv-SE')) return { text: '✉ Die Geschenk-Mail geht am ' + ggDatum(z.am) + ' ab 8 Uhr an ' + wem + '.' };
+    if (z.gesendet) return { text: '✉ Die Geschenk-Mail an ' + wem + ' ist unterwegs.' };
+    return { text: 'Die Geschenk-Mail an ' + wem + ' ging gerade nicht raus – wir versuchen es in der nächsten Stunde noch einmal. Du kannst auch Bild oder Link weitergeben.', rot: true };
+}
 function ggDaten(g) { return { lokal: g.lokal && g.lokal.name, ort: g.lokal && g.lokal.city, betrag: g.betrag, rest: g.rest, empfaenger: g.empfaenger, nachricht: g.nachricht, von: g.von, code: g.code, gueltig_bis: g.gueltig_bis, motiv: g.motiv }; }
 function ggLink(code) { return 'https://kiekmolin.de/?gutschein=' + encodeURIComponent(code); }
-function ggFertig(g, gemailt) {
+function ggFertig(g, gemailt, zustellung) {
     _gg = _gg || {}; _gg.fertig = g;
+    var zu = ggZustellText(zustellung, g);
     ggFenster('<div class="gg-geschafft"><span class="material-symbols-outlined" aria-hidden="true">redeem</span> Bezahlt – dein Gutschein ist fertig!</div>'
         + '<div class="gg-vorschau gg-kippbox" id="ggKippbox">' + gg3dHtml(ggDaten(g), 'kippen') + '</div>'
         + '<p class="gg-klein gg-kipp-hinweis">Karte ziehen = kippen · antippen = umdrehen</p>'
+        + (zu ? '<p class="gg-zustellung' + (zu.rot ? ' gg-rot' : '') + '">' + escapeHtml(zu.text) + '</p>' : '')
         + '<div class="gg-aktionen">'
         + '<button type="button" class="gg-knopf gg-voll" onclick="ggBildSpeichern()">Als Bild speichern</button>'
         + '<button type="button" class="gg-knopf gg-rand" onclick="ggTeilen()">Teilen</button></div>'

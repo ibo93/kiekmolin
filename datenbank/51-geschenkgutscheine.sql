@@ -6,6 +6,9 @@
 --     (paypal_konten, wie beim Bestellen).
 --   * VOR ORT (04.11.2026): Der Gast zahlt im Lokal bar oder mit Karte, der
 --     Wirt legt den Gutschein im Dashboard an und druckt ihn (21 x 10 cm).
+--   * DIREKT AN DEN BESCHENKTEN (04.11.2026): Wer online kauft, kann die
+--     E-Mail des Beschenkten angeben -- er bekommt eine eigene Geschenk-Mail,
+--     sofort oder am Wunschtag (z. B. Heiligabend) ab 8 Uhr.
 -- Beide bekommen denselben Gutschein mit Code. Der Wirt loest ihn im Lokal
 -- ein, auch in Teilbetraegen.
 --
@@ -22,7 +25,8 @@
 --   * Einloesen NUR durch angemeldete Leute dieses Lokals, in EINEM Schritt
 --     (update ... where rest = <alter Rest>) -- doppelt einloesen geht nicht.
 --   * Ansehen per Code (der Code ist das Geheimnis, wie bei einem
---     Papiergutschein): Betrag, Rest, Lokal, Gruss -- nie Kaeufer-Mail.
+--     Papiergutschein): Betrag, Rest, Lokal, Gruss -- nie Kaeufer- oder
+--     Empfaenger-Mail.
 --
 -- GUELTIGKEIT: 3 Jahre bis Jahresende (gesetzliche Regelverjaehrung,
 -- § 195/199 BGB). Ein kuerzeres Datum waere in AGB meist unwirksam.
@@ -58,6 +62,12 @@ create table if not exists public.geschenkgutscheine (
 alter table public.geschenkgutscheine add column if not exists verkauft_ueber text not null default 'online';
 alter table public.geschenkgutscheine drop constraint if exists gg_verkauf;
 alter table public.geschenkgutscheine add constraint gg_verkauf check (verkauft_ueber in ('online', 'bar', 'karte'));
+-- Direkt an den Beschenkten (04.11.2026): eigene Mail, sofort oder am Wunschtag ab 8 Uhr
+-- (netlify/functions/gutschein-versand.js, stuendlich). versendet_am = schon raus.
+alter table public.geschenkgutscheine add column if not exists empfaenger_email text;
+alter table public.geschenkgutscheine add column if not exists versand_am date;
+alter table public.geschenkgutscheine add column if not exists versendet_am timestamptz;
+create index if not exists geschenkgutscheine_versand on public.geschenkgutscheine (versand_am) where versendet_am is null and empfaenger_email is not null;
 create index if not exists geschenkgutscheine_haus on public.geschenkgutscheine (restaurant_id, erstellt desc);
 
 alter table public.geschenkgutscheine enable row level security;

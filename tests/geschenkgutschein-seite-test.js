@@ -16,8 +16,8 @@ function block(start) { var i = H.indexOf(start); var j = H.indexOf('};', i); re
 function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 var KOPF = zeile(/var GG_GOLD = [^\n]+/) + '\n' + zeile(/var GG_SCHNITT_GOLD = [^\n]+/) + '\n' + block('var GG_MOTIVE = {') + '\nvar GG_BETRAEGE = [25, 50, 75, 100];\n' + zeile(/var GG_KORN = [^\n]+/) + '\n';
 var G = new Function('escapeHtml', KOPF
-    + ['ggEuro', 'ggDatum', 'ggVerkauft', 'ggMono', 'ggZufall', 'ggMuster', 'ggVars', 'ggAbriss', 'ggKarteHtml', 'ggRueckHtml', 'gg3dHtml', 'ggTeaserHtml', 'ggPruefen', 'ggWirtSummen', 'ggVorOrtPruefen'].map(fn).join('\n')
-    + '; return { euro: ggEuro, karte: ggKarteHtml, rueck: ggRueckHtml, drei: gg3dHtml, teaser: ggTeaserHtml, pruefen: ggPruefen, summen: ggWirtSummen, vorort: ggVorOrtPruefen, mono: ggMono };')(esc);
+    + ['ggEuro', 'ggDatum', 'ggVerkauft', 'ggMono', 'ggZufall', 'ggMuster', 'ggVars', 'ggAbriss', 'ggKarteHtml', 'ggRueckHtml', 'gg3dHtml', 'ggTeaserHtml', 'ggPruefen', 'ggWirtSummen', 'ggVorOrtPruefen', 'ggZustellText'].map(fn).join('\n')
+    + '; return { euro: ggEuro, karte: ggKarteHtml, rueck: ggRueckHtml, drei: gg3dHtml, teaser: ggTeaserHtml, pruefen: ggPruefen, summen: ggWirtSummen, vorort: ggVorOrtPruefen, mono: ggMono, zustell: ggZustellText };')(esc);
 
 // ---- Die Karte (21 x 10 cm, Abriss rechts) ----
 var k = G.karte({ lokal: 'Hafenkate', ort: 'Greetsiel', betrag: 50, empfaenger: 'Oma <b>', nachricht: 'Frohe "Weihnachten"', von: 'Anna', code: 'KIN-7KQM-4XPA', gueltig_bis: '2029-12-31', motiv: 'festlich' });
@@ -70,6 +70,17 @@ t('Menuepunkt "Geschenkgutscheine" im Dashboard', /id="navGutscheine" onclick="g
 t('Mitarbeiter duerfen einloesen (Menuepunkt nicht gesperrt)', !/navGutscheine/.test(/var TEAM_ELEMENTE_GESPERRT = \{[\s\S]*?\};/.exec(H)[0]), '');
 t('Schalter "online verkaufen" nur fuer den Inhaber', /if \(sch && teamRolle\(\) === 'inhaber'\)/.test(fn('ggWirtLaden')), '');
 t('Liste nicht geladen -> Meldung statt leerer Liste', /Liste nicht geladen/.test(fn('ggWirtLaden')), '');
+
+// ---- Direkt an den Beschenkten ----
+t('Kauf-Fenster: E-Mail des Beschenkten + Zustelltag (leer = sofort)', /id="ggEmpfMail"/.test(fn('ggFormular')) && /id="ggVersandAm"/.test(fn('ggFormular')) && /empfaenger_email: d\.empfMail/.test(fn('ggZurZahlung')) && /versand_am: d\.versandAm/.test(fn('ggZurZahlung')), '');
+t('Empfaenger-Mail kaputt -> Meldung vor der Zahlung', /Beschenkten sieht nicht richtig aus/.test(G.pruefen({ betrag: 50, email: 'a@b.de', empfMail: 'kaputt' }, info)), '');
+t('Wunschtag ohne Empfaenger-Mail -> Meldung', /E-Mail des Beschenkten/.test(G.pruefen({ betrag: 50, email: 'a@b.de', versandAm: '2099-12-24' }, info, '2026-11-04')), '');
+t('Wunschtag in der Vergangenheit -> Meldung', /Vergangenheit/.test(G.pruefen({ betrag: 50, email: 'a@b.de', empfMail: 'o@b.de', versandAm: '2026-01-01' }, info, '2026-11-04')), '');
+t('direkt + Wunschtag richtig -> ok', G.pruefen({ betrag: 50, email: 'a@b.de', empfMail: 'o@b.de', versandAm: '2026-12-24' }, info, '2026-11-04') === '', '');
+t('Fertig-Seite: "geht am 24.12.2099 ab 8 Uhr an Oma"', /geht am 24\.12\.2099 ab 8 Uhr an Oma/.test(G.zustell({ am: '2099-12-24', gesendet: false }, { empfaenger: 'Oma' }).text), JSON.stringify(G.zustell({ am: '2099-12-24', gesendet: false }, { empfaenger: 'Oma' })));
+t('Fertig-Seite: "unterwegs" / nicht raus -> rot mit naechstem Versuch', /unterwegs/.test(G.zustell({ gesendet: true }, { empfaenger: 'Oma' }).text) && G.zustell({ gesendet: false }, {}).rot === true && /nächsten Stunde/.test(G.zustell({ gesendet: false }, {}).text), '');
+t('ohne Zustellung -> kein Hinweis', G.zustell(null, {}) === null, '');
+t('stuendlicher Versand steht im Zeitplan', /\[functions\."gutschein-versand"\]\s+schedule = "35 \* \* \* \*"/.test(fs.readFileSync(path.join(__dirname, '..', 'netlify.toml'), 'utf8')), '');
 
 // ---- Vor Ort verkaufen ----
 t('Knopf "Gutschein vor Ort verkaufen" im Wirt-Fenster', /ggVorOrtFormular\(\)">\+ Gutschein vor Ort verkaufen/.test(fn('ggWirtOeffnen')), '');

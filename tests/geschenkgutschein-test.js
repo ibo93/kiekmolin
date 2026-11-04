@@ -75,6 +75,10 @@ global.fetch = async function (url, o) {
             var ok2 = true;
             q.replace(/[?&](code|paypal_order_id|restaurant_id|id|status)=eq\.([^&]+)/g, function (_, k, v) { if (String(g[k]) !== v) ok2 = false; });
             var r = /[?&]rest=eq\.([^&]+)/.exec(q); if (r && Number(g.rest) !== Number(r[1])) ok2 = false;
+            q.replace(/[?&](\w+)=is\.null/g, function (_, k) { if (g[k] != null) ok2 = false; });
+            q.replace(/[?&](\w+)=not\.is\.null/g, function (_, k) { if (g[k] == null) ok2 = false; });
+            q.replace(/[?&](\w+)=lte\.([^&]+)/g, function (_, k, v) { if (!(g[k] != null && String(g[k]) <= v)) ok2 = false; });
+            q.replace(/[?&](versendet_am)=eq\.([^&]+)/g, function (_, k, v) { if (String(g[k]) !== v) ok2 = false; });
             return ok2;
         });
         if (m === 'PATCH') { if (welt.patchLeer) return antwort(200, []); f.forEach(function (g) { Object.assign(g, JSON.parse(o.body)); }); return antwort(200, f); }
@@ -177,11 +181,50 @@ function rufe(body, tok) { return F.handler({ httpMethod: 'POST', headers: tok ?
     r = await rufe({ action: 'einloesen', r: RID, code: welt.gutscheine[0].code, betrag: 10 }, 'tok');
     t('vor Ort verkaufter Gutschein laesst sich normal einloesen', r.j.ok && r.j.rest === 2.5, JSON.stringify(r.j));
     neueWelt(); await rufe(kauf);
-    t('Mail (online): Geschenk-Kopf "Für Oma Gerda", Karte mit Betrag/Code/gueltig bis, Weiterleiten-Tipp, "per PayPal"', /GUTSCHEIN/.test(welt.mails[0].html) && />50<span[^>]*>&nbsp;€</.test(welt.mails[0].html) && /gültig bis<br>31\.12\./.test(welt.mails[0].html) && /Für <i>Oma Gerda<\/i>/.test(welt.mails[0].html) && /Ein Geschenk für Oma Gerda/.test(welt.mails[0].subject) && /Leite diese Mail einfach an Oma Gerda weiter/.test(welt.mails[0].html) && /Bezahlt per PayPal an Hafenkate/.test(welt.mails[0].html), welt.mails[0].html.slice(0, 160));
+    t('Mail (online): Geschenk-Kopf "Für Oma Gerda", Karte mit Betrag/Code/gueltig bis, Weiterleiten-Tipp, "per PayPal"', /GUTSCHEIN/.test(welt.mails[0].html) && />50<span[^>]*>&nbsp;€</.test(welt.mails[0].html) && /gültig bis<br>31\.12\./.test(welt.mails[0].html) && /Für <i>Oma Gerda<\/i>/.test(welt.mails[0].html) && /Ein Geschenk für Oma Gerda/.test(welt.mails[0].subject) && /Zum Weiterschenken: Mail weiterleiten/.test(welt.mails[0].html) && /Bezahlt per PayPal an Hafenkate/.test(welt.mails[0].html), welt.mails[0].html.slice(0, 160));
     t('Hilfe: Betrag vor Ort mit Komma, 5-500 €', F._test.betragVorOrt('12,50') === 12.5 && F._test.betragVorOrt(4.99) === null && F._test.betragVorOrt(501) === null, '');
+    // ---- Direkt an den Beschenkten ----
+    var heute = F._intern.heuteBerlin();
+    neueWelt();
+    r = await rufe(Object.assign({}, kauf, { empfaenger_email: 'Oma@Example.de', versand_am: '' }));
+    var an = welt.mails.filter(function (m) { return m.to[0] === 'oma@example.de'; })[0];
+    t('direkt, ohne Tag -> Geschenk-Mail sofort an den Beschenkten', r.j.ok && !!an && r.j.zustellung && r.j.zustellung.gesendet === true && !!welt.gutscheine[0].versendet_am, JSON.stringify(r.j.zustellung));
+    t('Geschenk-Mail: "Anna schenkt dir einen Abend bei Hafenkate", Karte, Knopf -- ohne Weiterleiten-Tipp und ohne PayPal', !!an && /^🎁 Anna schenkt dir einen Abend bei Hafenkate$/.test(an.subject) && /Für <i>Oma Gerda<\/i>/.test(an.html) && an.html.indexOf(welt.gutscheine[0].code) > -1 && /Meinen Gutschein ansehen/.test(an.html) && !/weiterleiten|PayPal/i.test(an.html), an && an.subject);
+    var beleg = welt.mails.filter(function (m) { return m.to[0] === 'anna@example.de'; })[0];
+    t('Kaeufer-Mail: "Zustellung ... jetzt ... an oma@" statt Weiterschenken-Hinweis', !!beleg && /Zustellung:/.test(beleg.html) && /<b>jetzt<\/b>/.test(beleg.html) && /oma@example\.de/.test(beleg.html) && !/Zum Weiterschenken/.test(beleg.html), beleg && beleg.html.slice(-600));
+    t('Antwort an den Gast verraet die Empfaenger-Mail nicht im Gutschein', JSON.stringify(r.j.gutschein).indexOf('oma@') < 0, '');
+    var morgen = new Date(Date.now() + 2 * 86400000).toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });
+    neueWelt();
+    r = await rufe(Object.assign({}, kauf, { empfaenger_email: 'oma@example.de', versand_am: morgen }));
+    t('direkt am Wunschtag -> jetzt KEINE Geschenk-Mail, Tag gespeichert', r.j.ok && r.j.zustellung.am === morgen && r.j.zustellung.gesendet === false && !welt.mails.some(function (m) { return m.to[0] === 'oma@example.de'; }) && welt.gutscheine[0].versand_am === morgen && !welt.gutscheine[0].versendet_am, JSON.stringify(r.j.zustellung));
+    t('Kaeufer-Mail nennt den Wunschtag', /am <b>\d\d\.\d\d\.\d{4}<\/b> ab 8 Uhr/.test(welt.mails[0].html), '');
+    neueWelt();
+    r = await rufe(Object.assign({}, kauf, { empfaenger_email: 'kaputt', versand_am: '' }));
+    t('kaputte Empfaenger-Adresse -> Gutschein trotzdem da, Hinweis statt Zustellung', r.j.ok && welt.gutscheine.length === 1 && !welt.gutscheine[0].empfaenger_email && /sah nicht richtig aus/.test(r.j.zustellung.fehler), JSON.stringify(r.j.zustellung));
+    t('Wunschtag: Vergangenheit / ueber 1 Jahr / Unsinn -> sofort', F._test.versandTag('2020-01-01', heute) === null && F._test.versandTag('2099-01-01', heute) === null && F._test.versandTag('morgen', heute) === null && F._test.versandTag(heute, heute) === heute, '');
+
+    // ---- Stuendlicher Versand ----
+    var V = require(path.join(__dirname, '..', 'netlify', 'functions', 'gutschein-versand.js'));
+    neueWelt();
+    welt.gutscheine.push({ id: 'v1', code: 'KIN-AAAA-BBBB', restaurant_id: RID, betrag: 50, rest: 50, status: 'aktiv', empfaenger_email: 'oma@example.de', empfaenger_name: 'Oma', kaeufer_name: 'Anna', versand_am: heute, versendet_am: null, gueltig_bis: '2029-12-31', motiv: 'klassisch' });
+    welt.gutscheine.push({ id: 'v2', code: 'KIN-CCCC-DDDD', restaurant_id: RID, betrag: 25, rest: 25, status: 'aktiv', empfaenger_email: 'spaeter@example.de', versand_am: morgen, versendet_am: null, gueltig_bis: '2029-12-31', motiv: 'festlich' });
+    var stunde = F._intern.stundeBerlin;
+    F._intern.stundeBerlin = function () { return 7; };
+    var v = JSON.parse((await V.handler({})).body);
+    t('Versand vor 8 Uhr -> wartet, keine Mail', v.warten === 'vor 8 Uhr' && welt.mails.length === 0, JSON.stringify(v));
+    F._intern.stundeBerlin = function () { return 9; };
+    var vr = await V.handler({}); v = JSON.parse(vr.body);
+    t('Versand um 9 Uhr -> faellige Geschenk-Mail raus, versendet_am gesetzt, Antwort 200', vr.statusCode === 200 && v.verschickt === 1 && welt.mails.length === 1 && !!welt.gutscheine[0].versendet_am, JSON.stringify(v));
+    t('Geschenk fuer uebermorgen bleibt liegen', !welt.mails.some(function (m) { return m.to[0] === 'spaeter@example.de'; }) && !welt.gutscheine[1].versendet_am, '');
+    var doppelt = await F._intern.zustellen(welt.gutscheine[0], welt.lokal);
+    t('dasselbe Geschenk noch einmal zustellen (z. B. gleichzeitig) -> keine zweite Mail', doppelt === false && welt.mails.length === 1, welt.mails.length);
+    v = JSON.parse((await V.handler({})).body);
+    t('naechste Stunde -> nicht noch einmal', v.faellig === 0 && welt.mails.length === 1, JSON.stringify(v));
+    F._intern.stundeBerlin = stunde;
+
     welt.user = 'wirt@hafenkate.de';
     r = await rufe({ action: 'liste', r: RID }, 'tok');
-    t('liste fuer den Wirt -> seine Gutscheine', r.j.ok && r.j.gutscheine.length === 1, JSON.stringify(r.j).slice(0, 120));
+    t('liste fuer den Wirt -> seine Gutscheine', r.j.ok && r.j.gutscheine.length === welt.gutscheine.length && r.j.gutscheine.length > 0, JSON.stringify(r.j).slice(0, 120));
 
     console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' Tests FEHLGESCHLAGEN.'));
     process.exit(ok === n ? 0 : 1);
