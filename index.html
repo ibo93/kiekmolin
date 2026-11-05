@@ -405,6 +405,9 @@
     @font-face{font-family:'Epilogue';font-style:normal;font-display:swap;font-weight:100 900;src:url(/public/fonts/epilogue-latin-ext.woff2) format('woff2-variations');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;}
     @font-face{font-family:'Inter';font-style:normal;font-display:swap;font-weight:100 900;src:url(/public/fonts/inter-latin.woff2) format('woff2-variations');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
     @font-face{font-family:'Inter';font-style:normal;font-display:swap;font-weight:100 900;src:url(/public/fonts/inter-latin-ext.woff2) format('woff2-variations');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;}
+    /* Fraunces (Serifen) nur fuer den Geschenkgutschein -- geladen wird sie erst, wenn ein Gutschein zu sehen ist. @fontsource-variable/fraunces 5.2.5, OFL-1.1 (public/fonts/LIZENZ-Fraunces.txt). */
+    @font-face{font-family:'Fraunces';font-style:normal;font-display:swap;font-weight:100 900;src:url(/public/fonts/fraunces-latin.woff2) format('woff2-variations');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
+    @font-face{font-family:'Fraunces';font-style:italic;font-display:swap;font-weight:100 900;src:url(/public/fonts/fraunces-latin-italic.woff2) format('woff2-variations');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
     
 /* Online-Tische: "noch 2 Tische" an der Uhrzeit */
 .slot-noch{display:block;font-size:10px;font-weight:700;color:#92400e;margin-top:2px;letter-spacing:.02em;}
@@ -11692,6 +11695,243 @@
         .kmi-vb-res { margin: 0 0 12px; padding: 10px 12px; border-radius: 14px; background: #f0f7f4; border: 1.5px solid #ffd54f; display: flex; flex-direction: column; gap: 2px; font-family: Inter, sans-serif; }
         .kmi-vb-res small { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; color: #8a6100; } .kmi-vb-res b { font-size: 14px; color: #00251e; } .kmi-vb-res span { font-size: 13px; color: #404946; }
         .dark-mode .kmi-vb-res { background: rgba(255,255,255,0.06); border-color: rgba(255,213,79,0.55); } .dark-mode .kmi-vb-res small { color: #ffd54f; } .dark-mode .kmi-vb-res b { color: #ffffff; } .dark-mode .kmi-vb-res span { color: #c8d2ce; }
+        /* ===== GESCHENKGUTSCHEIN (04.11.2026): 21 x 10 cm, Abriss rechts, 3D ===== */
+        .gg-karte { position: relative; width: 100%; aspect-ratio: 21 / 10; max-width: 100%; border-radius: 4.5cqw; border-radius: 18px; overflow: hidden; container-type: inline-size; color: var(--gg-text); font-family: Inter, sans-serif; background: radial-gradient(120% 95% at 86% 8%, var(--gg-a) 0%, var(--gg-b) 72%); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06); }
+        .gg-karte.gg-hinten { background: linear-gradient(160deg, var(--gg-b), var(--gg-a)); }
+        .gg-karte svg.gg-muster, .gg-karte svg.gg-korn { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+        .gg-karte svg.gg-korn { opacity: 0.17; mix-blend-mode: overlay; }
+        .gg-k-rahmen { position: absolute; inset: 1.6cqw; border-radius: 1.8cqw; border: 1px solid var(--gg-rahmen); pointer-events: none; }
+        .gg-folie { background: var(--gg-gold); background-size: 260% 100%; background-position: var(--gg-fx, 50%) 50%; -webkit-background-clip: text; background-clip: text; color: transparent !important; }
+        .gg-k-haupt { position: absolute; left: 5cqw; top: 4.2cqw; bottom: 4.2cqw; width: 62cqw; display: flex; flex-direction: column; }
+        .gg-k-oben { display: flex; align-items: center; gap: 1.8cqw; }
+        .gg-k-siegel { flex: 0 0 7cqw; width: 7cqw; height: 7cqw; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 0 0.25cqw var(--gg-siegel), inset 0 0 0 0.7cqw transparent, inset 0 0 0 0.85cqw var(--gg-siegel2); font-family: Fraunces, Georgia, serif; font-weight: 600; font-size: 3.8cqw; line-height: 1; }
+        .gg-k-kopf { display: flex; flex-direction: column; gap: 0.5cqw; min-width: 0; }
+        .gg-k-wort { font-weight: 700; font-size: 1.9cqw; letter-spacing: 0.48em; }
+        .gg-karte .gg-k-lokal { font-family: Epilogue, Inter, sans-serif; font-weight: 800; font-size: 1.8cqw; letter-spacing: 0.16em; color: var(--gg-leise); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .gg-k-mitte { flex: 1; display: flex; flex-direction: column; justify-content: center; min-height: 0; }
+        .gg-k-betrag { display: flex; align-items: flex-start; gap: 0.8cqw; line-height: 0.86; }
+        .gg-karte .gg-k-zahl { font-family: Fraunces, Georgia, serif; font-weight: 600; font-size: 15cqw; letter-spacing: -0.035em; color: var(--gg-text); text-shadow: 0 0.2cqw 0 rgba(0,0,0,0.22), 0 -0.1cqw 0 rgba(255,255,255,0.12); }
+        .gg-k-euro { font-family: Fraunces, Georgia, serif; font-weight: 500; font-size: 6.5cqw; margin-top: 1.4cqw; }
+        .gg-karte .gg-k-fuer { margin-top: 1.6cqw; font-family: Fraunces, Georgia, serif; font-style: italic; font-size: 3.2cqw; font-weight: 400; color: var(--gg-text); }
+        .gg-karte .gg-k-fuer b { font-style: normal; font-weight: 600; color: var(--gg-text); }
+        .gg-karte .gg-k-gruss { margin-top: 1cqw; font-family: Fraunces, Georgia, serif; font-size: 2.3cqw; line-height: 1.4; font-style: italic; color: var(--gg-leise); max-width: 58cqw; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .gg-karte .gg-k-von { margin-top: 0.6cqw; font-family: Fraunces, Georgia, serif; font-size: 2.3cqw; font-weight: 500; color: var(--gg-leise); }
+        .gg-karte .gg-k-rest { display: inline-block; align-self: flex-start; margin-top: 1.2cqw; padding: 0.5cqw 1.6cqw; border-radius: 999px; background: var(--gg-siegel); color: var(--gg-b); font-size: 1.9cqw; font-weight: 800; }
+        .gg-k-schnitt { position: absolute; top: 0; bottom: 0; left: 72cqw; border-left: 0.25cqw dashed var(--gg-leise); opacity: 0.5; }
+        .gg-k-loch { position: absolute; left: 70.3cqw; width: 3.4cqw; height: 3.4cqw; border-radius: 50%; background: var(--gg-loch, #f6f7f6); box-shadow: inset 0 0.3cqw 0.6cqw rgba(0,0,0,0.35); }
+        .gg-k-loch.gg-o { top: -1.7cqw; } .gg-k-loch.gg-u { bottom: -1.7cqw; }
+        .gg-k-abriss { position: absolute; left: 72cqw; right: 0; top: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.6cqw; text-align: center; padding: 4cqw 2.6cqw; box-sizing: border-box; }
+        .gg-karte .gg-k-abriss small { font-size: 1.4cqw; font-weight: 700; letter-spacing: 0.3em; color: var(--gg-leise); }
+        .gg-k-mono { font-family: Fraunces, Georgia, serif; font-weight: 600; font-size: 9cqw; line-height: 1; }
+        .gg-karte .gg-k-code { font-family: Menlo, Consolas, monospace; font-weight: 700; font-size: 2.1cqw; letter-spacing: 0.06em; color: var(--gg-text); }
+        .gg-karte .gg-k-gueltig { font-size: 1.5cqw; color: var(--gg-leise); line-height: 1.45; }
+        .gg-k-glanz { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: soft-light; background: radial-gradient(60% 80% at var(--gg-gx, 30%) var(--gg-gy, 20%), rgba(255,255,255,0.5), rgba(255,255,255,0) 60%); }
+        .gg-r-inhalt { position: absolute; left: 5cqw; top: 4.4cqw; bottom: 6cqw; width: 62cqw; display: flex; flex-direction: column; justify-content: center; gap: 1.8cqw; }
+        .gg-r-titel { font-weight: 700; font-size: 1.8cqw; letter-spacing: 0.36em; }
+        .gg-karte .gg-r-schritt { display: flex; gap: 1.6cqw; align-items: center; font-size: 2.1cqw; line-height: 1.35; color: var(--gg-text); }
+        .gg-karte .gg-r-schritt i { flex: 0 0 3.6cqw; height: 3.6cqw; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-style: normal; font-weight: 800; font-size: 1.8cqw; background: var(--gg-siegel2); color: var(--gg-text); }
+        .gg-karte .gg-r-guthaben { font-family: Fraunces, Georgia, serif; font-size: 6.2cqw; font-weight: 600; line-height: 1; color: var(--gg-text); }
+        .gg-karte .gg-r-fuss { position: absolute; left: 5cqw; bottom: 3cqw; font-size: 1.5cqw; color: var(--gg-leise); }
+        /* 3D */
+        .gg-3d { position: relative; width: 100%; aspect-ratio: 21 / 10; perspective: 1300px; touch-action: pan-y; }
+        .gg-3d-kippen { touch-action: none; cursor: grab; } .gg-3d-kippen:active { cursor: grabbing; }
+        .gg-3d-kippen:focus-visible { outline: 3px solid #b8891f; outline-offset: 6px; border-radius: 18px; }
+        .gg-3d-boden { position: absolute; left: 10%; right: 10%; bottom: -14%; height: 18%; border-radius: 50%; background: radial-gradient(closest-side, rgba(0,37,30,0.35), transparent); filter: blur(10px); pointer-events: none; }
+        .gg-3d-k { position: absolute; inset: 0; transform-style: preserve-3d; transform: rotateX(10deg) rotateY(-16deg); will-change: transform; }
+        .gg-3d-schicht { position: absolute; inset: 0; border-radius: 18px; background: var(--gg-schnitt); background-size: 300% 100%; background-position: var(--gg-fx, 50%) 50%; }
+        .gg-3d-v, .gg-3d-r { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+        .gg-3d-v { transform: translateZ(3.5px); } .gg-3d-r { transform: rotateY(180deg) translateZ(3.5px); }
+        .gg-3d-schwebt .gg-3d-k { animation: ggSchweben 7s ease-in-out infinite; }
+        @keyframes ggSchweben { 0%, 100% { transform: rotateX(10deg) rotateY(-16deg) translateY(0); } 50% { transform: rotateX(6deg) rotateY(-8deg) translateY(-6px); } }
+        @media (prefers-reduced-motion: reduce) { .gg-3d-schwebt .gg-3d-k { animation: none; } }
+        .dark-mode .gg-3d-boden { background: radial-gradient(closest-side, rgba(0,0,0,0.6), transparent); }
+        .dark-mode .gg-fenster { --gg-loch: #13241f; }
+
+        .gg-teaser { display: grid; grid-template-columns: 1.1fr 1fr; gap: 28px; align-items: center; max-width: 1080px; margin: 0 auto 72px; padding: 32px; border-radius: 28px; background: #f0f7f4; border: 1px solid #d6e6df; }
+        .gg-teaser { --gg-loch: #f0f7f4; }
+        .gg-teaser-bild { width: 100%; max-width: 480px; justify-self: center; padding: 10px 0 18px; }
+        .gg-teaser-klein { font-family: Inter, sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: #8a6100; }
+        .gg-teaser h2 { font-family: Epilogue, sans-serif; font-size: 28px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; color: #00251e; margin: 8px 0 10px; }
+        .gg-teaser p { font-family: Inter, sans-serif; font-size: 15px; line-height: 1.55; color: #3d4f4a; margin: 0 0 18px; }
+        @media (max-width: 700px) { .gg-teaser { grid-template-columns: 1fr; margin: 0 16px 56px; padding: 22px; } .gg-teaser-bild { order: -1; padding: 6px 10px 0; } .gg-teaser h2 { font-size: 23px; } }
+        .dark-mode .gg-teaser { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1); }
+        .dark-mode .gg-teaser { --gg-loch: #16251f; }
+        .dark-mode .gg-teaser h2 { color: #f2f5f4; } .dark-mode .gg-teaser p { color: #c8d2ce; } .dark-mode .gg-teaser-klein { color: #ffd54f; }
+
+        .gg-knopf { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 24px; border-radius: 9999px; border: none; background: #003d33; color: #ffffff; font-family: Inter, sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; text-decoration: none; }
+        .gg-knopf.gg-voll { width: 100%; background: #ffd54f; color: #00251e; font-weight: 800; }
+        .gg-knopf.gg-rand { background: transparent; color: #003d33; border: 1.5px solid #003d33; }
+        .dark-mode .gg-knopf { background: #ffd54f; color: #00251e; }
+        .dark-mode .gg-knopf.gg-voll { background: #ffd54f; color: #00251e; }
+        .dark-mode .gg-w-schalter button { background: rgba(255,255,255,0.2); }
+        .dark-mode .gg-w-schalter button i { background: #e8eeec; }
+        .dark-mode .gg-knopf.gg-rand { background: transparent; color: #e8eeec; border-color: rgba(255,255,255,0.35); }
+
+        .gg-overlay { position: fixed; inset: 0; z-index: 10030; background: rgba(0,20,16,0.55); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); display: flex; align-items: flex-end; justify-content: center; }
+        @media (min-width: 640px) { .gg-overlay { align-items: center; } }
+        .gg-fenster { position: relative; width: 100%; max-width: 480px; max-height: 92vh; overflow-y: auto; box-sizing: border-box; padding: 22px 20px 24px; background: #f6f7f6; border-radius: 26px 26px 0 0; font-family: Inter, sans-serif; color: #00251e; }
+        @media (min-width: 640px) { .gg-fenster { border-radius: 26px; } }
+        .gg-zu { position: absolute; top: 12px; right: 12px; width: 40px; height: 40px; border-radius: 50%; border: none; background: rgba(0,37,30,0.07); color: #00251e; font-size: 24px; line-height: 1; cursor: pointer; }
+        .gg-titel { font-family: Epilogue, sans-serif; font-size: 22px; font-weight: 800; letter-spacing: -0.02em; margin: 2px 48px 14px 0; }
+        .gg-vorschau { margin: 0 0 16px; }
+        .gg-klein-vorschau { max-width: 300px; margin: 0 auto 14px; }
+        .gg-feld { display: block; margin: 0 0 12px; }
+        .gg-label { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: #3d4f4a; margin-bottom: 6px; }
+        .gg-label small { font-weight: 500; color: #6b7570; }
+        .gg-feld input, .gg-feld textarea, .gg-eigen input { width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 14px; border: 1.5px solid #d6dedb; background: #ffffff; color: #00251e; font-family: Inter, sans-serif; font-size: 16px; resize: none; }
+        .gg-feld input:focus, .gg-feld textarea:focus, .gg-eigen input:focus { outline: none; border-color: #003d33; box-shadow: 0 0 0 3px rgba(0,61,51,0.12); }
+        .gg-betraege { display: grid; grid-template-columns: repeat(4, 1fr) 1.3fr; gap: 6px; }
+        .gg-betraege button, .gg-motive button { min-height: 44px; border-radius: 14px; border: 1.5px solid #d6dedb; background: #ffffff; color: #00251e; font-family: Inter, sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; }
+        .gg-betraege button[aria-pressed="true"], .gg-motive button[aria-pressed="true"] { border-color: #003d33; background: #003d33; color: #ffffff; }
+        .gg-eigen { display: flex; align-items: center; gap: 4px; font-weight: 700; }
+        .gg-eigen input { padding: 10px 8px; text-align: center; font-weight: 700; }
+        @media (max-width: 380px) { .gg-betraege { grid-template-columns: repeat(4, 1fr); } .gg-eigen { grid-column: 1 / -1; } }
+        .gg-motive { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+        .gg-motive button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; font-size: 12px; }
+        .gg-motive i { width: 28px; height: 18px; border-radius: 5px; border: 2px solid; display: block; }
+        .gg-zwei { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        @media (max-width: 420px) { .gg-zwei { grid-template-columns: 1fr; gap: 0; } }
+        .gg-meldung { min-height: 18px; margin: 4px 0 10px; font-size: 13px; line-height: 1.45; color: #3d4f4a; }
+        .gg-meldung.gg-rot { color: #b91c1c; font-weight: 600; }
+        .gg-klein { font-size: 12px; line-height: 1.5; color: #6b7570; margin: 12px 0 0; text-align: center; }
+        .gg-klein a { color: inherit; font-weight: 600; }
+        .gg-hinweis { font-size: 14px; line-height: 1.55; color: #3d4f4a; margin: 0 0 14px; }
+        .gg-laden { padding: 40px 0; text-align: center; color: #6b7570; }
+        .gg-geschafft { display: flex; align-items: center; gap: 8px; margin: 2px 48px 14px 0; font-family: Epilogue, sans-serif; font-size: 18px; font-weight: 800; color: #003d33; }
+        .gg-aktionen { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; }
+        .gg-vorschau .gg-3d { margin: 6px auto 18px; max-width: 440px; }
+        .gg-direkt { margin: 2px 0 6px; padding: 12px 12px 4px; border-radius: 16px; background: #f0f7f4; border: 1px solid #d6e6df; }
+        .gg-direkt-titel { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 800; color: #00251e; margin-bottom: 8px; }
+        .gg-direkt-titel .material-symbols-outlined { font-size: 18px; } .gg-direkt-titel small { font-weight: 500; color: #6b7570; }
+        .gg-klein.gg-links { text-align: left; margin: 0 0 8px; }
+        .gg-zustellung { margin: -4px 0 12px; padding: 10px 12px; border-radius: 12px; background: #e8f1ed; font-size: 13px; font-weight: 600; color: #0b3d33; text-align: center; }
+        .gg-zustellung.gg-rot { background: #fdecec; color: #991b1b; }
+        .dark-mode .gg-direkt { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.12); }
+        .dark-mode .gg-direkt-titel { color: #e8eeec; }
+        .dark-mode .gg-zustellung { background: rgba(134,239,172,0.12); color: #bbf7d0; } .dark-mode .gg-zustellung.gg-rot { background: rgba(239,68,68,0.15); color: #fecaca; }
+        .dark-mode .gg-fenster p.gg-zustellung { background: rgba(134,239,172,0.12); color: #bbf7d0 !important; }
+        .dark-mode .gg-fenster p.gg-zustellung.gg-rot { background: rgba(239,68,68,0.15); color: #fecaca !important; }
+        .gg-kippbox .gg-3d { margin: 10px auto 22px; }
+        .gg-kipp-hinweis { margin: -6px 0 12px; }
+        .gg-knopf.gg-breit { width: 100%; margin-top: 8px; }
+        #ggPaypal { min-height: 50px; margin-bottom: 6px; }
+        .dark-mode .gg-fenster { background: #13241f; color: #e8eeec; }
+        .dark-mode .gg-zu { background: rgba(255,255,255,0.08); color: #e8eeec; }
+        .dark-mode .gg-label, .dark-mode .gg-hinweis, .dark-mode .gg-meldung { color: #c8d2ce; }
+        .dark-mode .gg-label small, .dark-mode .gg-klein, .dark-mode .gg-laden { color: #9fb0aa; }
+        .dark-mode .gg-feld input, .dark-mode .gg-feld textarea, .dark-mode .gg-eigen input, .dark-mode .gg-betraege button, .dark-mode .gg-motive button { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.18); color: #e8eeec; }
+        .dark-mode .gg-betraege button[aria-pressed="true"], .dark-mode .gg-motive button[aria-pressed="true"] { background: #ffd54f; border-color: #ffd54f; color: #00251e; }
+        .dark-mode .gg-meldung.gg-rot { color: #fca5a5; }
+        .dark-mode .gg-geschafft { color: #ffd54f; }
+        .gg-wirt { font-family: Inter, sans-serif; }
+        .gg-w-vorort-knopf { width: 100%; min-height: 50px; margin: 0 0 14px; border-radius: 9999px; border: 1.5px dashed #003d33; background: transparent; color: #003d33; font-family: Inter, sans-serif; font-size: 15px; font-weight: 800; cursor: pointer; }
+        .gg-vo { --gg-loch: #ffffff; padding: 16px; margin: 0 0 14px; border-radius: 20px; background: #ffffff; border: 1px solid #d6e6df; box-shadow: 0 10px 30px -18px rgba(0,37,30,0.35); display: flex; flex-direction: column; gap: 10px; font-family: Inter, sans-serif; }
+        .gg-vo-kopf { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 15px; color: #00251e; }
+        .gg-vo-zu { width: 36px; height: 36px; border-radius: 50%; border: none; background: rgba(0,37,30,0.07); color: #00251e; font-size: 20px; cursor: pointer; }
+        .gg-vo-vorschau { padding: 6px 14px 22px; }
+        .gg-vo-motive { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+        .gg-vo-motive button, .gg-vo-zahl button { min-height: 42px; border-radius: 12px; border: 1.5px solid #d6dedb; background: #ffffff; color: #00251e; font-family: Inter, sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 6px 2px; }
+        .gg-vo-motive i { width: 26px; height: 16px; border-radius: 4px; display: block; }
+        .gg-vo-zahl { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .gg-vo-zahl button { font-size: 15px; flex-direction: row; }
+        .gg-vo-motive button[aria-pressed="true"], .gg-vo-zahl button[aria-pressed="true"] { background: #003d33; border-color: #003d33; color: #ffffff; }
+        .gg-vo label, .gg-vo-reihe > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+        .gg-vo label > span, .gg-vo-reihe > div > span { font-size: 12px; font-weight: 700; color: #3d4f4a; }
+        .gg-vo input { min-height: 44px; padding: 0 12px; border-radius: 12px; border: 1.5px solid #c9d6d1; background: #ffffff; color: #00251e; font-size: 16px; font-family: Inter, sans-serif; min-width: 0; }
+        .gg-vo-reihe { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        @media (max-width: 420px) { .gg-vo-reihe { grid-template-columns: 1fr; } }
+        .gg-vo-los { min-height: 50px; border-radius: 9999px; border: none; background: #ffd54f; color: #00251e; font-family: Inter, sans-serif; font-size: 15px; font-weight: 800; cursor: pointer; padding: 0 18px; }
+        .gg-vo-los:disabled { opacity: 0.6; cursor: wait; }
+        .gg-vo-rand { min-height: 46px; border-radius: 9999px; border: 1.5px solid #003d33; background: transparent; color: #003d33; font-family: Inter, sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; padding: 0 14px; }
+        .gg-vo-aktionen { display: grid; grid-template-columns: 1.6fr 1fr 1fr; gap: 6px; }
+        @media (max-width: 460px) { .gg-vo-aktionen { grid-template-columns: 1fr 1fr; } .gg-vo-aktionen .gg-vo-los { grid-column: 1 / -1; } }
+        .dark-mode .gg-w-vorort-knopf { border-color: #ffd54f; color: #ffd54f; }
+        .dark-mode .gg-vo { --gg-loch: #1b2a26; background: #1b2a26; border-color: rgba(255,255,255,0.12); }
+        .dark-mode .gg-vo-kopf, .dark-mode .gg-vo-zu { color: #e8eeec; } .dark-mode .gg-vo-zu { background: rgba(255,255,255,0.08); }
+        .dark-mode .gg-vo label > span, .dark-mode .gg-vo-reihe > div > span { color: #c8d2ce; }
+        .dark-mode .gg-vo input, .dark-mode .gg-vo-motive button, .dark-mode .gg-vo-zahl button { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.2); color: #e8eeec; }
+        .dark-mode .gg-vo-motive button[aria-pressed="true"], .dark-mode .gg-vo-zahl button[aria-pressed="true"] { background: #ffd54f; border-color: #ffd54f; color: #00251e; }
+        .dark-mode .gg-vo-los { background: #ffd54f; color: #00251e; }
+        .dark-mode .gg-vo-rand { border-color: rgba(255,255,255,0.35); color: #e8eeec; background: transparent; }
+        .gg-w-einloesen { padding: 14px; border-radius: 18px; background: #f0f7f4; border: 1px solid #d6e6df; margin-bottom: 14px; }
+        .gg-w-einloesen > b { display: block; font-size: 15px; margin-bottom: 8px; color: #00251e; }
+        .gg-w-reihe { display: grid; grid-template-columns: 1.4fr 1fr auto; gap: 8px; }
+        @media (max-width: 460px) { .gg-w-reihe { grid-template-columns: 1fr 1fr; } .gg-w-reihe button { grid-column: 1 / -1; } }
+        .gg-w-reihe input { min-width: 0; min-height: 46px; padding: 0 12px; border-radius: 12px; border: 1.5px solid #c9d6d1; background: #ffffff; color: #00251e; font-size: 16px; font-family: Inter, sans-serif; }
+        #ggWCode { font-family: Menlo, Consolas, monospace; text-transform: uppercase; letter-spacing: 0.04em; }
+        .gg-w-reihe button { min-height: 46px; padding: 0 18px; border: none; border-radius: 9999px; background: #003d33; color: #ffffff; font-weight: 800; font-size: 15px; cursor: pointer; }
+        .gg-w-stand { font-size: 13px; line-height: 1.45; color: #3d4f4a; margin: 8px 0 0; }
+        .gg-w-rot { color: #b91c1c; font-weight: 600; } .gg-w-gruen { color: #15803d; font-weight: 700; }
+        .gg-w-fehler { color: #b91c1c; font-size: 14px; }
+        .gg-w-schalter { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 2px 14px; border-bottom: 1px solid var(--border-color, #e1e5e3); margin-bottom: 12px; }
+        .gg-w-schalter b { display: block; font-size: 15px; } .gg-w-schalter small { display: block; font-size: 12px; line-height: 1.4; color: var(--text-secondary, #5a6b66); margin-top: 2px; }
+        .gg-w-schalter button { flex: 0 0 52px; width: 52px; height: 30px; border-radius: 9999px; border: none; background: #c9cfcd; position: relative; cursor: pointer; }
+        .gg-w-schalter button i { position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #ffffff; transition: left .2s; }
+        .gg-w-schalter button[aria-checked="true"] { background: #003d33; } .gg-w-schalter button[aria-checked="true"] i { left: 25px; }
+        .gg-w-summen { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+        .gg-w-summen > div { padding: 10px 12px; border-radius: 14px; background: var(--bg-secondary, #f3f4f5); }
+        .gg-w-summen small { display: block; font-size: 11px; color: var(--text-secondary, #5a6b66); } .gg-w-summen b { display: block; font-family: Epilogue, sans-serif; font-size: 18px; font-weight: 800; margin: 2px 0; }
+        .gg-w-zeile { display: flex; justify-content: space-between; gap: 10px; padding: 10px 2px; border-top: 1px solid var(--border-color, #e1e5e3); }
+        .gg-w-zeile small { display: block; font-size: 12px; color: var(--text-secondary, #5a6b66); margin-top: 2px; }
+        .gg-w-code { font-family: Menlo, Consolas, monospace; font-size: 14px; }
+        .gg-w-betrag { text-align: right; white-space: nowrap; }
+        .dark-mode .gg-w-einloesen { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.12); }
+        .dark-mode .gg-w-einloesen > b { color: #e8eeec; }
+        .dark-mode .gg-w-reihe input { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.22); color: #e8eeec; }
+        .dark-mode .gg-w-reihe button, .dark-mode .gg-w-schalter button[aria-checked="true"] { background: #ffd54f; color: #00251e; }
+        .dark-mode .gg-w-stand { color: #c8d2ce; } .dark-mode .gg-w-rot, .dark-mode .gg-w-fehler { color: #fca5a5; } .dark-mode .gg-w-gruen { color: #86efac; }
+        .dark-mode .gg-w-summen > div { background: rgba(255,255,255,0.06); }
+        /* ".dark-mode .modal-overlay.active p" und ".dark-mode p" setzen jede Zeile mit !important grau --
+           auch eine rote Fehlermeldung (gemessen 03.11.2026). Fehler und Erfolg muessen erkennbar bleiben. */
+        .dark-mode .modal-overlay.active .gg-wirt p.gg-w-rot, .dark-mode .modal-overlay.active .gg-wirt p.gg-w-fehler, .dark-mode .gg-fenster p.gg-meldung.gg-rot { color: #fca5a5 !important; }
+        .dark-mode .modal-overlay.active .gg-wirt p.gg-w-gruen { color: #86efac !important; }
+        .kin-allergie { margin: 8px 0 0; padding: 8px 12px; border-radius: 12px; background: #fdecec; border: 1.5px solid #f3b4b4; color: #991b1b; font-family: Inter, sans-serif; font-size: 14px; font-weight: 800; }
+        .kin-allergie small { font-size: 11px; font-weight: 600; color: #b45454; }
+        .kin-allergie-fehler { margin: 8px 0 0; font-size: 11px; color: #8a6100; }
+        .kmi-allergie-chip { display: inline-block; margin-left: 6px; vertical-align: middle; padding: 3px 10px; border-radius: 9999px; background: #fdecec; color: #991b1b; font-family: Inter, sans-serif; font-size: 11px; font-weight: 800; }
+        .dark-mode .kin-allergie, .dark-mode .kin-order-card .kin-allergie { background: rgba(239,68,68,0.16) !important; border-color: rgba(239,68,68,0.45) !important; color: #fecaca !important; }
+        .dark-mode .kin-allergie small, .dark-mode .kin-order-card .kin-allergie small { color: #fca5a5 !important; }
+        .dark-mode .kin-order-card .kin-allergie-fehler { color: #ffd54f !important; }
+        .dark-mode .kmi-allergie-chip { background: rgba(239,68,68,0.18); color: #fecaca; }
+        .kmi-woh-raster { display: grid; grid-template-columns: 30px minmax(0, 1fr) minmax(0, 1fr); gap: 6px 8px; align-items: center; margin: 0 0 12px; }
+        .kmi-woh-raster input.form-input { padding: 8px 10px !important; min-width: 0; min-height: 40px; font-size: 15px; }
+        .kmi-woh-raster input.kmi-woh-s2 { min-height: 34px; padding: 4px 10px !important; font-size: 13px; opacity: 0.85; margin-bottom: 6px; }
+        .kmi-woh-zwei { font-size: 11px; font-weight: 600; color: var(--text-secondary); text-align: right; margin-bottom: 6px; }
+        .kmi-woh-breit { display: none; }
+        @media (min-width: 700px) {
+            .kmi-woh-raster { grid-template-columns: 30px repeat(2, minmax(0, 1fr)) 20px repeat(2, minmax(0, 1fr)); }
+            .kmi-woh-breit { display: block; }
+            .kmi-woh-raster input.kmi-woh-s2, .kmi-woh-zwei { margin-bottom: 0; min-height: 40px; }
+        }
+        .kmi-woh-kopf { font-size: 11px; font-weight: 700; color: var(--text-secondary); text-align: center; }
+        .kmi-woh-tag { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+        .kmi-woh-speichern { margin-top: 12px; }
+        .kmi-urlaub { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-color, #e1e5e3); }
+        .kmi-urlaub-zeile { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+        .kmi-urlaub-zeile input { flex: 1; min-width: 130px; }
+        .kmi-urlaub-ja, .kmi-urlaub-nein { min-height: 44px; padding: 0 18px; border-radius: 9999px; font-family: Inter, sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; }
+        .kmi-urlaub-ja { border: none; background: #003d33; color: #ffffff; }
+        .kmi-urlaub-nein { border: 1.5px solid #003d33; background: transparent; color: #003d33; }
+        .kmi-urlaub-stand { font-size: 12px; line-height: 1.4; color: var(--text-secondary); }
+        .dark-mode .kmi-oh-schnell input.form-input, .dark-mode .kmi-woh-raster input.form-input, .dark-mode .kmi-urlaub input.form-input, .dark-mode #wRuhetag { background: rgba(255,255,255,0.08) !important; color: #e8eeec !important; border: 1px solid rgba(255,255,255,0.22) !important; color-scheme: dark; }
+        .dark-mode .kmi-urlaub-ja { background: #ffd54f; color: #00251e; }
+        .dark-mode .kmi-urlaub-nein { border-color: rgba(255,255,255,0.35); color: #e8eeec; }
+        .kmi-oh-schnell { margin: 0 0 14px; padding: 12px; border-radius: 14px; background: #f0f7f4; border: 1px solid #d6e6df; }
+        .kmi-oh-titel { font-family: Inter, sans-serif; font-size: 13px; font-weight: 800; color: #003d33; margin-bottom: 8px; }
+        .kmi-oh-tage { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+        .kmi-oh-tage button { min-width: 44px; min-height: 40px; padding: 0 10px; border-radius: 9999px; border: 2px solid #c9cfcd; background: #ffffff; color: #00251e; font-family: Inter, sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; }
+        .kmi-oh-tage button[aria-pressed="true"] { border-color: #003d33; background: #003d33; color: #ffffff; }
+        .kmi-oh-zeiten { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
+        .kmi-oh-zeiten label { display: flex; flex-direction: column; gap: 2px; font-size: 11px; font-weight: 600; color: var(--slate, #5a6b66); }
+        .kmi-oh-zeiten input { padding: 6px; }
+        @media (max-width: 420px) { .kmi-oh-zeiten { grid-template-columns: 1fr 1fr; } }
+        .kmi-oh-los { width: 100%; min-height: 44px; border: none; border-radius: 9999px; background: #ffd54f; color: #00251e; font-family: Inter, sans-serif; font-size: 14px; font-weight: 800; cursor: pointer; }
+        .dark-mode .kmi-oh-schnell { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.12); }
+        .dark-mode .kmi-oh-titel { color: #e8eeec; }
+        .dark-mode .kmi-oh-tage button { background: transparent; border-color: rgba(255,255,255,0.25); color: #e8eeec; }
+        .dark-mode .kmi-oh-tage button[aria-pressed="true"] { background: #ffd54f; border-color: #ffd54f; color: #00251e; }
+        .dark-mode .kmi-oh-zeiten label { color: #c8d2ce; }
+        .dark-mode .kmi-oh-los { background: #ffd54f !important; color: #00251e !important; }
         .kmi-wahlkarten { display: flex; flex-direction: column; gap: 8px; }
         .kmi-wahlkarten button { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 14px; border-radius: 14px; border: 2px solid #e1e5e3; background: #ffffff; color: #00251e; font-family: Inter, sans-serif; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer; }
         .kmi-wahlkarten button i { flex: 0 0 20px; width: 20px; height: 20px; box-sizing: border-box; border-radius: 9999px; border: 2px solid #c9cfcd; display: flex; align-items: center; justify-content: center; }
@@ -17079,6 +17319,29 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 <h4 style="margin-bottom: 12px; color: var(--dark);">Öffnungszeiten</h4>
                 <p style="font-size:12px;color:var(--slate);margin:0 0 8px;">Bei Mittagspause: zweite Schicht ausfüllen. Sonst leer lassen.</p>
 
+                <!-- Mehrere Tage auf einmal (Ibo, 02.11.2026: "die Tage auf einmal
+                     waehlen, eine Zeit, nicht jedes Mal einzeln"). Fuellt nur die
+                     Felder darunter -- gespeichert wird wie immer mit Speichern. -->
+                <div class="kmi-oh-schnell" id="ohSchnell" data-feld="open">
+                    <div class="kmi-oh-titel">Mehrere Tage auf einmal</div>
+                    <div class="kmi-oh-tage" role="group" aria-label="Tage wählen">
+                        <button type="button" data-tag="Mo" aria-pressed="false" onclick="ohTagWahl(this)">Mo</button>
+                        <button type="button" data-tag="Di" aria-pressed="false" onclick="ohTagWahl(this)">Di</button>
+                        <button type="button" data-tag="Mi" aria-pressed="false" onclick="ohTagWahl(this)">Mi</button>
+                        <button type="button" data-tag="Do" aria-pressed="false" onclick="ohTagWahl(this)">Do</button>
+                        <button type="button" data-tag="Fr" aria-pressed="false" onclick="ohTagWahl(this)">Fr</button>
+                        <button type="button" data-tag="Sa" aria-pressed="false" onclick="ohTagWahl(this)">Sa</button>
+                        <button type="button" data-tag="So" aria-pressed="false" onclick="ohTagWahl(this)">So</button>
+                    </div>
+                    <div class="kmi-oh-zeiten">
+                        <label>Auf <input type="time" class="form-input" id="ohSchnellStart" value="11:00" aria-label="Gewählte Tage öffnen"></label>
+                        <label>Zu <input type="time" class="form-input" id="ohSchnellEnd" value="22:00" aria-label="Gewählte Tage schließen"></label>
+                        <label>Auf 2. <input type="time" class="form-input" id="ohSchnellStart2" aria-label="Gewählte Tage öffnen wieder"></label>
+                        <label>Zu 2. <input type="time" class="form-input" id="ohSchnellEnd2" aria-label="Gewählte Tage schließen endgültig"></label>
+                    </div>
+                    <button type="button" class="kmi-oh-los" onclick="ohSchnellUebernehmen(this.closest('.kmi-oh-schnell'))">Für gewählte Tage übernehmen</button>
+                </div>
+
                 <div style="display: grid; grid-template-columns: 30px 1fr 1fr 14px 1fr 1fr; gap: 6px; align-items: center; font-size: 11px; margin-bottom: 4px;">
                     <span></span>
                     <span style="color:var(--slate);font-weight:600;text-align:center;">Auf</span>
@@ -17150,6 +17413,21 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                         <option value="5">Samstag</option>
                         <option value="6">Sonntag</option>
                     </select>
+                </div>
+                <!-- Betriebsurlaub (Ibo, 02.11.2026: "und Betriebsurlaub auch rein").
+                     Derselbe Eintrag wie im Dashboard unter "Betrieb" (features
+                     "vacation:von:bis") -- sofort gespeichert, wie die Neueroeffnung. -->
+                <div class="form-group kmi-urlaub" data-urlaub-wo="formular">
+                    <label class="form-label" for="formUrlaubVon">Betriebsurlaub</label>
+                    <div class="kmi-urlaub-zeile">
+                        <input type="date" class="form-input" id="formUrlaubVon" aria-label="Betriebsurlaub von">
+                        <input type="date" class="form-input" id="formUrlaubBis" aria-label="Betriebsurlaub bis">
+                    </div>
+                    <div class="kmi-urlaub-zeile">
+                        <button type="button" class="kmi-urlaub-ja" data-urlaub="speichern">Eintragen</button>
+                        <button type="button" class="kmi-urlaub-nein" data-urlaub="loeschen">Löschen</button>
+                    </div>
+                    <div id="formUrlaubStand" class="kmi-urlaub-stand" role="status" aria-live="polite">Kein Betriebsurlaub eingetragen.</div>
                 </div>
 
                 <hr style="margin: 16px 0; border: none; border-top: 1px solid var(--sand);">
@@ -18106,6 +18384,10 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
             <div class="dash-nav-item admin-only-nav" id="navSelbstcheck" onclick="openSelbstcheck()">
                 <span class="material-symbols-outlined" style="font-size:20px;">monitor_heart</span>
                 Selbstcheck
+            </div>
+            <div class="dash-nav-item" id="navGutscheine" onclick="ggWirtOeffnen()">
+                <span class="material-symbols-outlined" style="font-size:20px;">redeem</span>
+                Geschenkgutscheine
             </div>
             <div class="dash-nav-item" id="navTeam" onclick="teamOeffnen()" style="display:none;">
                 <span class="material-symbols-outlined" style="font-size:20px;">group</span>
@@ -23297,6 +23579,110 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                             <button type="button" onclick="pushHierAktivieren()" style="padding:9px 16px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-weight:600;font-size:13px;cursor:pointer;">Auf diesem Gerät</button>
                         </div>
                         <p style="font-size:12px;color:var(--text-secondary);margin:10px 0 0;line-height:1.45;">Neue Reservierungen haben in der Benachrichtigung die Knöpfe <b>Annehmen</b> und <b>Ablehnen</b> (Android, Computer). Auf dem iPhone öffnet das Antippen die Reservierung – dort kommen Benachrichtigungen nur, wenn Kiek mol in über „Teilen → Zum Home-Bildschirm“ geöffnet wird.</p>
+                    </div>
+                    <!-- OEFFNUNGSZEITEN FUER DEN WIRT (Ibo, 02.11.2026: "Oeffnungszeiten
+                         auch fuer Wirt"). Bisher nur im Admin-Formular. Speichert
+                         opening_hours (die Wochentage, alles andere darin bleibt) und
+                         rest_day -- NICHT opening_time/closing_time, das sind hier die
+                         Reservierungszeiten der Karte darunter. -->
+                    <div class="res-settings-card" id="wirtOhKarte">
+                        <h4>
+                            <span class="settings-icon green">
+                                <span class="material-symbols-outlined" style="font-size:20px;">storefront</span>
+                            </span>
+                            Öffnungszeiten
+                        </h4>
+                        <p class="kin-storno-text">Wann euer Lokal offen hat. Danach richten sich Bestellen, Reservieren und „jetzt geöffnet“ bei den Gästen. Bei Mittagspause die zweite Schicht ausfüllen, sonst leer lassen.</p>
+                        <div class="kmi-oh-schnell" id="wOhSchnell" data-feld="wOpen">
+                            <div class="kmi-oh-titel">Mehrere Tage auf einmal</div>
+                            <div class="kmi-oh-tage" role="group" aria-label="Tage wählen">
+                                <button type="button" data-tag="Mo" aria-pressed="false" onclick="ohTagWahl(this)">Mo</button>
+                                <button type="button" data-tag="Di" aria-pressed="false" onclick="ohTagWahl(this)">Di</button>
+                                <button type="button" data-tag="Mi" aria-pressed="false" onclick="ohTagWahl(this)">Mi</button>
+                                <button type="button" data-tag="Do" aria-pressed="false" onclick="ohTagWahl(this)">Do</button>
+                                <button type="button" data-tag="Fr" aria-pressed="false" onclick="ohTagWahl(this)">Fr</button>
+                                <button type="button" data-tag="Sa" aria-pressed="false" onclick="ohTagWahl(this)">Sa</button>
+                                <button type="button" data-tag="So" aria-pressed="false" onclick="ohTagWahl(this)">So</button>
+                            </div>
+                            <div class="kmi-oh-zeiten">
+                                <label>Auf <input type="time" class="form-input" id="wOhSchnellStart" value="11:00" aria-label="Gewählte Tage öffnen"></label>
+                                <label>Zu <input type="time" class="form-input" id="wOhSchnellEnd" value="22:00" aria-label="Gewählte Tage schließen"></label>
+                                <label>Auf 2. <input type="time" class="form-input" id="wOhSchnellStart2" aria-label="Gewählte Tage öffnen wieder"></label>
+                                <label>Zu 2. <input type="time" class="form-input" id="wOhSchnellEnd2" aria-label="Gewählte Tage schließen endgültig"></label>
+                            </div>
+                            <button type="button" class="kmi-oh-los" onclick="ohSchnellUebernehmen(this.closest('.kmi-oh-schnell'))">Für gewählte Tage übernehmen</button>
+                        </div>
+                        <div class="kmi-woh-raster">
+                            <span></span><span class="kmi-woh-kopf">Auf</span><span class="kmi-woh-kopf">Zu</span><span class="kmi-woh-kopf kmi-woh-breit"></span><span class="kmi-woh-kopf kmi-woh-breit">Auf 2.</span><span class="kmi-woh-kopf kmi-woh-breit">Zu 2.</span>
+                            <span class="kmi-woh-tag">Mo</span>
+                            <input type="time" class="form-input" id="wOpenMoStart" aria-label="Montag öffnet">
+                            <input type="time" class="form-input" id="wOpenMoEnd" aria-label="Montag schließt">
+                            <span class="kmi-woh-zwei" title="zweite Schicht">2.</span>
+                            <input type="time" class="form-input kmi-woh-s2" id="wOpenMoStart2" aria-label="Montag öffnet wieder">
+                            <input type="time" class="form-input kmi-woh-s2" id="wOpenMoEnd2" aria-label="Montag schließt endgültig">
+                            <span class="kmi-woh-tag">Di</span>
+                            <input type="time" class="form-input" id="wOpenDiStart" aria-label="Dienstag öffnet">
+                            <input type="time" class="form-input" id="wOpenDiEnd" aria-label="Dienstag schließt">
+                            <span class="kmi-woh-zwei" title="zweite Schicht">2.</span>
+                            <input type="time" class="form-input kmi-woh-s2" id="wOpenDiStart2" aria-label="Dienstag öffnet wieder">
+                            <input type="time" class="form-input kmi-woh-s2" id="wOpenDiEnd2" aria-label="Dienstag schließt endgültig">
+                            <span class="kmi-woh-tag">Mi</span>
+                            <input type="time" class="form-input" id="wOpenMiStart" aria-label="Mittwoch öffnet">
+                            <input type="time" class="form-input" id="wOpenMiEnd" aria-label="Mittwoch schließt">
+                            <span class="kmi-woh-zwei" title="zweite Schicht">2.</span>
+                            <input type="time" class="form-input kmi-woh-s2" id="wOpenMiStart2" aria-label="Mittwoch öffnet wieder">
+                            <input type="time" class="form-input kmi-woh-s2" id="wOpenMiEnd2" aria-label="Mittwoch schließt endgültig">
+                            <span class="kmi-woh-tag">Do</span>
+                            <input type="time" class="form-input" id="wOpenDoStart" aria-label="Donnerstag öffnet">
+                            <input type="time" class="form-input" id="wOpenDoEnd" aria-label="Donnerstag schließt">
+                            <span class="kmi-woh-zwei" title="zweite Schicht">2.</span>
+                            <input type="time" class="form-input kmi-woh-s2" id="wOpenDoStart2" aria-label="Donnerstag öffnet wieder">
+                            <input type="time" class="form-input kmi-woh-s2" id="wOpenDoEnd2" aria-label="Donnerstag schließt endgültig">
+                            <span class="kmi-woh-tag">Fr</span>
+                            <input type="time" class="form-input" id="wOpenFrStart" aria-label="Freitag öffnet">
+                            <input type="time" class="form-input" id="wOpenFrEnd" aria-label="Freitag schließt">
+                            <span class="kmi-woh-zwei" title="zweite Schicht">2.</span>
+                            <input type="time" class="form-input kmi-woh-s2" id="wOpenFrStart2" aria-label="Freitag öffnet wieder">
+                            <input type="time" class="form-input kmi-woh-s2" id="wOpenFrEnd2" aria-label="Freitag schließt endgültig">
+                            <span class="kmi-woh-tag">Sa</span>
+                            <input type="time" class="form-input" id="wOpenSaStart" aria-label="Samstag öffnet">
+                            <input type="time" class="form-input" id="wOpenSaEnd" aria-label="Samstag schließt">
+                            <span class="kmi-woh-zwei" title="zweite Schicht">2.</span>
+                            <input type="time" class="form-input kmi-woh-s2" id="wOpenSaStart2" aria-label="Samstag öffnet wieder">
+                            <input type="time" class="form-input kmi-woh-s2" id="wOpenSaEnd2" aria-label="Samstag schließt endgültig">
+                            <span class="kmi-woh-tag">So</span>
+                            <input type="time" class="form-input" id="wOpenSoStart" aria-label="Sonntag öffnet">
+                            <input type="time" class="form-input" id="wOpenSoEnd" aria-label="Sonntag schließt">
+                            <span class="kmi-woh-zwei" title="zweite Schicht">2.</span>
+                            <input type="time" class="form-input kmi-woh-s2" id="wOpenSoStart2" aria-label="Sonntag öffnet wieder">
+                            <input type="time" class="form-input kmi-woh-s2" id="wOpenSoEnd2" aria-label="Sonntag schließt endgültig">
+                        </div>
+                        <label class="kin-storno-label" for="wRuhetag">Ruhetag</label>
+                        <select id="wRuhetag" class="kin-storno-wahl">
+                            <option value="">Kein Ruhetag</option>
+                            <option value="0">Montag</option>
+                            <option value="1">Dienstag</option>
+                            <option value="2">Mittwoch</option>
+                            <option value="3">Donnerstag</option>
+                            <option value="4">Freitag</option>
+                            <option value="5">Samstag</option>
+                            <option value="6">Sonntag</option>
+                        </select>
+                        <button type="button" class="kmi-oh-los kmi-woh-speichern" onclick="wirtOhSpeichern()">Öffnungszeiten speichern</button>
+                        <p id="wirtOhStand" class="kin-storno-stand" role="status" aria-live="polite"></p>
+                        <div class="kmi-urlaub" data-urlaub-wo="wirt">
+                            <label class="kin-storno-label" for="wUrlaubVon">Betriebsurlaub</label>
+                            <p class="kin-storno-text" style="margin:0 0 8px">In der Zeit können Gäste weder bestellen noch reservieren und sehen „Betriebsferien bis …“. Danach geht alles von selbst wieder.</p>
+                            <div class="kmi-urlaub-zeile">
+                                <input type="date" class="form-input" id="wUrlaubVon" aria-label="Betriebsurlaub von">
+                                <input type="date" class="form-input" id="wUrlaubBis" aria-label="Betriebsurlaub bis">
+                            </div>
+                            <div class="kmi-urlaub-zeile">
+                                <button type="button" class="kmi-urlaub-ja" data-urlaub="speichern">Eintragen</button>
+                                <button type="button" class="kmi-urlaub-nein" data-urlaub="loeschen">Löschen</button>
+                            </div>
+                            <div id="wUrlaubStand" class="kmi-urlaub-stand" role="status" aria-live="polite">Kein Betriebsurlaub eingetragen.</div>
+                        </div>
                     </div>
                     <!-- Reservierungszeiten -->
                     <div class="res-settings-card">
@@ -34450,6 +34836,7 @@ function loadResSettingsUI() {
     _resSettingsLoadedFor = rid;
     try { stornoFristAnzeigen(restaurant); } catch (e) {}
     try { resVorbestAnzeigen(restaurant); } catch (e) {}
+    try { wirtOhAnzeigen(restaurant); } catch (e) {}
 
     var startEl = document.getElementById('resSettingsStart');
     var endEl = document.getElementById('resSettingsEnd');
@@ -34485,6 +34872,178 @@ function loadResSettingsUI() {
 // WAS FUER GAESTE WIRKLICH GILT. Hat das Lokal Oeffnungszeiten pro
 // Wochentag, bestimmen die die Uhrzeiten -- das stand nirgends, und
 // Beginn/Ende hier sahen aus, als haetten sie keine Wirkung (14.10.2026).
+// OEFFNUNGSZEITEN: MEHRERE TAGE AUF EINMAL (02.11.2026). Ibo: "die Tage
+// auf einmal waehlen, eine Zeit, nicht jedes Mal einzeln". Traegt die Zeit
+// in die Felder der gewaehlten Tage ein; gespeichert wird mit Speichern.
+// Keine Tage gewaehlt oder Auf/Zu leer -> Meldung statt stillem Nichts.
+function ohTagWahl(btn) {
+    btn.setAttribute('aria-pressed', btn.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
+}
+function ohSchnellUebernehmen(box) {
+    // box: der Kasten (Admin-Formular #ohSchnell oder Wirt #wOhSchnell).
+    // data-feld sagt, in welche Tabelle: "open" -> openMoStart, "wOpen" -> wOpenMoStart.
+    box = box || document.getElementById('ohSchnell');
+    if (!box) return 0;
+    var feld = box.getAttribute('data-feld') || 'open', bid = box.id;
+    var tage = [];
+    box.querySelectorAll('.kmi-oh-tage button[aria-pressed="true"]').forEach(function (b) { tage.push(b.getAttribute('data-tag')); });
+    var wert = function (id) { var e = document.getElementById(id); return e ? String(e.value || '') : ''; };
+    var auf = wert(bid + 'Start'), zu = wert(bid + 'End'), auf2 = wert(bid + 'Start2'), zu2 = wert(bid + 'End2');
+    if (!tage.length) { showToast('Bitte zuerst die Tage antippen', 'error'); return 0; }
+    if (!auf || !zu) { showToast('Bitte „Auf“ und „Zu“ ausfüllen', 'error'); return 0; }
+    if (!!auf2 !== !!zu2) { showToast('Zweite Schicht: bitte beide Zeiten ausfüllen oder beide leer lassen', 'error'); return 0; }
+    var setze = function (id, v) { var e = document.getElementById(id); if (e) { e.value = v; return 1; } return 0; };
+    var n = 0;
+    tage.forEach(function (t) {
+        n += setze(feld + t + 'Start', auf) & setze(feld + t + 'End', zu) & setze(feld + t + 'Start2', auf2) & setze(feld + t + 'End2', zu2);
+    });
+    if (n !== tage.length) { showToast('Nicht alle Tage gefunden – bitte Formular neu öffnen', 'error'); return n; }
+    box.querySelectorAll('.kmi-oh-tage button').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); });
+    showToast(tage.join(', ') + ': ' + auf + '–' + zu + (auf2 ? ', ' + auf2 + '–' + zu2 : '') + ' eingetragen. Zum Sichern unten speichern.', 'success');
+    return n;
+}
+
+// ---- Oeffnungszeiten fuer den Wirt (Karte #wirtOhKarte unter Reservierungen > Zeiten) ----
+var OH_TAGE = ['mo', 'di', 'mi', 'do', 'fr', 'sa', 'so'];
+function ohGross(k) { return k.charAt(0).toUpperCase() + k.slice(1); }
+// Liest die Wochentabelle. Fehler -> { fehler: 'Mo: ...' }, sonst { oh: {mo_start..} }.
+function ohAusTabelle(feld, ruhetag) {
+    var wert = function (id) { var e = document.getElementById(id); return e ? String(e.value || '') : ''; };
+    var oh = {};
+    for (var i = 0; i < OH_TAGE.length; i++) {
+        var k = OH_TAGE[i], g = feld + ohGross(k);
+        var a = wert(g + 'Start'), z = wert(g + 'End'), a2 = wert(g + 'Start2'), z2 = wert(g + 'End2');
+        // Am Ruhetag duerfen die Zeiten leer sein -- geschlossen ist er ueber rest_day.
+        if ((!a || !z) && String(i) !== String(ruhetag)) return { fehler: ohGross(k) + ': bitte „Auf“ und „Zu“ ausfüllen (oder als Ruhetag wählen)' };
+        if (!!a2 !== !!z2) return { fehler: ohGross(k) + ': zweite Schicht bitte ganz ausfüllen oder ganz leer lassen' };
+        oh[k + '_start'] = a; oh[k + '_end'] = z; oh[k + '_start2'] = a2; oh[k + '_end2'] = z2;
+    }
+    return { oh: oh };
+}
+function wirtOhAnzeigen(restaurant) {
+    if (!document.getElementById('wirtOhKarte') || !restaurant) return;
+    var oh = restaurant.opening_hours;
+    if (typeof oh === 'string') { try { oh = JSON.parse(oh); } catch (e) { oh = null; } }
+    oh = oh && typeof oh === 'object' ? oh : {};
+    var setze = function (id, v) { var e = document.getElementById(id); if (e) e.value = v || ''; };
+    OH_TAGE.forEach(function (k) {
+        var g = 'wOpen' + ohGross(k);
+        // Ohne eigene Zeiten pro Tag: die bisherige Tageszeit vorbelegen, nicht leer.
+        setze(g + 'Start', oh[k + '_start'] || restaurant.opening_time || '');
+        setze(g + 'End', oh[k + '_end'] || restaurant.closing_time || '');
+        setze(g + 'Start2', oh[k + '_start2']); setze(g + 'End2', oh[k + '_end2']);
+    });
+    setze('wRuhetag', restaurant.rest_day != null ? String(restaurant.rest_day) : '');
+    var st = document.getElementById('wirtOhStand'); if (st) st.textContent = '';
+    urlaubFelderZeigen(restaurant.features, 'wUrlaub');
+}
+async function wirtOhSpeichern() {
+    var rid = window.resCurrentRestaurant, st = document.getElementById('wirtOhStand');
+    var restaurant = rid && APP_DATA.restaurants ? APP_DATA.restaurants.find(function (r) { return r.id === rid; }) : null;
+    if (!restaurant) { showToast('Kein Restaurant ausgewählt', 'error'); return false; }
+    var rt = (document.getElementById('wRuhetag') || {}).value || '';
+    var t = ohAusTabelle('wOpen', rt);
+    if (t.fehler) { showToast(t.fehler, 'error'); if (st) st.textContent = 'Nicht gespeichert – ' + t.fehler + '.'; return false; }
+    var alt = restaurant.opening_hours;
+    if (typeof alt === 'string') { try { alt = JSON.parse(alt); } catch (e) { alt = null; } }
+    // Nur die Wochentage ersetzen: Pause, abgeschaltete Uhrzeiten, res_fenster und Sonderzeiten bleiben.
+    var oh = Object.assign({}, (alt && typeof alt === 'object') ? alt : {}, t.oh);
+    var daten = { opening_hours: oh, rest_day: rt === '' ? null : parseInt(rt, 10) };
+    try {
+        var r = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(rid) + '&select=id,opening_hours,rest_day', {
+            method: 'PATCH',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+            body: JSON.stringify(daten)
+        });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        var zeilen = await r.json();
+        // 0 Zeilen = keine Berechtigung (RLS). Ohne diese Pruefung stand "gespeichert" da.
+        if (!Array.isArray(zeilen) || !zeilen.length) throw new Error('keine Berechtigung für dieses Lokal – bitte neu anmelden');
+        restaurant.opening_hours = zeilen[0].opening_hours || oh;
+        restaurant.rest_day = zeilen[0].rest_day;
+        if (st) st.textContent = 'Gespeichert – Gäste sehen die neuen Zeiten.';
+        showToast('Öffnungszeiten gespeichert', 'success');
+        try { resTageHinweis(restaurant); } catch (e) {}
+        return true;
+    } catch (e) {
+        if (st) st.textContent = 'Nicht gespeichert: ' + (e && e.message || e) + '. Gäste sehen die alten Zeiten.';
+        showToast('Öffnungszeiten nicht gespeichert', 'error');
+        return false;
+    }
+}
+
+// ---- Betriebsurlaub: ein Eintrag "vacation:von:bis" in features ----
+// Derselbe wie im Dashboard unter "Betrieb" (saveVacation). Gelesen wird
+// frisch aus der Datenbank, damit kein anderer Schalter verloren geht.
+function urlaubFelderZeigen(features, vorsilbe) {
+    var von = document.getElementById(vorsilbe + 'Von'), bis = document.getElementById(vorsilbe + 'Bis'), st = document.getElementById(vorsilbe + 'Stand');
+    if (!von || !bis) return;
+    var roh = (Array.isArray(features) ? features : []).map(String).filter(function (f) { return /^vacation:\d{4}-\d{2}-\d{2}:\d{4}-\d{2}-\d{2}$/.test(f); })[0];
+    var m = roh ? roh.split(':') : null;
+    von.value = m ? m[1] : ''; bis.value = m ? m[2] : '';
+    if (!st) return;
+    if (!m) { st.textContent = 'Kein Betriebsurlaub eingetragen.'; return; }
+    var heute = new Date().toLocaleDateString('sv-SE');
+    var schoen = function (d) { return new Date(d + 'T12:00:00').toLocaleDateString('de-DE', { day: 'numeric', month: 'long' }); };
+    st.textContent = m[2] < heute ? 'Der eingetragene Urlaub ist vorbei – Gäste sehen nichts mehr davon.'
+        : (heute >= m[1] ? 'JETZT im Urlaub: Gäste sehen „Betriebsferien bis ' + schoen(m[2]) + '“.'
+        : 'Geplant: ' + schoen(m[1]) + ' bis ' + schoen(m[2]) + '. Bis dahin läuft alles normal.');
+}
+async function urlaubSchreiben(restId, eintrag) {
+    var res = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(restId) + '&select=features', {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
+    });
+    var data = await res.json();
+    if (!Array.isArray(data) || !data[0]) throw new Error('Restaurant nicht lesbar');
+    var features = (data[0].features || []).filter(function (f) { return String(f).indexOf('vacation:') !== 0; });
+    if (eintrag) features.push(eintrag);
+    var upd = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(restId) + '&select=id,features', {
+        method: 'PATCH',
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+        body: JSON.stringify({ features: features })
+    });
+    if (!upd.ok) throw new Error('HTTP ' + upd.status);
+    var zeilen = await upd.json();
+    if (!Array.isArray(zeilen) || !zeilen.length) throw new Error('keine Berechtigung – nichts gespeichert');
+    var neu = zeilen[0].features || features;
+    var appR = APP_DATA.restaurants ? APP_DATA.restaurants.find(function (r) { return r.id === restId; }) : null;
+    if (appR) appR.features = neu;
+    // Alle Stellen, an denen der Urlaub steht, auf denselben Stand.
+    try { updateVacationUI(neu); } catch (e) {}
+    try { urlaubFelderZeigen(neu, 'wUrlaub'); urlaubFelderZeigen(neu, 'formUrlaub'); } catch (e) {}
+    return neu;
+}
+async function urlaubKnopf(wo, aktion) {
+    var vorsilbe = wo === 'formular' ? 'formUrlaub' : 'wUrlaub';
+    var restId = wo === 'formular'
+        ? ((document.getElementById('addRestaurantForm') || { dataset: {} }).dataset.editId || '')
+        : (window.resCurrentRestaurant || '');
+    var st = document.getElementById(vorsilbe + 'Stand');
+    if (!restId) { showToast(wo === 'formular' ? 'Erst das Restaurant anlegen, dann den Urlaub eintragen' : 'Kein Restaurant ausgewählt', 'error'); return false; }
+    var eintrag = null;
+    if (aktion !== 'loeschen') {
+        var von = (document.getElementById(vorsilbe + 'Von') || {}).value || '', bis = (document.getElementById(vorsilbe + 'Bis') || {}).value || '';
+        if (!von || !bis) { showToast('Bitte Von- und Bis-Datum wählen', 'error'); return false; }
+        if (bis < von) { showToast('Das Bis-Datum liegt vor dem Von-Datum', 'error'); return false; }
+        eintrag = 'vacation:' + von + ':' + bis;
+    }
+    try {
+        await urlaubSchreiben(restId, eintrag);
+        showToast(eintrag ? 'Betriebsurlaub eingetragen – Gäste sehen den Hinweis' : 'Betriebsurlaub gelöscht', 'success');
+        return true;
+    } catch (e) {
+        if (st) st.textContent = 'Nicht gespeichert: ' + (e && e.message || e) + '. Gäste sehen den alten Stand.';
+        showToast('Betriebsurlaub nicht gespeichert', 'error');
+        return false;
+    }
+}
+document.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest ? e.target.closest('[data-urlaub]') : null;
+    if (!b) return;
+    var box = b.closest('[data-urlaub-wo]');
+    urlaubKnopf(box ? box.getAttribute('data-urlaub-wo') : 'wirt', b.getAttribute('data-urlaub'));
+});
+
 function resTageHinweis(restaurant) {
     var el = document.getElementById('resSettingsTageHinweis');
     if (!el) return;
@@ -36208,8 +36767,114 @@ function gastProfil(telefon, daten, heute) {
     return { telefon: z, besuche: besuche.length, abgesagt: frueher.filter(function (r) { return r.status === 'cancelled'; }).length,
              nichtErschienen: frueher.filter(function (r) { return r.status === 'no_show'; }).length,
              bestellungen: ord.length, umsatz: umsatz, letzterBesuch: letzte, lieblingsTisch: lieb, lieblingsTischMal: lieb ? tische[lieb] : 0,
-             notizen: notizen, stamm: stamm, neu: !besuche.length && !ord.length };
+             notizen: notizen, stamm: stamm, neu: !besuche.length && !ord.length,
+             allergien: allergienVerlauf(telefon, daten, null, heute).arten };
 }
+// ==================== ALLERGIE MERKT SICH DIE APP (02.11.2026) ====================
+// Ibo: Idee 5 -- "Hat ein Gast einmal Nuesse angegeben, steht das beim
+// naechsten Besuch automatisch auf dem Bon." Keine neue Spalte, kein neues
+// Feld fuer den Gast: Die App liest die Notizen FRUEHERER Reservierungen und
+// Bestellungen desselben Gastes (gleiche Telefonnummer, nur dieses Lokal).
+//
+// Nur wenn die Notiz wirklich von Allergie/Unvertraeglichkeit spricht --
+// "ohne Zwiebeln" oder "Krabbenbroetchen bitte" ist ein Wunsch, keine
+// Allergie. Spricht sie davon, nennt aber nichts Bekanntes, steht
+// "Allergie (siehe Notiz)" da statt nichts.
+var ALLERGIE_KONTEXT = /allerg|unvertr(ä|ae)glich|intoleran|z(ö|oe)liak|glutenfrei|laktosefrei|lactosefrei|vertr(ä|ae)gt kein|darf kein|allergic|intolerance/i;
+var ALLERGIE_ARTEN = [
+    ['Erdnüsse', /erdn(u|ü|ue)ss|peanut/i],
+    ['Nüsse', /n(u|ü|ue)ss|mandel|cashew|pistazie|\bnuts?\b/i],
+    ['Gluten', /gluten|z(ö|oe)liak|weizen|celiac/i],
+    ['Laktose', /laktose|lactose|milch|dairy/i],
+    ['Ei', /eiallerg|ei-allerg|h(ü|ue)hnerei|\beier?\b|\beggs?\b/i],
+    ['Fisch', /fisch|\bfish\b/i],
+    ['Krebstiere', /krebstier|meeresfr(ü|ue)cht|garnele|shrimp|krabbe|schalentier|muschel|shellfish/i],
+    ['Sellerie', /sellerie|celery/i],
+    ['Senf', /senf|mustard/i],
+    ['Sesam', /sesam/i],
+    ['Soja', /soja|\bsoy/i],
+    ['Lupine', /lupine/i],
+    ['Sulfite', /sulfit|schwefel/i]
+];
+function allergienAus(text) {
+    var t = String(text || '');
+    if (!ALLERGIE_KONTEXT.test(t)) return [];
+    var arten = [];
+    ALLERGIE_ARTEN.forEach(function (a) {
+        // "Erdnuss" ist keine (Baum-)Nuss: fuer den Nuss-Test die Erdnuesse herausnehmen.
+        var probe = a[0] === 'Nüsse' ? t.replace(/erdn(u|ü|ue)ss\w*|peanuts?/gi, '') : t;
+        if (a[1].test(probe)) arten.push(a[0]);
+    });
+    return arten.length ? arten : ['Allergie (siehe Notiz)'];
+}
+// Aus allen FRUEHEREN Notizen dieses Gastes. ausserId: die Bestellung bzw.
+// Reservierung, um die es gerade geht -- deren Notiz steht ohnehin da.
+// heute (optional): Reservierungen erst ab gestern zaehlen.
+function allergienVerlauf(telefon, daten, ausserId, heute) {
+    var z = waNummer(telefon); if (!z || !daten) return { arten: [], quelle: null };
+    var funde = [];
+    (daten.reservierungen || []).forEach(function (r) {
+        if (r.id && r.id === ausserId) return;
+        if (heute && !(String(r.reservation_date || '') < heute)) return;
+        if (waNummer(r.guest_phone) !== z || !r.notes) return;
+        var a = allergienAus(r.notes); if (a.length) funde.push({ datum: String(r.reservation_date || ''), text: String(r.notes).trim(), arten: a });
+    });
+    (daten.bestellungen || []).forEach(function (o) {
+        if (o.id && o.id === ausserId) return;
+        if (waNummer(o.customer_phone) !== z) return;
+        var n = o.customer_notes || o.notes; if (!n) return;
+        var a = allergienAus(n); if (a.length) funde.push({ datum: String(o.created_at || '').slice(0, 10), text: String(n).trim(), arten: a });
+    });
+    if (!funde.length) return { arten: [], quelle: null };
+    funde.sort(function (a, b) { return a.datum < b.datum ? 1 : -1; });
+    var arten = [];
+    funde.forEach(function (f) { f.arten.forEach(function (x) { if (arten.indexOf(x) < 0) arten.push(x); }); });
+    // Bekannte Arten zuerst, "siehe Notiz" nur, wenn sonst nichts erkannt ist.
+    if (arten.length > 1) arten = arten.filter(function (x) { return x !== 'Allergie (siehe Notiz)'; });
+    return { arten: arten, quelle: funde[0] };
+}
+function allergieText(arten) { return arten && arten.length ? 'Allergie: ' + arten.join(', ') : ''; }
+
+// Verlauf fuer die Bestellungen (Karte, Kuechenmonitor, Bon). Einmal pro
+// Lokal geladen und 10 Minuten behalten -- dashboardNetz laedt die
+// Bestellungen alle 15 Sekunden neu, der Verlauf aendert sich kaum.
+var _allerg = { rid: null, zeit: 0, daten: null, fehler: null, laeuft: null };
+async function allergieVerlaufLaden(rid, neuZeichnen) {
+    if (!rid) return;
+    if (_allerg.rid === rid && _allerg.daten && Date.now() - _allerg.zeit < 600000) return;
+    if (_allerg.laeuft && _allerg.rid === rid) return _allerg.laeuft;
+    _allerg.rid = rid;
+    var q = 'restaurant_id=eq.' + encodeURIComponent(rid);
+    _allerg.laeuft = Promise.all([
+        supabaseGet('reservations', q + '&select=id,guest_phone,reservation_date,notes&guest_phone=not.is.null&notes=not.is.null&order=reservation_date.desc&limit=5000'),
+        supabaseGet('orders', q + '&select=id,customer_phone,customer_notes,created_at&customer_phone=not.is.null&customer_notes=not.is.null&order=created_at.desc&limit=5000')
+    ]).then(function (erg) {
+        _allerg.daten = { reservierungen: erg[0] || [], bestellungen: erg[1] || [] };
+        _allerg.zeit = Date.now(); _allerg.fehler = null;
+        if (neuZeichnen) { try { neuZeichnen(); } catch (e) {} }
+    }).catch(function (e) {
+        // Nicht still (Regel 6): ohne Verlauf saehe jede Karte aus wie "keine Allergie".
+        if (!_allerg.fehler) console.warn('[allergie] Verlauf nicht geladen:', e && e.message || e);
+        _allerg.fehler = String(e && e.message || e);
+    }).then(function () { _allerg.laeuft = null; });
+    return _allerg.laeuft;
+}
+// Fuer eine Bestellung: bekannte Allergien aus FRUEHEREN Besuchen.
+function allergieBekannt(order) {
+    if (!order || !_allerg.daten) return [];
+    // Admin-Ansicht "alle Lokale": fremde Bestellungen nicht mit dem Verlauf
+    // eines anderen Lokals abgleichen. Beim Wirt bleibt es sein Lokal, auch
+    // wenn eine alte Bestellung unter einer anderen restaurant_id steht.
+    if (order.restaurant_id && order.restaurant_id !== _allerg.rid && !window._gastroOnlyRestaurantId) return [];
+    return allergienVerlauf(order.customer_phone, _allerg.daten, order.id).arten;
+}
+function allergieZeileHtml(order) {
+    var a = allergieBekannt(order);
+    if (a.length) return '<div class="kin-allergie" title="Aus früheren Notizen dieses Gastes (gleiche Telefonnummer)">' + escapeHtml(allergieText(a)) + ' <small>· von früher</small></div>';
+    if (_allerg.fehler && order && order.customer_phone) return '<div class="kin-allergie-fehler">Allergie-Verlauf gerade nicht geladen</div>';
+    return '';
+}
+
 function gpChipText(p) {
     if (!p) return '';
     // Wer schon mal nicht gekommen ist, steht VORNE -- der Wirt soll es
@@ -36227,7 +36892,7 @@ async function gastProfileLaden(rid) {
     try {
         var erg = await Promise.all([
             supabaseGet('reservations', q + '&select=guest_phone,reservation_date,status,notes,table_id&guest_phone=not.is.null&order=reservation_date.desc&limit=5000'),
-            supabaseGet('orders', q + '&select=customer_phone,total,status,created_at&customer_phone=not.is.null&order=created_at.desc&limit=5000'),
+            supabaseGet('orders', q + '&select=id,customer_phone,customer_notes,total,status,created_at&customer_phone=not.is.null&order=created_at.desc&limit=5000'),
             supabaseGet('restaurant_tables', q + '&select=id,table_number').catch(function () { return []; })
         ]);
         // table_id zeigt auf restaurant_tables (SQL 40). Gelöschte Tische tragen
@@ -36248,6 +36913,16 @@ async function gastProfileLaden(rid) {
         if (p.nichtErschienen) c.classList.add('kmi-gp-warn');
         else if (p.stamm) { c.style.background = 'rgba(22,163,74,0.12)'; c.style.color = '#15803d'; }
         c.onclick = function (ev) { ev.stopPropagation(); gastProfilZeigen(c.getAttribute('data-tel'), c.getAttribute('data-name')); };
+        // Allergie aus frueheren Besuchen: eigenes rotes Abzeichen direkt daneben.
+        var alt = c.nextElementSibling;
+        if (alt && alt.classList && alt.classList.contains('kmi-allergie-chip')) alt.remove();
+        if (p.allergien && p.allergien.length) {
+            var a = document.createElement('span');
+            a.className = 'kmi-allergie-chip';
+            a.textContent = allergieText(p.allergien);
+            a.title = 'Aus früheren Notizen dieses Gastes';
+            c.insertAdjacentElement('afterend', a);
+        }
     });
 }
 function gastProfilZeigen(telefon, name) {
@@ -36261,7 +36936,8 @@ function gastProfilZeigen(telefon, name) {
         + zeile('Letzter Besuch', p.letzterBesuch ? waDatum(p.letzterBesuch) : '–')
         + zeile('Lieblingstisch', p.lieblingsTisch ? 'Tisch ' + escapeHtml(p.lieblingsTisch) + ' (' + p.lieblingsTischMal + '×)' : '–')
         + (p.abgesagt ? zeile('Abgesagt', p.abgesagt + '×') : '')
-        + (p.nichtErschienen ? zeile('Nicht erschienen', p.nichtErschienen + '×') : '');
+        + (p.nichtErschienen ? zeile('Nicht erschienen', p.nichtErschienen + '×') : '')
+        + (p.allergien && p.allergien.length ? zeile('<span style="color:#b91c1c;">Allergie (von früher)</span>', '<span style="color:#b91c1c;">' + escapeHtml(p.allergien.join(', ')) + '</span>') : '');
     if (p.notizen.length) h += '<div style="margin-top:12px;font-size:13px;font-weight:700;">Notizen früherer Besuche</div>'
         + p.notizen.map(function (n) { return '<div style="margin-top:6px;padding:8px 12px;border-radius:12px;background:var(--bg-secondary);font-size:13px;"><span style="color:var(--text-secondary);">' + waDatum(n.datum) + ':</span> ' + escapeHtml(n.text) + '</div>'; }).join('');
     h += '<p style="margin:12px 0 0;font-size:11px;color:var(--slate);">Nur dieses Lokal, zugeordnet über die Telefonnummer.</p></div>';
@@ -37543,6 +38219,8 @@ function editRestaurant(restaurantId) {
     setVal('newRestaurantIBAN', restaurant.iban || '');
     setVal('newRestaurantContractStart', restaurant.contract_start || '');
     eroeffnungUI(restaurant.features || []);
+    // Das Formular wird wiederverwendet: ohne das stuende der Urlaub des vorigen Lokals drin.
+    urlaubFelderZeigen(restaurant.features || [], 'formUrlaub');
 
     // Logo-Vorschau wenn vorhanden
     uploadedLogoBase64 = null; // Reset
@@ -40250,21 +40928,9 @@ async function _patchVacation(newEntry) {
     var restId = getControlRestaurantId();
     if (!restId) { showToast('Kein Restaurant gefunden', 'error'); return; }
     try {
-        var res = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId + '&select=features', {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken() }
-        });
-        var data = await res.json();
-        var features = ((data[0] && data[0].features) || []).filter(function (f) { return String(f).indexOf('vacation:') !== 0; });
-        if (newEntry) features.push(newEntry);
-        var upd = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + restId, {
-            method: 'PATCH',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-            body: JSON.stringify({ features: features })
-        });
-        if (!upd.ok) throw new Error('HTTP ' + upd.status);
-        var appR = APP_DATA.restaurants ? APP_DATA.restaurants.find(function (r) { return r.id === restId; }) : null;
-        if (appR) appR.features = features;
-        updateVacationUI(features);
+        // Vorher mit return=minimal: 0 geaenderte Zeilen (keine Berechtigung)
+        // meldeten trotzdem "gespeichert". urlaubSchreiben prueft die Antwort.
+        await urlaubSchreiben(restId, newEntry);
         showToast(newEntry ? 'Betriebsferien gespeichert – Gäste sehen jetzt den Hinweis' : 'Betriebsferien gelöscht', 'success');
     } catch (err) {
         showToast('Fehler beim Speichern: ' + err.message, 'error');
@@ -48000,6 +48666,12 @@ function checkRestaurantSlugURL() {
 
     // Order-Bon Route: ?order=NUMMER oder /order/NUMMER
     var orderParam = urlParams.get('order');
+    // Geschenkgutschein per Link (aus der Mail oder geteilt): ?gutschein=KIN-XXXX-XXXX
+    var ggParam = urlParams.get('gutschein');
+    if (ggParam) {
+        setTimeout(function () { ggAnsehen(ggParam); }, 600);
+        return;
+    }
     if (orderParam) {
         setTimeout(function() { showOrderBon(orderParam); }, 1000);
         return;
@@ -48527,6 +49199,9 @@ async function showRestaurantLanding(rest) {
                 return bar;
             })()}
         </div>
+
+        <!-- Geschenkgutschein (03.11.2026): nur, wenn der Wirt es eingeschaltet hat -->
+        ${ggTeaserHtml(rest)}
 
         <!-- Neueroeffnung: der grosse Kasten aus dem Entwurf (nur vor und am Tag) -->
         ${(function () { var _k = typeof eroeffnungKastenHtml === 'function' ? eroeffnungKastenHtml(rest, false) : ''; return _k ? '<div class="lp-eroeffnung" style="max-width:720px;margin:0 auto;padding:0 24px 48px;">' + _k + '</div>' : ''; })()}
@@ -65122,6 +65797,9 @@ async function loadDashboardOrders() {
         ladeStandSetzen('bestellungen', false, e.message, loadDashboardOrders);
     }
 
+    // Allergien aus frueheren Besuchen (Karte + Bon). Laedt im Hintergrund,
+    // zeichnet nach dem ersten Laden einmal neu.
+    try { allergieVerlaufLaden(_gastroForce || ordersRestaurantFilter, renderDashboardOrders); } catch (e) {}
     renderDashboardOrders();
     updateOrderStats();
     renderBestseller(dashboardOrders);
@@ -65872,20 +66550,22 @@ function renderDashboardOrders() {
             ? '<span class="kin-stempel-klein" title="' + escapeHtml(_stHtml.replace(/<[^>]+>/g, '')) + '">' + kinSym('geschenk', false, 14) + ' Stempel einlösen</span>' : '';
         // Bei der Vorbestellung zum Tisch steht die Reservierung schon oben im Kasten -- hier nur, was der Gast selbst schrieb.
         var _hinw = _vbRes ? _vbRes.rest : bestellHinweis(order);
+        // Allergie aus frueheren Besuchen -- in jeder Ansicht, in der gekocht wird.
+        var _allergHtml = allergieZeileHtml(order);
         var _koerper;
         if (_sp0 === 'neu' && _kompakt) {
             _koerper = '<div class="kin-pos-kurz">' + bestellPosKurz(order.items) + ' · ' + formatPrice(order.total) + ' · ' + _zahlHtml + '</div>'
-                + (_hinw ? '<div class="kin-hinweis">„' + escapeHtml(_hinw) + '“</div>' : '');
+                + _allergHtml + (_hinw ? '<div class="kin-hinweis">„' + escapeHtml(_hinw) + '“</div>' : '');
         } else if (_sp0 === 'neu') {
             _koerper = '<div class="kin-order-items">' + bestellPosHtml(order.items, true, order) + '</div>'
-                + (_hinw ? '<div class="kin-hinweis"><b>Hinweis:</b> „' + escapeHtml(_hinw) + '“</div>' : '')
+                + _allergHtml + (_hinw ? '<div class="kin-hinweis"><b>Hinweis:</b> „' + escapeHtml(_hinw) + '“</div>' : '')
                 + '<div class="kin-summe-zeile"><span>' + _zahlHtml + (order.delivery_address ? ' · ' + adresseHtml(order.delivery_address) : '') + '</span>'
                 + '<b class="kin-summe">' + formatPrice(order.total) + '</b></div>';
         } else if (_sp0 === 'arbeit') {
             var _gN = order.order_type === 'dine_in' ? gangNaechster(order) : null;
             _koerper = '<div class="kin-order-items">' + bestellPosHtml(order.items, false, order) + '</div>'
                 + (_gN ? '<button type="button" class="kin-gang-abruf" onclick="gangAbrufen(\'' + order.id + '\')">' + GANG_TEXT[_gN].replace(' · ', ' abrufen · ') + '</button>' : '')
-                + (_hinw ? '<div class="kin-hinweis">„' + escapeHtml(_hinw) + '“</div>' : '')
+                + _allergHtml + (_hinw ? '<div class="kin-hinweis">„' + escapeHtml(_hinw) + '“</div>' : '')
                 + _stKlein + bestellRestHtml(order);
         } else {
             _koerper = _stKlein + (order.delivery_address && order.status === 'out_for_delivery' ? '<div class="kin-pos-kurz">' + adresseHtml(order.delivery_address) + '</div>' : '');
@@ -67893,7 +68573,9 @@ function printOrderBrowser(orderId) {
     if (order.scheduled_at) {
         try { var _vb = new Date(order.scheduled_at); _vorbest = _vb.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' }) + ', ' + _vb.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr'; } catch (e) {}
     }
-    var hinweisHtml = (_vorbest ? '<div class="hinweis"><div class="feldname">Vorbestellung</div><div class="hinweis-text">' + escapeHtml(_vorbest) + '</div></div>' : '')
+    var _allergBon = allergieBekannt(order);
+    var hinweisHtml = (_allergBon.length ? '<div class="hinweis"><div class="feldname">!! Allergie (von früher)</div><div class="hinweis-text">' + escapeHtml(_allergBon.join(', ')) + '</div></div>' : '')
+        + (_vorbest ? '<div class="hinweis"><div class="feldname">Vorbestellung</div><div class="hinweis-text">' + escapeHtml(_vorbest) + '</div></div>' : '')
         + (_hinweis ? '<div class="hinweis"><div class="feldname">Hinweis zur Bestellung</div><div class="hinweis-text">' + escapeHtml(_hinweis) + '</div></div>' : '');
 
     // Fertig-Zeitpunkt, wenn das Restaurant einen genannt hat.
@@ -68653,6 +69335,13 @@ function generateESCPOS(order) {
     }
     cmd += CENTER + '[' + zahlStr + ']' + LF;
     cmd += LEFT;
+
+    // Allergie aus frueheren Besuchen -- vor den Sonderwuenschen, fett.
+    var _allergEsc = allergieBekannt(order);
+    if (_allergEsc.length) {
+        cmd += LINE;
+        cmd += BOLD_ON + '!! ALLERGIE (von frueher): ' + _allergEsc.join(', ').replace(/ü/g, 'ue').replace(/Ü/g, 'Ue') + LF + BOLD_OFF;
+    }
 
     // Sonderwünsche
     var notes = order.notes || order.delivery_notes || '';
@@ -72312,6 +73001,11 @@ function generateEposXML(order) {
         if (addrLine) xml += '<text>Adresse: <![CDATA[' + addrLine + ']]>&#10;</text>';
         if (cityLine) xml += '<text>         <![CDATA[' + cityLine + ']]>&#10;</text>';
     }
+    var _allergEpos = allergieBekannt(order);
+    if (_allergEpos.length) {
+        xml += '<text>&#10;</text>';
+        xml += '<text width="1" height="2"><![CDATA[!! Allergie (von früher): ' + _allergEpos.join(', ') + ']]>&#10;</text>';
+    }
     if (order.notes || order.delivery_notes || order.customer_notes) {
         xml += '<text>&#10;</text>';
         xml += '<text width="1" height="2">Hinweis:&#10;</text>';
@@ -73962,6 +74656,626 @@ var PPC = {
     }
 };
 window.PPC = PPC;
+
+// ==================== GESCHENKGUTSCHEINE (03.11.2026) ====================
+// Ibo: "ja mach gutschein mit schoenen design". Der Gast kauft auf der
+// Lokalseite einen Gutschein, bezahlt per PayPal DIREKT an den Wirt und
+// bekommt einen gestalteten Gutschein mit Code -- als Bild zum Verschenken,
+// per Link und per Mail. Eingeloest wird im Lokal (Dashboard > Gutscheine).
+//
+// Server: netlify/functions/geschenkgutschein.js. Kein Gutschein ohne Geld:
+// der Gutschein entsteht erst, wenn PayPal die Zahlung bestaetigt hat.
+// Format 21 x 10 cm (Ibo, 04.11.2026): Querformat mit Abriss rechts,
+// Goldschnitt an den Kanten, Folie, edle Serifenschrift (Fraunces, im Haus).
+var GG_GOLD = 'linear-gradient(100deg,#a87a22 0%,#e9c866 18%,#fff3c4 34%,#d8ae45 50%,#f6e08a 66%,#b9892c 84%,#f1d27a 100%)';
+var GG_SCHNITT_GOLD = 'linear-gradient(90deg,#7d5a14,#e9c866 18%,#fff3c4 30%,#b8891f 46%,#f6e08a 62%,#8a6a1c 80%,#e9c866)';
+var GG_MOTIVE = {
+    klassisch:  { name: 'Klassisch',  a: '#00513f', b: '#002a23', kante: '#001b16', text: '#fbf6e9', leise: 'rgba(251,246,233,0.74)', gold: GG_GOLD, rahmen: 'rgba(233,200,102,0.5)', siegel: 'rgba(233,200,102,0.95)', siegel2: 'rgba(233,200,102,0.35)', muster: 'guilloche', farbe: '#e9c866', schnitt: GG_SCHNITT_GOLD, goldStopps: ['#a87a22', '#e9c866', '#fff3c4', '#d8ae45', '#b9892c'] },
+    festlich:   { name: 'Festlich',   a: '#8a2329', b: '#3f0d12', kante: '#28070a', text: '#fff6ea', leise: 'rgba(255,246,234,0.76)', gold: GG_GOLD, rahmen: 'rgba(233,200,102,0.5)', siegel: 'rgba(233,200,102,0.95)', siegel2: 'rgba(233,200,102,0.35)', muster: 'sterne', farbe: '#e9c866', schnitt: GG_SCHNITT_GOLD, goldStopps: ['#a87a22', '#e9c866', '#fff3c4', '#d8ae45', '#b9892c'] },
+    geburtstag: { name: 'Geburtstag', a: '#ffdc72', b: '#f2b12c', kante: '#b97f0c', text: '#00251e', leise: 'rgba(0,37,30,0.72)', gold: 'linear-gradient(100deg,#00251e,#00594a 50%,#00251e)', rahmen: 'rgba(0,37,30,0.25)', siegel: 'rgba(0,37,30,0.85)', siegel2: 'rgba(0,37,30,0.18)', muster: 'konfetti', farbe: '#00483c', schnitt: 'linear-gradient(90deg,#00251e,#00594a 30%,#2a8a74 45%,#00483c 60%,#00251e)', goldStopps: ['#00251e', '#00594a', '#00251e'] },
+    danke:      { name: 'Danke',      a: '#fdfaf2', b: '#e9dfc8', kante: '#b9a77f', text: '#00251e', leise: 'rgba(0,37,30,0.66)', gold: 'linear-gradient(100deg,#8a6a1c,#d4b05a 30%,#8a6a1c 55%,#c9a24a 80%,#7d5f16)', rahmen: 'rgba(138,106,28,0.4)', siegel: 'rgba(138,106,28,0.9)', siegel2: 'rgba(138,106,28,0.25)', muster: 'blaetter', farbe: '#00483c', schnitt: GG_SCHNITT_GOLD, goldStopps: ['#8a6a1c', '#d4b05a', '#8a6a1c', '#c9a24a'] }
+};
+var GG_BETRAEGE = [25, 50, 75, 100];
+function ggEuro(n) { var z = Math.round(Number(n) * 100) / 100; return (z % 1 ? z.toFixed(2).replace('.', ',') : String(z)) + ' €'; }
+function ggDatum(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || '')); return m ? m[3] + '.' + m[2] + '.' + m[1] : ''; }
+function ggVerkauft(rest) { return !!(rest && Array.isArray(rest.features) && rest.features.indexOf('geschenkgutschein') >= 0); }
+function ggMono(lokal) { var c = String(lokal || 'K').trim().charAt(0).toUpperCase(); return /[A-ZÄÖÜ0-9]/.test(c) ? c : 'K'; }
+// Kleiner Zufall mit festem Startwert: das Muster sieht bei jedem Aufruf gleich aus.
+function ggZufall(seed) { return function () { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }; }
+// Muster als SVG-Elemente in einer 1000 x 476 Flaeche (= 21 x 10).
+function ggMuster(art, f) {
+    var W = 1000, H = 476, k = '', i;
+    if (art === 'guilloche') {
+        for (i = 40; i < 560; i += 18) k += '<circle cx="860" cy="238" r="' + i + '" fill="none" stroke="' + f + '" stroke-width="1" opacity="' + (0.24 - i / 4000).toFixed(3) + '"/>';
+        for (i = 60; i < 520; i += 34) k += '<ellipse cx="860" cy="238" rx="' + i + '" ry="' + (i * 0.55) + '" fill="none" stroke="' + f + '" stroke-width="0.7" opacity="0.11" transform="rotate(25 860 238)"/>';
+    } else if (art === 'sterne') {
+        var z = ggZufall(4);
+        for (i = 0; i < 40; i++) k += '<circle cx="' + (z() * W).toFixed(0) + '" cy="' + (z() * H * 0.9).toFixed(0) + '" r="' + [1.2, 1.2, 2, 3][Math.floor(z() * 4)] + '" fill="' + f + '" opacity="' + [0.25, 0.45, 0.7][Math.floor(z() * 3)] + '"/>';
+        [[640, 90, 1.3], [560, 300, 0.8], [470, 150, 0.6], [690, 380, 0.55]].forEach(function (s) { k += '<path transform="translate(' + s[0] + ' ' + s[1] + ') scale(' + s[2] + ')" d="M0-10 2.4-3.1 9.5-3.1 3.8 1.2 5.9 8.1 0 4 -5.9 8.1 -3.8 1.2 -9.5-3.1 -2.4-3.1Z" fill="' + f + '" opacity="0.6"/>'; });
+    } else if (art === 'konfetti') {
+        var z2 = ggZufall(7), farben = ['#00483c', '#ffffff', '#e85d4a', '#00483c'];
+        for (i = 0; i < 46; i++) { var x = (z2() * W).toFixed(0), y = (z2() * H * 0.9).toFixed(0), c = farben[Math.floor(z2() * 4)]; k += i % 2 ? '<rect x="' + x + '" y="' + y + '" width="18" height="6" rx="3" fill="' + c + '" opacity="0.55" transform="rotate(' + Math.floor(z2() * 180) + ' ' + x + ' ' + y + ')"/>' : '<circle cx="' + x + '" cy="' + y + '" r="5" fill="' + c + '" opacity="0.5"/>'; }
+    } else {
+        [[560, 80, -20, 1.8], [610, 300, 30, 1.4], [470, 220, -60, 1.2]].forEach(function (b) { k += '<g transform="translate(' + b[0] + ' ' + b[1] + ') rotate(' + b[2] + ') scale(' + b[3] + ')"><path d="M0 0C10-18 34-22 52-14 44 4 22 14 0 0Z" fill="none" stroke="' + f + '" stroke-width="1.4" opacity="0.3"/><path d="M0 0 44-10" stroke="' + f + '" stroke-width="1" opacity="0.25"/></g>'; });
+    }
+    return '<svg class="gg-muster" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid slice" aria-hidden="true">' + k + '</svg>';
+}
+var GG_KORN = '<svg class="gg-korn" aria-hidden="true"><filter id="ggKornF"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.9 0"/></filter><rect width="100%" height="100%" filter="url(#ggKornF)"/></svg>';
+// Farben des Motivs als CSS-Variablen. Werte ohne Anfuehrungszeichen -- sie
+// stehen in einem style="..."-Attribut (gemessen 03.11.: ein " beendet es).
+function ggVars(m) {
+    return '--gg-a:' + m.a + ';--gg-b:' + m.b + ';--gg-text:' + m.text + ';--gg-leise:' + m.leise + ';--gg-gold:' + m.gold + ';--gg-rahmen:' + m.rahmen
+        + ';--gg-siegel:' + m.siegel + ';--gg-siegel2:' + m.siegel2 + ';--gg-kante:' + m.kante + ';--gg-schnitt:' + m.schnitt;
+}
+function ggAbriss(inhalt) { return '<div class="gg-k-schnitt"></div><div class="gg-k-loch gg-o"></div><div class="gg-k-loch gg-u"></div><div class="gg-k-abriss">' + inhalt + '</div>'; }
+
+// DER GUTSCHEIN, Vorderseite. d = { lokal, ort, betrag, rest, empfaenger, nachricht, von, code, gueltig_bis, motiv }
+function ggKarteHtml(d) {
+    var m = GG_MOTIVE[d.motiv] || GG_MOTIVE.klassisch, mono = ggMono(d.lokal);
+    var rest = d.rest != null && Number(d.rest) < Number(d.betrag) ? '<div class="gg-k-rest">Noch ' + escapeHtml(ggEuro(d.rest)) + ' übrig</div>' : '';
+    return '<div class="gg-karte" style="' + ggVars(m) + '">' + ggMuster(m.muster, m.farbe) + GG_KORN + '<div class="gg-k-rahmen"></div>'
+        + '<div class="gg-k-haupt"><div class="gg-k-oben"><div class="gg-k-siegel"><span class="gg-folie">' + escapeHtml(mono) + '</span></div>'
+        + '<div class="gg-k-kopf"><span class="gg-k-wort gg-folie">GUTSCHEIN</span><span class="gg-k-lokal">' + escapeHtml([d.lokal, d.ort].filter(Boolean).join(' · ')) + '</span></div></div>'
+        + '<div class="gg-k-mitte"><div class="gg-k-betrag"><span class="gg-k-zahl">' + escapeHtml(ggEuro(d.betrag || 0).replace(' €', '')) + '</span><span class="gg-k-euro gg-folie">€</span></div>'
+        + (d.empfaenger ? '<div class="gg-k-fuer">für <b>' + escapeHtml(d.empfaenger) + '</b></div>' : '')
+        + (d.nachricht ? '<div class="gg-k-gruss">„' + escapeHtml(d.nachricht) + '“</div>' : '')
+        + (d.von ? '<div class="gg-k-von">– ' + escapeHtml(d.von) + '</div>' : '') + rest + '</div></div>'
+        + ggAbriss('<span class="gg-k-mono gg-folie">' + escapeHtml(mono) + '</span><small>CODE</small><span class="gg-k-code">' + escapeHtml(d.code || 'KIN-••••-••••') + '</span>'
+            + '<span class="gg-k-gueltig">' + (d.gueltig_bis ? 'gültig bis ' + escapeHtml(ggDatum(d.gueltig_bis)) + '<br>' : '') + 'kiekmolin.de</span>')
+        + '<div class="gg-k-glanz"></div></div>';
+}
+// Rueckseite: wie man einloest, und das Guthaben.
+function ggRueckHtml(d) {
+    var m = GG_MOTIVE[d.motiv] || GG_MOTIVE.klassisch, lokal = escapeHtml(d.lokal || 'dem Lokal');
+    var guthaben = d.rest != null ? d.rest : d.betrag;
+    return '<div class="gg-karte gg-hinten" style="' + ggVars(m) + '">' + GG_KORN + '<div class="gg-k-rahmen"></div>'
+        + '<div class="gg-r-inhalt"><span class="gg-r-titel gg-folie">SO LÖST DU IHN EIN</span>'
+        + '<div class="gg-r-schritt"><i>1</i>Bei ' + lokal + ' den Code zeigen oder sagen.</div>'
+        + '<div class="gg-r-schritt"><i>2</i>Der Betrag wird von der Rechnung abgezogen.</div>'
+        + '<div class="gg-r-schritt"><i>3</i>Der Rest bleibt drauf – für den nächsten Besuch.</div></div>'
+        + '<div class="gg-r-fuss">3 Jahre gültig · auch in Teilbeträgen</div>'
+        + ggAbriss('<small>GUTHABEN</small><b class="gg-r-guthaben">' + escapeHtml(ggEuro(guthaben || 0)) + '</b><span class="gg-k-code">' + escapeHtml(d.code || 'KIN-••••-••••') + '</span><span class="gg-k-gueltig">kiekmolin.de</span>')
+        + '</div>';
+}
+// In 3D: Vorder- und Rueckseite, dazwischen Schichten fuer die Dicke (Goldschnitt).
+// art: 'schwebt' (langsam, von selbst) oder 'kippen' (Finger/Maus, Tipp = umdrehen).
+function gg3dHtml(d, art) {
+    var m = GG_MOTIVE[d.motiv] || GG_MOTIVE.klassisch, schichten = '';
+    for (var i = -6; i <= 6; i++) schichten += '<div class="gg-3d-schicht" style="transform:translateZ(' + (i * 0.5) + 'px)"></div>';
+    return '<div class="gg-3d gg-3d-' + (art || 'schwebt') + '"><div class="gg-3d-boden"></div><div class="gg-3d-k" style="' + ggVars(m) + '">' + schichten
+        + '<div class="gg-3d-v">' + ggKarteHtml(d) + '</div><div class="gg-3d-r">' + ggRueckHtml(d) + '</div></div></div>';
+}
+// Kippen mit Finger oder Maus, antippen = umdrehen. Ohne Bewegung erlaubt
+// (prefers-reduced-motion) bleibt die Karte ruhig stehen -- umdrehen geht trotzdem.
+function ggKippen(box) {
+    var huelle = box && box.querySelector('.gg-3d'), k = box && box.querySelector('.gg-3d-k');
+    if (!huelle || !k) return;
+    var ruhig = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    var rot = { x: 10, y: -16 }, ziel = { x: 10, y: -16 }, dreh = 0, drehZiel = 0, zug = null, t0 = performance.now(), weg = false;
+    function setzen() {
+        k.style.transform = 'rotateX(' + rot.x.toFixed(2) + 'deg) rotateY(' + (rot.y + dreh).toFixed(2) + 'deg)';
+        k.style.setProperty('--gg-fx', (50 + rot.y * 1.4 - rot.x * 0.6).toFixed(1) + '%');
+        k.style.setProperty('--gg-gx', (50 - rot.y * 1.6).toFixed(1) + '%');
+        k.style.setProperty('--gg-gy', (30 + rot.x * 1.6).toFixed(1) + '%');
+    }
+    function schritt(t) {
+        if (weg || !document.body.contains(k)) return;
+        if (!zug && !ruhig) { var s = (t - t0) / 1000; ziel.x = 9 + Math.sin(s * 0.7) * 5; ziel.y = -14 + Math.sin(s * 0.45) * 12; }
+        rot.x += (ziel.x - rot.x) * 0.09; rot.y += (ziel.y - rot.y) * 0.09; dreh += (drehZiel - dreh) * 0.1;
+        setzen(); requestAnimationFrame(schritt);
+    }
+    huelle.addEventListener('pointerdown', function (e) { zug = { x: e.clientX, y: e.clientY, rx: ziel.x, ry: ziel.y, weg: 0 }; try { huelle.setPointerCapture(e.pointerId); } catch (x) {} });
+    huelle.addEventListener('pointermove', function (e) {
+        if (!zug) return;
+        var dx = e.clientX - zug.x, dy = e.clientY - zug.y; zug.weg = Math.max(zug.weg, Math.abs(dx) + Math.abs(dy));
+        ziel.y = Math.max(-55, Math.min(55, zug.ry + dx * 0.35)); ziel.x = Math.max(-40, Math.min(40, zug.rx - dy * 0.35));
+    });
+    huelle.addEventListener('pointerup', function () { if (zug && zug.weg < 6) drehZiel += 180; zug = null; t0 = performance.now(); });
+    huelle.addEventListener('pointercancel', function () { zug = null; });
+    huelle.setAttribute('role', 'button'); huelle.setAttribute('tabindex', '0'); huelle.setAttribute('aria-label', 'Gutschein umdrehen');
+    huelle.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); drehZiel += 180; } });
+    box._ggUmdrehen = function () { drehZiel += 180; };
+    setzen(); requestAnimationFrame(schritt);
+}
+window.ggUmdrehen = function (id) { var b = document.getElementById(id); if (b && b._ggUmdrehen) b._ggUmdrehen(); };
+
+// Teaser auf der Lokalseite -- nur, wenn der Wirt Gutscheine verkauft.
+function ggTeaserHtml(rest) {
+    if (!ggVerkauft(rest)) return '';
+    return '<section class="gg-teaser" aria-label="Gutschein verschenken">'
+        + '<div class="gg-teaser-text"><span class="gg-teaser-klein">Geschenkidee</span>'
+        + '<h2>Ein Abend bei ' + escapeHtml(rest.name || 'uns') + ' – zum Verschenken</h2>'
+        + '<p>Betrag wählen, Gruß dazu, mit PayPal bezahlen. Der Gutschein kommt sofort als Bild und per Mail.</p>'
+        + '<button type="button" class="gg-knopf" onclick="ggOeffnen(\'' + rest.id + '\')">Gutschein verschenken</button></div>'
+        + '<div class="gg-teaser-bild" aria-hidden="true">' + gg3dHtml({ lokal: rest.name, ort: rest.city, betrag: 50, empfaenger: 'dich', motiv: 'klassisch' }, 'schwebt') + '</div>'
+        + '</section>';
+}
+
+var _gg = null;   // { rest, info, d: {betrag, motiv, empfaenger, nachricht, von, email} }
+function ggWert(id) { var e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; }
+function ggFenster(innen) {
+    var alt = document.getElementById('ggFenster'); if (alt) alt.remove();
+    var o = document.createElement('div');
+    o.id = 'ggFenster'; o.className = 'gg-overlay'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', 'Gutschein');
+    o.innerHTML = '<div class="gg-fenster"><button type="button" class="gg-zu" aria-label="Schließen" onclick="ggSchliessen()">×</button>' + innen + '</div>';
+    o.addEventListener('click', function (e) { if (e.target === o) ggSchliessen(); });
+    document.body.appendChild(o);
+    return o;
+}
+function ggSchliessen() { var o = document.getElementById('ggFenster'); if (o) o.remove(); }
+window.ggSchliessen = ggSchliessen;
+
+async function ggOeffnen(rid) {
+    var rest = (APP_DATA.restaurants || []).find(function (r) { return r.id === rid; }) || { id: rid, name: '' };
+    _gg = { rest: rest, info: null, d: { betrag: 50, motiv: 'klassisch', empfaenger: '', nachricht: '', von: '', email: '', empfMail: '', versandAm: '' } };
+    ggFenster('<div class="gg-laden">Einen Moment …</div>');
+    try {
+        var res = await fetch('/.netlify/functions/geschenkgutschein', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'info', r: rid }) });
+        _gg.info = await res.json();
+    } catch (e) { _gg.info = { ok: false }; }
+    if (!_gg.info || !_gg.info.ok || !_gg.info.aktiv) {
+        // Nicht still: der Gast soll wissen, dass es gerade nicht geht -- und wie doch.
+        ggFenster('<h2 class="gg-titel">Gutschein verschenken</h2><p class="gg-hinweis">Online-Gutscheine sind bei ' + escapeHtml(rest.name || 'diesem Lokal') + ' gerade nicht möglich.'
+            + (rest.phone ? ' Frag gern direkt im Lokal: <a href="tel:' + escapeHtml(String(rest.phone).replace(/[^0-9+]/g, '')) + '">' + escapeHtml(rest.phone) + '</a>' : '') + '</p>');
+        return;
+    }
+    ggFormular();
+}
+window.ggOeffnen = ggOeffnen;
+
+function ggFormular() {
+    var d = _gg.d;
+    var betraege = GG_BETRAEGE.map(function (b) { return '<button type="button" data-gg-betrag="' + b + '" aria-pressed="' + (d.betrag === b) + '">' + b + ' €</button>'; }).join('');
+    var motive = Object.keys(GG_MOTIVE).map(function (k) { var m = GG_MOTIVE[k]; return '<button type="button" data-gg-motiv="' + k + '" aria-pressed="' + (d.motiv === k) + '"><i style="background:linear-gradient(135deg,' + m.grund + ',' + m.grund2 + ');border-color:' + m.akzent + '"></i>' + m.name + '</button>'; }).join('');
+    ggFenster('<h2 class="gg-titel">Gutschein verschenken</h2>'
+        + '<div id="ggVorschau" class="gg-vorschau">' + gg3dHtml(Object.assign({ lokal: _gg.rest.name, ort: _gg.rest.city }, d), 'schwebt') + '</div>'
+        + '<div class="gg-feld"><span class="gg-label">Motiv</span><div class="gg-motive" id="ggMotive">' + motive + '</div></div>'
+        + '<div class="gg-feld"><span class="gg-label">Betrag</span><div class="gg-betraege" id="ggBetraege">' + betraege
+        + '<label class="gg-eigen"><input type="number" inputmode="numeric" id="ggBetragEigen" min="' + _gg.info.min + '" max="' + _gg.info.max + '" step="1" placeholder="anderer" aria-label="Anderer Betrag in Euro"' + (GG_BETRAEGE.indexOf(d.betrag) < 0 ? ' value="' + d.betrag + '"' : '') + '> €</label></div></div>'
+        + '<label class="gg-feld"><span class="gg-label">Für wen?</span><input type="text" id="ggEmpfaenger" maxlength="60" placeholder="z. B. Oma Gerda" value="' + escapeHtml(d.empfaenger) + '"></label>'
+        + '<label class="gg-feld"><span class="gg-label">Dein Gruß <small id="ggGrussZahl">' + d.nachricht.length + '/200</small></span><textarea id="ggNachricht" maxlength="200" rows="2" placeholder="z. B. Frohe Weihnachten! Lass es dir schmecken.">' + escapeHtml(d.nachricht) + '</textarea></label>'
+        + '<div class="gg-zwei"><label class="gg-feld"><span class="gg-label">Von</span><input type="text" id="ggVon" maxlength="60" placeholder="Dein Name" value="' + escapeHtml(d.von) + '"></label>'
+        + '<label class="gg-feld"><span class="gg-label">Deine E-Mail</span><input type="email" id="ggEmail" maxlength="120" placeholder="für den Gutschein" value="' + escapeHtml(d.email) + '"></label></div>'
+        // Direkt an den Beschenkten (optional): eigene Geschenk-Mail, sofort oder am Wunschtag.
+        + '<div class="gg-direkt"><div class="gg-direkt-titel"><span class="material-symbols-outlined" aria-hidden="true">mail</span>Direkt verschicken <small>optional</small></div>'
+        + '<div class="gg-zwei"><label class="gg-feld"><span class="gg-label">E-Mail des Beschenkten</span><input type="email" id="ggEmpfMail" maxlength="120" placeholder="oma@beispiel.de" value="' + escapeHtml(d.empfMail) + '"></label>'
+        + '<label class="gg-feld"><span class="gg-label">Zustellen am <small>leer = sofort</small></span><input type="date" id="ggVersandAm" min="' + new Date().toLocaleDateString('sv-SE') + '" value="' + escapeHtml(d.versandAm) + '"></label></div>'
+        + '<p class="gg-klein gg-links">Am Wunschtag ab 8 Uhr – z. B. Heiligabend. Du bekommst den Gutschein trotzdem auch selbst.</p></div>'
+        + '<p id="ggMeldung" class="gg-meldung" role="status" aria-live="polite"></p>'
+        + '<button type="button" class="gg-knopf gg-voll" id="ggWeiter" onclick="ggZurZahlung()">Weiter zur Zahlung · ' + escapeHtml(ggEuro(d.betrag)) + '</button>'
+        + '<p class="gg-klein">Bezahlt wird per PayPal direkt an ' + escapeHtml(_gg.rest.name || 'das Lokal') + '. Gültig 3 Jahre, auch in Teilbeträgen einlösbar.</p>');
+    var fenster = document.getElementById('ggFenster');
+    fenster.addEventListener('input', ggLesen);
+    fenster.addEventListener('click', function (e) {
+        var b = e.target.closest && e.target.closest('[data-gg-betrag],[data-gg-motiv]');
+        if (!b) return;
+        if (b.hasAttribute('data-gg-betrag')) { _gg.d.betrag = Number(b.getAttribute('data-gg-betrag')); var ei = document.getElementById('ggBetragEigen'); if (ei) ei.value = ''; }
+        else _gg.d.motiv = b.getAttribute('data-gg-motiv');
+        ggLesen();
+    });
+}
+// Felder -> _gg.d, Vorschau und Knoepfe nachziehen.
+function ggLesen() {
+    if (!_gg) return;
+    var d = _gg.d, eigen = ggWert('ggBetragEigen');
+    if (eigen) d.betrag = Number(eigen);
+    d.empfaenger = ggWert('ggEmpfaenger'); d.nachricht = ggWert('ggNachricht'); d.von = ggWert('ggVon'); d.email = ggWert('ggEmail');
+    d.empfMail = ggWert('ggEmpfMail'); d.versandAm = ggWert('ggVersandAm');
+    var v = document.getElementById('ggVorschau'); if (v) v.innerHTML = gg3dHtml(Object.assign({ lokal: _gg.rest.name, ort: _gg.rest.city }, d), 'schwebt');
+    document.querySelectorAll('#ggBetraege [data-gg-betrag]').forEach(function (b) { b.setAttribute('aria-pressed', String(!eigen && Number(b.getAttribute('data-gg-betrag')) === d.betrag)); });
+    document.querySelectorAll('#ggMotive [data-gg-motiv]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-gg-motiv') === d.motiv)); });
+    var z = document.getElementById('ggGrussZahl'); if (z) z.textContent = d.nachricht.length + '/200';
+    var w = document.getElementById('ggWeiter'); if (w) w.textContent = 'Weiter zur Zahlung · ' + (isFinite(d.betrag) && d.betrag > 0 ? ggEuro(d.betrag) : '–');
+}
+// Was fehlt? Text oder ''.
+function ggPruefen(d, info, heute) {
+    var min = (info && info.min) || 10, max = (info && info.max) || 300;
+    if (!isFinite(d.betrag) || Math.round(d.betrag) !== d.betrag || d.betrag < min || d.betrag > max) return 'Bitte einen Betrag von ' + min + ' bis ' + max + ' € in ganzen Euro wählen.';
+    if (!/^[^\s@<>"',;]+@[^\s@<>"',;]+\.[A-Za-z]{2,}$/.test(d.email)) return 'Bitte deine E-Mail-Adresse angeben – dorthin schicken wir den Gutschein.';
+    if (d.empfMail && !/^[^\s@<>"',;]+@[^\s@<>"',;]+\.[A-Za-z]{2,}$/.test(d.empfMail)) return 'Die E-Mail des Beschenkten sieht nicht richtig aus – oder das Feld leer lassen.';
+    if (d.versandAm && !d.empfMail) return 'Für die Zustellung am Wunschtag bitte die E-Mail des Beschenkten angeben.';
+    if (d.versandAm && d.versandAm < (heute || new Date().toLocaleDateString('sv-SE'))) return 'Der Wunschtag liegt in der Vergangenheit.';
+    return '';
+}
+function ggMelden(t, rot) { var m = document.getElementById('ggMeldung'); if (m) { m.textContent = t; m.classList.toggle('gg-rot', !!rot); } }
+
+async function ggZurZahlung() {
+    ggLesen();
+    var d = _gg.d, fehler = ggPruefen(d, _gg.info);
+    if (fehler) { ggMelden(fehler, true); return; }
+    ggFenster('<h2 class="gg-titel">Bezahlen</h2>'
+        + '<div class="gg-vorschau gg-klein-vorschau">' + gg3dHtml(Object.assign({ lokal: _gg.rest.name, ort: _gg.rest.city }, d), 'schwebt') + '</div>'
+        + '<p class="gg-hinweis">' + escapeHtml(ggEuro(d.betrag)) + ' per PayPal an ' + escapeHtml(_gg.rest.name || 'das Lokal') + '. Der Gutschein entsteht erst, wenn PayPal die Zahlung bestätigt hat.</p>'
+        + '<div id="ggPaypal"></div><p id="ggMeldung" class="gg-meldung" role="status" aria-live="polite"></p>'
+        + '<button type="button" class="gg-knopf gg-rand" onclick="ggFormular()">Zurück</button>');
+    var paypal;
+    try { paypal = await PPC.skript(_gg.info.client_id); }
+    catch (e) { ggMelden('PayPal ist gerade nicht erreichbar. Es wurde nichts abgebucht.', true); return; }
+    var rid = _gg.rest.id;
+    try {
+        await paypal.Buttons({
+            style: { layout: 'vertical', label: 'paypal' },
+            createOrder: async function () {
+                var r = await fetch('/.netlify/functions/geschenkgutschein', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'anlegen', r: rid, betrag: d.betrag }) });
+                var j = await r.json();
+                if (!r.ok || !j.ok || !j.id) { ggMelden((j && j.error) || 'Die Zahlung konnte nicht angelegt werden. Es wurde nichts abgebucht.', true); throw new Error('anlegen'); }
+                return j.id;
+            },
+            onApprove: async function (daten) {
+                ggMelden('Zahlung wird bestätigt – bitte dieses Fenster nicht schließen.');
+                try {
+                    var r = await fetch('/.netlify/functions/geschenkgutschein', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'buchen', r: rid, paypal_id: daten.orderID, betrag: d.betrag, empfaenger: d.empfaenger, nachricht: d.nachricht, kaeufer_name: d.von, kaeufer_email: d.email, motiv: d.motiv, empfaenger_email: d.empfMail || '', versand_am: d.versandAm || '' }) });
+                    var j = await r.json();
+                    if (j && j.ok && j.gutschein) { ggFertig(j.gutschein, j.mail, j.zustellung); return; }
+                    // Bezahlt, aber kein Gutschein: nie ein schlichtes "ging nicht".
+                    ggMelden((j && j.error) || ('Die Zahlung ist angekommen, der Gutschein aber nicht. Bitte melde dich beim Lokal und nenne: ' + daten.orderID), true);
+                } catch (e) {
+                    ggMelden('Verbindungsfehler nach der Zahlung. Bitte NICHT erneut bezahlen – melde dich beim Lokal und nenne: ' + daten.orderID, true);
+                }
+            },
+            onCancel: function () { ggMelden('Abgebrochen – es wurde nichts abgebucht.'); },
+            onError: function () { ggMelden('PayPal meldet einen Fehler. Es wurde nichts abgebucht.', true); }
+        }).render('#ggPaypal');
+    } catch (e) { ggMelden('PayPal-Knöpfe nicht darstellbar. Es wurde nichts abgebucht.', true); }
+}
+window.ggZurZahlung = ggZurZahlung;
+window.ggFormular = ggFormular;
+
+// Was mit der Geschenk-Mail passiert -- im Test ausgefuehrt.
+function ggZustellText(z, g) {
+    if (!z) return null;
+    if (z.fehler) return { text: z.fehler, rot: true };
+    var wem = g && g.empfaenger ? g.empfaenger : 'den Beschenkten';
+    if (z.am && !z.gesendet && z.am > new Date().toLocaleDateString('sv-SE')) return { text: '✉ Die Geschenk-Mail geht am ' + ggDatum(z.am) + ' ab 8 Uhr an ' + wem + '.' };
+    if (z.gesendet) return { text: '✉ Die Geschenk-Mail an ' + wem + ' ist unterwegs.' };
+    return { text: 'Die Geschenk-Mail an ' + wem + ' ging gerade nicht raus – wir versuchen es in der nächsten Stunde noch einmal. Du kannst auch Bild oder Link weitergeben.', rot: true };
+}
+function ggDaten(g) { return { lokal: g.lokal && g.lokal.name, ort: g.lokal && g.lokal.city, betrag: g.betrag, rest: g.rest, empfaenger: g.empfaenger, nachricht: g.nachricht, von: g.von, code: g.code, gueltig_bis: g.gueltig_bis, motiv: g.motiv }; }
+function ggLink(code) { return 'https://kiekmolin.de/?gutschein=' + encodeURIComponent(code); }
+function ggFertig(g, gemailt, zustellung) {
+    _gg = _gg || {}; _gg.fertig = g;
+    var zu = ggZustellText(zustellung, g);
+    ggFenster('<div class="gg-geschafft"><span class="material-symbols-outlined" aria-hidden="true">redeem</span> Bezahlt – dein Gutschein ist fertig!</div>'
+        + '<div class="gg-vorschau gg-kippbox" id="ggKippbox">' + gg3dHtml(ggDaten(g), 'kippen') + '</div>'
+        + '<p class="gg-klein gg-kipp-hinweis">Karte ziehen = kippen · antippen = umdrehen</p>'
+        + (zu ? '<p class="gg-zustellung' + (zu.rot ? ' gg-rot' : '') + '">' + escapeHtml(zu.text) + '</p>' : '')
+        + '<div class="gg-aktionen">'
+        + '<button type="button" class="gg-knopf gg-voll" onclick="ggBildSpeichern()">Als Bild speichern</button>'
+        + '<button type="button" class="gg-knopf gg-rand" onclick="ggTeilen()">Teilen</button></div>'
+        + '<button type="button" class="gg-knopf gg-rand gg-breit" onclick="ggDrucken()">Drucken (21 × 10 cm)</button>'
+        + '<p class="gg-klein">' + (gemailt ? 'Wir haben ihn dir auch per Mail geschickt.' : 'Die Mail konnte gerade nicht verschickt werden – bitte speichere das Bild oder den Link.') + ' Link: <a href="' + ggLink(g.code) + '">' + escapeHtml(ggLink(g.code).replace('https://', '')) + '</a></p>');
+    ggKippen(document.getElementById('ggKippbox'));
+}
+
+// Ansicht per Link: kiekmolin.de/?gutschein=KIN-XXXX-XXXX
+async function ggAnsehen(code) {
+    ggFenster('<div class="gg-laden">Gutschein wird geladen …</div>');
+    try {
+        var r = await fetch('/.netlify/functions/geschenkgutschein', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'ansehen', code: code }) });
+        var j = await r.json();
+        if (!j.ok) { ggFenster('<h2 class="gg-titel">Gutschein</h2><p class="gg-hinweis">' + escapeHtml(j.error || 'Nicht gefunden.') + '</p>'); return; }
+        var g = j.gutschein; _gg = { fertig: g };
+        var zu = g.status === 'eingeloest' ? '<p class="gg-hinweis">Dieser Gutschein ist ganz eingelöst.</p>' : '';
+        ggFenster('<h2 class="gg-titel">' + (g.empfaenger ? 'Für dich, ' + escapeHtml(g.empfaenger) + '!' : 'Dein Gutschein') + '</h2>'
+            + (g.von ? '<p class="gg-hinweis">' + escapeHtml(g.von) + ' schenkt dir einen Abend bei ' + escapeHtml((g.lokal && g.lokal.name) || 'uns') + '.</p>' : '')
+            + '<div class="gg-vorschau gg-kippbox" id="ggKippbox">' + gg3dHtml(ggDaten(g), 'kippen') + '</div><p class="gg-klein gg-kipp-hinweis">Karte ziehen = kippen · antippen = umdrehen</p>' + zu
+            + '<div class="gg-aktionen"><button type="button" class="gg-knopf gg-voll" onclick="ggBildSpeichern()">Als Bild speichern</button>'
+            + (g.lokal && (g.lokal.slug || g.lokal.id) ? '<a class="gg-knopf gg-rand" href="/?r=' + encodeURIComponent(g.lokal.slug || g.lokal.id) + '">Zum Lokal</a>' : '') + '</div>'
+            + '<button type="button" class="gg-knopf gg-rand gg-breit" onclick="ggDrucken()">Drucken (21 × 10 cm)</button>'
+            + '<p class="gg-klein">Einlösen: im Lokal den Code zeigen. Auch in mehreren Besuchen – der Rest bleibt drauf.</p>');
+        ggKippen(document.getElementById('ggKippbox'));
+    } catch (e) { ggFenster('<h2 class="gg-titel">Gutschein</h2><p class="gg-hinweis">Gerade nicht erreichbar – bitte gleich noch einmal öffnen.</p>'); }
+}
+window.ggAnsehen = ggAnsehen;
+
+async function ggTeilen() {
+    var g = _gg && _gg.fertig; if (!g) return;
+    var url = ggLink(g.code), txt = 'Ein Gutschein für dich' + (g.lokal ? ' – ' + g.lokal.name : '') + ' 🎁';
+    try { if (navigator.share) { await navigator.share({ title: 'Gutschein', text: txt, url: url }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+    try { await navigator.clipboard.writeText(url); showToast('Link kopiert', 'success'); } catch (e) { showToast('Link: ' + url, 'info'); }
+}
+window.ggTeilen = ggTeilen;
+
+function ggUmbruch(ctx, text, breite, max) {
+    var woerter = String(text).split(' '), zeilen = [], z = '';
+    woerter.forEach(function (w) { var t = z ? z + ' ' + w : w; if (ctx.measureText(t).width > breite && z) { zeilen.push(z); z = w; } else z = t; });
+    if (z) zeilen.push(z);
+    return zeilen.slice(0, max || 2);
+}
+// Druckbild 21 x 10 cm bei 300 dpi = 2480 x 1181 Pixel. Gleiches Design wie
+// die Karte: Verlauf, Muster, Goldrahmen, Siegel, Folie, Abriss mit Kerben.
+var GG_DRUCK = { w: 2480, h: 1181 };
+async function ggBildMalen(g) {
+    try { if (document.fonts && document.fonts.load) await Promise.all(['600 100px Fraunces', 'italic 400 40px Fraunces', '800 40px Epilogue', '700 40px Inter'].map(function (f) { return document.fonts.load(f).catch(function () {}); })); } catch (e) {}
+    var m = GG_MOTIVE[g.motiv] || GG_MOTIVE.klassisch, W = GG_DRUCK.w, H = GG_DRUCK.h, u = W / 100;
+    var c = document.createElement('canvas'); c.width = W; c.height = H;
+    var x = c.getContext('2d');
+    var lokal = (g.lokal && g.lokal.name) || '', ort = (g.lokal && g.lokal.city) || '', mono = ggMono(lokal);
+    var r = 4.2 * u;
+    x.beginPath(); x.moveTo(r, 0); x.arcTo(W, 0, W, H, r); x.arcTo(W, H, 0, H, r); x.arcTo(0, H, 0, 0, r); x.arcTo(0, 0, W, 0, r); x.closePath(); x.clip();
+    var bg = x.createRadialGradient(W * 0.86, H * 0.08, 0, W * 0.86, H * 0.08, W * 1.05); bg.addColorStop(0, m.a); bg.addColorStop(0.72, m.b); bg.addColorStop(1, m.b);
+    x.fillStyle = bg; x.fillRect(0, 0, W, H);
+    // Muster: dieselbe SVG wie auf der Karte, als Bild gemalt.
+    try {
+        var svg = ggMuster(m.muster, m.farbe).replace('<svg class="gg-muster"', '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '"');
+        var bild = new Image(); bild.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+        await new Promise(function (ok) { bild.onload = ok; bild.onerror = ok; });
+        if (bild.width) x.drawImage(bild, 0, 0, W, H);
+    } catch (e) {}
+    var gold = function (x0, x1) { var gr = x.createLinearGradient(x0, 0, x1, 0); m.goldStopps.forEach(function (f, i) { gr.addColorStop(i / (m.goldStopps.length - 1), f); }); return gr; };
+    // Goldrahmen
+    x.strokeStyle = m.rahmen; x.lineWidth = 3; x.beginPath();
+    var ri = 1.6 * u, rr = 1.8 * u; x.moveTo(ri + rr, ri); x.arcTo(W - ri, ri, W - ri, H - ri, rr); x.arcTo(W - ri, H - ri, ri, H - ri, rr); x.arcTo(ri, H - ri, ri, ri, rr); x.arcTo(ri, ri, W - ri, ri, rr); x.closePath(); x.stroke();
+    // Siegel
+    var sx = 5 * u + 3.5 * u, sy = 4.2 * u + 3.5 * u;
+    x.strokeStyle = m.siegel; x.lineWidth = 0.25 * u; x.beginPath(); x.arc(sx, sy, 3.4 * u, 0, Math.PI * 2); x.stroke();
+    x.strokeStyle = m.siegel2; x.lineWidth = 0.15 * u; x.beginPath(); x.arc(sx, sy, 2.7 * u, 0, Math.PI * 2); x.stroke();
+    x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = gold(sx - 3 * u, sx + 3 * u); x.font = '600 ' + (3.8 * u) + 'px Fraunces, Georgia, serif'; x.fillText(mono, sx, sy + 0.2 * u);
+    x.textAlign = 'left'; x.textBaseline = 'alphabetic';
+    // GUTSCHEIN + Lokal
+    var tx = 5 * u + 8.8 * u;
+    x.fillStyle = gold(tx, tx + 24 * u); x.font = '700 ' + (1.9 * u) + 'px Inter, sans-serif';
+    'GUTSCHEIN'.split('').reduce(function (px, ch) { x.fillText(ch, px, sy - 0.3 * u); return px + x.measureText(ch).width + 0.9 * u; }, tx);
+    x.fillStyle = m.leise; x.font = '800 ' + (1.8 * u) + 'px Epilogue, Inter, sans-serif';
+    var lz = [lokal, ort].filter(Boolean).join(' · ').toUpperCase();
+    lz.split('').reduce(function (px, ch) { x.fillText(ch, px, sy + 2.4 * u); return px + x.measureText(ch).width + 0.28 * u; }, tx);
+    // Betrag
+    var bx = 5 * u, by = H * 0.6;
+    x.fillStyle = 'rgba(0,0,0,0.22)'; x.font = '600 ' + (15 * u) + 'px Fraunces, Georgia, serif';
+    var zahl = ggEuro(g.betrag).replace(' €', ''); x.fillText(zahl, bx, by + 0.2 * u);
+    x.fillStyle = m.text; x.fillText(zahl, bx, by);
+    var zw = x.measureText(zahl).width;
+    x.fillStyle = gold(bx + zw, bx + zw + 7 * u); x.font = '500 ' + (6.5 * u) + 'px Fraunces, Georgia, serif'; x.fillText('€', bx + zw + 0.8 * u, by - 7 * u);
+    var y = by + 4.6 * u;
+    if (g.empfaenger) { x.fillStyle = m.text; x.font = 'italic 400 ' + (3.2 * u) + 'px Fraunces, Georgia, serif'; x.fillText('für ', bx, y); var fw = x.measureText('für ').width; x.font = '600 ' + (3.2 * u) + 'px Fraunces, Georgia, serif'; x.fillText(g.empfaenger, bx + fw, y); y += 3.8 * u; }
+    if (g.nachricht) { x.fillStyle = m.leise; x.font = 'italic 400 ' + (2.3 * u) + 'px Fraunces, Georgia, serif'; ggUmbruch(x, '„' + g.nachricht + '“', 60 * u, 2).forEach(function (z) { x.fillText(z, bx, y); y += 3.2 * u; }); }
+    if (g.von) { x.fillStyle = m.leise; x.font = '500 ' + (2.3 * u) + 'px Fraunces, Georgia, serif'; x.fillText('– ' + g.von, bx, y); }
+    // Abriss: gestrichelte Linie + Kerben
+    var ax = 72 * u;
+    x.save(); x.globalCompositeOperation = 'destination-out'; x.fillStyle = '#000';
+    x.beginPath(); x.arc(ax, 0, 1.7 * u, 0, Math.PI * 2); x.fill(); x.beginPath(); x.arc(ax, H, 1.7 * u, 0, Math.PI * 2); x.fill(); x.restore();
+    x.strokeStyle = m.leise; x.globalAlpha = 0.5; x.setLineDash([1.2 * u, 0.9 * u]); x.lineWidth = 0.25 * u; x.beginPath(); x.moveTo(ax, 2.2 * u); x.lineTo(ax, H - 2.2 * u); x.stroke(); x.setLineDash([]); x.globalAlpha = 1;
+    var mx = ax + 14 * u; x.textAlign = 'center';
+    x.fillStyle = gold(mx - 5 * u, mx + 5 * u); x.font = '600 ' + (9 * u) + 'px Fraunces, Georgia, serif'; x.fillText(mono, mx, H * 0.44);
+    x.fillStyle = m.leise; x.font = '700 ' + (1.4 * u) + 'px Inter, sans-serif'; x.fillText('C O D E', mx, H * 0.55);
+    x.fillStyle = m.text; x.font = '700 ' + (2.1 * u) + 'px Menlo, Consolas, monospace'; x.fillText(g.code, mx, H * 0.63);
+    x.fillStyle = m.leise; x.font = '500 ' + (1.5 * u) + 'px Inter, sans-serif';
+    if (g.gueltig_bis) x.fillText('gültig bis ' + ggDatum(g.gueltig_bis), mx, H * 0.71);
+    x.fillText('kiekmolin.de', mx, H * 0.76);
+    if (g.rest != null && Number(g.rest) < Number(g.betrag)) { x.fillStyle = m.siegel; x.font = '800 ' + (1.9 * u) + 'px Inter, sans-serif'; x.fillText('Noch ' + ggEuro(g.rest) + ' übrig', mx, H * 0.86); }
+    x.textAlign = 'left';
+    return c;
+}
+function ggDateiname(g) { return 'Gutschein-' + String((g.lokal && g.lokal.name) || 'kiekmolin').replace(/[^A-Za-z0-9äöüÄÖÜß]+/g, '-') + '-' + g.code + '.png'; }
+async function ggBildSpeichern(g) {
+    g = g || (_gg && _gg.fertig); if (!g) return;
+    var c = await ggBildMalen(g), name = ggDateiname(g);
+    c.toBlob(async function (blob) {
+        if (!blob) { showToast('Bild konnte nicht erstellt werden', 'error'); return; }
+        // Handy: direkt teilen (WhatsApp, Fotos ...). Sonst herunterladen.
+        try {
+            var datei = new File([blob], name, { type: 'image/png' });
+            if (navigator.canShare && navigator.canShare({ files: [datei] })) { await navigator.share({ files: [datei], title: 'Gutschein' }); return; }
+        } catch (e) { if (e && e.name === 'AbortError') return; }
+        var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
+        setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+        showToast('Gutschein als Bild gespeichert (21 × 10 cm)', 'success');
+    }, 'image/png');
+}
+window.ggBildSpeichern = ggBildSpeichern;
+// Drucken in Originalgroesse 21 x 10 cm: eigene Druckseite mit @page in genau
+// dieser Groesse. Im Druckfenster "Tatsaechliche Groesse / 100 %" lassen.
+async function ggDrucken(g) {
+    g = g || (_gg && _gg.fertig); if (!g) return;
+    var c = await ggBildMalen(g), url = c.toDataURL('image/png');
+    var f = document.createElement('iframe');
+    f.setAttribute('aria-hidden', 'true'); f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+    document.body.appendChild(f);
+    var d = f.contentWindow.document;
+    d.open(); d.write('<!doctype html><html><head><title>Gutschein ' + escapeHtml(g.code) + '</title><style>@page{size:210mm 100mm;margin:0}html,body{margin:0;padding:0}img{display:block;width:210mm;height:100mm}</style></head><body><img alt="Gutschein" src="' + url + '"></body></html>'); d.close();
+    var los = function () { try { f.contentWindow.focus(); f.contentWindow.print(); } catch (e) { showToast('Drucken geht hier nicht – bitte „Als Bild speichern“ und das Bild drucken (21 × 10 cm).', 'error'); } setTimeout(function () { f.remove(); }, 60000); };
+    var img = d.querySelector('img'); if (img && !img.complete) img.onload = los; else setTimeout(los, 50);
+}
+window.ggDrucken = ggDrucken;
+
+// ==================== GESCHENKGUTSCHEINE IM DASHBOARD (03.11.2026) ====================
+// Einloesen (alle im Team -- passiert an der Kasse), Liste, und der Schalter
+// "online verkaufen" (nur Inhaber: das ist eine Einstellung wie PayPal).
+function ggWirtRid() {
+    try { return (typeof getControlRestaurantId === 'function' && getControlRestaurantId()) || (currentAdmin && currentAdmin.restaurant_id) || ''; } catch (e) { return ''; }
+}
+async function ggWirtAufruf(daten) {
+    try {
+        var res = await fetch('/.netlify/functions/geschenkgutschein', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + kmiToken() }, body: JSON.stringify(daten) });
+        var j = await res.json().catch(function () { return { ok: false, error: 'HTTP ' + res.status }; });
+        j._status = res.status; return j;
+    } catch (e) { return { ok: false, error: 'Keine Verbindung' }; }
+}
+async function ggWirtOeffnen() {
+    var rid = ggWirtRid();
+    if (!rid) { showToast('Kein Restaurant gefunden', 'error'); return; }
+    showGenericModal('Geschenkgutscheine', '<div id="ggWirt" class="gg-wirt">'
+        + '<form class="gg-w-einloesen" onsubmit="event.preventDefault(); ggWirtEinloesen();">'
+        + '<b>Gutschein einlösen</b>'
+        + '<div class="gg-w-reihe"><input id="ggWCode" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="KIN-XXXX-XXXX" aria-label="Gutschein-Code">'
+        + '<input id="ggWBetrag" type="text" inputmode="decimal" autocomplete="off" placeholder="Betrag €" aria-label="Betrag in Euro">'
+        + '<button type="submit">Einlösen</button></div>'
+        + '<p id="ggWStand" class="gg-w-stand" role="status" aria-live="polite">Code vom Gutschein eintippen und den Betrag der Rechnung. Ist die Rechnung höher, zahlt der Gast den Rest normal.</p></form>'
+        + '<button type="button" class="gg-w-vorort-knopf" onclick="ggVorOrtFormular()">+ Gutschein vor Ort verkaufen</button><div id="ggWVorOrt"></div>'
+        + '<div id="ggWSchalter"></div><div id="ggWListe"><p class="gg-w-stand">Lade …</p></div></div>');
+    ggWirtLaden();
+}
+window.ggWirtOeffnen = ggWirtOeffnen;
+
+// ---- VOR ORT VERKAUFEN (04.11.2026) ----
+// Ibo: "der Gast kann auch vor Ort den Gutschein kriegen". Der Gast zahlt im
+// Lokal bar oder mit Karte; hier wird derselbe Gutschein angelegt -- zum
+// Drucken (21 x 10 cm), als Bild oder per Mail. Kein PayPal, kein Online-Schalter.
+var _ggVo = null;
+function ggVorOrtFormular() {
+    var box = document.getElementById('ggWVorOrt'); if (!box) return;
+    var rid = ggWirtRid(), rest = (APP_DATA.restaurants || []).find(function (r) { return r.id === rid; }) || {};
+    _ggVo = { rest: rest, d: { betrag: 50, motiv: 'klassisch', zahlart: '', empfaenger: '', nachricht: '', von: '', email: '' } };
+    var motive = Object.keys(GG_MOTIVE).map(function (k) { var m = GG_MOTIVE[k]; return '<button type="button" data-vo-motiv="' + k + '" aria-pressed="' + (k === 'klassisch') + '"><i style="background:radial-gradient(circle at 80% 20%,' + m.a + ',' + m.b + ');box-shadow:0 3px 0 ' + m.kante + '"></i>' + m.name + '</button>'; }).join('');
+    box.innerHTML = '<div class="gg-vo">'
+        + '<div class="gg-vo-kopf"><b>Gutschein vor Ort verkaufen</b><button type="button" class="gg-vo-zu" onclick="ggVorOrtZu()" aria-label="Schließen">×</button></div>'
+        + '<div id="ggVoVorschau" class="gg-vo-vorschau">' + gg3dHtml(ggVorOrtDaten(), 'schwebt') + '</div>'
+        + '<div class="gg-vo-motive" id="ggVoMotive">' + motive + '</div>'
+        + '<div class="gg-vo-reihe"><label><span>Betrag</span><input id="ggVoBetrag" type="text" inputmode="decimal" autocomplete="off" value="50" aria-label="Betrag in Euro"></label>'
+        + '<div><span>Bezahlt</span><div class="gg-vo-zahl" id="ggVoZahl"><button type="button" data-vo-zahl="bar" aria-pressed="false">Bar</button><button type="button" data-vo-zahl="karte" aria-pressed="false">Karte</button></div></div></div>'
+        + '<label><span>Für wen? (steht auf dem Gutschein)</span><input id="ggVoFuer" maxlength="60" placeholder="z. B. Oma Gerda"></label>'
+        + '<label><span>Gruß (optional)</span><input id="ggVoGruss" maxlength="200" placeholder="z. B. Frohe Weihnachten!"></label>'
+        + '<div class="gg-vo-reihe"><label><span>Von (optional)</span><input id="ggVoVon" maxlength="60" placeholder="Name"></label>'
+        + '<label><span>E-Mail (optional)</span><input id="ggVoMail" type="email" maxlength="120" placeholder="schickt ihn per Mail"></label></div>'
+        + '<p id="ggVoStand" class="gg-w-stand" role="status" aria-live="polite">Erst kassieren, dann anlegen. Der Gutschein ist sofort gültig.</p>'
+        + '<button type="button" class="gg-vo-los" id="ggVoLos" onclick="ggVorOrtAnlegen()">Gutschein anlegen · 50 €</button></div>';
+    box.querySelector('.gg-vo').addEventListener('input', ggVorOrtLesen);
+    box.querySelector('.gg-vo').addEventListener('click', function (e) {
+        var b = e.target.closest && e.target.closest('[data-vo-motiv],[data-vo-zahl]'); if (!b) return;
+        if (b.hasAttribute('data-vo-motiv')) _ggVo.d.motiv = b.getAttribute('data-vo-motiv'); else _ggVo.d.zahlart = b.getAttribute('data-vo-zahl');
+        ggVorOrtLesen();
+    });
+    box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+window.ggVorOrtFormular = ggVorOrtFormular;
+function ggVorOrtZu() { var box = document.getElementById('ggWVorOrt'); if (box) box.innerHTML = ''; _ggVo = null; }
+window.ggVorOrtZu = ggVorOrtZu;
+function ggVorOrtDaten() { var d = _ggVo.d, r = _ggVo.rest; return { lokal: r.name, ort: r.city, betrag: d.betrag > 0 ? d.betrag : 0, empfaenger: d.empfaenger, nachricht: d.nachricht, von: d.von, motiv: d.motiv }; }
+function ggVoWert(id) { var e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; }
+function ggVorOrtLesen() {
+    if (!_ggVo) return;
+    var d = _ggVo.d;
+    d.betrag = Math.round(Number(ggVoWert('ggVoBetrag').replace(',', '.')) * 100) / 100;
+    d.empfaenger = ggVoWert('ggVoFuer'); d.nachricht = ggVoWert('ggVoGruss'); d.von = ggVoWert('ggVoVon'); d.email = ggVoWert('ggVoMail');
+    var v = document.getElementById('ggVoVorschau'); if (v) v.innerHTML = gg3dHtml(ggVorOrtDaten(), 'schwebt');
+    document.querySelectorAll('#ggVoMotive [data-vo-motiv]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-vo-motiv') === d.motiv)); });
+    document.querySelectorAll('#ggVoZahl [data-vo-zahl]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-vo-zahl') === d.zahlart)); });
+    var l = document.getElementById('ggVoLos'); if (l) l.textContent = 'Gutschein anlegen · ' + (d.betrag > 0 ? ggEuro(d.betrag) : '–');
+}
+// Was fehlt? Text oder '' -- im Test ausgefuehrt.
+function ggVorOrtPruefen(d) {
+    if (!(d.betrag >= 5 && d.betrag <= 500)) return 'Bitte einen Betrag von 5 bis 500 € eingeben.';
+    if (d.zahlart !== 'bar' && d.zahlart !== 'karte') return 'Bitte antippen, wie der Gast bezahlt hat: Bar oder Karte.';
+    if (d.email && !/^[^\s@<>"',;]+@[^\s@<>"',;]+\.[A-Za-z]{2,}$/.test(d.email)) return 'Die E-Mail-Adresse sieht nicht richtig aus – oder das Feld leer lassen.';
+    return '';
+}
+async function ggVorOrtAnlegen() {
+    if (!_ggVo) return false;
+    ggVorOrtLesen();
+    var d = _ggVo.d, st = document.getElementById('ggVoStand'), f = ggVorOrtPruefen(d);
+    if (f) { if (st) { st.textContent = f; st.className = 'gg-w-stand gg-w-rot'; } return false; }
+    var los = document.getElementById('ggVoLos'); if (los) los.disabled = true;
+    var j = await ggWirtAufruf({ action: 'vorort', r: ggWirtRid(), betrag: d.betrag, zahlart: d.zahlart, empfaenger: d.empfaenger, nachricht: d.nachricht, kaeufer_name: d.von, kaeufer_email: d.email, motiv: d.motiv });
+    if (los) los.disabled = false;
+    if (!j.ok || !j.gutschein) {
+        // Nicht still: der Gast steht vor dem Wirt und hat schon bezahlt.
+        if (st) { st.textContent = 'Nicht angelegt: ' + (j.error || 'unbekannt') + ' Bitte noch einmal versuchen.'; st.className = 'gg-w-stand gg-w-rot'; }
+        return false;
+    }
+    var g = j.gutschein; _gg = { fertig: g };
+    var box = document.getElementById('ggWVorOrt');
+    box.innerHTML = '<div class="gg-vo">'
+        + '<div class="gg-vo-kopf"><b>✓ Gutschein angelegt · ' + escapeHtml(ggEuro(g.betrag)) + ' · ' + (d.zahlart === 'bar' ? 'bar' : 'Karte') + '</b><button type="button" class="gg-vo-zu" onclick="ggVorOrtZu()" aria-label="Schließen">×</button></div>'
+        + '<div id="ggVoKipp" class="gg-vo-vorschau">' + gg3dHtml(ggDaten(g), 'kippen') + '</div>'
+        + '<div class="gg-vo-aktionen"><button type="button" class="gg-vo-los" onclick="ggDrucken()">Drucken (21 × 10 cm)</button>'
+        + '<button type="button" class="gg-vo-rand" onclick="ggBildSpeichern()">Als Bild</button><button type="button" class="gg-vo-rand" onclick="ggTeilen()">Link teilen</button></div>'
+        + '<p class="gg-w-stand">' + (j.mail ? 'Per Mail an ' + escapeHtml(d.email) + ' geschickt. ' : (d.email ? 'Die Mail ging nicht raus – bitte drucken oder den Link teilen. ' : '')) + 'Code: <b>' + escapeHtml(g.code) + '</b> · gültig bis ' + escapeHtml(ggDatum(g.gueltig_bis)) + '</p>'
+        + '<button type="button" class="gg-vo-rand gg-vo-neu" onclick="ggVorOrtFormular()">Noch einen verkaufen</button></div>';
+    ggKippen(document.getElementById('ggVoKipp'));
+    showToast('Gutschein ' + g.code + ' angelegt', 'success');
+    ggWirtLaden();
+    return true;
+}
+window.ggVorOrtAnlegen = ggVorOrtAnlegen;
+
+// Summen fuer die Liste -- im Test ausgefuehrt.
+function ggWirtSummen(liste) {
+    var s = { anzahl: 0, verkauft: 0, offen: 0, eingeloest: 0 };
+    (liste || []).forEach(function (g) {
+        if (g.status === 'storniert') return;
+        s.anzahl++; s.verkauft += Number(g.betrag) || 0; s.offen += Number(g.rest) || 0;
+    });
+    s.eingeloest = Math.round((s.verkauft - s.offen) * 100) / 100;
+    return s;
+}
+async function ggWirtLaden() {
+    var rid = ggWirtRid(), box = document.getElementById('ggWListe'), sch = document.getElementById('ggWSchalter');
+    if (!box) return;
+    var rest = (APP_DATA.restaurants || []).find(function (r) { return r.id === rid; }) || {};
+    var an = ggVerkauft(rest);
+    // Schalter: nur der Inhaber (und Ibo). Mit ehrlichem Stand, was fehlt.
+    if (sch && teamRolle() === 'inhaber') {
+        var info = await ggWirtAufruf({ action: 'info', r: rid });
+        var grund = !an ? 'Aus – Gäste sehen auf eurer Seite nichts davon.'
+            : (info && info.aktiv) ? 'An – Gäste sehen auf eurer Lokalseite „Gutschein verschenken“. Das Geld geht direkt auf euer PayPal.'
+            : (info && info.grund === 'kein_paypal') ? 'An, aber PayPal ist noch nicht eingerichtet – ohne PayPal können Gäste nichts kaufen (Einstellungen › Zahlung).'
+            : (info && info.grund === 'sql51') ? 'An, aber die Datenbank ist noch nicht vorbereitet (SQL 51) – Gäste sehen eine Meldung statt der Kasse.'
+            : 'An – Stand gerade nicht prüfbar.';
+        sch.innerHTML = '<div class="gg-w-schalter"><div><b>Online verkaufen</b><small id="ggWSchalterText">' + escapeHtml(grund) + '</small></div>'
+            + '<button type="button" role="switch" aria-checked="' + an + '" id="ggWSchalterKnopf" onclick="ggWirtSchalter(' + (!an) + ')"><i></i></button></div>';
+    }
+    var j = await ggWirtAufruf({ action: 'liste', r: rid });
+    if (!j.ok) {
+        // Nicht still leer: eine leere Liste sähe aus wie "noch nichts verkauft".
+        box.innerHTML = '<p class="gg-w-fehler" role="alert">Liste nicht geladen: ' + escapeHtml(j.error || 'unbekannt') + '</p>';
+        return;
+    }
+    var liste = j.gutscheine || [], s = ggWirtSummen(liste);
+    var zeilen = liste.map(function (g) {
+        var st = g.status === 'eingeloest' ? 'eingelöst' : g.status === 'storniert' ? 'storniert' : (String(g.gueltig_bis) < new Date().toLocaleDateString('sv-SE') ? 'abgelaufen' : 'offen');
+        return '<div class="gg-w-zeile"><div><b class="gg-w-code">' + escapeHtml(g.code) + '</b><small>'
+            + escapeHtml([g.empfaenger_name ? 'für ' + g.empfaenger_name : '', g.kaeufer_name ? 'von ' + g.kaeufer_name : '', ggDatum(String(g.erstellt || '').slice(0, 10))].filter(Boolean).join(' · ')) + '</small></div>'
+            + '<div class="gg-w-betrag"><b>' + escapeHtml(ggEuro(g.rest)) + '</b><small>von ' + escapeHtml(ggEuro(g.betrag)) + ' · ' + st + ' · ' + ({ bar: 'vor Ort bar', karte: 'vor Ort Karte' }[g.verkauft_ueber] || 'online') + '</small></div></div>';
+    }).join('');
+    box.innerHTML = '<div class="gg-w-summen"><div><small>Verkauft</small><b>' + escapeHtml(ggEuro(s.verkauft)) + '</b><small>' + s.anzahl + ' Gutscheine</small></div>'
+        + '<div><small>Noch offen</small><b>' + escapeHtml(ggEuro(s.offen)) + '</b><small>auf den Gutscheinen</small></div>'
+        + '<div><small>Eingelöst</small><b>' + escapeHtml(ggEuro(s.eingeloest)) + '</b><small>bisher</small></div></div>'
+        + (zeilen || '<p class="gg-w-stand">Noch keine Gutscheine verkauft.</p>');
+}
+async function ggWirtEinloesen() {
+    var rid = ggWirtRid(), st = document.getElementById('ggWStand');
+    var code = ((document.getElementById('ggWCode') || {}).value || '').trim(), betrag = Number(String((document.getElementById('ggWBetrag') || {}).value || '').replace(',', '.'));
+    if (!code) { if (st) { st.textContent = 'Bitte den Code eintippen.'; st.className = 'gg-w-stand gg-w-rot'; } return false; }
+    if (!(betrag > 0)) { if (st) { st.textContent = 'Bitte den Betrag eintippen.'; st.className = 'gg-w-stand gg-w-rot'; } return false; }
+    var j = await ggWirtAufruf({ action: 'einloesen', r: rid, code: code, betrag: betrag });
+    if (!j.ok) {
+        if (st) { st.textContent = 'Nicht eingelöst: ' + (j.error || 'unbekannt') + (j.gutschein ? ' (Rest: ' + ggEuro(j.gutschein.rest) + ')' : ''); st.className = 'gg-w-stand gg-w-rot'; }
+        return false;
+    }
+    if (st) { st.textContent = '✓ ' + ggEuro(j.eingeloest) + ' eingelöst. ' + (j.rest > 0 ? 'Auf ' + j.code + ' sind noch ' + ggEuro(j.rest) + '.' : 'Der Gutschein ist jetzt ganz verbraucht.'); st.className = 'gg-w-stand gg-w-gruen'; }
+    var c = document.getElementById('ggWCode'), b = document.getElementById('ggWBetrag'); if (c) c.value = ''; if (b) b.value = '';
+    showToast(ggEuro(j.eingeloest) + ' vom Gutschein abgezogen', 'success');
+    ggWirtLaden();
+    return true;
+}
+window.ggWirtEinloesen = ggWirtEinloesen;
+async function ggWirtSchalter(an) {
+    var rid = ggWirtRid(), txt = document.getElementById('ggWSchalterText');
+    try {
+        var res = await sbRead(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(rid) + '&select=features', { headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + kmiToken() } });
+        var data = await res.json();
+        if (!Array.isArray(data) || !data[0]) throw new Error('Restaurant nicht lesbar');
+        var f = (data[0].features || []).filter(function (x) { return x !== 'geschenkgutschein'; });
+        if (an) f.push('geschenkgutschein');
+        var up = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(rid) + '&select=id,features', {
+            method: 'PATCH', headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + kmiToken(), 'Content-Type': 'application/json', Prefer: 'return=representation' }, body: JSON.stringify({ features: f })
+        });
+        if (!up.ok) throw new Error('HTTP ' + up.status);
+        var z = await up.json();
+        if (!Array.isArray(z) || !z.length) throw new Error('keine Berechtigung – nichts gespeichert');
+        var appR = (APP_DATA.restaurants || []).find(function (r) { return r.id === rid; });
+        if (appR) appR.features = z[0].features || f;
+        showToast(an ? 'Gutscheine sind jetzt online zu kaufen' : 'Online-Verkauf ausgeschaltet', 'success');
+        ggWirtLaden();
+        return true;
+    } catch (e) {
+        if (txt) txt.textContent = 'Nicht gespeichert: ' + (e && e.message || e) + '. Es gilt der alte Stand.';
+        showToast('Schalter nicht gespeichert', 'error');
+        return false;
+    }
+}
+window.ggWirtSchalter = ggWirtSchalter;
 
 // Die zwei Schluessel aus dem Dashboard heraus setzen.
 //
@@ -88649,6 +89963,8 @@ function _kdsRenderCard(o, colType) {
         '</div>' +
         // Kunden-Notiz
         (o.customer_notes ? '<div style="margin:0 20px 12px;padding:10px 14px;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.12);border-radius:20px;font-size:13px;color:#92400e;font-weight:500;display:flex;align-items:flex-start;gap:8px;line-height:1.4;"><svg viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" width="16" height="16" style="flex-shrink:0;margin-top:1px;"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>' + escapeHtml(o.customer_notes) + '</div>' : '') +
+        // Allergie aus frueheren Besuchen
+        (function () { var _a = allergieZeileHtml(o); return _a ? '<div style="margin:0 20px 12px;">' + _a + '</div>' : ''; })() +
         // Trennlinie
         '<div style="margin:0 20px;height:1px;background:linear-gradient(90deg,transparent,rgba(0,61,51,0.08),transparent);"></div>' +
         // Items
@@ -88693,6 +90009,8 @@ async function refreshKitchenOrders() {
             orders = _retry.data;
         }
         if (!orders) orders = [];
+        // Allergien aus frueheren Besuchen fuer die Karten (laedt einmal, dann aus dem Speicher).
+        try { allergieVerlaufLaden(restaurantId, refreshKitchenOrders); } catch (e) {}
 
         // Sound bei neuen Bestellungen
         var newIds = new Set(orders.map(function(o) { return o.id; }));
