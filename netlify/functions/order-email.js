@@ -54,7 +54,7 @@ var FRIST = require('./lib/storno-frist');
 var CORS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Content-Type': 'application/json; charset=utf-8'
 };
 
@@ -524,6 +524,58 @@ async function handleReservation(resvId, eventType) {
     return json(200, { ok: true, sent: true });
 }
 
+// ERNEUT SENDEN (06.11.2026).
+//
+// Ibo, mit einem Resend-Fenster voller roter Zeile: "Recipient not found"
+// bei lars.janasen@autohaus-wirdemann.de -- der Gast hatte sich vertippt.
+// Danach sperrt Resend die Adresse, und es gab keinen Weg, die Mail an die
+// richtige Adresse zu schicken. "ja mach das da kann ich machen."
+//
+// Der Wirt traegt im Bearbeiten-Fenster die richtige Adresse ein und
+// drueckt "Bestaetigung erneut senden". Hierher kommt der Aufruf MIT
+// seiner Anmeldung. Wir lesen die Reservierung mit SEINEM Schluessel --
+// die Lese-Regel (09-alles-in-einem) zeigt sie nur dem eigenen Haus. Kommt
+// nichts zurueck, darf er nicht. So kann kein Fremder einem Gast beliebig
+// oft Mails schicken lassen.
+//
+// Welche Mail? Die, die zum Stand passt: offen -> Anfrage eingegangen,
+// abgesagt -> nicht moeglich, sonst -> bestaetigt. Kein Duplikatschutz --
+// "erneut" ist ja gerade der Sinn.
+function erneutArt(status) {
+    if (status === 'pending') return 'received';
+    if (status === 'cancelled' || status === 'rejected') return 'cancelled';
+    return 'confirmed';
+}
+
+async function handleErneut(resvId, auth) {
+    var token = String(auth || '').replace(/^Bearer\s+/i, '').trim();
+    if (!token || token === SUPABASE_ANON_KEY) return json(401, { ok: false, fehler: 'Nicht angemeldet.' });
+    var pr = await fetch(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + encodeURIComponent(resvId) + '&select=id,status', {
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + token }
+    });
+    if (pr.status === 401) return json(401, { ok: false, fehler: 'Anmeldung abgelaufen. Bitte neu anmelden.' });
+    var pl = pr.ok ? await pr.json().catch(function () { return []; }) : [];
+    if (!pl.length) return json(403, { ok: false, fehler: 'Diese Reservierung gehört nicht zu deinem Lokal.' });
+
+    var rows = await fetch(SUPABASE_URL + '/rest/v1/reservations?id=eq.' + encodeURIComponent(resvId) + '&select=*', { headers: sbHeaders() });
+    var data = rows.ok ? await rows.json() : [];
+    if (!data.length) return json(404, { ok: false, fehler: 'Reservierung nicht gefunden.' });
+    var resv = data[0];
+    var to = String(resv.guest_email || '').trim();
+    if (!to || to.indexOf('@') < 1) return json(200, { ok: false, fehler: 'Keine E-Mail-Adresse eingetragen.' });
+
+    var rest = null;
+    if (resv.restaurant_id) {
+        try {
+            var rres = await fetch(SUPABASE_URL + '/rest/v1/restaurants?id=eq.' + encodeURIComponent(resv.restaurant_id) + '&select=id,slug,name,street,city,phone,email,google_maps_url,logo_url,features,opening_hours,opening_time', { headers: sbHeaders() });
+            if (rres.ok) { var rl = await rres.json(); rest = rl[0] || null; }
+        } catch (e) {}
+    }
+    var art = erneutArt(resv.status);
+    await sendViaResend(to, buildReservationEmail(resv, rest, art), rest);
+    return json(200, { ok: true, sent: true, an: to, art: art });
+}
+
 exports.handler = async function (event) {
     if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS, body: '' };
 
@@ -584,6 +636,14 @@ exports.handler = async function (event) {
     if (resvId) {
         if (!/^[0-9a-f-]{10,}$/i.test(String(resvId))) return json(400, { error: 'reservation_id ungueltig' });
         var evType = String(body.event || 'received').toLowerCase();
+        if (evType === 'erneut') {
+            var hd = event.headers || {};
+            try {
+                return await handleErneut(resvId, hd.authorization || hd.Authorization || '');
+            } catch (e) {
+                return json(e.resend ? 502 : 500, { ok: false, fehler: e.resend ? 'Resend hat abgelehnt: ' + e.message : 'Fehler: ' + e.message });
+            }
+        }
         if (['received', 'confirmed', 'cancelled'].indexOf(evType) < 0) evType = 'received';
         try {
             return await handleReservation(resvId, evType);
