@@ -100,18 +100,18 @@ button,input,select{font:inherit}
 .lp-zahl{background:rgba(0,37,30,.72);color:rgba(255,255,255,.92);font:600 12px Inter,sans-serif;letter-spacing:.02em;border-radius:9999px;padding:6px 14px}
 .lp-ueber{max-width:1280px;margin:0 auto;padding:0 24px 128px;display:grid;grid-template-columns:1fr;gap:64px;align-items:center}
 .lp.d .lp-ueber{grid-template-columns:1fr 1fr}
-.lp-ueber .bild{aspect-ratio:4/5;border-radius:16px;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,.25);transform:rotate(1deg);background:#e7e5e4 var(--lp-foto,none) center/cover no-repeat}
-.lp.m .lp-ueber .bild{aspect-ratio:4/3;transform:none;border-radius:28px}
+.lp-ueber .ubild{aspect-ratio:4/5;border-radius:16px;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,.25);transform:rotate(1deg);background:#e7e5e4 var(--lp-foto,none) center/cover no-repeat}
+.lp.m .lp-ueber .ubild{aspect-ratio:4/3;transform:none;border-radius:28px}
 .lp-ueber .eb{color:var(--marke);font:700 14px Epilogue,sans-serif;letter-spacing:.3em;text-transform:uppercase;display:block;margin-bottom:16px}
 .lp-ueber h2{font:700 48px/1.1 Epilogue,sans-serif;color:#00251e;margin:0 0 32px}
 .lp.m .lp-ueber h2{font-size:32px}
 .lp-ueber p{color:#404946;font:400 18px/1.6 Inter,sans-serif;margin:0}
 .lp-menu{max-width:1280px;margin:0 auto 112px;padding:0 24px}
 .lp-menu .kasten{background:#fff;border:1px solid #e7e5e4;border-radius:28px;padding:24px 0 20px;overflow:hidden;box-shadow:0 12px 32px -18px rgba(0,0,0,.18)}
-.lp-menu .kopf{padding:0 20px 20px;display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+.lp-menu .mkopf{padding:0 20px 20px;display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
 .lp-menu h2{font:700 28px Epilogue,sans-serif;color:#00251e;margin:0}
-.lp-menu .kopf p{color:#404946;letter-spacing:.1em;text-transform:uppercase;font-size:12px;margin:8px 0 0}
-.lp-menu .kopf b{font:700 13px Inter,sans-serif;color:#00251e;white-space:nowrap}
+.lp-menu .mkopf p{color:#404946;letter-spacing:.1em;text-transform:uppercase;font-size:12px;margin:8px 0 0}
+.lp-menu .mkopf b{font:700 13px Inter,sans-serif;color:#00251e;white-space:nowrap}
 .lp-menu .reihe{display:flex;overflow:hidden;gap:14px;padding:0 20px 6px}
 .lp-gk{flex:0 0 78%;max-width:280px;border-radius:24px;overflow:hidden;background:#fff;border:1px solid #ecebe9;display:flex;flex-direction:column}
 .lp.d .lp-gk{flex:0 0 300px;max-width:300px}
@@ -127,8 +127,8 @@ button,input,select{font:inherit}
 .lp.d .lp-besuch .wrap{flex-direction:row}
 .lp-besuch .karte{height:400px;flex:1;background:#e4e7e5;background-image:linear-gradient(#d9dedb 2px,transparent 2px),linear-gradient(90deg,#d9dedb 2px,transparent 2px);background-size:64px 64px;display:flex;align-items:center;justify-content:center}
 .lp-besuch .karte i{width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--marke);box-shadow:0 6px 14px rgba(0,0,0,.25)}
-.lp-besuch .feld{padding:48px;background:var(--marke);color:#fff}
-.lp.d .lp-besuch .feld{width:42%}
+.lp-besuch .bfeld{padding:48px;background:var(--marke);color:#fff}
+.lp.d .lp-besuch .bfeld{width:42%}
 .lp-besuch h2{font:700 28px Epilogue,sans-serif;margin:0 0 32px}
 .lp-besuch .l{color:color-mix(in srgb,var(--marke) 35%,#fff);text-transform:uppercase;letter-spacing:.15em;font:700 12px Inter,sans-serif;margin:0 0 4px}
 .lp-besuch .v{font:400 18px Inter,sans-serif;margin:0 0 24px}
@@ -366,11 +366,16 @@ button,input,select{font:inherit}
     h+='<div class="lp-vk"><span class="offen"><i></i>Offen bis 22:00</span><span class="ruf">'+ICON.ruf+'Anrufen</span></div>';
     h+='<p class="satz">"'+esc(kueche)+(zustand.ort?' in '+ort:'')+'"</p></div></section>';
     h+='<div class="lp-leiste"><div class="lp-aktionen">'+(a.reservieren?'<span class="erst">'+ICON.kal+'Reservieren</span>':'')+(a.bestellen?'<span'+(a.reservieren?'':' class="erst"')+'>'+ICON.tasche+'Bestellen</span>':'')+'<span>'+ICON.karte+'Karte</span></div><div class="lp-zahl">Zahlung: Bar · Karte</div></div>';
-    h+='<section class="lp-ueber"><div class="bild"></div><div><span class="eb">Über uns</span><h2>'+esc(kueche)+' trifft Nordsee</h2><p>'+name+(zustand.ort?' in '+ort:'')+': '+esc(kueche)+'. Frisch zubereitet, mit norddeutschem Flair.</p></div></section>';
-    h+='<section class="lp-menu"><div class="kasten"><div class="kopf"><div><h2>Speisekarte</h2><p>Unsere Empfehlungen</p></div><b>Alles ansehen →</b></div><div class="reihe">';
-    k[1].forEach(function(z,i){h+='<div class="lp-gk"><div class="b"'+(i===0&&foto?' style="background-image:url(&quot;'+foto+'&quot;)"':'')+'></div><div class="t"><div class="k"><h3>'+esc(z[0])+'</h3><span>'+z[2]+'</span></div><p>'+esc(z[1])+'</p>'+(a.bestellen||a.tisch?'<div class="kn">In den Warenkorb</div>':'')+'</div></div>'});
-    h+='</div></div></section>';
-    h+='<section class="lp-besuch"><div class="wrap"><div class="karte"><i></i></div><div class="feld"><h2>Besuche uns</h2><p class="l">Adresse</p><p class="v">Ihre Straße 1<br>'+ort+'</p><p class="l">Öffnungszeiten</p>';
+    h+='<section class="lp-ueber"><div class="ubild"></div><div><span class="eb">Über uns</span><h2>'+esc(kueche)+' trifft Nordsee</h2><p>'+name+(zustand.ort?' in '+ort:'')+': '+esc(kueche)+'. Frisch zubereitet, mit norddeutschem Flair.</p></div></section>';
+    // Wie die echte Seite: "Unsere Empfehlungen" NUR mit Fotos (index.html,
+    // Speisekarte Highlights). Ohne Foto gibt es den Bereich dort nicht – also
+    // hier auch nicht (vorher standen hier fast schwarze Kästen).
+    if(foto){
+      h+='<section class="lp-menu"><div class="kasten"><div class="mkopf"><div><h2>Speisekarte</h2><p>Unsere Empfehlungen</p></div><b>Alles ansehen →</b></div><div class="reihe">';
+      var z=k[1][0];h+='<div class="lp-gk"><div class="b" style="background-image:url(&quot;'+foto+'&quot;)"></div><div class="t"><div class="k"><h3>'+esc(z[0])+'</h3><span>'+z[2]+'</span></div><p>'+esc(z[1])+'</p>'+(a.bestellen||a.tisch?'<div class="kn">In den Warenkorb</div>':'')+'</div></div>';
+      h+='</div></div></section>';
+    }
+    h+='<section class="lp-besuch"><div class="wrap"><div class="karte"><i></i></div><div class="bfeld"><h2>Besuche uns</h2><p class="l">Adresse</p><p class="v">Ihre Straße 1<br>'+ort+'</p><p class="l">Öffnungszeiten</p>';
     TAGE.forEach(function(t,i){if(Math.abs(i-heute)<=1||i===heute)h+='<div class="lp-zeit'+(i===heute?' heute':'')+'"><span>'+t+'</span><span>11:30 – 22:00</span></div>'});
     h+='<p class="l" style="margin-top:24px">Telefon</p><p class="v">Ihre Nummer</p></div></div></section>';
     h+='<div class="lp-fusszeile">Powered by<b>Kiek mol <span>in</span></b></div></div>';

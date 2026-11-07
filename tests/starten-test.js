@@ -87,5 +87,11 @@ t('Laptop und Handy aus derselben Vorlage (kein doppelter Nachbau)', /\$\('seite
 t('Knöpfe wie in der echten App: Reservieren/Bestellen schaltbar, Karte immer', /a\.reservieren\?'<span class="erst">/.test(st) && /a\.bestellen\?/.test(st) && /'<span>'\+ICON\.karte\+'Karte<\/span>/.test(st));
 t('Echte App hat dieselben Knöpfe (no_reservations / no_ordering / Karte immer)', /noReservations = restFeatures\.indexOf\('no_reservations'\)/.test(h) && /die Karte gibt es immer/.test(h));
 t('Am Handy umschaltbar Handy | Laptop', /data-zeige="laptop"/.test(st) && /\.buehne\[data-zeige=handy\] \.laptop/.test(st));
+t('Empfehlungen nur mit Foto (wie die echte Seite) – keine leeren dunklen Kaesten', /if\(foto\)\{\s*h\+='<section class="lp-menu">/.test(st) && /if \(menuItems\.length === 0\) return '';/.test(h));
+// Die Seite selbst hat .kopf (Kopfzeile, sticky, eigener Grund). Kein Teil der
+// nachgebauten Restaurantseite darf so heissen -- sonst erbt er den Grund
+// (gemessen 07.11.2026: schwarzer Balken hinter "Unsere Empfehlungen" im Dunkelmodus).
+var seiteTeil = (st.match(/function seite\(modus\)\{[\s\S]*?\n  \}/) || [''])[0];
+t('Vorschau nutzt keine Klassen der Seitenhuelle (kopf, auswahl, leiste, bau)', seiteTeil.length > 500 && !/class="(kopf|auswahl|leiste|bau|schritt|summe|bild|feld|wahl|farbe|info)"/.test(seiteTeil), (seiteTeil.match(/class="(kopf|auswahl|leiste|bau|schritt|summe|bild|feld|wahl|farbe|info)"/) || [])[0]);
 console.log('\n' + ok + '/' + n + (ok === n ? ' grün' : ' ROT'));
 process.exit(ok === n ? 0 : 1);
