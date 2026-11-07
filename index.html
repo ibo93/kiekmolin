@@ -49287,7 +49287,16 @@ async function showRestaurantLanding(rest) {
             ${typeof eroeffnungBalkenHtml === 'function' ? eroeffnungBalkenHtml(rest) : ''}
             <div id="lpHeroBg1" class="${lpEchtesFoto ? '' : 'lp-ohne-foto'}" style="position:absolute;inset:0;${lpEchtesFoto ? "background:url('" + rest.image + "') center/cover no-repeat;" : ''}transition:opacity 2s ease-in-out;opacity:1;">${lpEchtesFoto ? '' : '<span aria-hidden="true">' + escapeHtml(lpInitial) + '</span>'}</div>
             <div id="lpHeroBg2" style="position:absolute;inset:0;background:center/cover no-repeat;transition:opacity 2s ease-in-out;opacity:0;"></div>
-            <div style="position:absolute;inset:0;background:linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 30%, #ffffff 100%);"></div>
+            <!-- FARBVERLAUF IN DER WIRTE-FARBE (Ibo, 07.11.2026: "das mit der
+                 Farbe ... wo das Titelbild ist ... sowas will ich bei kiekmolin").
+                 Vorher lief das Foto unten ins Weisse aus -- jede Seite sah
+                 gleich aus. Jetzt laeuft es in --marke aus, also in die Farbe,
+                 die der Wirt im Dashboard waehlt. --marke ist durch MARKE.von()
+                 schon kontrastgeprueft. Die weisse Karte liegt darauf, die
+                 Schrift darin bleibt lesbar.
+                 Erste Zeile = alter Verlauf als Rueckfall fuer Browser ohne
+                 color-mix (Safari < 16.2): die ignorieren die zweite Zeile. -->
+            <div class="lp-farbverlauf" style="position:absolute;inset:0;background:linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 30%, #ffffff 100%);background:linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 30%, color-mix(in srgb, var(--marke,#003d33) 55%, transparent) 68%, var(--marke,#003d33) 100%);"></div>
             <!-- FOTO-KARUSSELL IM KOPF (Ibo, 19.10.2026: "Foto-Karussell einfuegen").
                  Die Fotos wechselten schon -- aber zufaellig, alle 7 s, ohne
                  dass der Gast blaettern konnte. Jetzt: Punkte, Pfeile,
