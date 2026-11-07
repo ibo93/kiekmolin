@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ihr Lokal auf Kiek mol in – in 10 Sekunden ansehen</title>
+<meta name="description" content="Sehen Sie Ihre eigene Seite auf Kiek mol in, bevor Sie sich anmelden: Speisekarte, Bestellen, Reservieren, Tisch-QR und eigenes Dashboard. 59,90 € im Monat, alles drin, 0 % Provision, monatlich kündbar.">
+<link rel="canonical" href="https://kiekmolin.de/starten">
+<meta name="theme-color" content="#003D33">
+<link rel="icon" href="/favicon-32.png">
+<link rel="preload" href="/public/fonts/epilogue-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/public/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face{font-family:'Epilogue';font-style:normal;font-display:swap;font-weight:100 900;src:url(/public/fonts/epilogue-latin.woff2) format('woff2-variations')}
+@font-face{font-family:'Inter';font-style:normal;font-display:swap;font-weight:100 900;src:url(/public/fonts/inter-latin.woff2) format('woff2-variations')}
+:root{
+  --gr:#003D33;--gr-tief:#00251e;--gold:#C5A233;--gold-hell:#FFD54F;
+  --grund:#f4f5f4;--flaeche:#fff;--kohle:#191c1d;--schiefer:#4a5551;--linie:rgba(0,37,30,.12);
+  --buehne:#e9ecea;--marke:#14342b;
+}
+@media (prefers-color-scheme:dark){:root{
+  --gr:#9cd1c3;--grund:#0a1612;--flaeche:#13221d;--kohle:#e8eeec;--schiefer:#a3b0ac;--linie:rgba(255,255,255,.10);--buehne:#0f1d18;
+}}
+*{box-sizing:border-box}
+html,body{margin:0;overflow-x:clip}
+body{background:var(--grund);color:var(--kohle);font:400 16px/1.55 Inter,-apple-system,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:Epilogue,Inter,sans-serif;font-weight:900;letter-spacing:-.035em;line-height:1.05;margin:0}
+a{color:inherit}
+button,input,select{font:inherit}
+:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+
+.kopf{position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;height:60px;padding:0 20px;background:var(--grund);border-bottom:1px solid var(--linie)}
+.kopf a.wort{font-family:Epilogue,sans-serif;font-weight:900;font-size:19px;letter-spacing:-.03em;color:var(--gr);text-decoration:none}
+.kopf span{font-size:13.5px;color:var(--schiefer)}
+
+/* Tesla-Aufbau: links die Bühne mit SEINER Seite, rechts die Auswahl */
+.bau{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(360px,460px);min-height:calc(100svh - 60px)}
+.buehne{position:sticky;top:60px;height:calc(100svh - 60px);background:var(--buehne);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.buehne .adresse{position:absolute;left:0;right:0;bottom:22px;text-align:center;font-size:13px;color:var(--schiefer)}
+.buehne .adresse b{color:var(--kohle);font-weight:700}
+.auswahl{padding:40px 36px 140px;background:var(--grund)}
+
+/* Das Handy: schlicht, kein Spielzeug – nur Rahmen und Bildschirm */
+.handy{width:300px;height:620px;border-radius:46px;background:#0b0d0c;padding:10px;box-shadow:0 40px 80px -30px rgba(0,30,20,.45),0 0 0 1px rgba(0,0,0,.25);transform-origin:center;flex:none}
+.schirm{width:100%;height:100%;border-radius:37px;overflow:hidden;background:#fff;color:#191c1d;position:relative;display:flex;flex-direction:column}
+.schirm .roll{flex:1;overflow:hidden}
+.lp-kopf{background:var(--marke);color:#fff;padding:44px 18px 18px;transition:background .45s ease}
+.lp-kopf .art{font-size:11px;letter-spacing:.06em;text-transform:uppercase;opacity:.8}
+.lp-kopf h2{font-size:27px;color:#fff;margin:6px 0 10px;overflow-wrap:anywhere;hyphens:auto}
+.lp-kopf .auf{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.14);border-radius:999px;padding:6px 11px;font-size:12px;font-weight:600}
+.lp-kopf .auf i{width:7px;height:7px;border-radius:50%;background:#4ADE80}
+.lp-knoepfe{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:14px 14px 4px}
+.lp-knopf{border-radius:12px;padding:11px 10px;font-size:12.5px;font-weight:700;text-align:center;background:#f1f3f2;color:#191c1d;transition:opacity .3s,transform .3s}
+.lp-knopf.haupt{background:var(--marke);color:#fff;grid-column:1/-1;transition:background .45s}
+.lp-knopf.aus{display:none}
+.lp-tisch{margin:10px 14px 0;border:1.5px dashed var(--marke);border-radius:12px;padding:10px 12px;font-size:12px;display:flex;gap:10px;align-items:center}
+.lp-tisch b{display:block;font-size:13px}
+.lp-karte{padding:12px 16px}
+.lp-karte h3{font-size:15px;margin:6px 0 8px}
+.lp-zeile{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid #edf0ee;font-size:13px}
+.lp-zeile span:first-child{font-weight:600}
+.lp-zeile small{display:block;font-weight:400;color:#68716d;font-size:11px}
+.lp-fuss{border-top:1px solid #edf0ee;padding:10px 16px 16px;font-size:10.5px;color:#68716d;text-align:center}
+.meldung{position:absolute;left:10px;right:10px;top:12px;background:rgba(20,20,20,.92);color:#fff;border-radius:16px;padding:10px 12px;font-size:12px;line-height:1.35;transform:translateY(-130%);transition:transform .45s cubic-bezier(.2,.8,.2,1);z-index:3}
+.meldung.da{transform:none}
+.meldung b{display:block;font-size:12.5px}
+
+/* Auswahl rechts */
+.auswahl h1{font-size:clamp(30px,3.4vw,40px)}
+.auswahl .unter{color:var(--schiefer);margin:10px 0 26px}
+.schritt{border-top:1px solid var(--linie);padding:24px 0}
+.schritt h2{font-size:19px;margin-bottom:4px}
+.schritt .info{font-size:14px;color:var(--schiefer);margin:0 0 14px}
+.feld{display:grid;gap:6px;margin-bottom:12px;font-size:13.5px;font-weight:600}
+.feld input,.feld select{padding:13px 14px;border-radius:12px;border:1px solid var(--linie);background:var(--flaeche);color:var(--kohle);width:100%;min-height:48px}
+.farben{display:flex;flex-wrap:wrap;gap:10px}
+.farbe{width:44px;height:44px;border-radius:50%;border:3px solid var(--grund);box-shadow:0 0 0 1px var(--linie);cursor:pointer;padding:0}
+.farbe[aria-pressed=true]{box-shadow:0 0 0 2px var(--gold)}
+.farbname{font-size:13px;color:var(--schiefer);margin-top:10px}
+.wahl{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:var(--flaeche);border:1px solid var(--linie);border-radius:14px;padding:14px 16px;margin-bottom:10px;cursor:pointer;color:var(--kohle);min-height:60px}
+.wahl[aria-pressed=true]{border:2px solid var(--gr);padding:13px 15px}
+.wahl .k{width:22px;height:22px;border-radius:6px;border:2px solid var(--linie);flex:none;display:grid;place-items:center}
+.wahl[aria-pressed=true] .k{background:var(--gr);border-color:var(--gr)}
+.wahl[aria-pressed=true] .k::after{content:'';width:9px;height:5px;border-left:2px solid var(--grund);border-bottom:2px solid var(--grund);transform:rotate(-45deg) translate(1px,-1px)}
+.wahl b{display:block;font-size:15px}
+.wahl small{color:var(--schiefer);font-size:13px}
+.wahl .inkl{margin-left:auto;font-size:12px;font-weight:700;color:var(--gr);white-space:nowrap}
+.immer{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.immer li{display:flex;justify-content:space-between;gap:12px;font-size:15px}
+.immer li span:last-child{font-weight:700;color:var(--gr);font-size:13px;white-space:nowrap}
+.summe{background:var(--flaeche);border:1px solid var(--linie);border-radius:20px;padding:22px}
+.summe .zahl{font-family:Epilogue,sans-serif;font-weight:900;font-size:44px;letter-spacing:-.04em;color:var(--gr);line-height:1}
+.summe .zahl small{font-size:16px;font-weight:600;color:var(--schiefer);letter-spacing:0;font-family:Inter,sans-serif}
+.summe ul{margin:14px 0 0;padding:0;list-style:none;display:grid;gap:7px;font-size:14.5px}
+.summe li::before{content:'✓ ';color:var(--gr);font-weight:800}
+.gruender{margin-top:14px;background:rgba(255,213,79,.18);border-left:4px solid var(--gold);border-radius:0 10px 10px 0;padding:11px 14px;font-size:14px;font-weight:600}
+.recht{font-size:12.5px;color:var(--schiefer);margin:14px 0 0}
+
+/* Die Preisleiste bleibt immer sichtbar – wie bei Tesla */
+.leiste{position:fixed;right:0;bottom:0;z-index:40;width:min(460px,100%);display:flex;align-items:center;gap:14px;justify-content:space-between;padding:14px 22px calc(14px + env(safe-area-inset-bottom,0px));background:var(--flaeche);border-top:1px solid var(--linie);box-shadow:0 -10px 30px -12px rgba(0,30,20,.18)}
+.leiste .p{line-height:1.2}
+.leiste .p b{font-family:Epilogue,sans-serif;font-size:22px;letter-spacing:-.03em}
+.leiste .p small{display:block;font-size:12px;color:var(--schiefer)}
+.los{background:var(--gr);color:#fff;border:0;border-radius:999px;padding:0 24px;min-height:50px;font-weight:700;font-size:15.5px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;white-space:nowrap}
+@media (prefers-color-scheme:dark){.los{background:var(--gold-hell);color:#00251e}}
+
+@media (max-width:860px){
+  .bau{grid-template-columns:minmax(0,1fr)}
+  html{scroll-padding-top:calc(60px + 36svh + 12px);scroll-padding-bottom:84px}
+  .buehne{position:sticky;top:60px;height:36svh;z-index:5;border-bottom:1px solid var(--linie)}
+  .buehne .adresse{display:none}
+  .leiste .p small{font-size:11.5px}
+  .leiste .p b{font-size:20px}
+  .los{padding:0 18px;font-size:15px}
+  .auswahl{padding:26px 18px 120px}
+  .leiste{width:100%;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px))}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="kopf"><a class="wort" href="/">Kiek mol in</a><span>Für Gastronomen</span></header>
+
+<main class="bau">
+  <div class="buehne" aria-label="Vorschau Ihrer Seite">
+    <div class="handy" id="handy">
+      <div class="schirm">
+        <div class="meldung" id="meldung" aria-hidden="true"><b>Neue Bestellung · Tisch 4</b><span id="v-bestellung">2× Pizza Margherita</span> – direkt in Ihrem Dashboard</div>
+        <div class="roll">
+          <div class="lp-kopf">
+            <div class="art" id="v-art">Restaurant · Ostfriesland</div>
+            <h2 id="v-name">Ihr Lokal</h2>
+            <span class="auf"><i></i>Jetzt geöffnet</span>
+          </div>
+          <div class="lp-knoepfe">
+            <div class="lp-knopf haupt" id="v-haupt">Jetzt bestellen</div>
+            <div class="lp-knopf" data-f="abholen">Abholen</div>
+            <div class="lp-knopf" data-f="liefern">Liefern lassen</div>
+            <div class="lp-knopf" data-f="reservieren">Tisch reservieren</div>
+            <div class="lp-knopf" data-f="speisekarte">Speisekarte</div>
+          </div>
+          <div class="lp-tisch" data-f="tisch"><svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><g fill="currentColor"><rect x="2" y="2" width="9" height="9" rx="1.5"/><rect x="17" y="2" width="9" height="9" rx="1.5"/><rect x="2" y="17" width="9" height="9" rx="1.5"/><rect x="17" y="17" width="4" height="4"/><rect x="22" y="22" width="4" height="4"/></g></svg><div><b>Sie sitzen an Tisch 4</b>Bestellen direkt vom Tisch – ohne Warten</div></div>
+          <div class="lp-karte"><h3>Speisekarte</h3><div id="v-karte"></div></div>
+          <div class="lp-fuss">Allergene ausgewiesen · Bezahlen vor Ort oder online</div>
+        </div>
+      </div>
+    </div>
+    <div class="adresse">Ihre Adresse: <b id="v-adresse">kiekmolin.de/ihr-lokal</b></div>
+  </div>
+
+  <div class="auswahl">
+    <h1>Ihr Lokal auf Kiek mol in.</h1>
+    <p class="unter">Das Handy zeigt Ihre eigene Seite – sie ändert sich mit jeder Auswahl. Ein Preis, alles drin.</p>
+
+    <section class="schritt">
+      <h2>1 · Ihr Lokal</h2>
+      <p class="info">Nur zum Ansehen – gespeichert wird hier nichts.</p>
+      <label class="feld">Name<input id="e-name" autocomplete="organization" placeholder="z. B. Fischhaus Norddeich" maxlength="60"></label>
+      <p class="info" style="margin:-4px 0 12px">Ihre Adresse: <b id="v-adresse2" style="color:var(--kohle)">kiekmolin.de/ihr-lokal</b></p>
+      <label class="feld">Ort<input id="e-ort" autocomplete="address-level2" placeholder="z. B. Norden" maxlength="40"></label>
+      <label class="feld">Küche<select id="e-kueche">
+        <option value="italienisch">Italienisch / Pizza</option>
+        <option value="fisch">Fisch &amp; Meeresfrüchte</option>
+        <option value="deutsch">Deutsch / Regional</option>
+        <option value="griechisch">Griechisch</option>
+        <option value="doener">Döner / Kebab</option>
+        <option value="asiatisch">Asiatisch</option>
+        <option value="burger">Burger</option>
+        <option value="cafe">Café / Bäckerei</option>
+      </select></label>
+    </section>
+
+    <section class="schritt">
+      <h2>2 · Ihre Farbe</h2>
+      <p class="info">Später jederzeit im Dashboard änderbar.</p>
+      <div class="farben" id="farben"></div>
+      <div class="farbname" id="farbname"></div>
+    </section>
+
+    <section class="schritt">
+      <h2>3 · Was Ihre Gäste können</h2>
+      <p class="info">Alles inklusive. Schalten Sie ein, was zu Ihnen passt.</p>
+      <div id="funktionen"></div>
+    </section>
+
+    <section class="schritt">
+      <h2>4 · Immer dabei</h2>
+      <ul class="immer">
+        <li><span>Eigenes Dashboard für Bestellungen &amp; Reservierungen</span><span>inklusive</span></li>
+        <li><span>Meldung aufs Handy bei jeder Bestellung</span><span>inklusive</span></li>
+        <li><span>QR-Aufsteller für jeden Tisch zum Ausdrucken</span><span>inklusive</span></li>
+        <li><span>Speisekarte mit Allergenen, Preise selbst ändern</span><span>inklusive</span></li>
+        <li><span>Statistiken</span><span>inklusive</span></li>
+      </ul>
+      <p class="info" style="margin-top:14px"><button type="button" class="wahl" id="probe" style="margin:0"><span><b>So sieht eine Bestellung bei Ihnen aus</b><small>Antippen – oben erscheint sie im Handy</small></span></button></p>
+    </section>
+
+    <section class="schritt">
+      <h2>5 · Ihr Preis</h2>
+      <div class="summe">
+        <div class="zahl">59,90 € <small>im Monat</small></div>
+        <ul>
+          <li>Alles drin – nichts kostet extra</li>
+          <li>0 % Provision auf Bestellungen</li>
+          <li>Monatlich kündbar</li>
+        </ul>
+        <div class="gruender">Für die ersten 20 Restaurants: Ihr Preis bleibt bei 59,90 €.</div>
+        <p class="recht">Sie melden sich mit Google an und schicken uns Ihre Daten. Wir prüfen und schalten Ihr Lokal frei – vorher wird nichts berechnet. Preis zzgl. MwSt., falls zutreffend.</p>
+      </div>
+    </section>
+  </div>
+</main>
+
+<div class="leiste">
+  <div class="p"><b>59,90 €</b> / Monat<small>alles drin · 0 % Provision</small></div>
+  <a class="los" id="los" href="/?wirt=starten">Jetzt Platz sichern</a>
+</div>
+
+<script>
+(function(){
+  // Dieselben Farben wie im Wirte-Dashboard (MARKE.PALETTE) – nichts zeigen, was er dort nicht wählen kann.
+  var FARBEN=[['Tannengrün','#14342b'],['Petrol','#14494f'],['Tiefblau','#1b3a5c'],['Nachtblau','#16233d'],['Aubergine','#452340'],['Bordeaux','#6b1220'],['Rostrot','#7c2d12'],['Terracotta','#8a3a1e']];
+  var FUNKTIONEN=[['abholen','Abholen','Gäste bestellen online und holen ab'],['liefern','Liefern','Mit eigener Liefergebühr und Mindestbestellwert'],['reservieren','Tisch reservieren','Reservierung landet sofort bei Ihnen'],['tisch','Bestellen am Tisch','QR-Code auf dem Tisch – Gast bestellt selbst']];
+  var KARTEN={
+    italienisch:['Italienisch',[['Pizza Margherita','Tomaten, Mozzarella, Basilikum','8,90 €'],['Spaghetti Carbonara','Speck, Ei, Parmesan','11,50 €'],['Tiramisu','Hausgemacht','5,90 €']]],
+    fisch:['Fisch & Meeresfrüchte',[['Scholle Finkenwerder Art','Speck, Bratkartoffeln','18,90 €'],['Krabbenbrot','Nordseekrabben, Rührei','12,50 €'],['Matjes Hausfrauenart','Apfel, Zwiebeln, Sahne','13,90 €']]],
+    deutsch:['Deutsch · Regional',[['Schnitzel Wiener Art','Pommes, Salat','14,90 €'],['Grünkohl mit Pinkel','Im Winter','15,50 €'],['Rote Grütze','Mit Vanillesoße','5,50 €']]],
+    griechisch:['Griechisch',[['Gyros-Teller','Tzatziki, Pommes, Salat','13,90 €'],['Souvlaki','Zwei Spieße, Reis','14,50 €'],['Bifteki','Mit Schafskäse gefüllt','15,90 €']]],
+    doener:['Döner · Kebab',[['Döner im Brot','Salat, Soße nach Wahl','7,50 €'],['Dürüm','Im Fladenbrot gerollt','8,50 €'],['Lahmacun','Mit Salat','6,50 €']]],
+    asiatisch:['Asiatisch',[['Gebratene Nudeln','Mit Hähnchen und Gemüse','11,90 €'],['Rotes Curry','Kokosmilch, Jasminreis','13,50 €'],['Frühlingsrollen','Vier Stück, süß-sauer','5,50 €']]],
+    burger:['Burger',[['Classic Burger','Rind, Cheddar, Salat','12,90 €'],['Chicken Burger','Knusprig, Coleslaw','12,50 €'],['Süßkartoffel-Pommes','Mit Dip','4,90 €']]],
+    cafe:['Café',[['Ostfriesentee-Gedeck','Mit Kluntje und Sahne','4,50 €'],['Hausgemachte Torte','Wechselnd','3,90 €'],['Frühstück Nordsee','Brötchen, Krabben, Rührei','12,50 €']]]
+  };
+  var $=function(i){return document.getElementById(i)};
+  var zustand={name:'',ort:'',kueche:'italienisch',farbe:FARBEN[0],an:{abholen:true,liefern:false,reservieren:true,tisch:true}};
+  var esc=function(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})};
+  var slug=function(s){return s.toLowerCase().replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')};
+
+  FARBEN.forEach(function(f,i){var b=document.createElement('button');b.type='button';b.className='farbe';b.style.background=f[1];b.setAttribute('aria-label',f[0]);b.setAttribute('aria-pressed',i===0);b.onclick=function(){zustand.farbe=f;document.querySelectorAll('.farbe').forEach(function(x){x.setAttribute('aria-pressed',x===b)});zeichnen()};$('farben').appendChild(b)});
+  FUNKTIONEN.forEach(function(f){var b=document.createElement('button');b.type='button';b.className='wahl';b.setAttribute('aria-pressed',!!zustand.an[f[0]]);b.innerHTML='<span class="k"></span><span><b>'+f[1]+'</b><small>'+f[2]+'</small></span><span class="inkl">inklusive</span>';b.onclick=function(){zustand.an[f[0]]=!zustand.an[f[0]];b.setAttribute('aria-pressed',zustand.an[f[0]]);zeichnen()};$('funktionen').appendChild(b)});
+
+  function zeichnen(){
+    var k=KARTEN[zustand.kueche];
+    $('v-name').textContent=zustand.name||'Ihr Lokal';
+    $('v-art').textContent=k[0]+' · '+(zustand.ort||'Ostfriesland');
+    $('v-adresse').textContent=$('v-adresse2').textContent='kiekmolin.de/'+(slug(zustand.name)||'ihr-lokal');
+    document.documentElement.style.setProperty('--marke',zustand.farbe[1]);
+    $('farbname').textContent=zustand.farbe[0];
+    $('v-karte').innerHTML=k[1].map(function(z){return '<div class="lp-zeile"><span>'+esc(z[0])+'<small>'+esc(z[1])+'</small></span><span>'+z[2]+'</span></div>'}).join('');
+    document.querySelectorAll('[data-f]').forEach(function(el){var f=el.getAttribute('data-f');if(f in zustand.an)el.classList.toggle('aus',!zustand.an[f])});
+    var g=k[1][0],pr=parseFloat(g[2].replace(',','.'))*2;$('v-bestellung').textContent='2× '+g[0]+' · '+pr.toFixed(2).replace('.',',')+' €';
+    var a=zustand.an;$('v-haupt').textContent=a.tisch?'Am Tisch bestellen':(a.abholen||a.liefern)?'Jetzt bestellen':a.reservieren?'Tisch reservieren':'Speisekarte ansehen';
+  }
+  $('e-name').addEventListener('input',function(e){zustand.name=e.target.value.trim();zeichnen()});
+  $('e-ort').addEventListener('input',function(e){zustand.ort=e.target.value.trim();zeichnen()});
+  $('e-kueche').addEventListener('change',function(e){zustand.kueche=e.target.value;zeichnen()});
+  var t;$('probe').addEventListener('click',function(){var m=$('meldung');m.classList.add('da');clearTimeout(t);t=setTimeout(function(){m.classList.remove('da')},3800)});
+
+  // Handy in die Bühne einpassen
+  function passen(){var h=$('handy'),b=h.parentNode;var s=Math.min(1.15,(b.clientHeight-(innerWidth<=860?20:90))/620,(b.clientWidth-40)/300);h.style.transform='scale('+Math.max(.3,s)+')';h.style.margin=(-(620*(1-s))/2)+'px '+(-(300*(1-s))/2)+'px'}
+  addEventListener('resize',passen);passen();
+
+  // Auswahl mitnehmen in die Anmeldung (dieselbe Seite, daher localStorage).
+  // Klappt das Speichern nicht, öffnet sich die Anmeldung trotzdem – nur leer.
+  $('los').addEventListener('click',function(){
+    try{localStorage.setItem('kmi_reg_vorfuellen',JSON.stringify({name:zustand.name,ort:zustand.ort,kueche:zustand.kueche,farbe:zustand.farbe[0],funktionen:FUNKTIONEN.filter(function(f){return zustand.an[f[0]]}).map(function(f){return f[1]}),zeit:Date.now()}))}catch(e){}
+  });
+  zeichnen();
+})();
+</script>
+</body>
+</html>
