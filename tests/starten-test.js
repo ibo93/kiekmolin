@@ -48,7 +48,9 @@ t('Load-Handler fragt _wirtStartenPruefen', /_wirtStartenPruefen\(\)/.test(lade)
     t('Ohne sessionStorage: Adresse reicht', vm.runInContext('_wirtStartenPruefen()', w) === true);
 })();
 t('Anmeldung fuellt aus /starten vor', /regVorfuellenAusStarten\(\);\s*\n\s*openModal\('gastroRegistrationModal'\)/.test(schnipsel('startRestaurantRegistration')));
-t('Footer "Für Gastronomen" fuehrt auf /starten', /<a href="\/starten"[^>]*>Für Gastronomen<\/a>/.test(h));
+var balken = (h.match(/<a href="\/starten" id="wirtBalken"[\s\S]*?<\/a>/) || [''])[0];
+t('Unten ein ruhiger Balken fuer Wirte, fuehrt auf /starten', !!balken && /Sie haben ein Restaurant\?/.test(balken));
+t('Balken ist kein Werbebalken: Kartenfarbe, duenner Rand, keine feste Knallfarbe', /background:var\(--bg-card\)/.test(balken) && /border:1px solid var\(--border-color\)/.test(balken) && !/#[0-9a-fA-F]{6}/.test(balken));
 
 console.log('\n-- 2. Vorfuellen wirklich ausfuehren --');
 function lauf(gespeichert, felder) {

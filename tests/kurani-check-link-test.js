@@ -20,17 +20,11 @@ function t(name, bed, info) { if (bed) { ok++; console.log('OK   | ' + name); } 
 var html = fs.readFileSync(path.join(KMI, 'index.html'), 'utf8');
 var toml = fs.readFileSync(path.join(KMI, 'netlify.toml'), 'utf8');
 
-// Oeffentliche Fusszeile
-var fuss = (html.match(/<a [^>]*id="kuraniCheckFuss"[^>]*>/) || [''])[0];
-t('Fusszeile hat den Check-Link', !!fuss);
-t('Fusszeile zeigt auf die EINE Anfrage-Seite mit quelle=kiekmolin', fuss.indexOf('href="' + ZIEL + '"') >= 0, fuss.slice(0, 160));
-
-// Wirte-Dashboard
-var kasten = (html.match(/<div id="kuraniCheckKasten"[\s\S]*?<\/div>\s*<\/div>\s*<\/div>/) || [''])[0];
-t('Dashboard hat den Kasten', !!kasten);
-t('Dashboard-Kasten zeigt auf die EINE Anfrage-Seite', kasten.indexOf('href="' + ZIEL + '"') >= 0);
-t('Dashboard-Kasten liegt im Dashboard-Bereich', html.indexOf('id="kuraniCheckKasten"') > html.indexOf('id="sectionDashboard"'));
-t('Kasten laesst sich ausblenden', /window\.kuraniCheckAusblenden\s*=/.test(html) && /onclick="kuraniCheckAusblenden\(\)"/.test(html));
+// Seit 07.11.2026 abends (Ibo: der dunkle Kurani-Kasten "nervt", und Gastro bekommt
+// ohnehin Kiek mol in): KEIN Kurani-Kasten im Dashboard, KEIN Kurani-Link in der
+// Fusszeile. Wer als Wirt kommt, geht ueber den ruhigen Balken auf /starten.
+t('kein Kurani-Kasten mehr im Wirte-Dashboard', html.indexOf('id="kuraniCheckKasten"') < 0 && !/kuraniCheckAusblenden/.test(html));
+t('kein Kurani-Link mehr auf kiekmolin.de', html.indexOf('kurani-check.netlify.app') < 0);
 
 // Alte Adresse -> neue Seite, mit force (sonst gewinnt die vorhandene Datei still)
 ['/check.html', '/check'].forEach(function (von) {
