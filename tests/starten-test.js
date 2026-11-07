@@ -48,7 +48,11 @@ t('Load-Handler fragt _wirtStartenPruefen', /_wirtStartenPruefen\(\)/.test(lade)
     t('Ohne sessionStorage: Adresse reicht', vm.runInContext('_wirtStartenPruefen()', w) === true);
 })();
 t('Anmeldung fuellt aus /starten vor', /regVorfuellenAusStarten\(\);\s*\n\s*openModal\('gastroRegistrationModal'\)/.test(schnipsel('startRestaurantRegistration')));
-t('Footer "Für Gastronomen" fuehrt auf /starten', /<a href="\/starten"[^>]*>Für Gastronomen<\/a>/.test(h));
+var balken = (h.match(/<a href="\/starten" id="wirtBalken"[\s\S]*?<\/a>/) || [''])[0];
+t('Unten ein ruhiger Balken fuer Wirte, fuehrt auf /starten', !!balken && /Sie haben ein Restaurant\?/.test(balken));
+// Nur Kiek-mol-in-Farben (Gruen, Weiss, Gold des Pfeils) -- keine fremde Werbefarbe.
+var balkenFarben = (balken.match(/#[0-9a-fA-F]{6}/g) || []).map(function (f) { return f.toUpperCase(); });
+t('Balken in Kiek-mol-in-Gruen mit weisser Schrift, keine fremde Farbe', /background:#003D33/.test(balken) && /color:#FFFFFF/.test(balken) && balkenFarben.every(function (f) { return ['#003D33', '#FFFFFF', '#FFD54F'].indexOf(f) >= 0; }), balkenFarben.join(','));
 
 console.log('\n-- 2. Vorfuellen wirklich ausfuehren --');
 function lauf(gespeichert, felder) {
