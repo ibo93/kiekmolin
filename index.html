@@ -10046,7 +10046,16 @@
             box-shadow: 0 -10px 40px rgba(0,0,0,0.15);
             z-index: 10002;
             transform: translateY(100%);
-            transition: transform 0.3s ease;
+            /* GESCHLOSSEN = WEG, NICHT NUR VERSCHOBEN (07.11.2026).
+               Ibo, Screenshot vom Wirte-Dashboard: der Warenkorb ragte von
+               unten ins Bild, "kommt so von alleine". Nur nach unten
+               geschoben reicht nicht: aendert sich auf dem iPhone die
+               Hoehe des Bildschirms (Leiste klappt ein, Drehen), lugt er
+               hervor. Unsichtbar und nicht antippbar, bis er geoeffnet wird;
+               das Ausblenden wartet, bis er hinausgeglitten ist. */
+            visibility: hidden;
+            pointer-events: none;
+            transition: transform 0.3s ease, visibility 0s linear 0.3s;
             max-height: 85vh;
             display: flex;
             flex-direction: column;
@@ -10054,6 +10063,9 @@
 
         .cart-panel.open {
             transform: translateY(0);
+            visibility: visible;
+            pointer-events: auto;
+            transition: transform 0.3s ease, visibility 0s linear 0s;
         }
 
         .cart-panel-header {
@@ -49319,16 +49331,7 @@ async function showRestaurantLanding(rest) {
             ${typeof eroeffnungBalkenHtml === 'function' ? eroeffnungBalkenHtml(rest) : ''}
             <div id="lpHeroBg1" class="${lpEchtesFoto ? '' : 'lp-ohne-foto'}" style="position:absolute;inset:0;${lpEchtesFoto ? "background:url('" + rest.image + "') center/cover no-repeat;" : ''}transition:opacity 2s ease-in-out;opacity:1;">${lpEchtesFoto ? '' : '<span aria-hidden="true">' + escapeHtml(lpInitial) + '</span>'}</div>
             <div id="lpHeroBg2" style="position:absolute;inset:0;background:center/cover no-repeat;transition:opacity 2s ease-in-out;opacity:0;"></div>
-            <!-- FARBVERLAUF IN DER WIRTE-FARBE (Ibo, 07.11.2026: "das mit der
-                 Farbe ... wo das Titelbild ist ... sowas will ich bei kiekmolin").
-                 Vorher lief das Foto unten ins Weisse aus -- jede Seite sah
-                 gleich aus. Jetzt laeuft es in --marke aus, also in die Farbe,
-                 die der Wirt im Dashboard waehlt. --marke ist durch MARKE.von()
-                 schon kontrastgeprueft. Die weisse Karte liegt darauf, die
-                 Schrift darin bleibt lesbar.
-                 Erste Zeile = alter Verlauf als Rueckfall fuer Browser ohne
-                 color-mix (Safari < 16.2): die ignorieren die zweite Zeile. -->
-            <div class="lp-farbverlauf" style="position:absolute;inset:0;background:linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 30%, #ffffff 100%);background:linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 30%, color-mix(in srgb, var(--marke,#003d33) 55%, transparent) 68%, var(--marke,#003d33) 100%);"></div>
+            <div class="lp-hero-verlauf" aria-hidden="true"></div>
             <!-- FOTO-KARUSSELL IM KOPF (Ibo, 19.10.2026: "Foto-Karussell einfuegen").
                  Die Fotos wechselten schon -- aber zufaellig, alle 7 s, ohne
                  dass der Gast blaettern konnte. Jetzt: Punkte, Pfeile,
@@ -51901,16 +51904,6 @@ function applyLiquidGlass(enable) {
         .lp-hero-karte {
             background: rgba(255,255,255,0.85);
         }
-        /* Seit der Kopf in die Wirte-Farbe auslaeuft (07.11.2026), lag die
-           dunkle Aktionsleiste Farbe auf Farbe und verschwamm am PC. Ein
-           heller Ring hebt sie ab -- auf Weiss wie auf jeder Marke.
-           Der Waehler ist so stark wie die Glas-Regel (:is(html,#kmi-glas)
-           .kmi-glas-dunkel, Zeile ~15704) plus eine Klasse -- sonst gewinnt
-           die und der Ring ist unsichtbar (gemessen 07.11.2026). */
-        :is(html, #kmi-glas) .kmi-glas-dunkel.lp-aktionen {
-            border-color: rgba(255,255,255,0.6) !important;
-            box-shadow: 0 20px 40px -8px rgba(0,0,0,0.3), 0 0 0 5px rgba(255,255,255,0.22), 0 0 28px rgba(255,255,255,0.18) !important;
-        }
         .dark-mode .lp-hero-karte {
             background: rgba(22,25,24,0.85);
         }
@@ -52018,6 +52011,27 @@ function applyLiquidGlass(enable) {
            Im Hellen bleibt jede Farbe, wie sie war -- die Variablen tragen
            dort genau die alten Werte. */
         #restaurantLanding.lp-eigene-farbe { --lp-akzent: var(--marke); --lp-name: var(--marke); }
+        /* FARBVERLAUF IM KOPF (Ibo, 07.11.2026, Vorher/Nachher-Bilder:
+           "Farbverlauf-Overlay ... oben durchsichtig, nach unten in die
+           Markenfarbe"). Vorher lief das Foto nach unten in WEISS aus --
+           jede Lokalseite sah gleich aus. Jetzt in die Farbe des Lokals
+           (--marke, ohne eigene Farbe das Kiek-mol-in-Gruen). Zwei
+           Schichten: oben ein Hauch Schwarz fuer die Navigation, unten
+           von durchsichtig in die volle Farbe. Kein color-mix: aeltere
+           iPhones kennen es nicht. */
+        .lp-hero-verlauf {
+            position: absolute; inset: 0; pointer-events: none;
+            background:
+                linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 30%),
+                linear-gradient(to bottom, transparent 30%, var(--marke, #003d33) 100%);
+        }
+        /* Die dunkle Leiste (Reservieren / Bestellen / Karte) liegt jetzt
+           auf dunklem Grund und verschwamm darin. Ein heller Rand und ein
+           tieferer Schatten heben sie ab. */
+        #restaurantLanding .lp-aktionen.kmi-glas-dunkel {
+            border: 1px solid rgba(255,255,255,0.38) !important;
+            box-shadow: 0 0 0 1px rgba(0,0,0,0.18), 0 20px 40px -8px rgba(0,0,0,0.45) !important;
+        }
         #menuModal.kmi-eigene-farbe { --kmi-preis: var(--marke); }
         .dark-mode #menuModal.kmi-eigene-farbe { --kmi-preis: #fed65b; }
         .dark-mode #restaurantLanding.lp-eigene-farbe { --lp-akzent: #fed65b; --lp-name: var(--ink-deep); }
