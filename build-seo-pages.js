@@ -2306,6 +2306,32 @@ function generateRestaurantPage(rest, menuItems, reviews) {
 // genau das erklaert und unten das Eintragen-Formular hat.
 const PROSPECT_OWNER_CTA_URL = '/' + GASTRO_SLUG;
 
+/* DER TESLA-MOMENT FUER DEN WIRT (Ibo, 07.11.2026: "wie schaffen wir, dass
+   die Leute draufklicken").
+   Ein Wirt googelt sich selbst und landet auf seinem Eintrag hier. Statt
+   ihn auf eine allgemeine Seite zu schicken, fuehrt der Knopf auf /starten
+   -- mit seinem Namen, Ort und seiner Kueche schon ausgefuellt. Er sieht
+   sofort SEINE Seite im Handy und im Laptop, ohne etwas zu tippen.
+   Die Kueche wird auf die Werte von /starten abgebildet; unbekannt ->
+   deutsch (Regional), nie leer. Der Fuss-Link "bearbeiten oder entfernen"
+   bleibt auf /gastro: wer loeschen will, soll nicht im Verkauf landen. */
+function startenKueche(p, cat) {
+  const t = ((cat && cat.slug) || '') + ' ' + (p.category || '') + ' ' + (p.cuisine || '');
+  if (/pizz|ital/i.test(t)) return 'italienisch';
+  if (/fisch|fish|seafood/i.test(t)) return 'fisch';
+  if (/griech|greek/i.test(t)) return 'griechisch';
+  if (/doener|döner|kebab|turk|türk/i.test(t)) return 'doener';
+  if (/asia|sushi|china|chines|thai|viet|japan/i.test(t)) return 'asiatisch';
+  if (/burger/i.test(t)) return 'burger';
+  if (/cafe|café|coffee|baeck|bäck|kuchen|eis/i.test(t)) return 'cafe';
+  return 'deutsch';
+}
+function startenLink(p, name, ort, cat) {
+  return '/starten?name=' + encodeURIComponent(String(name).slice(0, 60)) +
+    '&ort=' + encodeURIComponent(String(ort).slice(0, 40)) +
+    '&kueche=' + startenKueche(p, cat) + '&quelle=eintrag';
+}
+
 /* DER ZAEHLER AUF DEN RESTAURANTSEITEN.
    Zwei Zahlen, mehr nicht: wurde die Seite geladen, und hat jemand den
    Inhaber-Knopf gedrueckt. Daraus ergibt sich zusammen mit "gesendet"
@@ -2603,10 +2629,10 @@ function generateProspectPage(p, partnerRestaurants, allProspects) {
     '<p style="margin:18px 0 0;padding:12px 14px;background:#f0fdf4;' +
       'border-left:3px solid ' + PRIMARY_COLOR + ';border-radius:0 var(--r-sm) var(--r-sm) 0;' +
       'font-size:15px;color:#2b4a42;">' +
-      'Inhaber? <a href="' + PROSPECT_OWNER_CTA_URL + '" id="inhaberZeile" ' +
+      'Ihr Lokal? <a href="' + escapeHtml(startenLink(p, name, cityRaw, cat)) + '" id="inhaberZeile" ' +
       'style="color:' + PRIMARY_COLOR + ';font-weight:700;">' +
-      'Diesen Eintrag kostenlos übernehmen</a> – Karte, Bestellungen und ' +
-      'Reservierungen selbst verwalten.' +
+      'Sehen Sie Ihre eigene Seite in 10 Sekunden</a> – Speisekarte, Bestellen und ' +
+      'Reservieren, ohne Provision.' +
     '</p>';
 
   const ownerBox =
@@ -2625,7 +2651,7 @@ function generateProspectPage(p, partnerRestaurants, allProspects) {
       'zahlt <strong>' + PREIS_MONAT + ' im Monat</strong> – fest, egal wie viel bestellt oder reserviert wird. ' +
       '<strong>' + PREIS_PROVISION + ' Provision</strong>: von jeder Bestellung bleibt der volle Betrag beim Betrieb. ' +
       'Ohne App, jederzeit kündbar, ' + PREIS_UST_KURZ + '.</p>' +
-      '<a href="' + PROSPECT_OWNER_CTA_URL + '" id="inhaberKnopf" style="display:inline-block;background:' + PRIMARY_COLOR + ';color:#fff;padding:12px 24px;border-radius:var(--r-sm);font-weight:600;text-decoration:none;">Restaurant kostenlos eintragen</a>' +
+      '<a href="' + escapeHtml(startenLink(p, name, cityRaw, cat)) + '" id="inhaberKnopf" style="display:inline-block;background:' + PRIMARY_COLOR + ';color:#fff;padding:12px 24px;border-radius:var(--r-sm);font-weight:600;text-decoration:none;">Ihre Seite in 10 Sekunden ansehen</a>' +
     '</div>';
 
   const partnerBox = partners.length
@@ -4112,6 +4138,8 @@ if (require.main === module) {
   PREIS_UST_KURZ,
   GASTRO_SLUG,
   PROSPECT_OWNER_CTA_URL,
+  startenLink,
+  startenKueche,
   zaehlSkript,
   gerichteZahl,
   betriebeZahl,

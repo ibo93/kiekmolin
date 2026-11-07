@@ -47228,7 +47228,7 @@ function regVorfuellenAusStarten() {
     setze('regRestaurantCity', v.ort);
     var k = document.getElementById('regRestaurantCuisine');
     if (k && !k.value && v.kueche && k.querySelector('option[value="' + String(v.kueche).replace(/[^a-z]/g, '') + '"]')) k.value = v.kueche;
-    var notiz = 'Auf /starten gewählt: Farbe ' + (v.farbe || '–') + ' · ' + ((v.funktionen || []).join(', ') || 'keine Funktionen');
+    var notiz = 'Auf /starten gewählt: Farbe ' + (v.farbe || '–') + ' · ' + ((v.funktionen || []).join(', ') || 'keine Funktionen') + (v.quelle ? ' · gekommen über: ' + String(v.quelle).slice(0, 40) : '');
     setze('regRestaurantMessage', notiz, 400);
     return true;
 }

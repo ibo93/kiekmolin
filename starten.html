@@ -429,8 +429,19 @@ button,input,select{font:inherit}
   // Auswahl mitnehmen in die Anmeldung (dieselbe Seite, daher localStorage).
   // Klappt das Speichern nicht, öffnet sich die Anmeldung trotzdem – nur leer.
   $('los').addEventListener('click',function(){
-    try{localStorage.setItem('kmi_reg_vorfuellen',JSON.stringify({name:zustand.name,ort:zustand.ort,kueche:zustand.kueche,farbe:zustand.farbe[0],funktionen:FUNKTIONEN.filter(function(f){return zustand.an[f[0]]}).map(function(f){return f[1]}),zeit:Date.now()}))}catch(e){}
+    try{localStorage.setItem('kmi_reg_vorfuellen',JSON.stringify({name:zustand.name,ort:zustand.ort,kueche:zustand.kueche,farbe:zustand.farbe[0],funktionen:FUNKTIONEN.filter(function(f){return zustand.an[f[0]]}).map(function(f){return f[1]}),quelle:quelle,zeit:Date.now()}))}catch(e){}
   });
+  // Kommt der Wirt von SEINEM Eintrag auf kiekmolin.de (Knopf "Ihre Seite in 10 Sekunden"),
+  // stehen Name, Ort und Küche im Link. Nur bekannte Küchen, Längen begrenzt; angezeigt wird
+  // alles als Text (textContent / esc), nie als HTML.
+  var quelle='';
+  try{var q=new URLSearchParams(location.search);
+    var qn=(q.get('name')||'').trim().slice(0,60),qo=(q.get('ort')||'').trim().slice(0,40),qk=q.get('kueche')||'';
+    if(qn){zustand.name=qn;$('e-name').value=qn}
+    if(qo){zustand.ort=qo;$('e-ort').value=qo}
+    if(Object.prototype.hasOwnProperty.call(KARTEN,qk)){zustand.kueche=qk;$('e-kueche').value=qk}
+    if(q.get('quelle')==='eintrag')quelle='Eintrag auf kiekmolin.de';
+  }catch(e){}
   zeichnen();
 })();
 </script>
