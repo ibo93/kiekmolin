@@ -40,8 +40,43 @@ button,input,select{font:inherit}
 .buehne .adresse b{color:var(--kohle);font-weight:700}
 .auswahl{padding:40px 36px 140px;background:var(--grund)}
 
+/* Laptop hinten, Handy vorn rechts – so sieht der Wirt beide Ansichten zugleich.
+   Alles in festen Maßen gebaut und als Ganzes skaliert (passen()). */
+.geraete{position:relative;width:1160px;height:660px;flex:none;transform-origin:center}
+.laptop{position:absolute;left:50px;top:56px;width:900px}
+.lt-schirm{height:540px;border-radius:18px 18px 0 0;background:#0b0d0c;padding:14px 14px 0;box-shadow:0 40px 80px -36px rgba(0,30,20,.45)}
+.lt-innen{height:100%;border-radius:6px 6px 0 0;overflow:hidden;background:#fff;color:#191c1d;display:flex;flex-direction:column}
+.lt-fuss{height:20px;margin:0 -50px;border-radius:0 0 18px 18px;background:linear-gradient(#d6dad8,#b9bfbc);box-shadow:0 20px 30px -18px rgba(0,30,20,.5)}
+.lt-fuss::before{content:'';display:block;width:120px;height:7px;margin:0 auto;border-radius:0 0 8px 8px;background:#a7aeab}
+.br-leiste{display:flex;align-items:center;gap:10px;padding:9px 14px;background:#eef1ef;border-bottom:1px solid #dfe4e1;font-size:12px;color:#4a5551}
+.br-leiste i{width:9px;height:9px;border-radius:50%;background:#cfd5d2;flex:none}
+.br-leiste span{flex:1;max-width:420px;margin:0 auto;background:#fff;border-radius:999px;padding:5px 14px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lt-seite{flex:1;overflow:hidden}
+.lt-nav{display:flex;align-items:center;gap:12px;padding:12px 28px;border-bottom:1px solid #edf0ee}
+.lt-nav .logo{width:34px;height:34px;border-radius:9px;background:#fff center/contain no-repeat;background-origin:content-box;padding:4px;border:1px solid #edf0ee;display:none}
+.lt-nav .logo.da{display:block}.lt-nav .logo.hell{background-color:#1d2422;border-color:#1d2422}
+.lt-nav b{font-family:Epilogue,sans-serif;font-weight:900;font-size:17px;letter-spacing:-.03em}
+.lt-nav nav{margin-left:auto;display:flex;gap:20px;font-size:12.5px;font-weight:600;color:#4a5551}
+.lt-held{background:var(--marke);color:#fff;padding:40px 28px 30px;background-size:cover;background-position:center;transition:background .45s}
+.lt-held .art{font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;opacity:.85}
+.lt-held h2{font-size:50px;color:#fff;margin:8px 0 14px;max-width:16ch}
+.lt-held .reihe{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.lt-held .auf{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.16);border-radius:999px;padding:7px 12px;font-size:12px;font-weight:600;margin-bottom:16px}
+.lt-held .auf i{width:7px;height:7px;border-radius:50%;background:#4ADE80}
+.lt-held .lp-knopf{background:rgba(255,255,255,.95);color:#191c1d;padding:10px 16px}
+.lt-held .lp-knopf.haupt{background:#fff;color:var(--marke);grid-column:auto}
+.lt-unten{display:grid;grid-template-columns:1.4fr 1fr;gap:24px;padding:20px 28px}
+.lt-unten h3{font-size:16px;margin:0 0 8px}
+.lt-karte .lp-zeile{font-size:13px}
+.lt-seite-box{border:1px solid #edf0ee;border-radius:12px;padding:14px;font-size:12.5px;display:grid;gap:10px;align-content:start}
+.lt-seite-box .zeiten{display:flex;justify-content:space-between;color:#4a5551}
+.lt-slots{display:flex;gap:6px}.lt-slots span{border:1px solid #dfe4e1;border-radius:8px;padding:6px 9px;font-weight:600}
+.lt-slots span:first-child{background:var(--marke);border-color:var(--marke);color:#fff}
+.lt-seite-box .lp-tisch{margin:0}
+.geraete .handy{position:absolute;left:850px;top:20px}
+.umschalter{display:none}
 /* Das Handy: schlicht, kein Spielzeug – nur Rahmen und Bildschirm */
-.handy{width:300px;height:620px;border-radius:46px;background:#0b0d0c;padding:10px;box-shadow:0 40px 80px -30px rgba(0,30,20,.45),0 0 0 1px rgba(0,0,0,.25);transform-origin:center;flex:none}
+.handy{width:300px;height:620px;border-radius:46px;background:#0b0d0c;padding:10px;box-shadow:0 40px 80px -30px rgba(0,30,20,.45),0 0 0 1px rgba(0,0,0,.25);flex:none}
 .schirm{width:100%;height:100%;border-radius:37px;overflow:hidden;background:#fff;color:#191c1d;position:relative;display:flex;flex-direction:column}
 .schirm .roll{flex:1;overflow:hidden}
 .lp-kopf{background:var(--marke);color:#fff;padding:44px 18px 18px;transition:background .45s ease}
@@ -56,7 +91,7 @@ button,input,select{font:inherit}
 .lp-knoepfe{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:14px 14px 4px}
 .lp-knopf{border-radius:12px;padding:11px 10px;font-size:12.5px;font-weight:700;text-align:center;background:#f1f3f2;color:#191c1d;transition:opacity .3s,transform .3s}
 .lp-knopf.haupt{background:var(--marke);color:#fff;grid-column:1/-1;transition:background .45s}
-.lp-knopf.aus{display:none}
+[data-f].aus{display:none!important}
 .lp-tisch{margin:10px 14px 0;border:1.5px dashed var(--marke);border-radius:12px;padding:10px 12px;font-size:12px;display:flex;gap:10px;align-items:center}
 .lp-tisch b{display:block;font-size:13px}
 .lp-karte{padding:12px 16px}
@@ -125,6 +160,15 @@ button,input,select{font:inherit}
   html{scroll-padding-top:calc(60px + 36svh + 12px);scroll-padding-bottom:84px}
   .buehne{position:sticky;top:60px;height:36svh;z-index:5;border-bottom:1px solid var(--linie)}
   .buehne .adresse{display:none}
+  .buehne{flex-direction:column;justify-content:flex-start;gap:6px;padding-top:8px}
+  .umschalter{display:flex;flex:none;z-index:6;background:var(--flaeche);border:1px solid var(--linie);border-radius:999px;padding:3px;gap:2px}
+  .umschalter button{border:0;background:transparent;color:var(--schiefer);border-radius:999px;padding:0 13px;min-height:34px;font-size:12.5px;font-weight:700;cursor:pointer}
+  .umschalter button[aria-pressed=true]{background:var(--gr);color:var(--grund)}
+  .buehne[data-zeige=handy] .laptop,.buehne[data-zeige=laptop] .handy{display:none}
+  .buehne[data-zeige=handy] .geraete{width:300px;height:620px}
+  .buehne[data-zeige=handy] .geraete .handy{left:0;top:0}
+  .buehne[data-zeige=laptop] .geraete{width:1000px;height:560px}
+  .buehne[data-zeige=laptop] .laptop{top:0;left:50px}
   .leiste .p small{font-size:11.5px}
   .leiste .p b{font-size:20px}
   .los{padding:0 18px;font-size:15px}
@@ -138,42 +182,68 @@ button,input,select{font:inherit}
 <header class="kopf"><a class="wort" href="/">Kiek mol in</a><span>Für Gastronomen</span></header>
 
 <main class="bau">
-  <div class="buehne" aria-label="Vorschau Ihrer Seite">
+  <div class="buehne" id="buehne" data-zeige="handy" aria-label="Vorschau Ihrer Seite">
+    <div class="umschalter" role="group" aria-label="Ansicht"><button type="button" data-zeige="handy" aria-pressed="true">Handy</button><button type="button" data-zeige="laptop" aria-pressed="false">Laptop</button></div>
+    <div class="geraete" id="geraete">
+    <div class="laptop" aria-hidden="true">
+      <div class="lt-schirm"><div class="lt-innen">
+        <div class="br-leiste"><i></i><i></i><i></i><span class="v-adresse">kiekmolin.de/ihr-lokal</span></div>
+        <div class="lt-seite">
+          <div class="lt-nav"><div class="logo v-logo"></div><b class="v-name">Ihr Lokal</b><nav><span>Speisekarte</span><span data-f="reservieren">Reservieren</span><span>Kontakt</span></nav></div>
+          <div class="lt-held v-kopf">
+            <div class="art v-art">Restaurant · Ostfriesland</div>
+            <h2 class="v-name">Ihr Lokal</h2>
+            <span class="auf"><i></i>Jetzt geöffnet</span>
+            <div class="reihe"><span class="lp-knopf haupt v-haupt">Jetzt bestellen</span><span class="lp-knopf" data-f="abholen">Abholen</span><span class="lp-knopf" data-f="liefern">Liefern lassen</span><span class="lp-knopf" data-f="reservieren">Tisch reservieren</span></div>
+          </div>
+          <div class="lt-unten">
+            <div class="lt-karte"><h3>Speisekarte</h3><div class="v-karte"></div></div>
+            <div class="lt-seite-box">
+              <div data-f="reservieren"><h3>Tisch reservieren</h3><div class="lt-slots"><span>18:00</span><span>18:30</span><span>19:00</span><span>19:30</span></div></div>
+              <div class="lp-tisch" data-f="tisch"><div><b>QR-Code am Tisch</b>Gäste bestellen direkt vom Tisch</div></div>
+              <div class="zeiten"><span>Heute geöffnet</span><b>11:30 – 22:00</b></div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <div class="lt-fuss"></div>
+    </div>
     <div class="handy" id="handy">
       <div class="schirm">
         <div class="meldung" id="meldung" aria-hidden="true"><b>Neue Bestellung · Tisch 4</b><span id="v-bestellung">2× Pizza Margherita</span> – direkt in Ihrem Dashboard</div>
         <div class="roll">
-          <div class="lp-kopf" id="v-kopf">
-            <div class="logo" id="v-logo" role="img" aria-label="Ihr Logo"></div>
-            <div class="art" id="v-art">Restaurant · Ostfriesland</div>
-            <h2 id="v-name">Ihr Lokal</h2>
+          <div class="lp-kopf v-kopf">
+            <div class="logo v-logo" role="img" aria-label="Ihr Logo"></div>
+            <div class="art v-art">Restaurant · Ostfriesland</div>
+            <h2 class="v-name">Ihr Lokal</h2>
             <span class="auf"><i></i>Jetzt geöffnet</span>
           </div>
           <div class="lp-knoepfe">
-            <div class="lp-knopf haupt" id="v-haupt">Jetzt bestellen</div>
+            <div class="lp-knopf haupt v-haupt">Jetzt bestellen</div>
             <div class="lp-knopf" data-f="abholen">Abholen</div>
             <div class="lp-knopf" data-f="liefern">Liefern lassen</div>
             <div class="lp-knopf" data-f="reservieren">Tisch reservieren</div>
             <div class="lp-knopf" data-f="speisekarte">Speisekarte</div>
           </div>
           <div class="lp-tisch" data-f="tisch"><svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><g fill="currentColor"><rect x="2" y="2" width="9" height="9" rx="1.5"/><rect x="17" y="2" width="9" height="9" rx="1.5"/><rect x="2" y="17" width="9" height="9" rx="1.5"/><rect x="17" y="17" width="4" height="4"/><rect x="22" y="22" width="4" height="4"/></g></svg><div><b>Sie sitzen an Tisch 4</b>Bestellen direkt vom Tisch – ohne Warten</div></div>
-          <div class="lp-karte"><h3>Speisekarte</h3><div id="v-karte"></div></div>
+          <div class="lp-karte"><h3>Speisekarte</h3><div class="v-karte"></div></div>
           <div class="lp-fuss">Allergene ausgewiesen · Bezahlen vor Ort oder online</div>
         </div>
       </div>
     </div>
-    <div class="adresse">Ihre Adresse: <b id="v-adresse">kiekmolin.de/ihr-lokal</b></div>
+    </div>
+    <div class="adresse">Ihre Adresse: <b class="v-adresse">kiekmolin.de/ihr-lokal</b></div>
   </div>
 
   <div class="auswahl">
     <h1>Ihr Lokal auf Kiek mol in.</h1>
-    <p class="unter">Das Handy zeigt Ihre eigene Seite – sie ändert sich mit jeder Auswahl. Ein Preis, alles drin.</p>
+    <p class="unter">Laptop und Handy zeigen Ihre eigene Seite – sie ändert sich mit jeder Auswahl. Ein Preis, alles drin.</p>
 
     <section class="schritt">
       <h2>1 · Ihr Lokal</h2>
       <p class="info">Nur zum Ansehen – gespeichert wird hier nichts.</p>
       <label class="feld">Name<input id="e-name" autocomplete="organization" placeholder="z. B. Fischhaus Norddeich" maxlength="60"></label>
-      <p class="info" style="margin:-4px 0 12px">Ihre Adresse: <b id="v-adresse2" style="color:var(--kohle)">kiekmolin.de/ihr-lokal</b></p>
+      <p class="info" style="margin:-4px 0 12px">Ihre Adresse: <b class="v-adresse" style="color:var(--kohle)">kiekmolin.de/ihr-lokal</b></p>
       <label class="feld">Ort<input id="e-ort" autocomplete="address-level2" placeholder="z. B. Norden" maxlength="40"></label>
       <div class="feld" style="margin-bottom:4px">Foto und Logo <span style="font-weight:400;color:var(--schiefer)">(freiwillig)</span></div>
       <div class="bilder">
@@ -255,6 +325,8 @@ button,input,select{font:inherit}
     cafe:['Café',[['Ostfriesentee-Gedeck','Mit Kluntje und Sahne','4,50 €'],['Hausgemachte Torte','Wechselnd','3,90 €'],['Frühstück Nordsee','Brötchen, Krabben, Rührei','12,50 €']]]
   };
   var $=function(i){return document.getElementById(i)};
+  // Jede Angabe steht doppelt (Laptop und Handy) – immer alle setzen.
+  var alle=function(k,f){document.querySelectorAll('.'+k).forEach(f)};
   var zustand={name:'',ort:'',kueche:'italienisch',farbe:FARBEN[0],an:{abholen:true,liefern:false,reservieren:true,tisch:true}};
   var esc=function(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})};
   var slug=function(s){return s.toLowerCase().replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')};
@@ -264,15 +336,17 @@ button,input,select{font:inherit}
 
   function zeichnen(){
     var k=KARTEN[zustand.kueche];
-    $('v-name').textContent=zustand.name||'Ihr Lokal';
-    $('v-art').textContent=k[0]+' · '+(zustand.ort||'Ostfriesland');
-    $('v-adresse').textContent=$('v-adresse2').textContent='kiekmolin.de/'+(slug(zustand.name)||'ihr-lokal');
+    alle('v-name',function(e){e.textContent=zustand.name||'Ihr Lokal'});
+    alle('v-art',function(e){e.textContent=k[0]+' · '+(zustand.ort||'Ostfriesland')});
+    alle('v-adresse',function(e){e.textContent='kiekmolin.de/'+(slug(zustand.name)||'ihr-lokal')});
     document.documentElement.style.setProperty('--marke',zustand.farbe[1]);
     $('farbname').textContent=zustand.farbe[0];
-    $('v-karte').innerHTML=k[1].map(function(z){return '<div class="lp-zeile"><span>'+esc(z[0])+'<small>'+esc(z[1])+'</small></span><span>'+z[2]+'</span></div>'}).join('');
+    var karte=k[1].map(function(z){return '<div class="lp-zeile"><span>'+esc(z[0])+'<small>'+esc(z[1])+'</small></span><span>'+z[2]+'</span></div>'}).join('');
+    alle('v-karte',function(e){e.innerHTML=karte});
     document.querySelectorAll('[data-f]').forEach(function(el){var f=el.getAttribute('data-f');if(f in zustand.an)el.classList.toggle('aus',!zustand.an[f])});
     var g=k[1][0],pr=parseFloat(g[2].replace(',','.'))*2;$('v-bestellung').textContent='2× '+g[0]+' · '+pr.toFixed(2).replace('.',',')+' €';
-    var a=zustand.an;$('v-haupt').textContent=a.tisch?'Am Tisch bestellen':(a.abholen||a.liefern)?'Jetzt bestellen':a.reservieren?'Tisch reservieren':'Speisekarte ansehen';
+    var a=zustand.an,haupt=a.tisch?'Am Tisch bestellen':(a.abholen||a.liefern)?'Jetzt bestellen':a.reservieren?'Tisch reservieren':'Speisekarte ansehen';
+    alle('v-haupt',function(e){e.textContent=haupt});
   }
   $('e-name').addEventListener('input',function(e){zustand.name=e.target.value.trim();zeichnen()});
   $('e-ort').addEventListener('input',function(e){zustand.ort=e.target.value.trim();zeichnen()});
@@ -287,8 +361,10 @@ button,input,select{font:inherit}
     var feld=$('b-'+art),url=bilder[art];
     feld.classList.toggle('da',!!url);feld.style.backgroundImage=url?'url("'+url+'")':'';
     feld.querySelector('.txt').textContent=url?(art==='foto'?'Foto ändern':'Logo ändern'):(art==='foto'?'Foto vom Essen oder Lokal':'Ihr Logo');
-    if(art==='foto'){var k=$('v-kopf');k.classList.toggle('foto',!!url);k.style.backgroundImage=url?'linear-gradient(180deg,rgba(0,0,0,.05) 0%,rgba(0,0,0,.25) 40%,var(--marke) 100%),url("'+url+'")':''}
-    else{var l=$('v-logo');l.classList.toggle('da',!!url);l.style.backgroundImage=url?'url("'+url+'")':'';l.classList.remove('hell');feld.classList.remove('hell');if(url)logoHell(url,function(h){l.classList.toggle('hell',h);feld.classList.toggle('hell',h)})}
+    if(art==='foto')alle('v-kopf',function(k){var lt=k.classList.contains('lt-held');k.classList.toggle('foto',!!url);
+      k.style.backgroundImage=url?(lt?'linear-gradient(90deg,var(--marke) 0%,rgba(0,0,0,.35) 60%,rgba(0,0,0,.1) 100%),':'linear-gradient(180deg,rgba(0,0,0,.05) 0%,rgba(0,0,0,.25) 40%,var(--marke) 100%),')+'url("'+url+'")':''});
+    else{feld.classList.remove('hell');alle('v-logo',function(l){l.classList.toggle('da',!!url);l.style.backgroundImage=url?'url("'+url+'")':'';l.classList.remove('hell')});
+      if(url)logoHell(url,function(h){feld.classList.toggle('hell',h);alle('v-logo',function(l){l.classList.toggle('hell',h)})})}
     if(!datei)$('e-'+art).value='';
   }
   // Helles Logo (weiß/silber, oft freigestellt) wäre auf weißem Grund unsichtbar:
@@ -303,8 +379,13 @@ button,input,select{font:inherit}
   $('e-kueche').addEventListener('change',function(e){zustand.kueche=e.target.value;zeichnen()});
   var t;$('probe').addEventListener('click',function(){var m=$('meldung');m.classList.add('da');clearTimeout(t);t=setTimeout(function(){m.classList.remove('da')},3800)});
 
-  // Handy in die Bühne einpassen
-  function passen(){var h=$('handy'),b=h.parentNode;var s=Math.min(1.15,(b.clientHeight-(innerWidth<=860?20:90))/620,(b.clientWidth-40)/300);h.style.transform='scale('+Math.max(.3,s)+')';h.style.margin=(-(620*(1-s))/2)+'px '+(-(300*(1-s))/2)+'px'}
+  // Geräte in die Bühne einpassen (am PC beide, am Handy eins mit Umschalter)
+  function passen(){var g=$('geraete'),b=$('buehne'),w=g.offsetWidth,h=g.offsetHeight,mobil=innerWidth<=860;
+    var s=Math.max(.2,Math.min(1.1,(b.clientHeight-(mobil?62:90))/h,(b.clientWidth-(mobil?24:60))/w));
+    g.style.transform='scale('+s+')';g.style.margin=(-(h*(1-s))/2)+'px '+(-(w*(1-s))/2)+'px'}
+  document.querySelectorAll('.umschalter button').forEach(function(btn){btn.addEventListener('click',function(){
+    $('buehne').setAttribute('data-zeige',btn.getAttribute('data-zeige'));
+    document.querySelectorAll('.umschalter button').forEach(function(x){x.setAttribute('aria-pressed',x===btn)});passen()})});
   addEventListener('resize',passen);passen();
 
   // Auswahl mitnehmen in die Anmeldung (dieselbe Seite, daher localStorage).

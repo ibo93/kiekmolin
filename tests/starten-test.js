@@ -83,5 +83,7 @@ t('Admin-Vorgabe fuer neue Kunden ist 59,90 (nicht 29,90)', /id="customerFee" va
 t('Foto/Logo bleiben auf dem Geraet (kein fetch, kein FormData, kein Upload)', /createObjectURL/.test(st) && !/fetch\(|FormData|XMLHttpRequest|sendBeacon/.test(st));
 t('Alte Bild-URLs werden freigegeben', /revokeObjectURL/.test(st));
 t('Kein Bild = Hinweis statt stillem Nichts', /Das ist kein Bild/.test(st));
+t('Laptop und Handy zeigen dasselbe (Name, Karte, Adresse als Klassen, zweimal vorhanden)', (st.match(/class="[^"]*\bv-name\b/g) || []).length >= 3 && (st.match(/class="[^"]*\bv-karte\b/g) || []).length === 2 && /alle\('v-name'/.test(st));
+t('Am Handy umschaltbar Handy | Laptop', /data-zeige="laptop"/.test(st) && /\.buehne\[data-zeige=handy\] \.laptop/.test(st));
 console.log('\n' + ok + '/' + n + (ok === n ? ' grün' : ' ROT'));
 process.exit(ok === n ? 0 : 1);
