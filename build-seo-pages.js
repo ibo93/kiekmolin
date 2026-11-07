@@ -2350,6 +2350,45 @@ function startenLink(p, name, ort, cat) {
    4. Automaten zaehlen nicht mit. Googlebot & Co. wuerden die Zahl
       aufblaehen, und Ibo wuerde Werbebudget an einer Zahl ausrichten,
       die aus Maschinen besteht. */
+/* GAESTE WUENSCHEN SICH DAS LOKAL (Ibo, 07.11.2026: erstmal Kiek mol in
+ * viele Kunden reinbringen).
+ * Ein Gast tippt den Wunsch-Knopf -- gezaehlt in lokal_wunsch (Function
+ * lokal-wunsch, ohne IP/Cookie). Die Zahl steht dann hier fuer jeden sichtbar
+ * und im Inhaber-Kasten (wie viele seiner Gaeste ihn sich wuenschen).
+ * Nicht gespeichert = ehrliche Meldung, kein falsches Danke (Regel 6).
+ * Pro Geraet nur ein Wunsch je Lokal (localStorage, nur Bequemlichkeit). */
+function wunschKasten(name) {
+  return '<div id="wunschKasten" style="background:#fff;border:1px solid #e6ebe9;border-radius:var(--r-sm);padding:16px 18px;margin:22px 0;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;">' +
+    '<div style="min-width:0;flex:1 1 220px;">' +
+      '<div style="font-weight:700;font-size:16px;">Sie essen gern hier?</div>' +
+      '<div style="font-size:14px;color:#555;margin-top:2px;">Wünschen Sie sich ' + escapeHtml(name) + ' auf ' + BRAND + ' – dann bestellen und reservieren Sie hier bald online.</div>' +
+      '<div id="wunschZahl" style="font-size:13px;color:' + PRIMARY_COLOR + ';font-weight:700;margin-top:6px;" hidden></div>' +
+    '</div>' +
+    '<button type="button" id="wunschKnopf" style="flex:none;min-height:44px;padding:10px 18px;border-radius:9999px;border:1.5px solid ' + PRIMARY_COLOR + ';background:#fff;color:' + PRIMARY_COLOR + ';font:700 15px Inter,sans-serif;cursor:pointer;">♥ Wünsche ich mir</button>' +
+    '<div id="wunschMeldung" role="status" aria-live="polite" style="flex-basis:100%;font-size:14px;" hidden></div>' +
+  '</div>';
+}
+function wunschSkript(slug, name, ort) {
+  const ziel = '/.netlify/functions/lokal-wunsch';
+  return '<script>(function(){try{' +
+    'var s=' + JSON.stringify(slug) + ',n=' + JSON.stringify(name) + ',o=' + JSON.stringify(ort || '') + ',u=' + JSON.stringify(ziel) + ';' +
+    'var zahl=document.getElementById("wunschZahl"),wirt=document.getElementById("wunschZahlWirt"),' +
+      'knopf=document.getElementById("wunschKnopf"),meld=document.getElementById("wunschMeldung"),schl="kmi-wunsch-"+s;' +
+    'function zeige(a){if(!(a>0))return;var t=a===1?"1 Gast wünscht sich dieses Lokal auf Kiek mol in":a+" Gäste wünschen sich dieses Lokal auf Kiek mol in";' +
+      'zahl.textContent="♥ "+t;zahl.hidden=false;if(wirt){wirt.textContent=a===1?"1 Gast wünscht sich Sie auf Kiek mol in.":a+" Ihrer Gäste wünschen sich Sie auf Kiek mol in.";wirt.hidden=false;}}' +
+    'var schon=false;try{schon=localStorage.getItem(schl)==="1";}catch(e){}' +
+    'if(schon){knopf.disabled=true;knopf.textContent="♥ Gewünscht";}' +
+    'fetch(u+"?slug="+encodeURIComponent(s)).then(function(r){return r.json();}).then(function(d){if(d&&d.ok)zeige(d.anzahl);}).catch(function(){});' +
+    'knopf.addEventListener("click",function(){knopf.disabled=true;' +
+      'fetch(u,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({slug:s,name:n,ort:o})}).then(function(r){return r.json();}).then(function(d){' +
+        'meld.hidden=false;' +
+        'if(d&&d.ok){try{localStorage.setItem(schl,"1");}catch(e){}knopf.textContent="♥ Gewünscht";meld.style.color=' + JSON.stringify(PRIMARY_COLOR) + ';meld.textContent="Danke! Ihr Wunsch ist gezählt.";zeige(d.anzahl);}' +
+        'else{knopf.disabled=false;meld.style.color="#b42318";meld.textContent="Das hat gerade nicht geklappt. Bitte später noch einmal.";}' +
+      '}).catch(function(){knopf.disabled=false;meld.hidden=false;meld.style.color="#b42318";meld.textContent="Keine Verbindung. Bitte später noch einmal.";});' +
+    '});' +
+  '}catch(e){}})();</script>\n';
+}
+
 function zaehlSkript(slug) {
   const ziel = '/.netlify/functions/lead-zaehler';
   return '<script>(function(){try{' +
@@ -2645,6 +2684,7 @@ function generateProspectPage(p, partnerRestaurants, allProspects) {
       // dann zieht jemand mit. Getrennt stimmt es und klingt auch besser --
       // der Eintrag IST frei, und der Preis danach ist eine feste Zahl
       // statt eines Prozentsatzes vom Umsatz.
+      '<p id="wunschZahlWirt" style="margin:0 0 10px;color:' + PRIMARY_COLOR + ';font-weight:700;" hidden></p>' +
       '<p style="margin:0 0 10px;color:#444;">' + escapeHtml(name) + ' ist noch nicht bei ' + BRAND + '. ' +
       'Der Eintrag ist <strong>kostenlos</strong>.</p>' +
       '<p style="margin:0 0 14px;color:#444;">Wer Online-Bestellungen und Tisch-Reservierungen annehmen will, ' +
@@ -2708,6 +2748,7 @@ function generateProspectPage(p, partnerRestaurants, allProspects) {
       (p.website ? '<p><strong>Website:</strong> <a href="' + escapeAttr(p.website) + '" rel="nofollow">' + escapeHtml(p.website) + '</a></p>' : '') +
       inhaberZeile +
     '</div>\n' +
+    wunschKasten(name) + '\n' +
     faqHtml + '\n' +
     ownerBox + '\n' +
     partnerBox + '\n' +
@@ -2720,7 +2761,7 @@ function generateProspectPage(p, partnerRestaurants, allProspects) {
         (p.source === 'osm' ? ' · © OpenStreetMap-Mitwirkende' : '') +
         '. Inhaber? <a href="' + PROSPECT_OWNER_CTA_URL + '">Eintrag bearbeiten oder entfernen lassen</a>.</div>' +
     '</div></footer>\n' +
-    zaehlSkript(slug) +
+    zaehlSkript(slug) + wunschSkript(slug, name, cityRaw) +
     '</body></html>\n';
 
   const filename = slug + '.html';

@@ -18042,6 +18042,41 @@ window.addEventListener('load', function () {
                  kiekmolin Farbe bekommen"), FEST #003D33 statt var(--primary): im
                  Dunkelmodus wird --primary hellgruen, weisse Schrift waere unlesbar.
                  Fuehrt auf /starten (eigene Seite in 10 Sekunden). -->
+            <!-- GAESTE-WUNSCH (Ibo, 07.11.2026): "Dein Lieblingslokal fehlt?" --
+                 gezaehlt in lokal_wunsch ueber /.netlify/functions/lokal-wunsch,
+                 ohne IP/Cookie. Wird nicht gespeichert, steht das ehrlich da. -->
+            <form id="gastWunsch" style="max-width:520px;margin:0 auto 14px;padding:14px 16px;border:1px solid var(--border-color);border-radius:16px;background:var(--bg-card);text-align:left;">
+                <div style="font-size:15px;font-weight:700;color:var(--text-primary);">Dein Lieblingslokal fehlt?</div>
+                <div style="font-size:13px;color:var(--text-secondary);margin:2px 0 10px;">Wünsch es dir – dann bestellst du dort bald auch hier.</div>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                    <input id="gastWunschName" required maxlength="80" placeholder="Name des Lokals" aria-label="Name des Lokals" style="flex:2 1 160px;min-width:0;min-height:44px;padding:10px 12px;border-radius:12px;border:1px solid var(--border-color);background:var(--bg-primary);color:var(--text-primary);font-size:15px;">
+                    <input id="gastWunschOrt" maxlength="60" placeholder="Ort" aria-label="Ort" style="flex:1 1 100px;min-width:0;min-height:44px;padding:10px 12px;border-radius:12px;border:1px solid var(--border-color);background:var(--bg-primary);color:var(--text-primary);font-size:15px;">
+                    <button type="submit" id="gastWunschKnopf" style="flex:none;min-height:44px;padding:10px 16px;border-radius:9999px;border:0;background:var(--primary);color:var(--bg-card);font-weight:700;font-size:14px;cursor:pointer;">♥ Wünschen</button>
+                </div>
+                <div id="gastWunschMeldung" role="status" aria-live="polite" style="font-size:13px;margin-top:8px;" hidden></div>
+            </form>
+            <script>
+            (function () {
+                var f = document.getElementById('gastWunsch');
+                if (!f) return;
+                var meld = document.getElementById('gastWunschMeldung'), knopf = document.getElementById('gastWunschKnopf');
+                function sag(text, gut) { meld.hidden = false; meld.textContent = text; meld.style.color = gut ? 'var(--primary)' : '#b42318'; }
+                f.addEventListener('submit', function (e) {
+                    e.preventDefault();
+                    var name = document.getElementById('gastWunschName').value.trim(), ort = document.getElementById('gastWunschOrt').value.trim();
+                    if (name.length < 2) { sag('Bitte den Namen des Lokals eingeben.', false); return; }
+                    knopf.disabled = true;
+                    fetch('/.netlify/functions/lokal-wunsch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name, ort: ort }) })
+                        .then(function (r) { return r.json(); })
+                        .then(function (d) {
+                            knopf.disabled = false;
+                            if (d && d.ok) { f.reset(); sag(d.anzahl > 1 ? 'Danke! Schon ' + d.anzahl + ' Gäste wünschen sich ' + name + '.' : 'Danke! Dein Wunsch ist gezählt.', true); }
+                            else sag('Das hat gerade nicht geklappt. Bitte später noch einmal.', false);
+                        })
+                        .catch(function () { knopf.disabled = false; sag('Keine Verbindung. Bitte später noch einmal.', false); });
+                });
+            })();
+            </script>
             <a href="/starten" id="wirtBalken" style="display:flex;align-items:center;justify-content:space-between;gap:14px;max-width:520px;margin:0 auto 20px;padding:14px 18px;border:1px solid #003D33;border-radius:16px;background:#003D33;color:#FFFFFF;text-decoration:none;text-align:left;">
                 <span style="min-width:0;">
                     <span style="display:block;font-size:15px;font-weight:700;">Sie haben ein Restaurant?</span>
