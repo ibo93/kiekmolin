@@ -45,8 +45,15 @@ t('die Zeile oben existiert', /id="inhaberZeile"/.test(H), 'fehlt');
 t('der Kasten unten existiert weiter', /id="inhaberKnopf"/.test(H), 'verschwunden');
 t('die Zeile steht VOR dem Kasten',
   H.indexOf('id="inhaberZeile"') < H.indexOf('id="inhaberKnopf"'), 'falsche Reihenfolge');
-t('beide zeigen auf /gastro',
-  (H.match(/href="\/gastro"/g) || []).length >= 2, (H.match(/href="\/gastro"/g) || []).length);
+// Seit 07.11.2026 (Ibo: "wie schaffen wir, dass die Leute draufklicken"):
+// beide fuehren auf /starten mit Name/Ort/Art -- der Wirt sieht sofort SEINE
+// Seite. Vorher /gastro, eine allgemeine Seite. Der Fuss-Link "bearbeiten
+// oder entfernen" bleibt auf /gastro.
+t('beide zeigen auf /starten mit seinem Namen',
+  /href="\/starten\?name=Gasthaus%20Zur%20Linde&amp;ort=Norden&amp;art=[a-z]+&amp;quelle=eintrag" id="inhaberZeile"/.test(H) &&
+  /href="\/starten\?name=Gasthaus%20Zur%20Linde&amp;ort=Norden&amp;art=[a-z]+&amp;quelle=eintrag" id="inhaberKnopf"/.test(H),
+  (H.match(/href="[^"]*" id="inhaber(Zeile|Knopf)"/g) || []).join(' | '));
+t('Entfernen-Link bleibt auf /gastro', /href="\/gastro">Eintrag bearbeiten oder entfernen lassen/.test(H), 'fehlt');
 
 (async function () {
     let pw;

@@ -166,7 +166,9 @@ var tot = [];
         while ((m = re.exec(html))) {
             // /en ist die Startseite (SPA, canonical auf /) -- so seit jeher.
             if (m[1] === 'en') continue;
-            if (!da(m[1] + '.html')) tot.push(pre + f + ' -> /' + m[1]);
+            // Von Hand geschriebene Seiten im Hauptordner (z. B. /starten) liegen
+            // live direkt neben den gebauten (publish = ".") -- die gibt es auch.
+            if (!da(m[1] + '.html') && !fs.existsSync(path.join(__dirname, '..', m[1] + '.html'))) tot.push(pre + f + ' -> /' + m[1]);
         }
     });
 })(AUS, '');
