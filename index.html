@@ -49026,6 +49026,37 @@ async function openRestaurantBySlug(slug) {
 // (landingIsOpen ...), aber nie angezeigt.
 // Eine Oeffnungszeit wird nur genannt, wenn sie EINGETRAGEN ist --
 // getOpeningTimeToday liefert sonst "11:00" als Annahme.
+// HELLES LOGO IM WEISSEN KREIS (gefunden 07.11.2026 beim Nachbau fuer /starten):
+// Ein weisses oder silbernes Logo -- oft freigestellt -- verschwand auf dem
+// weissen Grund des Kreises. Jetzt: mittlere Helligkeit der sichtbaren Pixel
+// messen; ist sie hell, bekommt der Kreis einen dunklen Grund.
+// Mit einer ZWEITEN Bildanfrage (crossOrigin), damit das angezeigte Bild nie
+// davon abhaengt. Erlaubt der Speicher das Auslesen nicht, bleibt alles wie
+// vorher -- kein Fehler, nur kein dunkler Grund.
+function lpLogoHell(daten) {
+    var summe = 0, zahl = 0;
+    for (var i = 0; i < daten.length; i += 4) {
+        if (daten[i + 3] > 40) { summe += 0.2126 * daten[i] + 0.7152 * daten[i + 1] + 0.0722 * daten[i + 2]; zahl++; }
+    }
+    return zahl > 0 && summe / zahl > 200;
+}
+function lpLogoPruefen(bild) {
+    try {
+        if (!bild || bild._kmiGeprueft) return;
+        bild._kmiGeprueft = true;
+        var kreis = bild.parentNode, probe = new Image();
+        probe.crossOrigin = 'anonymous';
+        probe.onload = function () {
+            try {
+                var c = document.createElement('canvas'); c.width = 48; c.height = 48;
+                var x = c.getContext('2d'); x.drawImage(probe, 0, 0, 48, 48);
+                if (lpLogoHell(x.getImageData(0, 0, 48, 48).data) && kreis) kreis.style.background = '#1d2422';
+            } catch (e) {}
+        };
+        probe.src = bild.currentSrc || bild.src;
+    } catch (e) {}
+}
+
 function lpVisitenkarte(rest, offen, schliesst) {
     var teile = [];
     var tage = ['so', 'mo', 'di', 'mi', 'do', 'fr', 'sa'];
@@ -49219,7 +49250,8 @@ async function showRestaurantLanding(rest) {
     var landingOpenTime = typeof getOpeningTimeToday === 'function' ? getOpeningTimeToday(rest) : '';
 
     // Logo - rundes Badge mit Schatten
-    var logoHtml = rest.logo ? '<div style="width:64px;height:64px;border-radius:50%;overflow:hidden;border:3px solid rgba(255,255,255,0.9);margin:0 auto 12px;background:var(--bg-card);"><img src="' + rest.logo + '" style="width:100%;height:100%;object-fit:cover;" alt="' + rest.name + '" loading="lazy"></div>' : '';
+    // onload -> lpLogoPruefen: ein weisses/silbernes Logo war im weissen Kreis unsichtbar.
+    var logoHtml = rest.logo ? '<div style="width:64px;height:64px;border-radius:50%;overflow:hidden;border:3px solid rgba(255,255,255,0.9);margin:0 auto 12px;background:var(--bg-card);" class="lp-logo-kreis"><img src="' + rest.logo + '" style="width:100%;height:100%;object-fit:cover;" alt="' + rest.name + '" loading="lazy" onload="lpLogoPruefen(this)"></div>' : '';
 
     // Kein echtes Foto? (mapRestaurant setzt dann ein 1x1-GIF.) Statt einer
     // gestreckten gruenen Flaeche: gestalteter Grund mit dem Anfangsbuchstaben.
@@ -51868,6 +51900,16 @@ function applyLiquidGlass(enable) {
            Jetzt drehen Karte und Schrift zusammen. */
         .lp-hero-karte {
             background: rgba(255,255,255,0.85);
+        }
+        /* Seit der Kopf in die Wirte-Farbe auslaeuft (07.11.2026), lag die
+           dunkle Aktionsleiste Farbe auf Farbe und verschwamm am PC. Ein
+           heller Ring hebt sie ab -- auf Weiss wie auf jeder Marke.
+           Der Waehler ist so stark wie die Glas-Regel (:is(html,#kmi-glas)
+           .kmi-glas-dunkel, Zeile ~15704) plus eine Klasse -- sonst gewinnt
+           die und der Ring ist unsichtbar (gemessen 07.11.2026). */
+        :is(html, #kmi-glas) .kmi-glas-dunkel.lp-aktionen {
+            border-color: rgba(255,255,255,0.6) !important;
+            box-shadow: 0 20px 40px -8px rgba(0,0,0,0.3), 0 0 0 5px rgba(255,255,255,0.22), 0 0 28px rgba(255,255,255,0.18) !important;
         }
         .dark-mode .lp-hero-karte {
             background: rgba(22,25,24,0.85);
