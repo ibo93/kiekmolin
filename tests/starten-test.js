@@ -80,5 +80,8 @@ t('"Monatlich kündbar" und "0 % Provision" stehen da', /onatlich kündbar/.test
 t('Wirte-Dashboard zeigt 59,90 € statt 59 €', !/>59 €<span/.test(h) && />59,90 €<span/.test(h));
 t('Admin-Vorgabe fuer neue Kunden ist 59,90 (nicht 29,90)', /id="customerFee" value="59\.90"/.test(h));
 
+t('Foto/Logo bleiben auf dem Geraet (kein fetch, kein FormData, kein Upload)', /createObjectURL/.test(st) && !/fetch\(|FormData|XMLHttpRequest|sendBeacon/.test(st));
+t('Alte Bild-URLs werden freigegeben', /revokeObjectURL/.test(st));
+t('Kein Bild = Hinweis statt stillem Nichts', /Das ist kein Bild/.test(st));
 console.log('\n' + ok + '/' + n + (ok === n ? ' grün' : ' ROT'));
 process.exit(ok === n ? 0 : 1);
