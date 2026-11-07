@@ -48,58 +48,102 @@ button,input,select{font:inherit}
 .lt-innen{height:100%;border-radius:6px 6px 0 0;overflow:hidden;background:#fff;color:#191c1d;display:flex;flex-direction:column}
 .lt-fuss{height:20px;margin:0 -50px;border-radius:0 0 18px 18px;background:linear-gradient(#d6dad8,#b9bfbc);box-shadow:0 20px 30px -18px rgba(0,30,20,.5)}
 .lt-fuss::before{content:'';display:block;width:120px;height:7px;margin:0 auto;border-radius:0 0 8px 8px;background:#a7aeab}
-.br-leiste{display:flex;align-items:center;gap:10px;padding:9px 14px;background:#eef1ef;border-bottom:1px solid #dfe4e1;font-size:12px;color:#4a5551}
+.br-leiste{display:flex;align-items:center;gap:10px;padding:8px 14px;background:#eef1ef;border-bottom:1px solid #dfe4e1;font-size:12px;color:#4a5551;flex:none}
 .br-leiste i{width:9px;height:9px;border-radius:50%;background:#cfd5d2;flex:none}
-.br-leiste span{flex:1;max-width:420px;margin:0 auto;background:#fff;border-radius:999px;padding:5px 14px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.lt-seite{flex:1;overflow:hidden}
-.lt-nav{display:flex;align-items:center;gap:12px;padding:12px 28px;border-bottom:1px solid #edf0ee}
-.lt-nav .logo{width:34px;height:34px;border-radius:9px;background:#fff center/contain no-repeat;background-origin:content-box;padding:4px;border:1px solid #edf0ee;display:none}
-.lt-nav .logo.da{display:block}.lt-nav .logo.hell{background-color:#1d2422;border-color:#1d2422}
-.lt-nav b{font-family:Epilogue,sans-serif;font-weight:900;font-size:17px;letter-spacing:-.03em}
-.lt-nav nav{margin-left:auto;display:flex;gap:20px;font-size:12.5px;font-weight:600;color:#4a5551}
-.lt-held{background:var(--marke);color:#fff;padding:40px 28px 30px;background-size:cover;background-position:center;transition:background .45s}
-.lt-held .art{font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;opacity:.85}
-.lt-held h2{font-size:50px;color:#fff;margin:8px 0 14px;max-width:16ch}
-.lt-held .reihe{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-.lt-held .auf{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.16);border-radius:999px;padding:7px 12px;font-size:12px;font-weight:600;margin-bottom:16px}
-.lt-held .auf i{width:7px;height:7px;border-radius:50%;background:#4ADE80}
-.lt-held .lp-knopf{background:rgba(255,255,255,.95);color:#191c1d;padding:10px 16px}
-.lt-held .lp-knopf.haupt{background:#fff;color:var(--marke);grid-column:auto}
-.lt-unten{display:grid;grid-template-columns:1.4fr 1fr;gap:24px;padding:20px 28px}
-.lt-unten h3{font-size:16px;margin:0 0 8px}
-.lt-karte .lp-zeile{font-size:13px}
-.lt-seite-box{border:1px solid #edf0ee;border-radius:12px;padding:14px;font-size:12.5px;display:grid;gap:10px;align-content:start}
-.lt-seite-box .zeiten{display:flex;justify-content:space-between;color:#4a5551}
-.lt-slots{display:flex;gap:6px}.lt-slots span{border:1px solid #dfe4e1;border-radius:8px;padding:6px 9px;font-weight:600}
-.lt-slots span:first-child{background:var(--marke);border-color:var(--marke);color:#fff}
-.lt-seite-box .lp-tisch{margin:0}
+.br-leiste span{flex:1;max-width:420px;margin:0 auto;background:#fff;border-radius:999px;padding:4px 14px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .geraete .handy{position:absolute;left:850px;top:20px}
 .umschalter{display:none}
+/* Die Bildschirme sind scrollbar wie echt. Darin die Seite in ECHTEN Maßen
+   (Handy 390 px, Laptop 1440 px breit) und per zoom verkleinert. */
+.lp-rahmen{flex:1;overflow-y:auto;overflow-x:hidden;position:relative;scrollbar-width:none;background:#f8f9fa}
+.lp-rahmen::-webkit-scrollbar{display:none}
+.lp-rahmen.m .lp{width:390px;zoom:.7179}
+.lp-rahmen.d .lp{width:1440px;zoom:.6056}
+
+/* ===== Nachbau der echten Restaurantseite (index.html, showRestaurantLanding) ===== */
+.lp{--ink-deep:#00251e;--ink-strong:#003d33;--text2:#404946;position:relative;background:#f8f9fa;color:#191c1d;font-family:Inter,sans-serif}
+.lp *{box-sizing:border-box}
+.lp-nav{position:sticky;top:16px;z-index:20;margin:16px 16px -80px;height:64px;border-radius:9999px;background:rgba(255,255,255,.78);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);box-shadow:0 8px 24px rgba(0,0,0,.08);display:flex;align-items:center;gap:10px;padding:0 20px;color:#003d33}
+.lp-nav .marke{font:900 14px Epilogue,sans-serif;letter-spacing:-.02em;text-transform:uppercase;margin-left:auto}
+.lp.d .lp-nav .marke{position:absolute;left:50%;transform:translateX(-50%)}
+.lp-nav .spr{display:flex;background:rgba(0,0,0,.06);border-radius:50px;padding:2px;margin-left:6px}
+.lp.d .lp-nav .spr{margin-left:auto}
+.lp-nav .spr b{font:700 10px Inter,sans-serif;padding:5px 9px;border-radius:50px;color:#404946}
+.lp-nav .spr b:first-child{background:#fff;color:#191c1d}
+.lp-nav svg{flex:none}
+.lp-held{position:relative;height:751px;overflow:hidden;display:flex;align-items:flex-end;justify-content:center;padding:0 24px 150px}
+.lp.m .lp-held{padding:0 16px 96px}
+.lp-held .bg{position:absolute;inset:0;background:var(--lp-foto,none) center/cover no-repeat}
+.lp-held .bg.ohne{background:#003d33;background-image:radial-gradient(rgba(255,255,255,.06) 1.5px,transparent 1.5px);background-size:22px 22px;display:flex;align-items:center;justify-content:center}
+.lp-held .bg.ohne span{font:800 280px/1 Epilogue,sans-serif;color:rgba(254,214,91,.22);transform:translateY(-120px)}
+.lp-held .verlauf{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.4) 0%,transparent 30%,#fff 100%)}
+.lp-karte{position:relative;background:rgba(255,255,255,.85);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1);padding:32px 48px;border-radius:48px;max-width:640px;width:100%;text-align:center;box-shadow:0 25px 50px -12px rgba(0,0,0,.25)}
+.lp.m .lp-karte{padding:22px 20px;border-radius:28px}
+.lp-karte .logo{width:64px;height:64px;border-radius:50%;overflow:hidden;border:3px solid rgba(255,255,255,.9);margin:0 auto 12px;background:#fff center/cover no-repeat}
+.lp-karte h1{font:800 48px/1 Epilogue,sans-serif;color:var(--marke);letter-spacing:-.04em;margin:0 0 8px;text-transform:uppercase;overflow-wrap:anywhere}
+.lp.m .lp-karte h1{font-size:34px}
+.lp-karte .ort{font:400 18px Epilogue,sans-serif;color:#003d33;letter-spacing:.2em;text-transform:uppercase;margin:0 0 16px}
+.lp.m .lp-karte .ort{font-size:13px;letter-spacing:.14em}
+.lp-vk{display:flex;justify-content:center;flex-wrap:wrap;gap:8px;margin:0 0 16px}
+.lp-vk span{display:inline-flex;align-items:center;gap:7px;border-radius:9999px;padding:10px 16px;font:700 15px Inter,sans-serif}
+.lp-vk .offen{background:#dcfce7;color:#166534}.lp-vk .offen i{width:8px;height:8px;border-radius:50%;background:#16a34a}
+.lp-vk .ruf{background:#003d33;color:#fff}
+.lp-karte .satz{color:#404946;font:italic 400 16px/1.6 Inter,sans-serif;margin:0 auto;max-width:480px}
+.lp-leiste{position:sticky;top:96px;z-index:15;display:flex;flex-direction:column;align-items:center;gap:12px;padding:0 24px;margin:-64px 0 80px}
+.lp-aktionen{background:color-mix(in srgb,var(--marke) 70%,#000 30%);padding:8px;border-radius:9999px;display:flex;align-items:center;gap:8px;box-shadow:0 20px 40px -8px rgba(0,0,0,.15);border:1px solid rgba(255,255,255,.1)}
+.lp-aktionen span{color:#fff;padding:12px 16px;border-radius:9999px;font:700 12px Epilogue,sans-serif;letter-spacing:.08em;display:flex;align-items:center;gap:8px;text-transform:uppercase;background:rgba(255,255,255,.2);white-space:nowrap}
+.lp-aktionen span.erst{background:var(--marke);padding:12px 24px;letter-spacing:.1em;box-shadow:0 4px 12px rgba(0,37,30,.3)}
+.lp.m .lp-leiste{padding:0 12px}
+.lp.m .lp-aktionen{gap:5px;padding:6px}
+.lp.m .lp-aktionen span{padding:11px 10px;letter-spacing:.06em}
+.lp.m .lp-aktionen span.erst{padding:11px 13px}
+.lp-zahl{background:rgba(0,37,30,.72);color:rgba(255,255,255,.92);font:600 12px Inter,sans-serif;letter-spacing:.02em;border-radius:9999px;padding:6px 14px}
+.lp-ueber{max-width:1280px;margin:0 auto;padding:0 24px 128px;display:grid;grid-template-columns:1fr;gap:64px;align-items:center}
+.lp.d .lp-ueber{grid-template-columns:1fr 1fr}
+.lp-ueber .bild{aspect-ratio:4/5;border-radius:16px;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,.25);transform:rotate(1deg);background:#e7e5e4 var(--lp-foto,none) center/cover no-repeat}
+.lp.m .lp-ueber .bild{aspect-ratio:4/3;transform:none;border-radius:28px}
+.lp-ueber .eb{color:var(--marke);font:700 14px Epilogue,sans-serif;letter-spacing:.3em;text-transform:uppercase;display:block;margin-bottom:16px}
+.lp-ueber h2{font:700 48px/1.1 Epilogue,sans-serif;color:#00251e;margin:0 0 32px}
+.lp.m .lp-ueber h2{font-size:32px}
+.lp-ueber p{color:#404946;font:400 18px/1.6 Inter,sans-serif;margin:0}
+.lp-menu{max-width:1280px;margin:0 auto 112px;padding:0 24px}
+.lp-menu .kasten{background:#fff;border:1px solid #e7e5e4;border-radius:28px;padding:24px 0 20px;overflow:hidden;box-shadow:0 12px 32px -18px rgba(0,0,0,.18)}
+.lp-menu .kopf{padding:0 20px 20px;display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+.lp-menu h2{font:700 28px Epilogue,sans-serif;color:#00251e;margin:0}
+.lp-menu .kopf p{color:#404946;letter-spacing:.1em;text-transform:uppercase;font-size:12px;margin:8px 0 0}
+.lp-menu .kopf b{font:700 13px Inter,sans-serif;color:#00251e;white-space:nowrap}
+.lp-menu .reihe{display:flex;overflow:hidden;gap:14px;padding:0 20px 6px}
+.lp-gk{flex:0 0 78%;max-width:280px;border-radius:24px;overflow:hidden;background:#fff;border:1px solid #ecebe9;display:flex;flex-direction:column}
+.lp.d .lp-gk{flex:0 0 300px;max-width:300px}
+.lp-gk .b{height:160px;background:linear-gradient(135deg,color-mix(in srgb,var(--marke) 60%,#000),var(--marke)) center/cover no-repeat}
+.lp-gk .t{padding:14px 16px 16px}
+.lp-gk .k{display:flex;justify-content:space-between;gap:8px;margin-bottom:6px}
+.lp-gk h3{font:700 17px/1.2 Epilogue,sans-serif;color:#00251e;margin:0}
+.lp-gk .k span{font:700 17px Epilogue,sans-serif;color:var(--marke);white-space:nowrap}
+.lp-gk p{font:400 13px/1.5 Inter,sans-serif;color:#404946;margin:0 0 12px}
+.lp-gk .kn{display:flex;justify-content:center;padding:10px;border-radius:9999px;background:rgba(0,61,51,.06);color:var(--marke);font:700 13px Inter,sans-serif}
+.lp-besuch{max-width:1280px;margin:0 auto;padding:0 24px 96px}
+.lp-besuch .wrap{background:#edeeef;border-radius:48px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.06);display:flex;flex-direction:column}
+.lp.d .lp-besuch .wrap{flex-direction:row}
+.lp-besuch .karte{height:400px;flex:1;background:#e4e7e5;background-image:linear-gradient(#d9dedb 2px,transparent 2px),linear-gradient(90deg,#d9dedb 2px,transparent 2px);background-size:64px 64px;display:flex;align-items:center;justify-content:center}
+.lp-besuch .karte i{width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--marke);box-shadow:0 6px 14px rgba(0,0,0,.25)}
+.lp-besuch .feld{padding:48px;background:var(--marke);color:#fff}
+.lp.d .lp-besuch .feld{width:42%}
+.lp-besuch h2{font:700 28px Epilogue,sans-serif;margin:0 0 32px}
+.lp-besuch .l{color:color-mix(in srgb,var(--marke) 35%,#fff);text-transform:uppercase;letter-spacing:.15em;font:700 12px Inter,sans-serif;margin:0 0 4px}
+.lp-besuch .v{font:400 18px Inter,sans-serif;margin:0 0 24px}
+.lp-zeit{display:flex;justify-content:space-between;padding:8px 12px;border-radius:12px;font:500 16px Inter,sans-serif;max-width:420px}
+.lp-zeit.heute{background:#fed65b;color:#00251e;font-weight:700}
+.lp-fusszeile{text-align:center;padding:0 24px 72px;color:#404946;font:400 12px Inter,sans-serif;letter-spacing:.15em;text-transform:uppercase}
+.lp-fusszeile b{display:block;font:700 20px Epilogue,sans-serif;letter-spacing:-.02em;text-transform:none;color:#00251e;margin-top:6px}
+.lp-fusszeile b span{color:var(--marke)}
+.lp-tisch{margin:0 16px 24px;border:1.5px dashed var(--marke);border-radius:16px;padding:12px 14px;font:400 14px Inter,sans-serif;display:flex;gap:10px;align-items:center;background:#fff}
+.lp-tisch b{display:block}
+.lp-tisch.aus{display:none}
 /* Das Handy: schlicht, kein Spielzeug – nur Rahmen und Bildschirm */
 .handy{width:300px;height:620px;border-radius:46px;background:#0b0d0c;padding:10px;box-shadow:0 40px 80px -30px rgba(0,30,20,.45),0 0 0 1px rgba(0,0,0,.25);flex:none}
 .schirm{width:100%;height:100%;border-radius:37px;overflow:hidden;background:#fff;color:#191c1d;position:relative;display:flex;flex-direction:column}
-.schirm .roll{flex:1;overflow:hidden}
-.lp-kopf{background:var(--marke);color:#fff;padding:44px 18px 18px;transition:background .45s ease}
-.lp-kopf.foto{background-size:cover;background-position:center;padding-top:150px}
-.lp-kopf .logo{width:56px;height:56px;border-radius:14px;background:#fff center/contain no-repeat;background-origin:content-box;padding:6px;box-shadow:0 6px 18px rgba(0,0,0,.25);margin-bottom:10px;display:none}
-.lp-kopf .logo.da{display:block}
-.lp-kopf .logo.hell,.bild.logo-feld.da.hell{background-color:#1d2422}
-.lp-kopf .art{font-size:11px;letter-spacing:.06em;text-transform:uppercase;opacity:.8}
-.lp-kopf h2{font-size:27px;color:#fff;margin:6px 0 10px;overflow-wrap:anywhere;hyphens:auto}
-.lp-kopf .auf{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.14);border-radius:999px;padding:6px 11px;font-size:12px;font-weight:600}
-.lp-kopf .auf i{width:7px;height:7px;border-radius:50%;background:#4ADE80}
-.lp-knoepfe{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:14px 14px 4px}
-.lp-knopf{border-radius:12px;padding:11px 10px;font-size:12.5px;font-weight:700;text-align:center;background:#f1f3f2;color:#191c1d;transition:opacity .3s,transform .3s}
-.lp-knopf.haupt{background:var(--marke);color:#fff;grid-column:1/-1;transition:background .45s}
-[data-f].aus{display:none!important}
-.lp-tisch{margin:10px 14px 0;border:1.5px dashed var(--marke);border-radius:12px;padding:10px 12px;font-size:12px;display:flex;gap:10px;align-items:center}
-.lp-tisch b{display:block;font-size:13px}
-.lp-karte{padding:12px 16px}
-.lp-karte h3{font-size:15px;margin:6px 0 8px}
-.lp-zeile{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid #edf0ee;font-size:13px}
-.lp-zeile span:first-child{font-weight:600}
-.lp-zeile small{display:block;font-weight:400;color:#68716d;font-size:11px}
-.lp-fuss{border-top:1px solid #edf0ee;padding:10px 16px 16px;font-size:10.5px;color:#68716d;text-align:center}
+.bild.logo-feld.da.hell{background-color:#1d2422}
 .meldung{position:absolute;left:10px;right:10px;top:12px;background:rgba(20,20,20,.92);color:#fff;border-radius:16px;padding:10px 12px;font-size:12px;line-height:1.35;transform:translateY(-130%);transition:transform .45s cubic-bezier(.2,.8,.2,1);z-index:3}
 .meldung.da{transform:none}
 .meldung b{display:block;font-size:12.5px}
@@ -188,47 +232,14 @@ button,input,select{font:inherit}
     <div class="laptop" aria-hidden="true">
       <div class="lt-schirm"><div class="lt-innen">
         <div class="br-leiste"><i></i><i></i><i></i><span class="v-adresse">kiekmolin.de/ihr-lokal</span></div>
-        <div class="lt-seite">
-          <div class="lt-nav"><div class="logo v-logo"></div><b class="v-name">Ihr Lokal</b><nav><span>Speisekarte</span><span data-f="reservieren">Reservieren</span><span>Kontakt</span></nav></div>
-          <div class="lt-held v-kopf">
-            <div class="art v-art">Restaurant · Ostfriesland</div>
-            <h2 class="v-name">Ihr Lokal</h2>
-            <span class="auf"><i></i>Jetzt geöffnet</span>
-            <div class="reihe"><span class="lp-knopf haupt v-haupt">Jetzt bestellen</span><span class="lp-knopf" data-f="abholen">Abholen</span><span class="lp-knopf" data-f="liefern">Liefern lassen</span><span class="lp-knopf" data-f="reservieren">Tisch reservieren</span></div>
-          </div>
-          <div class="lt-unten">
-            <div class="lt-karte"><h3>Speisekarte</h3><div class="v-karte"></div></div>
-            <div class="lt-seite-box">
-              <div data-f="reservieren"><h3>Tisch reservieren</h3><div class="lt-slots"><span>18:00</span><span>18:30</span><span>19:00</span><span>19:30</span></div></div>
-              <div class="lp-tisch" data-f="tisch"><div><b>QR-Code am Tisch</b>Gäste bestellen direkt vom Tisch</div></div>
-              <div class="zeiten"><span>Heute geöffnet</span><b>11:30 – 22:00</b></div>
-            </div>
-          </div>
-        </div>
+        <div class="lp-rahmen d" id="seite-d"></div>
       </div></div>
       <div class="lt-fuss"></div>
     </div>
     <div class="handy" id="handy">
       <div class="schirm">
-        <div class="meldung" id="meldung" aria-hidden="true"><b>Neue Bestellung · Tisch 4</b><span id="v-bestellung">2× Pizza Margherita</span> – direkt in Ihrem Dashboard</div>
-        <div class="roll">
-          <div class="lp-kopf v-kopf">
-            <div class="logo v-logo" role="img" aria-label="Ihr Logo"></div>
-            <div class="art v-art">Restaurant · Ostfriesland</div>
-            <h2 class="v-name">Ihr Lokal</h2>
-            <span class="auf"><i></i>Jetzt geöffnet</span>
-          </div>
-          <div class="lp-knoepfe">
-            <div class="lp-knopf haupt v-haupt">Jetzt bestellen</div>
-            <div class="lp-knopf" data-f="abholen">Abholen</div>
-            <div class="lp-knopf" data-f="liefern">Liefern lassen</div>
-            <div class="lp-knopf" data-f="reservieren">Tisch reservieren</div>
-            <div class="lp-knopf" data-f="speisekarte">Speisekarte</div>
-          </div>
-          <div class="lp-tisch" data-f="tisch"><svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><g fill="currentColor"><rect x="2" y="2" width="9" height="9" rx="1.5"/><rect x="17" y="2" width="9" height="9" rx="1.5"/><rect x="2" y="17" width="9" height="9" rx="1.5"/><rect x="17" y="17" width="4" height="4"/><rect x="22" y="22" width="4" height="4"/></g></svg><div><b>Sie sitzen an Tisch 4</b>Bestellen direkt vom Tisch – ohne Warten</div></div>
-          <div class="lp-karte"><h3>Speisekarte</h3><div class="v-karte"></div></div>
-          <div class="lp-fuss">Allergene ausgewiesen · Bezahlen vor Ort oder online</div>
-        </div>
+        <div class="meldung" id="meldung" aria-hidden="true"><b>Neue Bestellung · Tisch 4</b><span id="v-bestellung">2× Gericht</span> – direkt in Ihrem Dashboard</div>
+        <div class="lp-rahmen m" id="seite-m"></div>
       </div>
     </div>
     </div>
@@ -313,7 +324,7 @@ button,input,select{font:inherit}
 (function(){
   // Dieselben Farben wie im Wirte-Dashboard (MARKE.PALETTE) – nichts zeigen, was er dort nicht wählen kann.
   var FARBEN=[['Tannengrün','#14342b'],['Petrol','#14494f'],['Tiefblau','#1b3a5c'],['Nachtblau','#16233d'],['Aubergine','#452340'],['Bordeaux','#6b1220'],['Rostrot','#7c2d12'],['Terracotta','#8a3a1e']];
-  var FUNKTIONEN=[['abholen','Abholen','Gäste bestellen online und holen ab'],['liefern','Liefern','Mit eigener Liefergebühr und Mindestbestellwert'],['reservieren','Tisch reservieren','Reservierung landet sofort bei Ihnen'],['tisch','Bestellen am Tisch','QR-Code auf dem Tisch – Gast bestellt selbst']];
+  var FUNKTIONEN=[['bestellen','Online bestellen','Abholen oder Liefern – ohne Provision'],['reservieren','Tisch reservieren','Reservierung landet sofort bei Ihnen'],['tisch','Bestellen am Tisch','QR-Code auf jedem Tisch – Gast bestellt selbst']];
   var KARTEN={
     italienisch:['Italienisch',[['Pizza Margherita','Tomaten, Mozzarella, Basilikum','8,90 €'],['Spaghetti Carbonara','Speck, Ei, Parmesan','11,50 €'],['Tiramisu','Hausgemacht','5,90 €']]],
     fisch:['Fisch & Meeresfrüchte',[['Scholle Finkenwerder Art','Speck, Bratkartoffeln','18,90 €'],['Krabbenbrot','Nordseekrabben, Rührei','12,50 €'],['Matjes Hausfrauenart','Apfel, Zwiebeln, Sahne','13,90 €']]],
@@ -327,32 +338,57 @@ button,input,select{font:inherit}
   var $=function(i){return document.getElementById(i)};
   // Jede Angabe steht doppelt (Laptop und Handy) – immer alle setzen.
   var alle=function(k,f){document.querySelectorAll('.'+k).forEach(f)};
-  var zustand={name:'',ort:'',kueche:'italienisch',farbe:FARBEN[0],an:{abholen:true,liefern:false,reservieren:true,tisch:true}};
+  var bilder={foto:null,logo:null};
+  var zustand={name:'',ort:'',kueche:'italienisch',farbe:FARBEN[0],an:{bestellen:true,reservieren:true,tisch:true}};
   var esc=function(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})};
   var slug=function(s){return s.toLowerCase().replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')};
 
   FARBEN.forEach(function(f,i){var b=document.createElement('button');b.type='button';b.className='farbe';b.style.background=f[1];b.setAttribute('aria-label',f[0]);b.setAttribute('aria-pressed',i===0);b.onclick=function(){zustand.farbe=f;document.querySelectorAll('.farbe').forEach(function(x){x.setAttribute('aria-pressed',x===b)});zeichnen()};$('farben').appendChild(b)});
   FUNKTIONEN.forEach(function(f){var b=document.createElement('button');b.type='button';b.className='wahl';b.setAttribute('aria-pressed',!!zustand.an[f[0]]);b.innerHTML='<span class="k"></span><span><b>'+f[1]+'</b><small>'+f[2]+'</small></span><span class="inkl">inklusive</span>';b.onclick=function(){zustand.an[f[0]]=!zustand.an[f[0]];b.setAttribute('aria-pressed',zustand.an[f[0]]);zeichnen()};$('funktionen').appendChild(b)});
 
+  var ICON={
+    zurueck:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>',
+    teilen:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/><path d="M8.3 10.8l7.4-4.4M8.3 13.2l7.4 4.4"/></svg>',
+    kal:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>',
+    tasche:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>',
+    karte:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M7 3v8M5 3v4a2 2 0 0 0 4 0V3M7 11v10M17 3c-2 2-2 6 0 8v10"/></svg>',
+    ruf:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6.5 3.5h3l1.5 4-2 1.5a12 12 0 0 0 6 6l1.5-2 4 1.5v3a2 2 0 0 1-2.2 2A16.5 16.5 0 0 1 4.5 5.7 2 2 0 0 1 6.5 3.5z"/></svg>'
+  };
+  var TAGE=['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
+  function seite(modus){
+    var k=KARTEN[zustand.kueche],a=zustand.an,name=esc(zustand.name||'Ihr Lokal'),ort=esc(zustand.ort||'Ihr Ort');
+    var foto=bilder.foto,logo=bilder.logo,kueche=k[0].split(' ·')[0].split(' &')[0];
+    var heute=(new Date().getDay()+6)%7;
+    var h='<div class="lp '+modus+'"'+(foto?' style="--lp-foto:url(&quot;'+foto+'&quot;)"':'')+'>';
+    h+='<div class="lp-nav">'+ICON.zurueck+'<span class="marke">Kiek mol in</span><span class="spr"><b>DE</b><b>EN</b><b>NL</b></span>'+ICON.teilen+'</div>';
+    h+='<section class="lp-held"><div class="bg'+(foto?'':' ohne')+'">'+(foto?'':'<span>'+esc((zustand.name||'K').charAt(0).toUpperCase())+'</span>')+'</div><div class="verlauf"></div>';
+    h+='<div class="lp-karte">'+(logo?'<div class="logo" style="background-image:url(&quot;'+logo+'&quot;)"></div>':'')+'<h1>'+name+'</h1><p class="ort">'+ort+', Ostfriesland</p>';
+    h+='<div class="lp-vk"><span class="offen"><i></i>Offen bis 22:00</span><span class="ruf">'+ICON.ruf+'Anrufen</span></div>';
+    h+='<p class="satz">"'+esc(kueche)+(zustand.ort?' in '+ort:'')+'"</p></div></section>';
+    h+='<div class="lp-leiste"><div class="lp-aktionen">'+(a.reservieren?'<span class="erst">'+ICON.kal+'Reservieren</span>':'')+(a.bestellen?'<span'+(a.reservieren?'':' class="erst"')+'>'+ICON.tasche+'Bestellen</span>':'')+'<span>'+ICON.karte+'Karte</span></div><div class="lp-zahl">Zahlung: Bar · Karte</div></div>';
+    h+='<div class="lp-tisch'+(a.tisch?'':' aus')+'"><svg width="26" height="26" viewBox="0 0 28 28" aria-hidden="true"><g fill="currentColor"><rect x="2" y="2" width="9" height="9" rx="1.5"/><rect x="17" y="2" width="9" height="9" rx="1.5"/><rect x="2" y="17" width="9" height="9" rx="1.5"/><rect x="17" y="17" width="4" height="4"/><rect x="22" y="22" width="4" height="4"/></g></svg><div><b>QR-Code auf jedem Tisch</b>Gäste scannen und bestellen direkt</div></div>';
+    h+='<section class="lp-ueber"><div class="bild"></div><div><span class="eb">Über uns</span><h2>'+esc(kueche)+' trifft Nordsee</h2><p>'+name+(zustand.ort?' in '+ort:'')+': '+esc(kueche)+'. Frisch zubereitet, mit norddeutschem Flair.</p></div></section>';
+    h+='<section class="lp-menu"><div class="kasten"><div class="kopf"><div><h2>Speisekarte</h2><p>Unsere Empfehlungen</p></div><b>Alles ansehen →</b></div><div class="reihe">';
+    k[1].forEach(function(z,i){h+='<div class="lp-gk"><div class="b"'+(i===0&&foto?' style="background-image:url(&quot;'+foto+'&quot;)"':'')+'></div><div class="t"><div class="k"><h3>'+esc(z[0])+'</h3><span>'+z[2]+'</span></div><p>'+esc(z[1])+'</p>'+(a.bestellen||a.tisch?'<div class="kn">In den Warenkorb</div>':'')+'</div></div>'});
+    h+='</div></div></section>';
+    h+='<section class="lp-besuch"><div class="wrap"><div class="karte"><i></i></div><div class="feld"><h2>Besuche uns</h2><p class="l">Adresse</p><p class="v">Ihre Straße 1<br>'+ort+'</p><p class="l">Öffnungszeiten</p>';
+    TAGE.forEach(function(t,i){if(Math.abs(i-heute)<=1||i===heute)h+='<div class="lp-zeit'+(i===heute?' heute':'')+'"><span>'+t+'</span><span>11:30 – 22:00</span></div>'});
+    h+='<p class="l" style="margin-top:24px">Telefon</p><p class="v">Ihre Nummer</p></div></div></section>';
+    h+='<div class="lp-fusszeile">Powered by<b>Kiek mol <span>in</span></b></div></div>';
+    return h;
+  }
   function zeichnen(){
     var k=KARTEN[zustand.kueche];
-    alle('v-name',function(e){e.textContent=zustand.name||'Ihr Lokal'});
-    alle('v-art',function(e){e.textContent=k[0]+' · '+(zustand.ort||'Ostfriesland')});
     alle('v-adresse',function(e){e.textContent='kiekmolin.de/'+(slug(zustand.name)||'ihr-lokal')});
     document.documentElement.style.setProperty('--marke',zustand.farbe[1]);
     $('farbname').textContent=zustand.farbe[0];
-    var karte=k[1].map(function(z){return '<div class="lp-zeile"><span>'+esc(z[0])+'<small>'+esc(z[1])+'</small></span><span>'+z[2]+'</span></div>'}).join('');
-    alle('v-karte',function(e){e.innerHTML=karte});
-    document.querySelectorAll('[data-f]').forEach(function(el){var f=el.getAttribute('data-f');if(f in zustand.an)el.classList.toggle('aus',!zustand.an[f])});
+    $('seite-m').innerHTML=seite('m');$('seite-d').innerHTML=seite('d');
     var g=k[1][0],pr=parseFloat(g[2].replace(',','.'))*2;$('v-bestellung').textContent='2× '+g[0]+' · '+pr.toFixed(2).replace('.',',')+' €';
-    var a=zustand.an,haupt=a.tisch?'Am Tisch bestellen':(a.abholen||a.liefern)?'Jetzt bestellen':a.reservieren?'Tisch reservieren':'Speisekarte ansehen';
-    alle('v-haupt',function(e){e.textContent=haupt});
   }
   $('e-name').addEventListener('input',function(e){zustand.name=e.target.value.trim();zeichnen()});
   $('e-ort').addEventListener('input',function(e){zustand.ort=e.target.value.trim();zeichnen()});
   // Eigenes Foto und Logo: nur im Browser angezeigt (Object-URL), nichts verlässt das Gerät.
-  var bilder={foto:null,logo:null};
-  function bildSetzen(art,datei){
+    function bildSetzen(art,datei){
     if(bilder[art]){try{URL.revokeObjectURL(bilder[art])}catch(e){}bilder[art]=null}
     if(datei){
       if(!/^image\//.test(datei.type||'')){$('bild-info').textContent='Das ist kein Bild. Bitte ein Foto (JPG, PNG) wählen.';return}
@@ -361,10 +397,8 @@ button,input,select{font:inherit}
     var feld=$('b-'+art),url=bilder[art];
     feld.classList.toggle('da',!!url);feld.style.backgroundImage=url?'url("'+url+'")':'';
     feld.querySelector('.txt').textContent=url?(art==='foto'?'Foto ändern':'Logo ändern'):(art==='foto'?'Foto vom Essen oder Lokal':'Ihr Logo');
-    if(art==='foto')alle('v-kopf',function(k){var lt=k.classList.contains('lt-held');k.classList.toggle('foto',!!url);
-      k.style.backgroundImage=url?(lt?'linear-gradient(90deg,var(--marke) 0%,rgba(0,0,0,.35) 60%,rgba(0,0,0,.1) 100%),':'linear-gradient(180deg,rgba(0,0,0,.05) 0%,rgba(0,0,0,.25) 40%,var(--marke) 100%),')+'url("'+url+'")':''});
-    else{feld.classList.remove('hell');alle('v-logo',function(l){l.classList.toggle('da',!!url);l.style.backgroundImage=url?'url("'+url+'")':'';l.classList.remove('hell')});
-      if(url)logoHell(url,function(h){feld.classList.toggle('hell',h);alle('v-logo',function(l){l.classList.toggle('hell',h)})})}
+    if(art==='logo'){feld.classList.remove('hell');if(url)logoHell(url,function(h){feld.classList.toggle('hell',h)})}
+    zeichnen();
     if(!datei)$('e-'+art).value='';
   }
   // Helles Logo (weiß/silber, oft freigestellt) wäre auf weißem Grund unsichtbar:
