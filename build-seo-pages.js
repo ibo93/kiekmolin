@@ -2329,7 +2329,7 @@ function startenKueche(p, cat) {
 function startenLink(p, name, ort, cat) {
   return '/starten?name=' + encodeURIComponent(String(name).slice(0, 60)) +
     '&ort=' + encodeURIComponent(String(ort).slice(0, 40)) +
-    '&kueche=' + startenKueche(p, cat) + '&quelle=eintrag';
+    '&art=' + startenKueche(p, cat) + '&quelle=eintrag';
 }
 
 /* DER ZAEHLER AUF DEN RESTAURANTSEITEN.

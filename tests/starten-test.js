@@ -100,7 +100,7 @@ process.env.SEO_OUT_DIR = AUS;
 var B = require(KMI + '/build-seo-pages.js');
 var seite = B.generateProspectPage({ name: 'Fischhaus "Möwe"<b>', city: 'Norddeich', category: 'fischrestaurant', source: 'osm' }, [], []);
 var html = seite ? fs.readFileSync(require('path').join(AUS, seite.filename), 'utf8') : '';
-t('Kasten-Knopf fuehrt auf /starten mit Name, Ort, Kueche', /id="inhaberKnopf"/.test(html) && /href="\/starten\?name=Fischhaus%20%22M%C3%B6we%22%3Cb%3E&amp;ort=Norddeich&amp;kueche=fisch&amp;quelle=eintrag" id="inhaberKnopf"/.test(html), (html.match(/href="[^"]*" id="inhaberKnopf"/) || [])[0]);
+t('Kasten-Knopf fuehrt auf /starten mit Name, Ort, Kueche', /id="inhaberKnopf"/.test(html) && /href="\/starten\?name=Fischhaus%20%22M%C3%B6we%22%3Cb%3E&amp;ort=Norddeich&amp;art=fisch&amp;quelle=eintrag" id="inhaberKnopf"/.test(html), (html.match(/href="[^"]*" id="inhaberKnopf"/) || [])[0]);
 t('Zeile oben ebenso', /href="\/starten\?name=[^"]*" id="inhaberZeile"/.test(html));
 t('Kein rohes HTML aus dem Namen im Link', !/name=Fischhaus "M/.test(html) && !/<b>&amp;ort/.test(html));
 t('Entfernen-Link im Fuss bleibt auf /gastro (wer loeschen will, landet nicht im Verkauf)', /<a href="\/gastro">Eintrag bearbeiten oder entfernen lassen<\/a>/.test(html));
