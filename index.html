@@ -4491,6 +4491,9 @@
         #reservationModal .res-feld .form-input { border: none !important; background: transparent !important; padding: 2px 0 !important; height: auto !important; min-height: 26px; border-radius: 0 !important; box-shadow: none !important; font: 500 16px Inter, sans-serif; color: #191c1d; outline: none; }
         .res-mail-tipp { width: 100%; border: none; border-top: 1px solid #fde7c7; background: #fff7ec; padding: 10px 16px 12px 52px; text-align: left; font: 500 13px Inter, sans-serif; color: #7c2d12; cursor: pointer; }
         .res-mail-tipp b { text-decoration: underline; }
+        .bt-balken { position: fixed; top: 0; left: 0; right: 0; z-index: 30000; border: none; background: #b91c1c; color: #fff; font: 700 15px/1.35 Inter, sans-serif; padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 12px; text-align: center; cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+        .bt-stand.an { color: #15803d; } .bt-stand.aus { color: #b91c1c; }
+        .dark-mode .bt-stand.an { color: #86efac !important; } .dark-mode .bt-stand.aus { color: #fca5a5 !important; }
         .res-mail-erneut { margin-top: 8px; display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border: 1px solid rgba(0,61,51,0.18); border-radius: 9999px; background: transparent; color: var(--primary); font: 600 13px Inter, sans-serif; cursor: pointer; }
         .res-mail-erneut .material-symbols-outlined { font-size: 17px; }
         .res-mail-erneut:disabled { opacity: .55; cursor: wait; }
@@ -69227,6 +69230,10 @@ async function dispatchPrintToAll(order, bonType) {
             } else if (p.type === 'epson') {
                 var ok = await printToEpson(orderForPrint, p);
                 if (ok) success++; else errors++;
+            } else if (p.type === 'bluetooth') {
+                // Nicht verbunden -> Warteschlange + roter Balken (btDrucken).
+                var okB = await btDrucken(orderForPrint, { manuell: bonType === 'manual' });
+                if (okB) success++; else errors++;
             } else {
                 var okQ = printToSpecificQZ(orderForPrint, p);
                 if (okQ) success++; else errors++;
@@ -69305,6 +69312,334 @@ async function printToEpson(order, printer) {
         return res.ok;
     } catch(e) { console.error('Epson Fehler:', e); return false; }
 }
+// ==================== BLUETOOTH-DRUCK (08.11.2026) ====================
+//
+// Ibo: "Die Drucker sind teuer die Epson ... lass dich was erfinden mit
+// guenstigen Drucker zu arbeiten mit Bluetooth". Und: "automatisch drucken
+// wenn man die Bestellung annimmt".
+//
+// Chrome auf Android (und am PC) kann mit "Web Bluetooth" direkt mit einem
+// Bluetooth-Low-Energy-Drucker sprechen -- ohne App, ohne PC, ohne Epson.
+// Fast alle guenstigen Bondrucker (30-60 EUR) verstehen ESC/POS, und den
+// Bon dafuer gibt es schon: generateESCPOS().
+//
+// GRENZEN, DIE MAN KENNEN MUSS
+//   * Nur Chrome/Android (und Chrome am PC). iPhone/iPad: Safari hat kein
+//     Web Bluetooth -- dort steht ein klarer Satz statt eines toten Knopfes.
+//   * Nur Drucker mit Bluetooth Low Energy (BLE, "Bluetooth 4.0").
+//   * Die App muss offen sein (Web-Apps drucken nicht im Hintergrund) --
+//     darum haelt das Kuechen-Display den Bildschirm wach.
+//   * Nicht an echter Hardware geprueft, als es gebaut wurde: in der
+//     Bau-Umgebung gibt es kein Bluetooth. Die Tests pruefen die Logik mit
+//     einem nachgebauten Drucker.
+//
+// WIE SIEHT ES AUS, WENN ES KAPUTT IST? (Regel 6)
+// Ein Drucker, der still nicht druckt, ist der schlimmste Fall: die Kueche
+// wartet auf Bons, die nie kommen. Deshalb:
+//   * Verbindung weg -> roter Balken oben, bis er wieder da ist.
+//   * Bons, die nicht raus konnten, kommen in eine Warteschlange und werden
+//     nach dem Wiederverbinden gedruckt -- nichts geht verloren.
+//   * Jeder Fehlschlag landet als Ereignis beim Lokal (print_failed).
+//
+// DOPPELT DRUCKEN? Jede Bestellung wird auf diesem Geraet genau einmal
+// automatisch gedruckt -- egal ob beim Annehmen hier oder weil das
+// Kuechen-Display sie angenommen sieht (angenommen auf einem anderen Handy).
+// Nachdruck von Hand geht immer.
+
+// Bekannte Dienste guenstiger BLE-Drucker. Chrome verlangt, dass jeder
+// Dienst, den die Seite benutzen will, hier vorher genannt wird.
+var BT_DIENSTE = [
+    '000018f0-0000-1000-8000-00805f9b34fb',
+    'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
+    '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+    '0000ff00-0000-1000-8000-00805f9b34fb',
+    '0000ffe0-0000-1000-8000-00805f9b34fb',
+    '0000ae30-0000-1000-8000-00805f9b34fb',
+    '0000fee7-0000-1000-8000-00805f9b34fb',
+    '0000ae3a-0000-1000-8000-00805f9b34fb'
+];
+var BT_GEDRUCKT_SCHLUESSEL = 'kin_bt_gedruckt';
+var BT_STUECK_GROSS = 180, BT_STUECK_KLEIN = 20;
+
+var _bt = { geraet: null, kanal: null, name: '', verbunden: false, versuche: 0, warteschlange: [], laeuft: false, imDruck: {} };
+window._kinBt = _bt;
+
+function btMoeglich() {
+    return typeof navigator !== 'undefined' && !!navigator.bluetooth && typeof navigator.bluetooth.requestDevice === 'function';
+}
+
+// Der Satz, wenn es auf diesem Geraet nicht geht -- statt eines Knopfes,
+// der nichts tut.
+function btNichtMoeglichText() {
+    var ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
+    if (/iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && typeof navigator !== 'undefined' && navigator.maxTouchPoints > 1)) {
+        return 'Auf iPhone und iPad geht Bluetooth-Druck nicht – Apple erlaubt es Webseiten nicht. Bitte ein Android-Tablet mit Chrome nehmen.';
+    }
+    return 'Dieser Browser kann kein Bluetooth. Bitte Chrome auf Android (oder Chrome am PC) nehmen.';
+}
+
+// ESC/POS-Text -> Bytes. Druckerschrift PC437 (die kennt fast jeder Drucker):
+// Umlaute bekommen ihre Nummer, das Euro-Zeichen gibt es dort nicht -> "EUR".
+var BT_PC437 = { 'ä': 0x84, 'ö': 0x94, 'ü': 0x81, 'Ä': 0x8E, 'Ö': 0x99, 'Ü': 0x9A, 'ß': 0xE1, 'é': 0x82, 'è': 0x8A, 'à': 0x85, 'â': 0x83, 'ê': 0x88, 'ç': 0x87, 'ñ': 0xA4, '°': 0xF8, '½': 0xAB };
+function btBytes(text) {
+    var s = String(text || '').replace(/€/g, 'EUR').replace(/[„“”]/g, '"').replace(/[‚‘’]/g, "'").replace(/[–—]/g, '-').replace(/…/g, '...');
+    // Nach dem Zuruecksetzen (ESC @) die Schrift PC437 waehlen (ESC t 0).
+    if (s.indexOf('\x1B@') === 0) s = '\x1B@\x1Bt\x00' + s.slice(2);
+    var out = new Uint8Array(s.length), n = 0;
+    for (var i = 0; i < s.length; i++) {
+        var c = s.charCodeAt(i);
+        if (c < 0x80) out[n++] = c;
+        else if (BT_PC437[s[i]] !== undefined) out[n++] = BT_PC437[s[i]];
+        else out[n++] = 0x3F; // ?
+    }
+    return out.slice(0, n);
+}
+
+// Welche Bestellungen hat dieses Geraet schon automatisch gedruckt?
+function btGedrucktLesen() {
+    try { return JSON.parse(localStorage.getItem(BT_GEDRUCKT_SCHLUESSEL) || '{}') || {}; } catch (e) { return {}; }
+}
+function btIstGedruckt(id) { return !!btGedrucktLesen()[id]; }
+function btAlsGedrucktMerken(id) {
+    var g = btGedrucktLesen(), jetzt = Date.now();
+    g[id] = jetzt;
+    // Nach zwei Tagen vergessen, sonst waechst die Liste endlos.
+    Object.keys(g).forEach(function (k) { if (jetzt - g[k] > 48 * 3600 * 1000) delete g[k]; });
+    try { localStorage.setItem(BT_GEDRUCKT_SCHLUESSEL, JSON.stringify(g)); } catch (e) {}
+}
+
+// Die Bluetooth-Drucker dieses Geraets fuer ein Lokal.
+function btDruckerFuer(restId) {
+    var liste = (typeof getPrinterList === 'function') ? getPrinterList(restId || 'default') : [];
+    return liste.filter(function (p) { return p.type === 'bluetooth'; });
+}
+
+// Den Schreib-Kanal des Druckers finden: der erste, der Schreiben erlaubt.
+async function btKanalSuchen(server) {
+    var dienste = await server.getPrimaryServices();
+    for (var i = 0; i < dienste.length; i++) {
+        var kanaele;
+        try { kanaele = await dienste[i].getCharacteristics(); } catch (e) { continue; }
+        for (var j = 0; j < kanaele.length; j++) {
+            var pr = kanaele[j].properties || {};
+            if (pr.writeWithoutResponse || pr.write) return kanaele[j];
+        }
+    }
+    return null;
+}
+
+async function btAnmelden(geraet) {
+    var server = await geraet.gatt.connect();
+    var kanal = await btKanalSuchen(server);
+    if (!kanal) throw new Error('Der Drucker hat keinen Kanal zum Schreiben angeboten.');
+    _bt.geraet = geraet; _bt.kanal = kanal; _bt.name = geraet.name || 'Bluetooth-Drucker';
+    _bt.verbunden = true; _bt.versuche = 0;
+    if (!geraet._kinHorcht) {
+        geraet._kinHorcht = true;
+        geraet.addEventListener('gattserverdisconnected', btGetrennt);
+    }
+    btBalken();
+    btWarteschlangeAbarbeiten();
+    return true;
+}
+
+// Erstes Verbinden: braucht einen Fingertipp (Chrome zeigt dann die Liste).
+async function btVerbinden(restId) {
+    if (!btMoeglich()) { showToast(btNichtMoeglichText(), 'error'); return false; }
+    try {
+        var geraet = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: BT_DIENSTE });
+        await btAnmelden(geraet);
+        // Im Drucker-Verzeichnis dieses Geraets merken (localStorage, wie alle Drucker).
+        var rid = restId || (document.getElementById('ordersRestaurantSelect') || {}).value || 'default';
+        var liste = (typeof getPrinterList === 'function') ? getPrinterList(rid).slice() : [];
+        var vorhanden = liste.filter(function (p) { return p.type === 'bluetooth'; })[0];
+        if (vorhanden) { vorhanden.geraet_id = geraet.id; vorhanden.name = _bt.name; }
+        else liste.push({ id: 'bt-' + Date.now(), type: 'bluetooth', name: _bt.name, geraet_id: geraet.id, role: 'kitchen_bon_only', autoprint: true });
+        if (typeof setPrinterList === 'function') setPrinterList(rid, liste);
+        showToast('Drucker verbunden: ' + _bt.name, 'success');
+        return true;
+    } catch (e) {
+        // Abbrechen in der Liste ist kein Fehler.
+        if (e && e.name === 'NotFoundError') return false;
+        showToast('Drucker nicht verbunden: ' + ((e && e.message) || 'unbekannter Fehler'), 'error');
+        return false;
+    }
+}
+window.btVerbinden = btVerbinden;
+
+// Nach dem Neuladen: ohne Fingertipp wieder anmelden, wenn Chrome das
+// schon erlaubte Geraet herausgibt (getDevices). Geht das nicht, bleibt der
+// rote Balken stehen -- ein Tipp darauf verbindet neu.
+async function btWiederAnmelden() {
+    if (_bt.verbunden || !btMoeglich() || typeof navigator.bluetooth.getDevices !== 'function') { btBalken(); return false; }
+    try {
+        var gemerkt = btAlleBtDrucker().map(function (p) { return p.geraet_id; }).filter(Boolean);
+        if (!gemerkt.length) { btBalken(); return false; }
+        var geraete = await navigator.bluetooth.getDevices();
+        var g = geraete.filter(function (d) { return gemerkt.indexOf(d.id) >= 0; })[0];
+        if (!g) { btBalken(); return false; }
+        await btAnmelden(g);
+        return true;
+    } catch (e) { btBalken(); return false; }
+}
+
+function btAlleBtDrucker() {
+    var alle = [];
+    try {
+        var s = getPrinterSettings();
+        Object.keys(s).forEach(function (k) {
+            (s[k] && Array.isArray(s[k].printers) ? s[k].printers : []).forEach(function (p) { if (p.type === 'bluetooth') alle.push(p); });
+        });
+    } catch (e) {}
+    return alle;
+}
+
+function btGetrennt() {
+    _bt.verbunden = false; _bt.kanal = null;
+    btBalken();
+    // Bis zu dreimal von selbst neu verbinden (2 s, 4 s, 8 s).
+    if (_bt.geraet && _bt.versuche < 3) {
+        var warte = 2000 * Math.pow(2, _bt.versuche++);
+        setTimeout(function () {
+            if (_bt.verbunden || !_bt.geraet) return;
+            btAnmelden(_bt.geraet).catch(function () { btGetrennt(); });
+        }, warte);
+    }
+}
+
+// Der rote Balken. Nur, wenn auf DIESEM Geraet ein Bluetooth-Drucker
+// eingerichtet ist und gerade keine Verbindung besteht.
+function btBalken() {
+    if (typeof document === 'undefined') return;
+    var b = document.getElementById('btDruckerBalken');
+    var noetig = btAlleBtDrucker().length > 0 && !_bt.verbunden;
+    if (!noetig) { if (b) b.remove(); return; }
+    var warten = _bt.warteschlange.length;
+    var text = 'Bluetooth-Drucker getrennt – Bons werden gerade NICHT gedruckt'
+        + (warten ? ' (' + warten + ' warten)' : '') + '. Hier tippen zum Verbinden.';
+    if (!b) {
+        b = document.createElement('button');
+        b.type = 'button';
+        b.id = 'btDruckerBalken';
+        b.className = 'bt-balken';
+        b.setAttribute('role', 'alert');
+        b.onclick = function () { btVerbinden(); };
+        document.body.appendChild(b);
+    }
+    b.textContent = text;
+}
+
+// Bytes in Stuecken schicken. Grosse Stuecke zuerst; lehnt der Drucker ab,
+// mit 20 Byte weiter (das kann jeder BLE-Drucker).
+async function btSchreiben(bytes) {
+    if (!_bt.kanal) throw new Error('nicht verbunden');
+    var k = _bt.kanal, ohneAntwort = !!(k.properties && k.properties.writeWithoutResponse);
+    var gross = _bt.stueck || BT_STUECK_GROSS;
+    for (var i = 0; i < bytes.length;) {
+        var stueck = bytes.slice(i, i + gross);
+        try {
+            if (ohneAntwort && k.writeValueWithoutResponse) await k.writeValueWithoutResponse(stueck);
+            else if (k.writeValueWithResponse) await k.writeValueWithResponse(stueck);
+            else await k.writeValue(stueck);
+            i += stueck.length;
+            // Kleine Pause: guenstige Drucker haben wenig Puffer.
+            if (ohneAntwort) await new Promise(function (r) { setTimeout(r, 15); });
+        } catch (e) {
+            if (gross > BT_STUECK_KLEIN) { gross = BT_STUECK_KLEIN; _bt.stueck = BT_STUECK_KLEIN; continue; }
+            throw e;
+        }
+    }
+}
+
+// Einen Bon drucken. manuell = Nachdruck von Hand (immer, ohne Merkliste).
+async function btDrucken(order, opt) {
+    opt = opt || {};
+    if (!opt.manuell && order && order.id && (btIstGedruckt(order.id) || _bt.imDruck[order.id])) return true;
+    if (!_bt.verbunden) {
+        if (order && order.id && _bt.warteschlange.every(function (w) { return w.order.id !== order.id; })) {
+            _bt.warteschlange.push({ order: order, manuell: !!opt.manuell });
+        }
+        btBalken();
+        return false;
+    }
+    var _id = order && order.id;
+    if (_id && !opt.manuell) _bt.imDruck[_id] = true;
+    try {
+        await btSchreiben(btBytes(generateESCPOS(order)));
+        if (_id && !opt.manuell) btAlsGedrucktMerken(_id);
+        return true;
+    } catch (e) {
+        if (order && order.id) _bt.warteschlange.push({ order: order, manuell: !!opt.manuell });
+        if (typeof logRestaurantEvent === 'function') {
+            logRestaurantEvent(order && order.restaurant_id, 'print_failed',
+                'Bluetooth-Druck fehlgeschlagen für Bestellung #' + (order && (order.order_number || order.id)) + ': ' + ((e && e.message) || e),
+                order && order.id || null, { weg: 'bluetooth', drucker: _bt.name || null });
+        }
+        btGetrennt();
+        return false;
+    } finally {
+        if (_id) delete _bt.imDruck[_id];
+    }
+}
+window.btDrucken = btDrucken;
+
+async function btWarteschlangeAbarbeiten() {
+    if (_bt.laeuft || !_bt.verbunden) return;
+    _bt.laeuft = true;
+    try {
+        while (_bt.verbunden && _bt.warteschlange.length) {
+            var w = _bt.warteschlange.shift();
+            var ok = await btDrucken(w.order, { manuell: w.manuell });
+            if (!ok) break;
+        }
+    } finally { _bt.laeuft = false; btBalken(); }
+}
+
+// KUECHEN-DISPLAY: jede Bestellung, die angenommen ist, einmal drucken --
+// auch wenn sie auf einem anderen Handy angenommen wurde.
+// Beim ersten Laden nach dem Oeffnen nur, was in den letzten 3 Minuten
+// angenommen wurde; aeltere gelten als schon erledigt (sonst druckt das
+// Tablet nach jedem Neustart den ganzen Abend nach).
+var BT_ANGENOMMEN = ['accepted', 'confirmed', 'preparing'];
+function btKuecheNachziehen(orders, restId, ersterLauf, jetzt) {
+    var drucker = btDruckerFuer(restId).filter(function (p) { return p.autoprint !== false; });
+    if (!drucker.length || !Array.isArray(orders)) return [];
+    jetzt = jetzt || Date.now();
+    var gedruckt = [];
+    orders.forEach(function (o) {
+        if (!o || !o.id || BT_ANGENOMMEN.indexOf(o.status) < 0 || btIstGedruckt(o.id)) return;
+        if (ersterLauf) {
+            var seit = Date.parse(o.accepted_at || o.preparing_at || o.updated_at || o.created_at || '') || 0;
+            if (jetzt - seit > 3 * 60 * 1000) { btAlsGedrucktMerken(o.id); return; }
+        }
+        var p = drucker[0];
+        var items = (typeof filterItemsByRole === 'function') ? filterItemsByRole(o, p.role) : (o.items || []);
+        if (!items.length && (p.role === 'kitchen' || p.role === 'bar')) { btAlsGedrucktMerken(o.id); return; }
+        btDrucken(Object.assign({}, o, { items: items }));
+        gedruckt.push(o.id);
+    });
+    return gedruckt;
+}
+
+// BILDSCHIRM WACH HALTEN, solange das Kuechen-Display offen ist.
+var _kinWachSperre = null;
+async function kinBildschirmWach(an) {
+    try {
+        if (!an) { if (_kinWachSperre) { await _kinWachSperre.release(); } _kinWachSperre = null; return false; }
+        if (typeof navigator === 'undefined' || !navigator.wakeLock) return false;
+        _kinWachSperre = await navigator.wakeLock.request('screen');
+        return true;
+    } catch (e) { return false; }
+}
+if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', function () {
+        // Der Browser gibt die Sperre beim Wegschalten frei -- zurueckholen.
+        if (document.visibilityState === 'visible' && document.getElementById('kitchenDisplay')) kinBildschirmWach(true);
+        if (document.visibilityState === 'visible') btWiederAnmelden();
+    });
+    setTimeout(function () { try { btWiederAnmelden(); } catch (e) {} }, 1500);
+}
+
 function savePrinterSettings(settings) {
     localStorage.setItem('kin_printer_settings', JSON.stringify(settings));
 }
@@ -69842,6 +70177,7 @@ function openMultiPrinterSettings() {
         var typeQz = p.type === 'qz' ? ' selected' : '';
         var typeEpson = p.type === 'epson' ? ' selected' : '';
         var typeSDP = p.type === 'server-direct' ? ' selected' : '';
+        var typeBT = p.type === 'bluetooth' ? ' selected' : '';
         var typeBadge = p.type === 'server-direct'
             ? '<span style="font-size:10px;background:#dcfce7;color:#15803d;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:600;">empfohlen</span>'
             : '';
@@ -69874,6 +70210,14 @@ function openMultiPrinterSettings() {
                     '<input value="' + (p.devid || 'local_printer') + '" oninput="updateMultiPrinter(' + idx + ', \'devid\', this.value)" placeholder="local_printer" style="width:100%;padding:8px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-card);font-size:12px;box-sizing:border-box;"></div>' +
               '</div>' +
               '<div style="font-size:11px;color:#9a3412;background:#fef3c7;padding:6px 8px;border-radius:6px;margin-bottom:8px;">⚠ Direkt-Druck wird auf HTTPS oft blockiert (Mixed Content). Falls Bons nicht kommen: auf „Server Direct Print" wechseln.</div>';
+        } else if (p.type === 'bluetooth') {
+            configBlock = btMoeglich()
+                ? '<div style="background:var(--bg-card);border:1px dashed var(--border-color);border-radius:8px;padding:10px;margin-bottom:8px;">'
+                    + '<div style="font-size:11px;color:var(--slate);margin-bottom:6px;">Günstiger Bluetooth-Bondrucker mit „BLE“ / „Bluetooth 4.0“. Dieses Gerät druckt jeden angenommenen Bon automatisch – solange Kiek mol in hier offen ist (am besten das Küchen-Display).</div>'
+                    + '<div style="font-size:12px;font-weight:600;margin-bottom:8px;" class="bt-stand ' + (_bt.verbunden ? 'an' : 'aus') + '">' + (_bt.verbunden ? '● Verbunden: ' + escapeHtml(_bt.name) : '● Nicht verbunden' + (p.name ? ' (' + escapeHtml(p.name) + ')' : '')) + '</div>'
+                    + '<button type="button" onclick="btVerbinden(_multiPrinterOverlay() && _multiPrinterOverlay()._restId).then(function(ok){ if (ok) openMultiPrinterSettings(); })" style="width:100%;padding:8px;background:var(--primary);color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:14px;">print</span>' + (_bt.verbunden ? 'Anderen Drucker verbinden' : 'Drucker verbinden') + '</button>'
+                  + '</div>'
+                : '<div style="margin-bottom:8px;padding:10px 12px;background:rgba(220,38,38,0.08);border:1px solid rgba(220,38,38,0.35);border-radius:10px;font-size:12px;line-height:1.5;color:#b91c1c;">' + escapeHtml(btNichtMoeglichText()) + '</div>';
         } else if (p.type === 'server-direct') {
             configBlock = '<div style="background:var(--bg-card);border:1px dashed var(--border-color);border-radius:8px;padding:10px;margin-bottom:8px;">' +
                 '<div style="font-size:11px;color:var(--slate);margin-bottom:6px;">Der Drucker holt sich Bons selbst — keine IP, kein PC, kein HTTPS-Problem. Einmal am Drucker eintragen, danach läuft alles automatisch.</div>' +
@@ -69899,6 +70243,7 @@ function openMultiPrinterSettings() {
                 '<div><label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px;">Typ</label>' +
                     '<select onchange="updateMultiPrinter(' + idx + ', \'type\', this.value)" style="width:100%;padding:8px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-card);font-size:12px;box-sizing:border-box;">' +
                         '<option value="server-direct"' + typeSDP + '>Server Direct Print (Epson, empfohlen — kein PC)</option>' +
+                        '<option value="bluetooth"' + typeBT + '>Bluetooth (günstige Drucker, Android-Tablet mit Chrome)</option>' +
                         '<option value="qz"' + typeQz + '>QZ Tray (USB/LAN/BT, alle Marken — PC nötig)</option>' +
                         '<option value="epson"' + typeEpson + '>Epson ePOS Direkt (funktioniert NICHT über kiekmolin.de)</option>' +
                     '</select></div>' +
@@ -69938,7 +70283,7 @@ function openMultiPrinterSettings() {
         '<h2 style="font-family:Epilogue,sans-serif;font-size:20px;margin-bottom:6px;display:flex;align-items:center;gap:8px;">' +
             '<svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" width="22" height="22"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>' +
             'Drucker (mehrere mit Rollen)</h2>' +
-        '<p style="font-size:12px;color:var(--slate);margin-bottom:14px;">Mehrere Drucker mit Rollen (Küche, Bar, Theke). Epson TM-Serie LAN braucht kein PC. QZ Tray für andere Marken oder USB/Bluetooth. <a href="https://qz.io/download" target="_blank" style="color:var(--primary);text-decoration:underline;">QZ Tray</a></p>' +
+        '<p style="font-size:12px;color:var(--slate);margin-bottom:14px;">Mehrere Drucker mit Rollen (Küche, Bar, Theke). Günstige Bluetooth-Drucker gehen direkt vom Android-Tablet mit Chrome. Epson TM-Serie LAN braucht kein PC. QZ Tray für andere Marken über einen PC. <a href="https://qz.io/download" target="_blank" style="color:var(--primary);text-decoration:underline;">QZ Tray</a></p>' +
         '<div id="multiPrinterList">' + listHtml + '</div>' +
         '<button type="button" onclick="addMultiPrinter()" style="width:100%;margin-top:8px;padding:12px;background:var(--bg-secondary);color:var(--text-primary);border:1px dashed var(--border-color);border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;">+ Drucker hinzufügen</button>' +
         '<div id="multiPrinterTestResult" style="margin-top:12px;padding:10px;border-radius:12px;font-size:13px;display:none;"></div>' +
@@ -70053,6 +70398,7 @@ async function testMultiPrinter(idx) {
     var ok = false;
     try {
         if (p.type === 'epson') ok = await printToEpson(testOrder, p);
+        else if (p.type === 'bluetooth') ok = await btDrucken(testOrder, { manuell: true });
         else ok = printToSpecificQZ(testOrder, p);
     } catch(e) { ok = false; }
     resultDiv.style.background = ok ? '#f0fdf4' : '#fef2f2';
@@ -89852,6 +90198,10 @@ function openKitchenDisplay() {
 
     window._kdsKnownOrderIds = new Set();
     window._kdsFirstLoad = true;
+    // Bildschirm wach halten, solange die Kueche zuschaut (sonst schlaeft
+    // das Tablet ein -- und mit ihm der Bluetooth-Druck).
+    kinBildschirmWach(true);
+    btWiederAnmelden();
 
     var kitchen = document.createElement('div');
     kitchen.id = 'kitchenDisplay';
@@ -89981,6 +90331,7 @@ function closeKitchenDisplay() {
     clearInterval(window._kitchenInterval);
     clearInterval(window._kdsTimerInterval);
     clearInterval(window._kitchenClockInterval);
+    kinBildschirmWach(false);
     if (document.fullscreenElement) document.exitFullscreen().catch(function(){});
 }
 
@@ -90152,6 +90503,10 @@ async function refreshKitchenOrders() {
         if (!orders) orders = [];
         // Allergien aus frueheren Besuchen fuer die Karten (laedt einmal, dann aus dem Speicher).
         try { allergieVerlaufLaden(restaurantId, refreshKitchenOrders); } catch (e) {}
+
+        // Bluetooth-Drucker an diesem Geraet: jede angenommene Bestellung
+        // einmal drucken -- auch wenn sie auf einem anderen Handy angenommen wurde.
+        try { btKuecheNachziehen(orders, restaurantId, !!window._kdsFirstLoad); } catch (e) { console.warn('[bt] nachziehen:', e); }
 
         // Sound bei neuen Bestellungen
         var newIds = new Set(orders.map(function(o) { return o.id; }));
