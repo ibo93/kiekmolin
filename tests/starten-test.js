@@ -84,7 +84,10 @@ t('"Monatlich kündbar" und "0 % Provision" stehen da', /onatlich kündbar/.test
 t('Wirte-Dashboard zeigt 59,90 € statt 59 €', !/>59 €<span/.test(h) && />59,90 €<span/.test(h));
 t('Admin-Vorgabe fuer neue Kunden ist 59,90 (nicht 29,90)', /id="customerFee" value="59\.90"/.test(h));
 
-t('Foto/Logo bleiben auf dem Geraet (kein fetch, kein FormData, kein Upload)', /createObjectURL/.test(st) && !/fetch\(|FormData|XMLHttpRequest|sendBeacon/.test(st));
+// Einziges fetch: die Liste "Schon dabei" LESEN. Nichts wird gesendet -- Foto/Logo bleiben auf dem Geraet.
+var fetches = st.match(/fetch\([^,]+/g) || [];
+t('Foto/Logo bleiben auf dem Geraet (nur ein Lese-fetch der Lokalliste, kein POST/Upload)', /createObjectURL/.test(st) && fetches.length === 1 && /rest\/v1\/restaurants\?select=name,slug,city,image_url/.test(st) && !/method\s*:\s*['"]POST|FormData|XMLHttpRequest|sendBeacon/.test(st), fetches);
+t('Schon dabei: nur echte aktive Lokale mit Foto, sonst unsichtbar', /is_active=eq\.true&image_url=not\.is\.null/.test(st) && /if\(liste\.length<2\)return;/.test(st) && /id="dabei" href="\/" hidden/.test(st));
 t('Alte Bild-URLs werden freigegeben', /revokeObjectURL/.test(st));
 t('Kein Bild = Hinweis statt stillem Nichts', /Das ist kein Bild/.test(st));
 t('Laptop und Handy aus derselben Vorlage (kein doppelter Nachbau)', /\$\('seite-m'\)\.innerHTML=seite\('m'\)/.test(st) && /\$\('seite-d'\)\.innerHTML=seite\('d'\)/.test(st));
@@ -110,5 +113,9 @@ t('Kein rohes HTML aus dem Namen im Link', !/name=Fischhaus "M/.test(html) && !/
 t('Entfernen-Link im Fuss bleibt auf /gastro (wer loeschen will, landet nicht im Verkauf)', /<a href="\/gastro">Eintrag bearbeiten oder entfernen lassen<\/a>/.test(html));
 t('Kueche: unbekannt -> deutsch, Pizzeria -> italienisch', B.startenKueche({}, null) === 'deutsch' && B.startenKueche({ category: 'pizzeria' }, { slug: 'pizzeria' }) === 'italienisch');
 t('/starten nimmt nur bekannte Kuechen aus dem Link', /Object\.prototype\.hasOwnProperty\.call\(KARTEN,qk\)/.test(st) && /slice\(0,60\)/.test(st));
+var karteD = (h.match(/<a href="\/starten\?quelle=lokalseite" class="lp-fuer-wirte"[\s\S]*?<\/a>/) || [''])[0];
+t('Restaurantseite: Karte "Fuer Gastronomen" fuehrt auf /starten (mit Herkunft)', !!karteD && /So eine Seite für Ihr Lokal/.test(karteD));
+t('Karte nimmt die Farbe des Lokals und sein Foto nur, wenn es ein echtes gibt', /var\(--marke,#003d33\)/.test(karteD) && /\$\{lpEchtesFoto \?/.test(karteD));
+t('/starten kennt die Herkunft "lokalseite"', /lokalseite:'Restaurantseite eines Kollegen'/.test(st));
 console.log('\n' + ok + '/' + n + (ok === n ? ' grün' : ' ROT'));
 process.exit(ok === n ? 0 : 1);

@@ -151,6 +151,13 @@ button,input,select{font:inherit}
 /* Auswahl rechts */
 .auswahl h1{font-size:clamp(30px,3.4vw,40px)}
 .auswahl .unter{color:var(--schiefer);margin:10px 0 26px}
+.dabei{display:flex;align-items:center;gap:12px;margin:0 0 22px;text-decoration:none;color:inherit}
+.dabei[hidden]{display:none}
+.dabei-bilder{display:flex;flex:none}
+.dabei-bilder img{width:38px;height:38px;border-radius:50%;object-fit:cover;border:2px solid var(--grund);background:var(--buehne)}
+.dabei-bilder img+img{margin-left:-11px}
+.dabei-text{font-size:14px;line-height:1.35;color:var(--schiefer);min-width:0}
+.dabei-text b{color:var(--kohle)}
 .schritt{border-top:1px solid var(--linie);padding:24px 0}
 .schritt h2{font-size:19px;margin-bottom:4px}
 .schritt .info{font-size:14px;color:var(--schiefer);margin:0 0 14px}
@@ -249,6 +256,10 @@ button,input,select{font:inherit}
   <div class="auswahl">
     <h1>Ihr Lokal auf Kiek mol in.</h1>
     <p class="unter">Laptop und Handy zeigen Ihre eigene Seite – sie ändert sich mit jeder Auswahl. Ein Preis, alles drin.</p>
+    <!-- SCHON DABEI (Ibo, 07.11.2026, Entwurf "2B"): echte, aktive Lokale mit Foto
+         aus der Datenbank. Laedt das nicht, bleibt der Block weg -- lieber nichts
+         als erfundene Namen. -->
+    <a class="dabei" id="dabei" href="/" hidden><span class="dabei-bilder" id="dabeiBilder"></span><span class="dabei-text" id="dabeiText"></span></a>
 
     <section class="schritt">
       <h2>1 · Ihr Lokal</h2>
@@ -431,6 +442,19 @@ button,input,select{font:inherit}
   $('los').addEventListener('click',function(){
     try{localStorage.setItem('kmi_reg_vorfuellen',JSON.stringify({name:zustand.name,ort:zustand.ort,kueche:zustand.kueche,farbe:zustand.farbe[0],funktionen:FUNKTIONEN.filter(function(f){return zustand.an[f[0]]}).map(function(f){return f[1]}),quelle:quelle,zeit:Date.now()}))}catch(e){}
   });
+  // Schon dabei: echte Lokale (oeffentlicher Schluessel wie in der App, nur lesen).
+  (function(){
+    var URL_='https://mvrgmbdokdzmumdyezha.supabase.co',KEY_='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cmdtYmRva2R6bXVtZHllemhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1NjEyOTgsImV4cCI6MjA4MTEzNzI5OH0.7Ciwa2UKUHwtorvq3p6sN69XmVvPg0Kvg5lgrovxpDw';
+    try{fetch(URL_+'/rest/v1/restaurants?select=name,slug,city,image_url&is_active=eq.true&image_url=not.is.null&limit=12',{headers:{apikey:KEY_,Authorization:'Bearer '+KEY_}})
+      .then(function(r){return r.ok?r.json():[]}).then(function(liste){
+        liste=(liste||[]).filter(function(x){return x&&x.name&&x.image_url&&/^https:\/\//.test(x.image_url)&&!/test|demo/i.test(x.name)}).slice(0,5);
+        if(liste.length<2)return;
+        var bilder=$('dabeiBilder');liste.forEach(function(x){var i=document.createElement('img');i.src=x.image_url;i.alt=x.name;i.loading='lazy';bilder.appendChild(i)});
+        var namen=liste.slice(0,3).map(function(x){return esc(x.name)}).join(', ');
+        $('dabeiText').innerHTML='<b>'+namen+'</b><br>'+(liste.length>3?'und weitere Lokale sind schon dabei':'sind schon dabei');
+        $('dabei').hidden=false;
+      }).catch(function(){});}catch(e){}
+  })();
   // Kommt der Wirt von SEINEM Eintrag auf kiekmolin.de (Knopf "Ihre Seite in 10 Sekunden"),
   // stehen Name, Ort und Küche im Link. Nur bekannte Küchen, Längen begrenzt; angezeigt wird
   // alles als Text (textContent / esc), nie als HTML.
@@ -440,7 +464,8 @@ button,input,select{font:inherit}
     if(qn){zustand.name=qn;$('e-name').value=qn}
     if(qo){zustand.ort=qo;$('e-ort').value=qo}
     if(Object.prototype.hasOwnProperty.call(KARTEN,qk)){zustand.kueche=qk;$('e-kueche').value=qk}
-    if(q.get('quelle')==='eintrag')quelle='Eintrag auf kiekmolin.de';
+    var QUELLEN={eintrag:'Eintrag auf kiekmolin.de',lokalseite:'Restaurantseite eines Kollegen',kurani:'Kurani-Check'};
+    if(Object.prototype.hasOwnProperty.call(QUELLEN,q.get('quelle')))quelle=QUELLEN[q.get('quelle')];
   }catch(e){}
   zeichnen();
 })();
