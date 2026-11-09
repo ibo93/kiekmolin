@@ -42,6 +42,18 @@ async function freigeben(jetzt) {
     var zeilen = []; try { zeilen = JSON.parse(text); } catch (e) {}
     stand.freigegeben = Array.isArray(zeilen) ? zeilen.length : 0;
     if (stand.freigegeben) console.log('[ausverkauft-zurueck] ' + stand.freigegeben + ' Gerichte wieder bestellbar.');
+
+    // PORTIONEN: der Zaehler gilt nur fuer den Tag, an dem er gesetzt wurde.
+    var res2 = await fetch(SUPABASE_URL + '/rest/v1/menu_items?portionen_am=lt.' + heute + '&select=id', {
+        method: 'PATCH',
+        headers: { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json', Prefer: 'return=representation' },
+        body: JSON.stringify({ portionen_rest: null, portionen_am: null, is_available: true })
+    });
+    var text2 = ''; try { text2 = await res2.text(); } catch (e) {}
+    if (!res2.ok) { console.error('[ausverkauft-zurueck] Portionen: Fehler ' + res2.status + ': ' + text2.slice(0, 200)); stand.fehler_portionen = res2.status; return stand; }
+    var z2 = []; try { z2 = JSON.parse(text2); } catch (e) {}
+    stand.portionen_zurueck = Array.isArray(z2) ? z2.length : 0;
+    if (stand.portionen_zurueck) console.log('[ausverkauft-zurueck] ' + stand.portionen_zurueck + ' Portionen-Zaehler zurueckgesetzt.');
     return stand;
 }
 

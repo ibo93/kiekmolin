@@ -4550,6 +4550,11 @@
         .kds2 .kds-chip { border: none; background: #111f1a; color: #e8eeec; border-radius: 9999px; padding: 8px 14px; min-height: 40px; font: 600 13px Inter, sans-serif; cursor: pointer; }
         .kds2 .kds-chip i { font-style: normal; color: #86efac; }
         .kds2 .kds-chip.aus { background: #3a1414; color: #fecaca; }
+        .kds2 .kds-chip.knapp { background: #3a2c0a; color: #fde68a; }
+        .kds2 .kds-gericht-kachel { display: flex; flex-direction: column; gap: 6px; }
+        .kds2 .kds-gericht-kachel .kds-gericht { width: 100%; }
+        .kds2 .kds-portionen { display: flex; align-items: center; justify-content: space-between; gap: 8px; font: 600 12px Inter, sans-serif; color: #9ca8a4; padding: 0 4px; }
+        .kds2 .kds-portionen input { width: 72px; min-height: 40px; box-sizing: border-box; border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; background: #0a1612; color: #e8eeec; font: 700 16px Inter, sans-serif; text-align: center; }
         .kds2 .kds-leer { color: #9ca8a4; font-size: 13px; }
         .kds2 .kds-knoepfe { flex: 0 1 240px; display: flex; flex-direction: column; justify-content: center; gap: 8px; }
         .kds2 .kds-fuss-knopf { min-height: 48px; border-radius: 9999px; border: 1px solid rgba(255,255,255,0.12); background: #1a2e27; color: #e8eeec; font: 700 15px Epilogue, sans-serif; cursor: pointer; }
@@ -4591,6 +4596,7 @@
         .dark-mode .kds2 .kds-marke b { color: #fed65b !important; }
         .dark-mode .kds2 main.kds-buehne { background: transparent !important; }
         .dark-mode .kds2 .kds-chip.aus, .dark-mode .kds2 .kds-gericht.aus, .dark-mode .kds2 .kds-gericht.aus small { color: #fecaca !important; }
+        .dark-mode .kds2 .kds-chip.knapp { color: #fde68a !important; }
         @media (max-width: 760px) { .kds2 .kds-nagel { display: none; } .kds2 .kds-uhr { font-size: 22px; } }
         .bt-balken { position: fixed; top: 0; left: 0; right: 0; z-index: 30000; border: none; background: #b91c1c; color: #fff; font: 700 15px/1.35 Inter, sans-serif; padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 12px; text-align: center; cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
         .bt-stand.an { color: #15803d; } .bt-stand.aus { color: #b91c1c; }
@@ -12011,6 +12017,8 @@
            auch eine rote Fehlermeldung (gemessen 03.11.2026). Fehler und Erfolg muessen erkennbar bleiben. */
         .dark-mode .modal-overlay.active .gg-wirt p.gg-w-rot, .dark-mode .modal-overlay.active .gg-wirt p.gg-w-fehler, .dark-mode .gg-fenster p.gg-meldung.gg-rot { color: #fca5a5 !important; }
         .dark-mode .modal-overlay.active .gg-wirt p.gg-w-gruen { color: #86efac !important; }
+        .kin-knapp { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 9999px; background: #fef3c7; color: #92400e; font: 700 12px/1.4 Inter, sans-serif; white-space: nowrap; }
+        .dark-mode .kin-knapp { background: rgba(245,158,11,0.18); color: #fcd34d !important; }
         .kin-allergie { margin: 8px 0 0; padding: 8px 12px; border-radius: 12px; background: #fdecec; border: 1.5px solid #f3b4b4; color: #991b1b; font-family: Inter, sans-serif; font-size: 14px; font-weight: 800; }
         .kin-allergie small { font-size: 11px; font-weight: 600; color: #b45454; }
         .kin-allergie-fehler { margin: 8px 0 0; font-size: 11px; color: #8a6100; }
@@ -59982,6 +59990,11 @@ function getMenuBadgeIcons(item) {
         });
     }
 
+    // PORTIONEN (09.11.2026): "Nur noch 3" -- erst ab 5, damit es nicht bei
+    // jedem gezaehlten Gericht steht. Bei 0 ist es ausverkauft und gar nicht da.
+    var _rest = parseInt(item && item.portionen_rest, 10);
+    if (_rest > 0 && _rest <= 5) badges += '<span class="kin-knapp">' + (_t.badgeKnapp || 'Nur noch') + ' ' + _rest + '</span>';
+
     return badges;
 }
 
@@ -61421,6 +61434,20 @@ function addItemToCart() {
     // faellt calculateItemPrice() aus, ist das ein Fehler, den ich sehen
     // will -- und nicht einer, der auch noch die Zaehlung verschluckt.
     try { trichter('warenkorb', currentOrderRestaurant && currentOrderRestaurant.id); } catch (e) {}
+    // PORTIONEN: nicht mehr in den Korb, als die Kueche heute noch hat.
+    // Der Server prueft es beim Bestellen noch einmal (order-save) -- das hier
+    // erspart dem Gast nur die Enttaeuschung an der Kasse.
+    var _pRest = parseInt(currentMenuItem && currentMenuItem.portionen_rest, 10);
+    if (_pRest >= 0 && !isNaN(_pRest)) {
+        var _imKorb = orderCart.filter(function (c) { return c.menu_item_id === currentMenuItem.id; })
+            .reduce(function (s, c) { return s + (parseInt(c.quantity, 10) || 1); }, 0);
+        if (_imKorb + currentItemQty > _pRest) {
+            showToast(_pRest - _imKorb > 0
+                ? 'Davon gibt es heute nur noch ' + _pRest + ' – höchstens ' + (_pRest - _imKorb) + ' mehr.'
+                : 'Davon gibt es heute keine mehr' + (_imKorb ? ' – die letzten liegen schon in deinem Warenkorb.' : '.'), 'info');
+            return;
+        }
+    }
     const unitPrice = calculateItemPrice();
     const notes = document.getElementById('itemNotes')?.value || '';
 
@@ -64251,6 +64278,7 @@ async function submitOrder() {
         // ueber den Notweg doch noch durch und die Prüfung waere umsonst.
         var _orderRes = { ok: false, status: 0, text: '' };
         var _preisAbgelehnt = null;
+        var _portionenAbgelehnt = null;
         var _zahlsperreAbgelehnt = null;
 
         // PAYPAL CHECKOUT -- ERST DAS GELD, DANN DIE BESTELLUNG.
@@ -64311,6 +64339,10 @@ async function submitOrder() {
                     _zahlsperreAbgelehnt = _srvj;
                 } else if (_srv.status === 422 && _srvj && _srvj.preis_abgelehnt) {
                     _preisAbgelehnt = _srvj;
+                } else if (_srv.status === 409 && _srvj && _srvj.portionen) {
+                    // PORTIONEN reichen nicht. Kein Notweg: der wuerde die
+                    // letzte Portion ein zweites Mal verkaufen.
+                    _portionenAbgelehnt = _srvj;
                 } else if (_srv.ok && _srvj && _srvj.ok) {
                     _orderRes = { ok: true, data: _srvj.id ? [{ id: _srvj.id }] : null };
                     // Server sagt: kein Guthaben -> nicht als eingeloest anzeigen
@@ -64340,6 +64372,13 @@ async function submitOrder() {
             // verschiedene liest -- je nachdem, wer ihn abgewiesen hat.
             showToast(_zahlsperreAbgelehnt.error
                 || 'Dieser Betrieb nimmt gerade keine Online-Bestellungen an.', 'info');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnText;
+            return;
+        }
+
+        if (_portionenAbgelehnt) {
+            showToast(_portionenAbgelehnt.error || 'Ein Gericht ist gerade ausverkauft. Bitte prüfe deinen Warenkorb.', 'error');
             submitBtn.disabled = false;
             submitBtn.innerHTML = originalBtnText;
             return;
@@ -90627,10 +90666,40 @@ function kdsMorgenText(gerichte) {
 
 function kdsAusverkauftChipsHtml(gerichte) {
     var aus = (gerichte || []).filter(function (g) { return g.is_available === false; });
-    if (!aus.length) return '<span class="kds-leer">Nichts ausverkauft.</span>';
+    // PORTIONEN: was gezaehlt wird und noch da ist, steht gelb daneben ("noch 3").
+    var knapp = (gerichte || []).filter(function (g) { return g.is_available !== false && g.portionen_rest !== null && g.portionen_rest !== undefined && g.portionen_rest > 0; })
+        .sort(function (a, b) { return a.portionen_rest - b.portionen_rest; });
+    if (!aus.length && !knapp.length) return '<span class="kds-leer">Nichts ausverkauft.</span>';
     return aus.map(function (g) {
         return '<button type="button" class="kds-chip aus" onclick="kdsAusverkauftSchalten(\'' + g.id + '\', false)" aria-label="' + escapeHtml(g.name) + ' wieder freigeben">' + escapeHtml(g.name) + ' ×</button>';
+    }).join('') + knapp.map(function (g) {
+        return '<button type="button" class="kds-chip knapp" onclick="kdsAusverkaufOeffnen()" aria-label="' + escapeHtml(g.name) + ': noch ' + g.portionen_rest + '">' + escapeHtml(g.name) + ' · noch ' + g.portionen_rest + '</button>';
     }).join('');
+}
+
+// PORTIONEN setzen. Leer = unbegrenzt (Zaehler aus). 0 = ausverkauft.
+async function kdsPortionenSetzen(id, wert) {
+    var g = (window._kdsGerichte || []).find(function (x) { return x.id === id; });
+    var leer = String(wert == null ? '' : wert).trim() === '';
+    var nZahl = parseInt(wert, 10);
+    if (!leer && (isNaN(nZahl) || nZahl < 0)) { showToast('Bitte eine Zahl ab 0 eintragen – oder leer lassen für unbegrenzt.', 'error'); return; }
+    var heute = kdsHeuteBerlin();
+    var daten = leer ? { portionen_rest: null, portionen_am: null }
+        : (nZahl > 0 ? { portionen_rest: nZahl, portionen_am: heute, is_available: true, ausverkauft_am: null }
+                     : { portionen_rest: 0, portionen_am: heute, is_available: false, ausverkauft_am: heute });
+    try {
+        var z = await menuSchreiben('menu_items?id=eq.' + encodeURIComponent(id), 'PATCH', daten);
+        if (g) { g.portionen_rest = z[0].portionen_rest; g.portionen_am = z[0].portionen_am; g.is_available = z[0].is_available !== false; g.ausverkauft_am = z[0].ausverkauft_am || null; }
+        var name = g ? g.name : 'Gericht';
+        showToast(leer ? name + ': unbegrenzt.' : (nZahl > 0 ? name + ': noch ' + nZahl + (nZahl === 1 ? ' Portion' : ' Portionen') + ' heute.' : name + ' ist ausverkauft.'), nZahl === 0 && !leer ? 'warning' : 'success');
+    } catch (e) {
+        // Fehlt die Spalte, sagt der Fehler es -- und wir sagen, was zu tun ist.
+        showToast(/portionen_/.test(String(e && e.message))
+            ? 'Portionen zählen braucht einmal datenbank/52-ausverkauft.sql in Supabase. Nicht gespeichert.'
+            : 'Nicht gespeichert: ' + ((e && e.message) || e), 'error');
+    }
+    kdsAusverkauftZeigen();
+    if (document.getElementById('kdsFenster')) kdsAusverkaufOeffnen(true);
 }
 
 async function kdsAusverkauftSchalten(id, ausverkauft) {
@@ -90678,13 +90747,21 @@ async function kdsAusverkaufOeffnen(nurNeuZeichnen) {
     alle.sort(function (a, b) { return (a.is_available === false ? 0 : 1) - (b.is_available === false ? 0 : 1) || String(a.name).localeCompare(String(b.name), 'de'); });
     var kacheln = alle.slice(0, 60).map(function (g) {
         var aus = g.is_available === false;
-        return '<button type="button" class="kds-gericht' + (aus ? ' aus' : '') + '" aria-pressed="' + aus + '" onclick="kdsAusverkauftSchalten(\'' + g.id + '\', ' + !aus + ')">'
-            + escapeHtml(g.name || '') + '<small>' + (aus ? 'ausverkauft – antippen gibt frei' : (g.dish_number ? 'Nr. ' + escapeHtml(g.dish_number) : 'bestellbar')) + '</small></button>';
+        var rest = (g.portionen_rest === null || g.portionen_rest === undefined) ? '' : String(g.portionen_rest);
+        var unter = aus ? 'ausverkauft – antippen gibt frei'
+            : (rest !== '' ? 'noch ' + escapeHtml(rest) + (rest === '1' ? ' Portion' : ' Portionen') : (g.dish_number ? 'Nr. ' + escapeHtml(g.dish_number) : 'bestellbar'));
+        // PORTIONEN: Zahl eintragen (leer = unbegrenzt). Jede Bestellung zieht ab, bei 0 ausverkauft.
+        return '<div class="kds-gericht-kachel">'
+            + '<button type="button" class="kds-gericht' + (aus ? ' aus' : '') + '" aria-pressed="' + aus + '" onclick="kdsAusverkauftSchalten(\'' + g.id + '\', ' + !aus + ')">'
+            + escapeHtml(g.name || '') + '<small>' + unter + '</small></button>'
+            + '<label class="kds-portionen"><span>Portionen heute</span>'
+            + '<input type="number" min="0" max="999" inputmode="numeric" placeholder="∞" value="' + escapeHtml(rest) + '" aria-label="Portionen heute für ' + escapeHtml(g.name || '') + ' (leer = unbegrenzt)" onchange="kdsPortionenSetzen(\'' + g.id + '\', this.value)"></label>'
+            + '</div>';
     }).join('') || '<p class="kds-leer">' + (q ? 'Kein Gericht gefunden.' : 'Die Speisekarte ist leer.') + '</p>';
     var inhalt = '<label class="kds-etikett" for="kdsSuche">Gericht suchen</label>'
         + '<input id="kdsSuche" type="search" class="kds-suche" placeholder="z. B. Lamm, Kalamari, Nr. 45" value="' + escapeHtml(such) + '" oninput="kdsAusverkaufOeffnen(true)">'
         + '<div class="kds-gerichte">' + kacheln + '</div>'
-        + '<p class="kds-fenster-fuss">Rot = ausverkauft. Noch einmal antippen gibt es wieder frei. ' + kdsMorgenText(window._kdsGerichte) + '</p>';
+        + '<p class="kds-fenster-fuss">Rot = ausverkauft. Noch einmal antippen gibt es wieder frei. Portionen: Zahl eintragen – jede Bestellung zieht eine ab, bei 0 ist das Gericht von selbst ausverkauft. ' + kdsMorgenText(window._kdsGerichte) + '</p>';
     var offen = document.getElementById('kdsFenster');
     if (offen && nurNeuZeichnen) {
         var aktiv = document.activeElement && document.activeElement.id === 'kdsSuche';
@@ -90692,7 +90769,7 @@ async function kdsAusverkaufOeffnen(nurNeuZeichnen) {
         if (aktiv) { var s = document.getElementById('kdsSuche'); if (s) { s.focus(); s.setSelectionRange(s.value.length, s.value.length); } }
         return;
     }
-    kdsFenster('Was ist ausverkauft?', 'Antippen – das Gericht ist sofort online nicht mehr bestellbar.', inhalt);
+    kdsFenster('Ausverkauft & Portionen', 'Antippen – das Gericht ist sofort online nicht mehr bestellbar. Oder eintragen, wie viele Portionen es heute noch gibt.', inhalt);
 }
 
 // ---- Nachdruck ----

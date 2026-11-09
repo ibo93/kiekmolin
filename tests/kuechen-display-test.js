@@ -123,7 +123,7 @@ var K = new Function('escapeHtml', 'showToast', 'optionText', 'allergieZeileHtml
     var s1 = await A._test.freigeben(new Date('2026-11-10T02:30:00Z')); // 03:30 Berlin
     t('Vor 4 Uhr (Berlin): nichts tun', aufrufe.length === 0 && s1.warten === 'vor 4 Uhr', JSON.stringify(s1));
     var s2 = await A._test.freigeben(new Date('2026-11-10T03:10:00Z')); // 04:10 Berlin
-    t('Ab 4 Uhr: alles freigeben, was VOR heute ausverkauft wurde', aufrufe.length === 1 && /menu_items\?ausverkauft_am=lt\.2026-11-10&/.test(aufrufe[0][0]) && JSON.parse(aufrufe[0][1].body).is_available === true && JSON.parse(aufrufe[0][1].body).ausverkauft_am === null && s2.freigegeben === 2, JSON.stringify([aufrufe[0] && aufrufe[0][0], s2]));
+    t('Ab 4 Uhr: alles freigeben, was VOR heute ausverkauft wurde', aufrufe.length >= 1 && /menu_items\?ausverkauft_am=lt\.2026-11-10&/.test(aufrufe[0][0]) && JSON.parse(aufrufe[0][1].body).is_available === true && JSON.parse(aufrufe[0][1].body).ausverkauft_am === null && s2.freigegeben === 2, JSON.stringify([aufrufe[0] && aufrufe[0][0], s2]));
     t('Sommerzeit: Berlin-Stunde stimmt (Juli 02:10 UTC = 04 Uhr)', A._test.stundeBerlin(new Date('2026-07-10T02:10:00Z')) === 4, A._test.stundeBerlin(new Date('2026-07-10T02:10:00Z')));
     global.fetch = async function () { return { ok: false, status: 400, text: async function () { return 'column ausverkauft_am does not exist'; } }; };
     var fehlerLog = [], echtError = console.error; console.error = function (m) { fehlerLog.push(m); };

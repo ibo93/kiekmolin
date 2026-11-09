@@ -27,6 +27,7 @@
 var preisPruefung = require('./lib/preis-pruefung');
 var WARTEZEIT = require('./lib/wartezeit');
 var ZAHLSPERRE = require('./lib/zahlsperre');
+var PORTIONEN = require('./lib/portionen');
 
 var SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvrgmbdokdzmumdyezha.supabase.co';
 var KEY = process.env.SUPABASE_SERVICE_KEY || '';
@@ -599,6 +600,10 @@ exports.handler = async function (event) {
                          + 'Das Restaurant wurde benachrichtigt — bitte ruf kurz an und nenne diese Nummer: ' + ppId
                 });
             }
+
+            // PORTIONEN: das Geld ist schon da -- abziehen, nicht ablehnen
+            // (nie unter 0). Klemmt es, steht es im Protokoll.
+            await PORTIONEN.buchen(SUPABASE_URL, KEY, order.restaurant_id, PORTIONEN.posten(nutz), 'erzwingen');
 
             var neu = (ins.data && ins.data[0]) || {};
             return json(200, {

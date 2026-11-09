@@ -89,6 +89,7 @@ async function resilientInsert(payload) {
 var preisPruefung = require('./lib/preis-pruefung');
 var WARTEZEIT = require('./lib/wartezeit');
 var ZAHLSPERRE = require('./lib/zahlsperre');
+var PORTIONEN = require('./lib/portionen');
 
 function kopf() {
     return { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY };
@@ -314,7 +315,20 @@ exports.handler = async function (event) {
         if (order.stempel_einloesen) order.stempel_einloesen = await stempelGuthabenDa(order);
         else delete order.stempel_einloesen;
 
+        // PORTIONEN (09.11.2026): erst abziehen, dann speichern. Reicht es
+        // nicht, 409 -- und KEIN Notweg im Browser, sonst waere die letzte
+        // Portion zweimal verkauft. Laesst sich die Bestellung danach nicht
+        // speichern, wird zurueckgebucht.
+        var _posten = PORTIONEN.posten(order);
+        var _port = await PORTIONEN.buchen(SUPABASE_URL, KEY, order.restaurant_id, _posten, 'pruefen');
+        if (!_port.ok) {
+            console.warn('[order-save] Portionen reichen nicht', order.order_number, _port.gericht, _port.rest);
+            return json(409, { ok: false, portionen: true, error: PORTIONEN.satz(_port), gericht: _port.gericht, rest: _port.rest });
+        }
+        if (_port.fehlt) console.warn('[order-save] Portionen nicht gezaehlt: kmi_portionen_buchen fehlt (SQL 52)');
+
         var r = await resilientInsert(order);
+        if (!r.ok && _port.gebucht) await PORTIONEN.buchen(SUPABASE_URL, KEY, order.restaurant_id, _posten, 'zurueck');
         if (r.ok) {
             var id = (r.data && r.data[0] && r.data[0].id) || null;
             await kampagneEingeloest(order, id);
