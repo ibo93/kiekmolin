@@ -4491,6 +4491,107 @@
         #reservationModal .res-feld .form-input { border: none !important; background: transparent !important; padding: 2px 0 !important; height: auto !important; min-height: 26px; border-radius: 0 !important; box-shadow: none !important; font: 500 16px Inter, sans-serif; color: #191c1d; outline: none; }
         .res-mail-tipp { width: 100%; border: none; border-top: 1px solid #fde7c7; background: #fff7ec; padding: 10px 16px 12px 52px; text-align: left; font: 500 13px Inter, sans-serif; color: #7c2d12; cursor: pointer; }
         .res-mail-tipp b { text-decoration: underline; }
+        /* KUECHEN-DISPLAY (09.11.2026, Entwurf in Claude Design): immer dunkel --
+           ein heller Bildschirm blendet in der Kueche. Farben aus dem
+           Kiek-mol-in-Designsystem (Dunkel). Bons sind helles Papier. */
+        #kitchenDisplay.kds2 { background: #0a1612 !important; color: #e8eeec; }
+        .kds2 .kds-kopf { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 14px 20px; border-bottom: 1px solid rgba(255,255,255,0.06); flex-shrink: 0; }
+        .kds2 .kds-marke { font: 800 20px/1 Epilogue, sans-serif; letter-spacing: -0.02em; color: #e8eeec; }
+        .kds2 .kds-marke b { color: #fed65b; font-weight: 800; }
+        .kds2 .kds-lokal, .kds2 .kds-lokal * { color: #9ca8a4 !important; font-size: 14px !important; }
+        .kds2 .kds-lokal select { background: #1a2e27 !important; border: 1px solid rgba(255,255,255,0.12) !important; color: #e8eeec !important; }
+        .kds2 .kds-zahlen { display: flex; gap: 8px; flex-wrap: wrap; }
+        .kds2 .kds-zahl { background: #1a2e27; border-radius: 9999px; padding: 7px 14px; font: 600 13px Inter, sans-serif; color: #9ca8a4; }
+        .kds2 .kds-zahl b { color: #e8eeec; font-size: 16px; margin-right: 4px; font-variant-numeric: tabular-nums; }
+        .kds2 .kds-zahl.warn b { color: #fca5a5; }
+        .kds2 .kds-rechts { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+        .kds2 .kds-drucker { display: flex; align-items: center; gap: 8px; font: 600 13px Inter, sans-serif; color: #9ca8a4; }
+        .kds2 .kds-punkt { width: 9px; height: 9px; border-radius: 50%; }
+        .kds2 .kds-punkt.an { background: #86efac; } .kds2 .kds-punkt.aus { background: #fca5a5; }
+        .kds2 .kds-uhr { font: 700 28px/1 Epilogue, sans-serif; font-variant-numeric: tabular-nums; color: #e8eeec; }
+        .kds2 .kds-rund { width: 44px; height: 44px; border-radius: 9999px; border: 1px solid rgba(255,255,255,0.12); background: #1a2e27; color: #e8eeec; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font: 700 22px/1 Inter, sans-serif; }
+        .kds2 .kds-buehne { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 16px 20px 0; }
+        .kds2 .kds-schiene-titel { display: flex; justify-content: space-between; font: 700 12px Inter, sans-serif; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca8a4; margin-bottom: 10px; }
+        .kds2 .kds-schiene { height: 12px; border-radius: 9999px; background: linear-gradient(180deg, #4a5a55 0%, #22302c 60%, #16211e 100%); flex-shrink: 0; }
+        .kds2 .kds-reihe { flex: 1; min-height: 0; display: flex; gap: 16px; }
+        .kds2 .kds-schienen-bons { flex: 1; min-width: 0; display: flex; gap: 16px; align-items: flex-start; overflow-x: auto; overflow-y: auto; margin-top: -4px; padding: 0 4px 16px; scroll-snap-type: x proximity; }
+        .kds2 .kds-ruhe { margin: 40px auto; color: #9ca8a4; font: 500 16px Inter, sans-serif; text-align: center; }
+        .kds2 .kds-bon { position: relative; flex: 0 0 214px; box-sizing: border-box; background: #f8f9fa; color: #191c1d; border-radius: 28px; padding: 26px 16px 16px; box-shadow: 0 8px 40px rgba(0,0,0,0.6); scroll-snap-align: start; font-family: Inter, sans-serif; }
+        .kds2 .kds-bon.zu-lange { outline: 3px solid #f87171; outline-offset: 3px; }
+        .kds2 .kds-bon.neu { box-shadow: 0 0 0 3px #fed65b, 0 8px 40px rgba(0,0,0,0.6); }
+        .kds2 .kds-klammer { position: absolute; top: -6px; left: 50%; margin-left: -24px; width: 48px; height: 16px; border-radius: 6px; background: linear-gradient(180deg, #9aa8a3, #5b6763); }
+        .kds2 .kds-bon-kopf { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+        .kds2 .kds-gross { font: 800 34px/1 Epilogue, sans-serif; letter-spacing: -0.03em; color: #191c1d; }
+        .kds2 .kds-klein { font: 700 11px/1.35 Inter, sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: #404946; margin-top: 6px; }
+        .kds2 .kds-zeit { font: 700 17px Epilogue, sans-serif; font-variant-numeric: tabular-nums; padding: 5px 11px; border-radius: 9999px; white-space: nowrap; }
+        .kds2 .kds-zeit.gruen { background: #dcfce7; color: #065f46; }
+        .kds2 .kds-zeit.gelb { background: #fef3c7; color: #92400e; }
+        .kds2 .kds-zeit.rot { background: #fef2f2; color: #991b1b; }
+        .kds2 .kds-gang { display: inline-block; margin: 10px 0 4px; padding: 4px 10px; border-radius: 9999px; background: #003d33; color: #fed65b; font: 700 11px Inter, sans-serif; letter-spacing: 0.1em; text-transform: uppercase; }
+        .kds2 .kds-gang.wartet { background: #edeeef; color: #404946; }
+        .kds2 .kds-gang small { font-weight: 600; letter-spacing: 0; text-transform: none; }
+        .kds2 .kds-wartet { opacity: 0.5; }
+        .kds2 .kds-pos { padding: 6px 0; border-top: 1px dashed #c9cfcc; font-size: 16px; color: #191c1d; }
+        .kds2 .kds-pos:first-child, .kds2 .kds-bon-kopf + .kds-pos, .kds2 .kds-gang + div > .kds-pos:first-child { border-top: none; }
+        .kds2 .kds-pos small { display: block; font-size: 13px; color: #404946; margin-top: 1px; }
+        .kds2 .kds-pos small.kds-pos-notiz { color: #92400e; font-weight: 600; }
+        .kds2 .kds-wunsch { margin-top: 8px; border-radius: 12px; background: #fef3c7; color: #92400e; padding: 8px 10px; font-size: 13px; font-weight: 700; }
+        .kds2 .kds-allergie-platz { margin-top: 8px; }
+        .kds2 .kds-knopf { margin-top: 12px; width: 100%; min-height: 48px; border: none; border-radius: 9999px; background: #003d33; color: #ffffff; font: 700 16px Epilogue, sans-serif; cursor: pointer; box-shadow: none; }
+        .kds2 .kds-knopf.gold { margin-top: 8px; background: #fed65b; color: #00251e; }
+        .kds2 .kds-knopf:focus-visible, .kds2 .kds-chip:focus-visible, .kds2 .kds-nagel:focus-visible, .kds2 .kds-fuss-knopf:focus-visible { outline: 3px solid rgba(255,255,255,0.7); outline-offset: 2px; }
+        .kds2 .kds-nagel { flex: 0 0 112px; align-self: flex-end; border: none; background: transparent; padding: 0 0 16px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 8px; color: #e8eeec; }
+        .kds2 .kds-nagel-zahl { font: 800 22px/1 Epilogue, sans-serif; }
+        .kds2 .kds-nagel-text { font: 700 12px Inter, sans-serif; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca8a4; }
+        .kds2 .kds-fuss { display: flex; gap: 14px; align-items: stretch; flex-wrap: wrap; padding: 14px 20px 18px; border-top: 1px solid rgba(255,255,255,0.06); background: #111f1a; flex-shrink: 0; }
+        .kds2 .kds-kasten { flex: 1 1 260px; background: #1a2e27; border-radius: 28px; padding: 12px 16px; min-width: 0; }
+        .kds2 .kds-kasten h2 { margin: 0 0 8px; font: 700 12px Inter, sans-serif; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca8a4; }
+        .kds2 .kds-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+        .kds2 .kds-chip { border: none; background: #111f1a; color: #e8eeec; border-radius: 9999px; padding: 8px 14px; min-height: 40px; font: 600 13px Inter, sans-serif; cursor: pointer; }
+        .kds2 .kds-chip i { font-style: normal; color: #86efac; }
+        .kds2 .kds-chip.aus { background: #3a1414; color: #fecaca; }
+        .kds2 .kds-leer { color: #9ca8a4; font-size: 13px; }
+        .kds2 .kds-knoepfe { flex: 0 1 240px; display: flex; flex-direction: column; justify-content: center; gap: 8px; }
+        .kds2 .kds-fuss-knopf { min-height: 48px; border-radius: 9999px; border: 1px solid rgba(255,255,255,0.12); background: #1a2e27; color: #e8eeec; font: 700 15px Epilogue, sans-serif; cursor: pointer; }
+        .kds2 .kds-fuss-knopf.gold { background: #fed65b; color: #00251e; border: none; }
+        .kds2 .kds-fenster-grund { position: absolute; inset: 0; z-index: 5; background: rgba(5,12,10,0.88); display: flex; align-items: center; justify-content: center; padding: 16px; }
+        .kds2 .kds-fenster { width: 760px; max-width: 100%; max-height: 90%; overflow-y: auto; box-sizing: border-box; background: #1a2e27; color: #e8eeec; border-radius: 34px; padding: 28px; display: flex; flex-direction: column; gap: 16px; }
+        .kds2 .kds-fenster-kopf { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+        .kds2 .kds-fenster h2 { margin: 0; font: 800 28px/1.1 Epilogue, sans-serif; color: #e8eeec; }
+        .kds2 .kds-fenster-kopf p, .kds2 .kds-fenster-fuss { margin: 6px 0 0; font-size: 15px; line-height: 1.5; color: #9ca8a4 !important; }
+        .kds2 .kds-fenster-inhalt { display: flex; flex-direction: column; gap: 10px; }
+        .kds2 .kds-etikett { font: 700 12px Inter, sans-serif; letter-spacing: 0.15em; text-transform: uppercase; color: #9ca8a4; }
+        .kds2 .kds-suche { min-height: 52px; box-sizing: border-box; border: 1px solid rgba(255,255,255,0.12); border-radius: 9999px; background: #111f1a; color: #e8eeec; padding: 0 20px; font: 400 16px Inter, sans-serif; }
+        .kds2 .kds-gerichte { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+        .kds2 .kds-gericht { min-height: 64px; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; background: #111f1a; color: #e8eeec; font: 700 15px Inter, sans-serif; text-align: left; padding: 10px 14px; cursor: pointer; }
+        .kds2 .kds-gericht small { display: block; font-size: 12px; font-weight: 500; color: #9ca8a4; }
+        .kds2 .kds-gericht.aus { border: 2px solid #fca5a5; background: #3a1414; color: #fecaca; }
+        .kds2 .kds-gericht.aus small { color: #fecaca; font-weight: 600; }
+        .kds2 .kds-fenster-zeile { display: flex; align-items: center; gap: 12px; min-height: 56px; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; background: #111f1a; color: #e8eeec; padding: 10px 16px; font: 500 15px Inter, sans-serif; text-align: left; cursor: pointer; }
+        .kds2 .kds-fenster-zeile b { font: 800 20px Epilogue, sans-serif; }
+        .kds2 .kds-fenster-zeile span { color: #9ca8a4; flex: 1; }
+        .kds2 .kds-fenster-zeile em { font-style: normal; font-weight: 700; color: #fed65b; }
+        /* Im Dunkelmodus der App bleibt die Kueche, wie sie ist: Papier hell,
+           Schrift dunkel. Die allgemeinen Regeln (.dark-mode b / small mit
+           !important) setzten sonst helle Schrift auf das helle Papier. */
+        .dark-mode .kds2 .kds-bon { background: #f8f9fa; color: #191c1d; }
+        .dark-mode .kds2 .kds-bon b, .dark-mode .kds2 .kds-gross, .dark-mode .kds2 .kds-pos { color: #191c1d !important; }
+        .dark-mode .kds2 .kds-klein, .dark-mode .kds2 .kds-pos small { color: #404946 !important; }
+        .dark-mode .kds2 .kds-pos small.kds-pos-notiz, .dark-mode .kds2 .kds-wunsch { color: #92400e !important; }
+        .dark-mode .kds2 .kds-zeit.gruen { background: #dcfce7; color: #065f46 !important; }
+        .dark-mode .kds2 .kds-zeit.gelb { background: #fef3c7; color: #92400e !important; }
+        .dark-mode .kds2 .kds-zeit.rot { background: #fef2f2; color: #991b1b !important; }
+        .dark-mode .kds2 .kds-gang { color: #fed65b !important; }
+        .dark-mode .kds2 .kds-gang.wartet, .dark-mode .kds2 .kds-gang.wartet small { background: #edeeef; color: #404946 !important; }
+        .dark-mode .kds2 .kds-gang small { color: inherit !important; }
+        .dark-mode .kds2 .kds-bon .kin-allergie, .dark-mode .kds2 .kds-bon .kin-allergie small { background: #fef2f2 !important; color: #991b1b !important; }
+        .dark-mode .kds2 .kds-knopf { color: #ffffff !important; } .dark-mode .kds2 .kds-knopf.gold, .dark-mode .kds2 .kds-fuss-knopf.gold { color: #00251e !important; }
+        .dark-mode .kds2 .kds-punkt.an { background: #86efac; } .dark-mode .kds2 .kds-punkt.aus { background: #fca5a5; }
+        .dark-mode .kds2 .kds-zahl.warn b { color: #fca5a5 !important; }
+        .dark-mode .kds2 .kds-marke b { color: #fed65b !important; }
+        .dark-mode .kds2 main.kds-buehne { background: transparent !important; }
+        .dark-mode .kds2 .kds-chip.aus, .dark-mode .kds2 .kds-gericht.aus, .dark-mode .kds2 .kds-gericht.aus small { color: #fecaca !important; }
+        @media (max-width: 760px) { .kds2 .kds-nagel { display: none; } .kds2 .kds-uhr { font-size: 22px; } }
         .bt-balken { position: fixed; top: 0; left: 0; right: 0; z-index: 30000; border: none; background: #b91c1c; color: #fff; font: 700 15px/1.35 Inter, sans-serif; padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 12px; text-align: center; cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
         .bt-stand.an { color: #15803d; } .bt-stand.aus { color: #b91c1c; }
         .dark-mode .bt-stand.an { color: #86efac !important; } .dark-mode .bt-stand.aus { color: #fca5a5 !important; }
@@ -67261,7 +67362,9 @@ function gangNaechster(order) {
 }
 // Naechsten Gang abrufen: die Kueche sieht ihn ab jetzt als "dran".
 async function gangAbrufen(oid) {
-    var o = (typeof dashboardOrders !== 'undefined' ? dashboardOrders : []).find(function (x) { return x.id === oid; });
+    var o = (typeof dashboardOrders !== 'undefined' ? dashboardOrders : []).find(function (x) { return x.id === oid; })
+        // Vom Kuechen-Display aus: dort stehen die Bestellungen in einer eigenen Liste.
+        || (window._kdsBestellungen || []).find(function (x) { return x.id === oid; });
     var n = o ? gangNaechster(o) : null;
     if (!n) return;
     try {
@@ -67277,6 +67380,7 @@ async function gangAbrufen(oid) {
         o.gang_jetzt = n;
         showToast(GANG_TEXT[n] + ' ist abgerufen – die Küche legt los.', 'success');
         if (typeof renderDashboardOrders === 'function') renderDashboardOrders();
+        if (document.getElementById('kitchenDisplay')) refreshKitchenOrders();
     } catch (e) { showToast('Keine Verbindung – nicht abgerufen', 'error'); }
 }
 window.gangAbrufen = gangAbrufen;
@@ -90219,89 +90323,62 @@ function openKitchenDisplay() {
         restSelectHtml = '<span style="font-size:14px;font-weight:600;color:var(--primary);opacity:0.7;">' + (restObj ? restObj.name : '') + '</span>';
     }
 
-    // Header
-    kitchen.innerHTML =
-        '<div style="padding:16px 24px;background:rgba(255,255,255,0.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid rgba(0,61,51,0.08);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;flex-wrap:wrap;gap:12px;">' +
-            '<div style="display:flex;align-items:center;gap:14px;">' +
-                '<div style="width:44px;height:44px;border-radius:var(--radius-md);background:linear-gradient(135deg,var(--primary),#1a5f4a);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,61,51,0.2);">' +
-                    '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" width="24" height="24"><path d="M3 17h18M5 17V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10"/><path d="M9 17v4M15 17v4M8 21h8"/><circle cx="12" cy="11" r="3"/></svg>' +
-                '</div>' +
-                '<div>' +
-                    '<div style="font-family:Epilogue,sans-serif;font-size:22px;font-weight:800;color:var(--primary);letter-spacing:-0.3px;">Küchen-Display</div>' +
-                    '<div style="display:flex;align-items:center;gap:8px;margin-top:2px;">' +
-                        '<span id="kitchenTime" style="font-size:13px;font-weight:600;color:var(--slate);font-variant-numeric:tabular-nums;"></span>' +
-                        '<span id="kdsOrderCount" style="font-size:12px;color:var(--slate);"></span>' +
-                    '</div>' +
-                '</div>' +
-            '</div>' +
-            '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
-                restSelectHtml +
-                '<button onclick="refreshKitchenOrders()" style="padding:10px 20px;background:rgba(255,255,255,0.8);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(0,61,51,0.12);border-radius:var(--radius-xl);font-size:14px;font-weight:600;cursor:pointer;color:var(--primary);font-family:Inter,sans-serif;transition:all 0.2s;display:flex;align-items:center;gap:6px;" onmouseover="this.style.background=\'rgba(0,61,51,0.06)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.8)\'">' +
-                    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 12a9 9 0 1 1-3.14-6.84"/><polyline points="21 3 21 9 15 9"/></svg>' +
-                    'Aktualisieren</button>' +
-                '<button id="kdsFullscreenBtn" onclick="toggleKdsFullscreen()" style="padding:10px;background:rgba(255,255,255,0.8);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(0,61,51,0.12);border-radius:var(--radius-xl);cursor:pointer;color:var(--primary);transition:all 0.2s;display:flex;align-items:center;" onmouseover="this.style.background=\'rgba(0,61,51,0.06)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.8)\'" title="Vollbild">' +
-                    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>' +
-                '</button>' +
-                '<button onclick="closeKitchenDisplay()" style="padding:10px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.15);border-radius:var(--radius-xl);cursor:pointer;color:var(--danger-500);transition:all 0.2s;display:flex;align-items:center;" onmouseover="this.style.background=\'rgba(239,68,68,0.15)\'" onmouseout="this.style.background=\'rgba(239,68,68,0.08)\'" title="Schließen">' +
-                    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M18 6L6 18M6 6l12 12"/></svg>' +
-                '</button>' +
-            '</div>' +
-        '</div>' +
-        '<div data-ladestand="kueche" style="margin:0 20px;"></div>' +
-        // Kanban Container
-        '<div id="kdsKanban" style="flex:1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;overflow:hidden;min-height:0;">' +
-            // Spalte 1: Neu
-            '<div style="display:flex;flex-direction:column;border-right:1px solid rgba(0,61,51,0.06);overflow:hidden;">' +
-                '<div style="padding:14px 20px;background:rgba(255,213,79,0.12);border-bottom:1px solid rgba(0,61,51,0.06);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">' +
-                    '<div style="display:flex;align-items:center;gap:8px;">' +
-                        '<div style="width:10px;height:10px;border-radius:50%;background:#f59e0b;box-shadow:0 0 8px rgba(245,158,11,0.4);"></div>' +
-                        '<span style="font-family:Epilogue,sans-serif;font-weight:700;font-size:15px;color:#92400e;">Neu</span>' +
-                    '</div>' +
-                    '<span id="kdsCountNew" style="background:rgba(245,158,11,0.15);color:#92400e;font-size:12px;font-weight:700;padding:3px 10px;border-radius:9999px;font-variant-numeric:tabular-nums;">0</span>' +
-                '</div>' +
-                '<div id="kdsColNew" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:12px;"></div>' +
-            '</div>' +
-            // Spalte 2: Zubereitung
-            '<div style="display:flex;flex-direction:column;border-right:1px solid rgba(0,61,51,0.06);overflow:hidden;">' +
-                '<div style="padding:14px 20px;background:rgba(0,61,51,0.06);border-bottom:1px solid rgba(0,61,51,0.06);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">' +
-                    '<div style="display:flex;align-items:center;gap:8px;">' +
-                        '<div style="width:10px;height:10px;border-radius:50%;background:var(--primary);box-shadow:0 0 8px rgba(0,61,51,0.3);"></div>' +
-                        '<span style="font-family:Epilogue,sans-serif;font-weight:700;font-size:15px;color:var(--primary);">Zubereitung</span>' +
-                    '</div>' +
-                    '<span id="kdsCountPrep" style="background:rgba(0,61,51,0.1);color:var(--primary);font-size:12px;font-weight:700;padding:3px 10px;border-radius:9999px;font-variant-numeric:tabular-nums;">0</span>' +
-                '</div>' +
-                '<div id="kdsColPrep" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:12px;"></div>' +
-            '</div>' +
-            // Spalte 3: Fertig
-            '<div style="display:flex;flex-direction:column;overflow:hidden;">' +
-                '<div style="padding:14px 20px;background:rgba(22,163,74,0.06);border-bottom:1px solid rgba(0,61,51,0.06);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">' +
-                    '<div style="display:flex;align-items:center;gap:8px;">' +
-                        '<div style="width:10px;height:10px;border-radius:50%;background:#16a34a;box-shadow:0 0 8px rgba(22,163,74,0.4);"></div>' +
-                        '<span style="font-family:Epilogue,sans-serif;font-weight:700;font-size:15px;color:#166534;">Fertig</span>' +
-                    '</div>' +
-                    '<span id="kdsCountDone" style="background:rgba(22,163,74,0.1);color:#166534;font-size:12px;font-weight:700;padding:3px 10px;border-radius:9999px;font-variant-numeric:tabular-nums;">0</span>' +
-                '</div>' +
-                '<div id="kdsColDone" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:12px;"></div>' +
-            '</div>' +
-        '</div>' +
-        '';
+    // KUECHEN-DISPLAY: Kopf, Schiene mit Bons, Nagel, Fuss (09.11.2026).
+    // Frueher an dieser Stelle: // Responsive CSS per JS einfügen (</style> in innerHTML bricht HTML-Parser)
+    // -- jetzt steht das CSS im Stylesheet (.kds2), nichts mehr per JS.
+    var _nagelSvg = '<svg aria-hidden="true" width="112" height="300" viewBox="0 30 112 310" style="display:block;overflow:visible">'
+        + '<defs><linearGradient id="kdsNadel" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7c8a85"/><stop offset="0.45" stop-color="#f1f5f3"/><stop offset="1" stop-color="#58655f"/></linearGradient>'
+        + '<linearGradient id="kdsFussO" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#55625d"/><stop offset="0.4" stop-color="#b9c3bf"/><stop offset="1" stop-color="#3d4844"/></linearGradient>'
+        + '<linearGradient id="kdsFussS" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2b3532"/><stop offset="0.4" stop-color="#6f7d78"/><stop offset="1" stop-color="#1e2725"/></linearGradient>'
+        + '<linearGradient id="kdsPapier" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbfaf6"/><stop offset="1" stop-color="#e7e3d8"/></linearGradient></defs>'
+        + '<ellipse cx="56" cy="328" rx="52" ry="9" fill="#000" opacity="0.45"/>'
+        + '<path d="M8 312 L8 322 A48 10 0 0 0 104 322 L104 312 Z" fill="url(#kdsFussS)"/>'
+        + '<ellipse cx="56" cy="312" rx="48" ry="10" fill="url(#kdsFussO)"/><ellipse cx="56" cy="311" rx="9" ry="3" fill="#2b3532"/>'
+        + '<rect x="54" y="150" width="4" height="162" fill="url(#kdsNadel)"/>'
+        + [[-7, 292, 10, 280, 92], [6, 270, 8, 258, 96], [-3, 248, 12, 236, 90], [9, 226, 9, 214, 94], [-10, 204, 11, 192, 92]].map(function (p) {
+            return '<g transform="rotate(' + p[0] + ' 56 ' + p[1] + ')"><rect x="' + p[2] + '" y="' + p[3] + '" width="' + p[4] + '" height="24" rx="3" fill="url(#kdsPapier)" stroke="#cfc9ba" stroke-width="0.7"/>'
+                + '<rect x="' + (p[2] + 8) + '" y="' + (p[3] + 7) + '" width="30" height="3" rx="1.5" fill="#b7b1a2"/><rect x="' + (p[2] + 8) + '" y="' + (p[3] + 14) + '" width="50" height="3" rx="1.5" fill="#cbc5b6"/></g>';
+        }).join('')
+        + '<g transform="rotate(4 56 180)"><path d="M6 164 L106 164 L106 196 L100 193 L94 196 L88 193 L82 196 L76 193 L70 196 L64 193 L58 196 L52 193 L46 196 L40 193 L34 196 L28 193 L22 196 L16 193 L10 196 L6 193 Z" fill="url(#kdsPapier)" stroke="#cfc9ba" stroke-width="0.7"/>'
+        + '<rect x="14" y="172" width="22" height="6" rx="2" fill="#191c1d"/><rect x="14" y="184" width="40" height="2.5" rx="1.25" fill="#b7b1a2"/><circle cx="56" cy="180" r="3.2" fill="#3d4844"/></g>'
+        + '<polygon points="54,176 58,176 57.4,40 56,20 54.6,40" fill="url(#kdsNadel)"/><circle cx="56" cy="21" r="1.2" fill="#ffffff"/></svg>';
 
-    // Responsive CSS per JS einfügen (</style> in innerHTML bricht HTML-Parser)
-    var kdsStyle = document.getElementById('kdsResponsiveStyle');
-    if (!kdsStyle) {
-        kdsStyle = document.createElement('style');
-        kdsStyle.id = 'kdsResponsiveStyle';
-        kdsStyle.textContent = '#kitchenDisplay { --kds-card-radius: 16px; }' +
-            '@media(max-width:900px){ #kdsKanban { grid-template-columns:1fr !important; } #kdsKanban > div { border-right:none !important; border-bottom:1px solid rgba(0,61,51,0.06); max-height:40vh; } }' +
-            '@media(min-width:901px) and (max-width:1200px){ #kdsKanban { grid-template-columns:1fr 1fr 1fr !important; } }' +
-            '#kdsKanban ::-webkit-scrollbar { width:6px; }' +
-            '#kdsKanban ::-webkit-scrollbar-track { background:transparent; }' +
-            '#kdsKanban ::-webkit-scrollbar-thumb { background:rgba(0,61,51,0.12);border-radius:3px; }' +
-            '@keyframes kdsSlideIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }' +
-            '.kds-card { animation: kdsSlideIn 0.3s ease-out; }' +
-            '@keyframes kdsPulse { 0%,100% { box-shadow:0 0 0 0 rgba(239,68,68,0.3); } 50% { box-shadow:0 0 0 6px rgba(239,68,68,0); } }';
-        document.head.appendChild(kdsStyle);
-    }
+    kitchen.className = 'kds2';
+    kitchen.innerHTML =
+        '<header class="kds-kopf">' +
+            '<div class="kds-marke">Kiek mol <b>in</b> · Küche</div>' +
+            '<div class="kds-lokal">' + restSelectHtml + '</div>' +
+            '<div class="kds-zahlen">' +
+                '<div class="kds-zahl"><b id="kdsAmPass">0</b>am Pass</div>' +
+                '<div class="kds-zahl warn"><b id="kdsZuLange">0</b>zu lange</div>' +
+                '<div class="kds-zahl"><b id="kdsFertigHeute">–</b>fertig heute</div>' +
+            '</div>' +
+            '<div class="kds-rechts">' +
+                '<div id="kdsDrucker" class="kds-drucker"></div>' +
+                '<div id="kitchenTime" class="kds-uhr"></div>' +
+                '<button type="button" class="kds-rund" onclick="refreshKitchenOrders()" aria-label="Aktualisieren"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3.14-6.84"/><polyline points="21 3 21 9 15 9"/></svg></button>' +
+                '<button type="button" id="kdsFullscreenBtn" class="kds-rund" onclick="toggleKdsFullscreen()" aria-label="Vollbild"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>' +
+                '<button type="button" class="kds-rund" onclick="closeKitchenDisplay()" aria-label="Küchen-Display schließen">×</button>' +
+            '</div>' +
+        '</header>' +
+        '<div data-ladestand="kueche" style="margin:0 20px;"></div>' +
+        '<main class="kds-buehne">' +
+            '<div class="kds-schiene-titel"><span>Jetzt kochen · älteste zuerst</span><span id="kdsOrderCount"></span></div>' +
+            '<div class="kds-schiene" aria-hidden="true"></div>' +
+            '<div class="kds-reihe">' +
+                '<div id="kdsRail" class="kds-schienen-bons" aria-live="polite"></div>' +
+                '<button type="button" class="kds-nagel" onclick="kdsNagelOeffnen()" aria-label="Bonspieß: heute fertige Bons. Antippen zum Zurückholen.">' + _nagelSvg +
+                    '<span class="kds-nagel-zahl" id="kdsNagelZahl">–</span><span class="kds-nagel-text">fertig</span></button>' +
+            '</div>' +
+        '</main>' +
+        '<footer class="kds-fuss">' +
+            '<section class="kds-kasten" style="flex-grow:1.4"><h2>Fertig · wartet auf Ausgabe</h2><div id="kdsFertig" class="kds-chips"></div></section>' +
+            '<section class="kds-kasten"><h2>Heute ausverkauft</h2><div id="kdsAusverkauft" class="kds-chips"><span class="kds-leer">Wird geladen …</span></div></section>' +
+            '<div class="kds-knoepfe">' +
+                '<button type="button" class="kds-fuss-knopf gold" onclick="kdsAusverkaufOeffnen()">Gericht ausverkauft melden</button>' +
+                '<button type="button" class="kds-fuss-knopf" onclick="kdsNachdruckOeffnen()">Bon nachdrucken</button>' +
+            '</div>' +
+        '</footer>';
 
     window._kitchenRestaurantId = restaurantId;
     document.body.appendChild(kitchen);
@@ -90316,7 +90393,7 @@ function openKitchenDisplay() {
     // Uhrzeit
     function updateKitchenTime() {
         var el = document.getElementById('kitchenTime');
-        if (el) el.textContent = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        if (el) el.textContent = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
     }
     updateKitchenTime();
     // Handle merken, sonst läuft der Sekundentakt nach dem Schließen weiter
@@ -90346,134 +90423,323 @@ function toggleKdsFullscreen() {
 }
 
 // Live-Timer: aktualisiert alle data-kds-created Elemente
-function _kdsUpdateTimers() {
-    var timers = document.querySelectorAll('[data-kds-created]');
-    timers.forEach(function(el) {
-        var created = parseInt(el.dataset.kdsCreated, 10);
-        if (!created) return;
-        var diff = Math.floor((Date.now() - created) / 1000);
-        var min = Math.floor(diff / 60);
-        var sec = diff % 60;
-        el.textContent = min + ':' + (sec < 10 ? '0' : '') + sec;
-        // Farbe ändern bei langer Wartezeit
-        if (min >= 15) { el.style.color = '#ef4444'; el.style.fontWeight = '800'; }
-        else if (min >= 10) { el.style.color = '#f59e0b'; el.style.fontWeight = '700'; }
-        else { el.style.color = 'var(--slate)'; el.style.fontWeight = '600'; }
-    });
+// ==================== KUECHEN-DISPLAY: SCHIENE, NAGEL, AUSVERKAUFT (09.11.2026) ====================
+//
+// Ibo: "Das Design hat mir gefallen" (dunkle Kueche, Bons wie Zettel an
+// einer Schiene), Entwurf in Claude Design, dann: "Ja mach das".
+// Gebaut fuer kleine Kuechen: EINE Schiene, aelteste links, ein grosser
+// Knopf pro Bon. Dazu der Bonspiess (der "Nagel") fuer das Fertige und
+// "ausverkauft" direkt aus der Kueche.
+//
+// Wie sieht es aus, wenn es kaputt ist? (Regel 6)
+//   * Laden scheitert -> roter Ladestand ueber allem, die Bons bleiben stehen.
+//   * Ausverkauft nicht gespeichert -> rote Meldung mit dem Grund, das Gericht
+//     wird NICHT als ausverkauft angezeigt.
+//   * Ohne SQL 52 kommt ein ausverkauftes Gericht morgen nicht von selbst
+//     zurueck -- das steht dann im Fenster, statt es stillschweigend zu versprechen.
+
+var KDS_GELB_MIN = 10, KDS_ROT_MIN = 15;
+var KDS_FERTIG_STATUS = ['ready', 'picked_up', 'delivered', 'completed', 'out_for_delivery'];
+
+// Wartezeit-Stufe eines Bons: gruen, gelb (ab 10 Min), rot (ab 15 Min).
+function kdsStufe(minuten) {
+    if (minuten >= KDS_ROT_MIN) return 'rot';
+    if (minuten >= KDS_GELB_MIN) return 'gelb';
+    return 'gruen';
 }
 
-function _kdsRenderCard(o, colType) {
+function kdsZeitText(sekunden) {
+    var s = Math.max(0, Math.floor(sekunden)), m = Math.floor(s / 60), r = s % 60;
+    return (m < 10 ? '0' : '') + m + ':' + (r < 10 ? '0' : '') + r;
+}
+
+// Kopf des Bons: "T 4" / "#21", darunter, was es ist.
+function kdsKopf(o) {
+    var nr = String(o.order_number || '').split('-').pop() || String(o.id || '').slice(0, 4);
+    if (o.order_type === 'dine_in' && o.table_number) {
+        return { gross: 'T ' + o.table_number, klein: 'Tisch' + (o.party_size ? ' · ' + o.party_size + ' Pers.' : '') };
+    }
+    if (o.order_type === 'delivery') {
+        var a = o.delivery_address || {};
+        var str = (typeof a === 'string') ? a : [a.street, a.house_number].filter(Boolean).join(' ');
+        return { gross: '#' + nr, klein: 'Lieferung' + (str ? ' · ' + str : '') };
+    }
+    var uhr = '';
+    try { if (o.scheduled_at) uhr = new Date(o.scheduled_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }); } catch (e) {}
+    return { gross: '#' + nr, klein: 'Abholung' + (uhr ? ' · ' + uhr : '') };
+}
+
+// Eine Position: "2× Gyros-Teller", darunter Extras und Notiz.
+function kdsPosHtml(it) {
+    // ACHTUNG: der Warenkorb legt Optionen als { group, option, price,
+    // price_type } ab -- ein Feld "name" gibt es dort nicht (optionText kennt beide).
+    var optionsText = '';
+    if (it.selected_options && it.selected_options.length) optionsText = it.selected_options.map(optionText).filter(Boolean).join(', ');
+    else if (it.options && typeof it.options === 'string') optionsText = it.options;
+    return '<div class="kds-pos"><b>' + (parseInt(it.quantity, 10) || 1) + '× ' + escapeHtml(it.item_name || it.name || 'Unbekannt') + '</b>'
+        + (optionsText ? '<small>' + escapeHtml(optionsText) + '</small>' : '')
+        + (it.notes ? '<small class="kds-pos-notiz">' + escapeHtml(it.notes) + '</small>' : '')
+        + '</div>';
+}
+
+function kdsZeitBasis(o) {
+    return Date.parse(o.created_at || '') || Date.now();
+}
+
+function _kdsRenderCard(o) {
     var items = o.order_items || o.items || [];
-    var createdAt = new Date(o.created_at);
-    var timeStr = createdAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-    var typeLabels = { pickup: 'Abholung', delivery: 'Lieferung', dine_in: 'Vor Ort' };
-    var typeIcons = {
-        pickup: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14"><path d="M21 10H7"/><path d="M7 10V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v5"/><path d="M3 10h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-8z"/></svg>',
-        delivery: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14"><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/><path d="M5 18H3V8l2-3h9v13M9 18h6"/><path d="M14 5h4l3 4v9h-2"/></svg>',
-        dine_in: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14"><path d="M3 17h18M5 17V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10"/><circle cx="12" cy="11" r="3"/></svg>'
-    };
-    var minutesAgo = Math.round((Date.now() - createdAt.getTime()) / 60000);
-    var isUrgent = colType === 'new' && minutesAgo > 10;
+    var k = kdsKopf(o);
+    var basis = kdsZeitBasis(o);
+    var stufe = kdsStufe((Date.now() - basis) / 60000);
+    var neu = o.status === 'received';
 
-    // Border + Akzent je nach Spalte
-    var borderColor = colType === 'new' ? '#f59e0b' : colType === 'prep' ? 'var(--primary)' : '#16a34a';
-    var accentBg = colType === 'new' ? 'rgba(245,158,11,0.08)' : colType === 'prep' ? 'rgba(0,61,51,0.04)' : 'rgba(22,163,74,0.06)';
-
+    // GAENGE: der Gang, der dran ist, steht normal; ein spaeterer blass mit
+    // "wartet – Bedienung ruft ab" -- und die Kueche kann ihn selbst losschicken.
     var _kdsGr = gangGruppen(items), _kdsJetzt = (_kdsGr && o.order_type === 'dine_in') ? gangJetzt(o) : null;
-    var _kdsPos = function(it) {
-        var optionsText = '';
-        if (it.selected_options && it.selected_options.length > 0) {
-            // ACHTUNG: der Warenkorb legt Optionen als { group, option, price,
-            // price_type } ab -- ein Feld "name" gibt es dort nicht. Hier
-            // wurde nur nach opt.name gesucht, also stand in der Spalte NICHTS.
-            // Der Gast bestellte "groß", die Küche las "Pizza Margherita".
-            optionsText = it.selected_options.map(optionText).filter(Boolean).join(', ');
-        }
-        return '<div style="display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid rgba(0,61,51,0.04);">' +
-            '<span style="background:linear-gradient(135deg,var(--primary),#1a5f4a);color:white;font-weight:700;font-size:12px;min-width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:9999px;flex-shrink:0;box-shadow:0 2px 6px rgba(0,61,51,0.15);">' + (it.quantity || 1) + 'x</span>' +
-            '<div style="flex:1;min-width:0;">' +
-                '<div style="font-weight:600;font-size:14px;color:var(--text-primary);line-height:1.3;">' + (it.item_name || it.name || 'Unbekannt') + '</div>' +
-                (optionsText ? '<div style="font-size:12px;color:var(--slate);margin-top:2px;line-height:1.3;">' + optionsText + '</div>' : '') +
-                (it.notes ? '<div style="font-size:12px;color:#ea580c;font-weight:600;margin-top:3px;display:flex;align-items:center;gap:4px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>' + escapeHtml(it.notes) + '</div>' : '') +
-            '</div>' +
-        '</div>';
-    };
-    // GAENGE: Ueberschrift je Gang; ein spaeterer Gang am Tisch steht blass mit "wartet".
+    var naechster = (_kdsGr && _kdsJetzt !== null) ? gangNaechster(o) : null;
     var itemsHtml = _kdsGr
         ? _kdsGr.map(function (g) {
             var wartet = _kdsJetzt !== null && g.gang > 0 && g.gang > _kdsJetzt;
-            return '<div class="kin-gang kds' + (wartet ? ' wartet' : '') + '"><span>' + g.text + '</span>' + (wartet ? '<small>wartet – Bedienung ruft ab</small>' : '') + '</div>'
-                + '<div' + (wartet ? ' style="opacity:.45"' : '') + '>' + g.items.map(_kdsPos).join('') + '</div>';
+            return '<div class="kds-gang' + (wartet ? ' wartet' : '') + '">' + escapeHtml(g.text) + (wartet ? ' <small>wartet – Bedienung ruft ab</small>' : '') + '</div>'
+                + '<div' + (wartet ? ' class="kds-wartet"' : '') + '>' + g.items.map(kdsPosHtml).join('') + '</div>';
         }).join('')
-        : items.map(_kdsPos).join('');
+        : items.map(kdsPosHtml).join('');
+    if (!items.length) itemsHtml = '<div class="kds-pos"><small>Keine Gerichte geladen</small></div>';
 
-    if (items.length === 0) {
-        itemsHtml = '<div style="padding:8px 0;color:var(--slate);font-size:13px;font-style:italic;">Keine Gerichte geladen</div>';
+    var notiz = o.customer_notes || o.notes || '';
+    var _a = allergieZeileHtml(o);
+    var knopf = neu || o.status === 'accepted' || o.status === 'confirmed'
+        ? '<button type="button" class="kds-knopf" onclick="updateKitchenOrderStatus(\'' + o.id + '\', \'preparing\')">' + (neu ? 'Neu – zubereiten' : 'Zubereiten') + '</button>'
+        : '<button type="button" class="kds-knopf" onclick="updateKitchenOrderStatus(\'' + o.id + '\', \'ready\')">Fertig</button>';
+    var gangKnopf = naechster ? '<button type="button" class="kds-knopf gold" onclick="gangAbrufen(\'' + o.id + '\')">' + escapeHtml((GANG_TEXT[naechster] || 'Nächster Gang').replace(/^Gang \d · /, '')) + ' jetzt los</button>' : '';
+
+    return '<article class="kds-bon' + (stufe === 'rot' ? ' zu-lange' : '') + (neu ? ' neu' : '') + '" data-kds-id="' + o.id + '">'
+        + '<div class="kds-klammer" aria-hidden="true"></div>'
+        + '<div class="kds-bon-kopf"><div><div class="kds-gross">' + escapeHtml(k.gross) + '</div><div class="kds-klein">' + escapeHtml(k.klein) + '</div></div>'
+        + '<div class="kds-zeit ' + stufe + '" data-kds-created="' + basis + '">' + kdsZeitText((Date.now() - basis) / 1000) + '</div></div>'
+        + itemsHtml
+        + (notiz ? '<div class="kds-wunsch">WUNSCH: ' + escapeHtml(notiz) + '</div>' : '')
+        + (_a ? '<div class="kds-allergie-platz">' + _a + '</div>' : '')
+        + knopf + gangKnopf
+        + '</article>';
+}
+
+// Sekundentakt: Zeiten weiterzaehlen, Farbe nachziehen, "zu lange" zaehlen.
+function _kdsUpdateTimers() {
+    var rot = 0;
+    document.querySelectorAll('[data-kds-created]').forEach(function (el) {
+        var basis = parseInt(el.dataset.kdsCreated, 10);
+        if (!basis) return;
+        var sek = (Date.now() - basis) / 1000, stufe = kdsStufe(sek / 60);
+        el.textContent = kdsZeitText(sek);
+        el.className = 'kds-zeit ' + stufe;
+        var bon = el.closest('.kds-bon');
+        if (bon) bon.classList.toggle('zu-lange', stufe === 'rot');
+        if (stufe === 'rot') rot++;
+    });
+    var z = document.getElementById('kdsZuLange');
+    if (z) z.textContent = rot;
+}
+
+// Wie viele Bons hat die Kueche heute fertig gemacht? (Zahl am Nagel)
+async function kdsFertigHeute(restaurantId) {
+    var el = document.getElementById('kdsNagelZahl');
+    var kopf = document.getElementById('kdsFertigHeute');
+    try {
+        var client = sb || window.sb;
+        if (!client) throw new Error('keine Verbindung');
+        var start = new Date(); start.setHours(0, 0, 0, 0);
+        var r = await client.from('orders').select('id', { count: 'exact', head: true })
+            .eq('restaurant_id', restaurantId).in('status', KDS_FERTIG_STATUS).gte('created_at', start.toISOString());
+        if (r.error) throw r.error;
+        var n = r.count || 0;
+        if (el) el.textContent = n;
+        if (kopf) kopf.textContent = n;
+        return n;
+    } catch (e) {
+        // Keine erfundene Null: unbekannt heisst "–".
+        if (el) el.textContent = '–';
+        if (kopf) kopf.textContent = '–';
+        return null;
     }
+}
 
-    // Action Buttons
-    var actionsHtml = '';
-    if (colType === 'new') {
-        actionsHtml = '<button onclick="updateKitchenOrderStatus(\'' + o.id + '\', \'preparing\')" style="flex:1;padding:14px;background:linear-gradient(135deg,var(--primary),#1a5f4a);color:white;border:none;border-radius:48px;font-size:15px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;box-shadow:0 6px 20px rgba(0,61,51,0.2);transition:all 0.3s;display:flex;align-items:center;justify-content:center;gap:8px;" onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 8px 24px rgba(0,61,51,0.3)\'" onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'0 6px 20px rgba(0,61,51,0.2)\'">' +
-            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>' +
-            'Zubereiten</button>';
-    } else if (colType === 'prep') {
-        actionsHtml = '<button onclick="updateKitchenOrderStatus(\'' + o.id + '\', \'ready\')" style="flex:1;padding:14px;background:linear-gradient(135deg,#16a34a,#15803d);color:white;border:none;border-radius:48px;font-size:15px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;box-shadow:0 6px 20px rgba(22,163,74,0.25);transition:all 0.3s;display:flex;align-items:center;justify-content:center;gap:8px;" onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 8px 24px rgba(22,163,74,0.35)\'" onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'0 6px 20px rgba(22,163,74,0.25)\'">' +
-            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><path d="M20 6L9 17l-5-5"/></svg>' +
-            'Fertig!</button>';
-    } else {
-        actionsHtml = '<button onclick="updateKitchenOrderStatus(\'' + o.id + '\', \'delivered\')" style="flex:1;padding:12px;background:rgba(255,255,255,0.7);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:var(--primary);border:1px solid rgba(0,61,51,0.1);border-radius:48px;font-size:14px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;transition:all 0.3s;display:flex;align-items:center;justify-content:center;gap:6px;" onmouseover="this.style.background=\'rgba(0,61,51,0.06)\';this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.6)\';this.style.transform=\'none\'">' +
-            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M5 12h14M12 5l7 7-7 7"/></svg>' +
-            'Abgeholt</button>';
+// Unten links: was fertig ist und auf Ausgabe/Fahrer wartet.
+function kdsFertigChipsHtml(fertige) {
+    if (!fertige.length) return '<span class="kds-leer">Gerade nichts – alles raus.</span>';
+    return fertige.map(function (o) {
+        var k = kdsKopf(o);
+        var seit = Date.parse(o.ready_at || o.updated_at || o.created_at || '') || Date.now();
+        return '<button type="button" class="kds-chip" onclick="updateKitchenOrderStatus(\'' + o.id + '\', \'delivered\')" aria-label="' + escapeHtml(k.gross) + ' ist raus">'
+            + '<i aria-hidden="true">●</i> ' + escapeHtml(k.gross) + ' · ' + escapeHtml(k.klein.split(' · ')[0]) + ' · ' + kdsZeitText((Date.now() - seit) / 1000)
+            + '</button>';
+    }).join('');
+}
+
+// ---- Der Nagel: zuletzt Fertiges zurueckholen ----
+async function kdsNagelOeffnen() {
+    var restaurantId = window._kitchenRestaurantId;
+    var client = sb || window.sb;
+    if (!client || !restaurantId) { showToast('Keine Verbindung zur Datenbank', 'error'); return; }
+    var start = new Date(); start.setHours(0, 0, 0, 0);
+    var r = await client.from('orders').select('*').eq('restaurant_id', restaurantId)
+        .in('status', KDS_FERTIG_STATUS).gte('created_at', start.toISOString())
+        .order('updated_at', { ascending: false }).limit(6);
+    if (r.error) { showToast('Nicht geladen: ' + (r.error.message || r.error), 'error'); return; }
+    var liste = (r.data || []).map(function (o) {
+        var k = kdsKopf(o);
+        return '<button type="button" class="kds-fenster-zeile" onclick="kdsZurueckholen(\'' + o.id + '\')"><b>' + escapeHtml(k.gross) + '</b> <span>' + escapeHtml(k.klein) + '</span><em>zurückholen</em></button>';
+    }).join('') || '<p class="kds-leer">Heute ist noch nichts fertig.</p>';
+    kdsFenster('Zuletzt fertig', 'Aus Versehen „Fertig“ gedrückt? Antippen – der Bon hängt wieder an der Schiene.', liste);
+}
+
+async function kdsZurueckholen(id) {
+    await updateKitchenOrderStatus(id, 'preparing');
+    kdsFensterZu();
+}
+
+// ---- Ausverkauft aus der Kueche ----
+// Speichert is_available=false und, wenn SQL 52 eingespielt ist, den Tag
+// (ausverkauft_am). Der naechtliche Lauf (ausverkauft-zurueck) gibt es dann
+// morgen frueh von selbst wieder frei.
+function kdsHeuteBerlin() {
+    try { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Berlin' }).format(new Date()); } catch (e) { return new Date().toISOString().slice(0, 10); }
+}
+
+async function kdsGerichteLaden(restaurantId) {
+    var url = SUPABASE_URL + '/rest/v1/menu_items?restaurant_id=eq.' + encodeURIComponent(restaurantId) + '&select=*&order=name.asc';
+    var res = await fetch(url, { headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + kmiToken() } });
+    if (!res.ok) throw new Error('Fehler ' + res.status);
+    var z = await res.json();
+    window._kdsGerichte = Array.isArray(z) ? z : [];
+    return window._kdsGerichte;
+}
+
+// Nur versprechen, was stimmt: Ohne die Spalte ausverkauft_am (SQL 52) kommt
+// nichts von selbst zurueck. Erkennbar daran, dass die Speisekarte das Feld
+// gar nicht mitliefert.
+function kdsMorgenText(gerichte) {
+    var mitTag = (gerichte || []).length > 0 && Object.prototype.hasOwnProperty.call(gerichte[0], 'ausverkauft_am');
+    return mitTag
+        ? 'Morgen früh ist alles von selbst wieder da.'
+        : 'Achtung: Es kommt morgen nicht von selbst zurück – bitte dann hier wieder freigeben.';
+}
+
+function kdsAusverkauftChipsHtml(gerichte) {
+    var aus = (gerichte || []).filter(function (g) { return g.is_available === false; });
+    if (!aus.length) return '<span class="kds-leer">Nichts ausverkauft.</span>';
+    return aus.map(function (g) {
+        return '<button type="button" class="kds-chip aus" onclick="kdsAusverkauftSchalten(\'' + g.id + '\', false)" aria-label="' + escapeHtml(g.name) + ' wieder freigeben">' + escapeHtml(g.name) + ' ×</button>';
+    }).join('');
+}
+
+async function kdsAusverkauftSchalten(id, ausverkauft) {
+    var g = (window._kdsGerichte || []).find(function (x) { return x.id === id; });
+    var daten = ausverkauft ? { is_available: false, ausverkauft_am: kdsHeuteBerlin() } : { is_available: true, ausverkauft_am: null };
+    var ohneTag = false;
+    try {
+        var z;
+        try { z = await menuSchreiben('menu_items?id=eq.' + encodeURIComponent(id), 'PATCH', daten); }
+        catch (e) {
+            // SQL 52 fehlt (Spalte unbekannt): trotzdem ausverkauft -- aber ehrlich sagen,
+            // dass es morgen nicht von selbst zurueckkommt.
+            if (!/ausverkauft_am/.test(String(e && e.message))) throw e;
+            ohneTag = true;
+            z = await menuSchreiben('menu_items?id=eq.' + encodeURIComponent(id), 'PATCH', { is_available: !ausverkauft });
+        }
+        if (g) { g.is_available = z[0].is_available !== false; g.ausverkauft_am = z[0].ausverkauft_am || null; }
+        showToast(ausverkauft
+            ? (g ? g.name : 'Gericht') + ' ist ausverkauft – online nicht mehr bestellbar.' + (ohneTag ? ' Achtung: kommt morgen NICHT von selbst wieder (datenbank/52-ausverkauft.sql fehlt).' : '')
+            : (g ? g.name : 'Gericht') + ' ist wieder bestellbar.', ausverkauft ? 'warning' : 'success');
+    } catch (e) {
+        showToast('Nicht gespeichert: ' + ((e && e.message) || e), 'error');
     }
+    kdsAusverkauftZeigen();
+    if (document.getElementById('kdsFenster')) kdsAusverkaufOeffnen(true);
+}
 
-    // Status-Akzent-Streifen oben
-    var accentStripe = colType === 'new' ? 'linear-gradient(135deg,#f59e0b,#fbbf24)' : colType === 'prep' ? 'linear-gradient(135deg,var(--primary),#1a5f4a)' : 'linear-gradient(135deg,#16a34a,#22c55e)';
+function kdsAusverkauftZeigen() {
+    var box = document.getElementById('kdsAusverkauft');
+    if (box) box.innerHTML = kdsAusverkauftChipsHtml(window._kdsGerichte);
+}
 
-    return '<div class="kds-card" style="background:rgba(255,255,255,0.7);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-radius:48px;border:1px solid rgba(255,255,255,0.8);overflow:hidden;box-shadow:0 10px 30px -5px rgba(0,61,51,0.08);transition:all 0.3s;' + (isUrgent ? 'animation:kdsPulse 2s infinite;border-color:rgba(239,68,68,0.4);box-shadow:0 10px 30px -5px rgba(239,68,68,0.15);' : '') + '">' +
-        // Farbiger Akzent-Streifen
-        '<div style="height:4px;background:' + accentStripe + ';"></div>' +
-        // Card Header
-        '<div style="padding:16px 20px 12px;display:flex;justify-content:space-between;align-items:center;">' +
-            '<div style="display:flex;align-items:center;gap:10px;">' +
-                '<span style="font-family:Epilogue,sans-serif;font-weight:800;font-size:22px;color:var(--text-primary);letter-spacing:-0.5px;">#' + (o.order_number || '').split('-').pop() + '</span>' +
-                (o.table_number ? '<span style="background:linear-gradient(135deg,var(--primary),#1a5f4a);color:white;font-size:11px;font-weight:700;padding:4px 12px;border-radius:9999px;box-shadow:0 2px 8px rgba(0,61,51,0.2);">Tisch ' + o.table_number + '</span>' : '') +
-            '</div>' +
-            '<div style="display:flex;align-items:center;gap:8px;">' +
-                '<span style="font-size:12px;color:var(--slate);font-weight:500;">' + timeStr + '</span>' +
-                '<span data-kds-created="' + createdAt.getTime() + '" style="font-size:14px;font-weight:700;color:var(--slate);font-variant-numeric:tabular-nums;background:rgba(0,61,51,0.06);padding:4px 12px;border-radius:14px;"></span>' +
-            '</div>' +
-        '</div>' +
-        // Card Meta
-        '<div style="padding:0 20px 12px;display:flex;align-items:center;gap:6px;font-size:13px;color:var(--slate);flex-wrap:wrap;">' +
-            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' +
-            '<span style="font-weight:600;color:var(--text-primary);">' + (o.customer_name || 'Gast') + '</span>' +
-            '<span style="width:1px;height:12px;background:rgba(0,61,51,0.12);"></span>' +
-            (typeIcons[o.order_type] || '') +
-            '<span>' + (typeLabels[o.order_type] || 'Abholung') + '</span>' +
-            (o.customer_phone ? '<span style="width:1px;height:12px;background:rgba(0,61,51,0.12);"></span><span>' + escapeHtml(o.customer_phone) + '</span>' : '') +
-        '</div>' +
-        // Kunden-Notiz
-        (o.customer_notes ? '<div style="margin:0 20px 12px;padding:10px 14px;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.12);border-radius:20px;font-size:13px;color:#92400e;font-weight:500;display:flex;align-items:flex-start;gap:8px;line-height:1.4;"><svg viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" width="16" height="16" style="flex-shrink:0;margin-top:1px;"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>' + escapeHtml(o.customer_notes) + '</div>' : '') +
-        // Allergie aus frueheren Besuchen
-        (function () { var _a = allergieZeileHtml(o); return _a ? '<div style="margin:0 20px 12px;">' + _a + '</div>' : ''; })() +
-        // Trennlinie
-        '<div style="margin:0 20px;height:1px;background:linear-gradient(90deg,transparent,rgba(0,61,51,0.08),transparent);"></div>' +
-        // Items
-        '<div style="padding:10px 20px 14px;">' + itemsHtml + '</div>' +
-        // Footer mit Total + Action
-        '<div style="padding:12px 20px 18px;display:flex;align-items:center;gap:12px;">' +
-            '<span style="font-family:Epilogue,sans-serif;font-size:18px;font-weight:800;color:var(--text-primary);letter-spacing:-0.3px;">' + (o.total || 0).toFixed(2).replace('.', ',') + ' &euro;</span>' +
-            '<div style="flex:1;">' + actionsHtml + '</div>' +
-        '</div>' +
-    '</div>';
+async function kdsAusverkaufOeffnen(nurNeuZeichnen) {
+    var restaurantId = window._kitchenRestaurantId;
+    if (!nurNeuZeichnen) {
+        try { await kdsGerichteLaden(restaurantId); }
+        catch (e) { showToast('Speisekarte nicht geladen: ' + e.message, 'error'); return; }
+    }
+    var such = (document.getElementById('kdsSuche') || {}).value || '';
+    var q = such.trim().toLowerCase();
+    var alle = (window._kdsGerichte || []).filter(function (g) {
+        return !q || String(g.name || '').toLowerCase().indexOf(q) >= 0 || String(g.dish_number || '') === q;
+    });
+    // Ausverkaufte zuerst, dann nach Name.
+    alle.sort(function (a, b) { return (a.is_available === false ? 0 : 1) - (b.is_available === false ? 0 : 1) || String(a.name).localeCompare(String(b.name), 'de'); });
+    var kacheln = alle.slice(0, 60).map(function (g) {
+        var aus = g.is_available === false;
+        return '<button type="button" class="kds-gericht' + (aus ? ' aus' : '') + '" aria-pressed="' + aus + '" onclick="kdsAusverkauftSchalten(\'' + g.id + '\', ' + !aus + ')">'
+            + escapeHtml(g.name || '') + '<small>' + (aus ? 'ausverkauft – antippen gibt frei' : (g.dish_number ? 'Nr. ' + escapeHtml(g.dish_number) : 'bestellbar')) + '</small></button>';
+    }).join('') || '<p class="kds-leer">' + (q ? 'Kein Gericht gefunden.' : 'Die Speisekarte ist leer.') + '</p>';
+    var inhalt = '<label class="kds-etikett" for="kdsSuche">Gericht suchen</label>'
+        + '<input id="kdsSuche" type="search" class="kds-suche" placeholder="z. B. Lamm, Kalamari, Nr. 45" value="' + escapeHtml(such) + '" oninput="kdsAusverkaufOeffnen(true)">'
+        + '<div class="kds-gerichte">' + kacheln + '</div>'
+        + '<p class="kds-fenster-fuss">Rot = ausverkauft. Noch einmal antippen gibt es wieder frei. ' + kdsMorgenText(window._kdsGerichte) + '</p>';
+    var offen = document.getElementById('kdsFenster');
+    if (offen && nurNeuZeichnen) {
+        var aktiv = document.activeElement && document.activeElement.id === 'kdsSuche';
+        offen.querySelector('.kds-fenster-inhalt').innerHTML = inhalt;
+        if (aktiv) { var s = document.getElementById('kdsSuche'); if (s) { s.focus(); s.setSelectionRange(s.value.length, s.value.length); } }
+        return;
+    }
+    kdsFenster('Was ist ausverkauft?', 'Antippen – das Gericht ist sofort online nicht mehr bestellbar.', inhalt);
+}
+
+// ---- Nachdruck ----
+function kdsNachdruckOeffnen() {
+    var liste = (window._kdsBestellungen || []).map(function (o) {
+        var k = kdsKopf(o);
+        return '<button type="button" class="kds-fenster-zeile" onclick="kdsNachdrucken(\'' + o.id + '\')"><b>' + escapeHtml(k.gross) + '</b> <span>' + escapeHtml(k.klein) + '</span><em>drucken</em></button>';
+    }).join('') || '<p class="kds-leer">Gerade keine Bons offen.</p>';
+    kdsFenster('Bon nachdrucken', 'Welcher Bon soll noch einmal raus?', liste);
+}
+
+async function kdsNachdrucken(id) {
+    var o = (window._kdsBestellungen || []).find(function (x) { return x.id === id; });
+    if (!o) return;
+    var auftrag = Object.assign({}, o, { items: o.items || o.order_items || [] });
+    var ok = await dispatchPrintToAll(auftrag, 'manual');
+    if (ok) kdsFensterZu();
+}
+
+// ---- Ein Fenster fuer alles (Nagel, Ausverkauft, Nachdruck) ----
+function kdsFenster(titel, unterzeile, inhalt) {
+    kdsFensterZu();
+    var f = document.createElement('div');
+    f.id = 'kdsFenster';
+    f.className = 'kds-fenster-grund';
+    f.innerHTML = '<section class="kds-fenster" role="dialog" aria-modal="true" aria-labelledby="kdsFensterTitel">'
+        + '<div class="kds-fenster-kopf"><div><h2 id="kdsFensterTitel">' + escapeHtml(titel) + '</h2><p>' + escapeHtml(unterzeile) + '</p></div>'
+        + '<button type="button" class="kds-rund" onclick="kdsFensterZu()" aria-label="Schließen">×</button></div>'
+        + '<div class="kds-fenster-inhalt">' + inhalt + '</div></section>';
+    f.addEventListener('click', function (e) { if (e.target === f) kdsFensterZu(); });
+    (document.getElementById('kitchenDisplay') || document.body).appendChild(f);
+}
+function kdsFensterZu() { var f = document.getElementById('kdsFenster'); if (f) f.remove(); }
+
+// Druckerzustand im Kopf (nur, wenn auf diesem Geraet ein Bluetooth-Drucker eingerichtet ist).
+function kdsDruckerStand() {
+    var el = document.getElementById('kdsDrucker');
+    if (!el) return;
+    var hat = (typeof btAlleBtDrucker === 'function') && btAlleBtDrucker().length > 0;
+    if (!hat) { el.innerHTML = ''; return; }
+    var an = !!(window._kinBt && window._kinBt.verbunden);
+    el.innerHTML = '<span class="kds-punkt ' + (an ? 'an' : 'aus') + '" aria-hidden="true"></span>' + (an ? 'Drucker verbunden' : 'Drucker getrennt');
 }
 
 async function refreshKitchenOrders() {
-    var colNew = document.getElementById('kdsColNew');
-    var colPrep = document.getElementById('kdsColPrep');
-    var colDone = document.getElementById('kdsColDone');
-    if (!colNew || !colPrep || !colDone) return;
+    var rail = document.getElementById('kdsRail');
+    if (!rail) return;
 
     var restaurantId = window._kitchenRestaurantId || window._gastroOnlyRestaurantId || (APP_DATA.restaurants[0] ? APP_DATA.restaurants[0].id : null);
     if (!restaurantId) return;
@@ -90520,48 +90786,29 @@ async function refreshKitchenOrders() {
         window._kdsKnownOrderIds = newIds;
         window._kdsFirstLoad = false;
 
-        // Aufteilen nach Status
-        var newOrders = orders.filter(function(o) { return o.status === 'received' || o.status === 'accepted' || o.status === 'confirmed'; });
-        var prepOrders = orders.filter(function(o) { return o.status === 'preparing'; });
-        var doneOrders = orders.filter(function(o) { return o.status === 'ready'; });
-
-        // Counter aktualisieren
-        var cntNew = document.getElementById('kdsCountNew');
-        var cntPrep = document.getElementById('kdsCountPrep');
-        var cntDone = document.getElementById('kdsCountDone');
+        // EINE Schiene: alles, was noch gekocht wird, aelteste links.
+        // Fertige stehen unten ("wartet auf Ausgabe"), Erledigte am Nagel.
+        window._kdsBestellungen = orders;
+        var amPass = orders.filter(function (o) { return o.status !== 'ready'; })
+            .sort(function (a, b) { return kdsZeitBasis(a) - kdsZeitBasis(b); });
+        var fertig = orders.filter(function (o) { return o.status === 'ready'; });
+        rail.innerHTML = amPass.length
+            ? amPass.map(function (o) { return _kdsRenderCard(o); }).join('')
+            : '<div class="kds-ruhe">Nichts am Pass. Neue Bons erscheinen hier von selbst.</div>';
+        var _amPass = document.getElementById('kdsAmPass'); if (_amPass) _amPass.textContent = amPass.length;
+        var _fert = document.getElementById('kdsFertig'); if (_fert) _fert.innerHTML = kdsFertigChipsHtml(fertig);
         var cntTotal = document.getElementById('kdsOrderCount');
-        if (cntNew) cntNew.textContent = newOrders.length;
-        if (cntPrep) cntPrep.textContent = prepOrders.length;
-        if (cntDone) cntDone.textContent = doneOrders.length;
-        if (cntTotal) cntTotal.textContent = orders.length + ' Bestellung' + (orders.length !== 1 ? 'en' : '');
-
-        // Leere Spalte Platzhalter
-        function emptyCol(text, icon) {
-            return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;opacity:0.4;">' +
-                icon +
-                '<div style="font-size:14px;color:var(--slate);margin-top:8px;text-align:center;">' + text + '</div></div>';
-        }
-
-        // Spalte Neu
-        if (newOrders.length === 0) {
-            colNew.innerHTML = emptyCol('Keine neuen Bestellungen', '<svg viewBox="0 0 24 24" fill="none" stroke="var(--slate)" stroke-width="1.5" width="36" height="36"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>');
-        } else {
-            colNew.innerHTML = newOrders.map(function(o) { return _kdsRenderCard(o, 'new'); }).join('');
-        }
-
-        // Spalte Zubereitung
-        if (prepOrders.length === 0) {
-            colPrep.innerHTML = emptyCol('Keine in Zubereitung', '<svg viewBox="0 0 24 24" fill="none" stroke="var(--slate)" stroke-width="1.5" width="36" height="36"><path d="M3 17h18M5 17V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10"/><circle cx="12" cy="11" r="3"/></svg>');
-        } else {
-            colPrep.innerHTML = prepOrders.map(function(o) { return _kdsRenderCard(o, 'prep'); }).join('');
-        }
-
-        // Spalte Fertig
-        if (doneOrders.length === 0) {
-            colDone.innerHTML = emptyCol('Noch nichts fertig', '<svg viewBox="0 0 24 24" fill="none" stroke="var(--slate)" stroke-width="1.5" width="36" height="36"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>');
-        } else {
-            colDone.innerHTML = doneOrders.map(function(o) { return _kdsRenderCard(o, 'done'); }).join('');
-        }
+        if (cntTotal) cntTotal.textContent = orders.length + ' Bestellung' + (orders.length !== 1 ? 'en' : '') + ' offen';
+        kdsFertigHeute(restaurantId);
+        kdsDruckerStand();
+        // Ausverkauft: Speisekarte hoechstens einmal pro Minute neu holen.
+        if (!window._kdsGerichteZeit || Date.now() - window._kdsGerichteZeit > 60000) {
+            window._kdsGerichteZeit = Date.now();
+            kdsGerichteLaden(restaurantId).then(kdsAusverkauftZeigen).catch(function (e) {
+                var b = document.getElementById('kdsAusverkauft');
+                if (b) b.innerHTML = '<span class="kds-leer">Speisekarte nicht geladen (' + escapeHtml(e.message || 'Fehler') + ')</span>';
+            });
+        } else { kdsAusverkauftZeigen(); }
 
         // Timer sofort aktualisieren
         _kdsUpdateTimers();
