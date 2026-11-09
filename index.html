@@ -16559,6 +16559,8 @@ function _direkterEinstieg() {
         if (pfad !== '/' && pfad !== '/index.html') return true;
         // ?r=rhodos&tisch=7 -- der QR-Code am Tisch
         if (/[?&](r|restaurant|tisch|table)=/.test(frage)) return true;
+        // ?wirt=starten -- kommt vom Tesla-Kauf (/starten), will sich anmelden
+        if (/[?&]wirt=/.test(frage)) return true;
         return false;
     } catch (e) { return false; }
 }
@@ -16750,6 +16752,36 @@ function _cookieBannerZeigen() {
     if (!_cookieWaechter) _cookieWaechter = setInterval(pruefe, 300);
 }
 document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
+
+// Vom Tesla-Kauf (/starten): Anmeldung direkt oeffnen.
+// Der Wunsch wird 90 Sekunden in der Sitzung gemerkt, nicht nur in der
+// Adresse: Beim ERSTEN Besuch installiert sich der Service Worker und laedt
+// die Seite einmal neu (siehe 'activated' -> reload). Gemessen am 07.11.2026:
+// Danach war ?wirt=starten weg und die Anmeldung ging nie auf -- genau bei
+// den neuen Wirten, fuer die die Seite gebaut ist.
+var KMI_WIRT_STARTEN = 'kmi_wirt_starten';
+function _wirtStartenPruefen() {
+    var jetzt = Date.now();
+    try {
+        if (/[?&]wirt=starten\b/.test(String(location.search || ''))) {
+            sessionStorage.setItem(KMI_WIRT_STARTEN, String(jetzt));
+            // Aus der Adresse nehmen: wer spaeter neu laedt, soll nicht wieder in der Anmeldung landen
+            try { history.replaceState(null, '', location.pathname); } catch (e) {}
+            return true;
+        }
+        var seit = Number(sessionStorage.getItem(KMI_WIRT_STARTEN) || 0);
+        if (seit && jetzt - seit < 90 * 1000) return true;
+        if (seit) sessionStorage.removeItem(KMI_WIRT_STARTEN);
+    } catch (e) {
+        // Kein sessionStorage (privates Fenster o. Ae.): dann wenigstens die Adresse
+        return /[?&]wirt=starten\b/.test(String(location.search || ''));
+    }
+    return false;
+}
+window.addEventListener('load', function () {
+    if (!_wirtStartenPruefen()) return;
+    setTimeout(function () { if (typeof startRestaurantRegistration === 'function') startRestaurantRegistration(); }, 400);
+});
 </script>
 
 <!-- View Toggle -->
@@ -17579,7 +17611,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                     <div class="form-group">
                         <label class="form-label">Monatsbeitrag</label>
                         <div style="padding: 14px; background: var(--primary); border-radius: 16px; color: white; text-align: center;">
-                            <div style="font-size: 28px; font-weight: 700;">59 €<span style="font-size: 14px; font-weight: 400; opacity: 0.8;"> / Monat</span></div>
+                            <div style="font-size: 28px; font-weight: 700;">59,90 €<span style="font-size: 14px; font-weight: 400; opacity: 0.8;"> / Monat</span></div>
                             <div style="font-size: 12px; opacity: 0.8; margin-top: 4px;">Alles inklusive · Keine Provision · Keine versteckten Kosten</div>
                             <div style="display: flex; flex-wrap: wrap; gap: 4px 12px; justify-content: center; margin-top: 10px; font-size: 11px; opacity: 0.9;">
                                 <span>Speisekarte</span><span>·</span>
@@ -18117,6 +18149,53 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
         </div>
 
         <footer style="padding: 24px 20px 120px; text-align: center; border-top: 1px solid var(--border-color); margin-top: 20px;">
+            <!-- FUER GASTRONOMEN (Ibo, 07.11.2026: "unten so ein Balken, leicht gross,
+                 aber kein Anzeige-Balken"). In Kiek-mol-in-Gruen (Ibo: "kann ruhig
+                 kiekmolin Farbe bekommen"), FEST #003D33 statt var(--primary): im
+                 Dunkelmodus wird --primary hellgruen, weisse Schrift waere unlesbar.
+                 Fuehrt auf /starten (eigene Seite in 10 Sekunden). -->
+            <!-- GAESTE-WUNSCH (Ibo, 07.11.2026): "Dein Lieblingslokal fehlt?" --
+                 gezaehlt in lokal_wunsch ueber /.netlify/functions/lokal-wunsch,
+                 ohne IP/Cookie. Wird nicht gespeichert, steht das ehrlich da. -->
+            <form id="gastWunsch" style="max-width:520px;margin:0 auto 14px;padding:14px 16px;border:1px solid var(--border-color);border-radius:16px;background:var(--bg-card);text-align:left;">
+                <div style="font-size:15px;font-weight:700;color:var(--text-primary);">Dein Lieblingslokal fehlt?</div>
+                <div style="font-size:13px;color:var(--text-secondary);margin:2px 0 10px;">Wünsch es dir – dann bestellst du dort bald auch hier.</div>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                    <input id="gastWunschName" required maxlength="80" placeholder="Name des Lokals" aria-label="Name des Lokals" style="flex:2 1 160px;min-width:0;min-height:44px;padding:10px 12px;border-radius:12px;border:1px solid var(--border-color);background:var(--bg-primary);color:var(--text-primary);font-size:15px;">
+                    <input id="gastWunschOrt" maxlength="60" placeholder="Ort" aria-label="Ort" style="flex:1 1 100px;min-width:0;min-height:44px;padding:10px 12px;border-radius:12px;border:1px solid var(--border-color);background:var(--bg-primary);color:var(--text-primary);font-size:15px;">
+                    <button type="submit" id="gastWunschKnopf" style="flex:none;min-height:44px;padding:10px 16px;border-radius:9999px;border:0;background:var(--primary);color:var(--bg-card);font-weight:700;font-size:14px;cursor:pointer;">♥ Wünschen</button>
+                </div>
+                <div id="gastWunschMeldung" role="status" aria-live="polite" style="font-size:13px;margin-top:8px;" hidden></div>
+            </form>
+            <script>
+            (function () {
+                var f = document.getElementById('gastWunsch');
+                if (!f) return;
+                var meld = document.getElementById('gastWunschMeldung'), knopf = document.getElementById('gastWunschKnopf');
+                function sag(text, gut) { meld.hidden = false; meld.textContent = text; meld.style.color = gut ? 'var(--primary)' : '#b42318'; }
+                f.addEventListener('submit', function (e) {
+                    e.preventDefault();
+                    var name = document.getElementById('gastWunschName').value.trim(), ort = document.getElementById('gastWunschOrt').value.trim();
+                    if (name.length < 2) { sag('Bitte den Namen des Lokals eingeben.', false); return; }
+                    knopf.disabled = true;
+                    fetch('/.netlify/functions/lokal-wunsch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name, ort: ort }) })
+                        .then(function (r) { return r.json(); })
+                        .then(function (d) {
+                            knopf.disabled = false;
+                            if (d && d.ok) { f.reset(); sag(d.anzahl > 1 ? 'Danke! Schon ' + d.anzahl + ' Gäste wünschen sich ' + name + '.' : 'Danke! Dein Wunsch ist gezählt.', true); }
+                            else sag('Das hat gerade nicht geklappt. Bitte später noch einmal.', false);
+                        })
+                        .catch(function () { knopf.disabled = false; sag('Keine Verbindung. Bitte später noch einmal.', false); });
+                });
+            })();
+            </script>
+            <a href="/starten" id="wirtBalken" style="display:flex;align-items:center;justify-content:space-between;gap:14px;max-width:520px;margin:0 auto 20px;padding:14px 18px;border:1px solid #003D33;border-radius:16px;background:#003D33;color:#FFFFFF;text-decoration:none;text-align:left;">
+                <span style="min-width:0;">
+                    <span style="display:block;font-size:15px;font-weight:700;">Sie haben ein Restaurant?</span>
+                    <span style="display:block;font-size:13px;color:#FFFFFF;opacity:.85;margin-top:2px;">Ihre eigene Seite auf Kiek mol in – in 10 Sekunden ansehen</span>
+                </span>
+                <span aria-hidden="true" style="flex:none;font-size:20px;color:#FFD54F;">→</span>
+            </a>
             <div style="font-size: 13px; color: var(--text-primary); margin-bottom: 12px; opacity: 0.6;">
                 <span data-i18n="footerText">© 2026 Kiek mol in – Ostfriesland genießen</span>
             </div>
@@ -18125,7 +18204,6 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 <a href="#" onclick="openModal('datenschutzModal'); return false;" style="font-size: 13px; color: var(--primary); text-decoration: none;" data-i18n="privacy">Datenschutz</a>
                 <a href="#" onclick="openModal('agbModal'); return false;" style="font-size: 13px; color: var(--primary); text-decoration: none;" data-i18n="agb">AGB</a>
                 <a href="#" onclick="openModal('kontaktModal'); return false;" style="font-size: 13px; color: var(--primary); text-decoration: none;" data-i18n="contact">Kontakt</a>
-                <a href="#" onclick="startRestaurantRegistration(); return false;" style="font-size: 13px; color: var(--text-secondary); text-decoration: none; opacity: 0.7;">Für Gastronomen</a>
             </div>
             <div style="font-size: 11px; color: var(--text-primary); opacity: 0.4; max-width: 320px; margin: 0 auto; line-height: 1.5;">
                 Alle Angaben ohne Gewähr. Öffnungszeiten, Verfügbarkeiten und Preise können abweichen. Bitte vor Ort prüfen.
@@ -18731,6 +18809,9 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                  Fuellt dashLaden(). Die alte Ansicht darunter bleibt im DOM (an ihren
                  Kennungen haengt updateDashboard), ist aber ausgeblendet. -->
             <div id="kinDash" class="kin-dash"><div class="kin-dash-wenig">Dashboard lädt …</div></div>
+            <!-- Hier stand bis 07.11.2026 ein dunkler Kurani-Kasten mit blauem Knopf.
+                 Ibo: "es nervt" -- und Wirte, die schon bei Kiek mol in sind, brauchen
+                 keinen Check fuer eine Restaurant-Seite. Ersatzlos entfernt. -->
             <!-- Connection Status Banner -->
             <div id="dashboardConnectionBanner" data-kin-alt="1" style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:rgba(255,255,255,0.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:48px;margin-bottom:24px;">
                 <div style="display:flex;align-items:center;gap:10px;">
@@ -25952,7 +26033,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                     <div class="form-group">
                         <label class="form-label" for="customerFee">Monatsbeitrag (€)</label>
-                        <input type="number" class="form-input" id="customerFee" value="29.90" step="0.01" min="0" oninput="updatePricingPreview()">
+                        <input type="number" class="form-input" id="customerFee" value="59.90" step="0.01" min="0" oninput="updatePricingPreview()">
                     </div>
                     <div class="form-group">
                         <label class="form-label" for="customerDiscount">Rabatt (%)</label>
@@ -25972,7 +26053,7 @@ document.addEventListener('DOMContentLoaded', _cookieBannerZeigen);
                 <div id="pricingPreview" style="display:none; background: rgba(22,163,74,0.08); border: 1px solid rgba(22,163,74,0.2); border-radius: 16px; padding: 12px 16px; margin-bottom: 16px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;">
                         <span style="font-size:13px;color:var(--slate);">Effektiv:</span>
-                        <span id="pricingEffective" style="font-size:16px;font-weight:700;color:var(--primary);">29,90 €/Monat</span>
+                        <span id="pricingEffective" style="font-size:16px;font-weight:700;color:var(--primary);">59,90 €/Monat</span>
                     </div>
                     <div id="pricingFreeInfo" style="display:none;font-size:12px;color:var(--primary);margin-top:4px;"></div>
                 </div>
@@ -47279,6 +47360,23 @@ function regWunschAbholen() {
     regWunschLoeschen();
     return (Date.now() - Number(seit)) < KMI_REG_GILT_MS;
 }
+// Was der Wirt auf /starten (Tesla-Kauf) gewaehlt hat, steht im Formular,
+// damit er es nicht zweimal tippt. Nur leere Felder, nur 2 Stunden lang.
+// Klappt das Lesen nicht, bleibt das Formular einfach leer -- wie vorher.
+var KMI_REG_VORFUELLEN = 'kmi_reg_vorfuellen';
+function regVorfuellenAusStarten() {
+    var v = null;
+    try { v = JSON.parse(localStorage.getItem(KMI_REG_VORFUELLEN) || 'null'); } catch (e) { v = null; }
+    if (!v || !v.zeit || (Date.now() - Number(v.zeit)) > 2 * 60 * 60 * 1000) return false;
+    var setze = function (id, wert, max) { var el = document.getElementById(id); if (el && !el.value && wert) el.value = String(wert).slice(0, max || 80); };
+    setze('regRestaurantName', v.name);
+    setze('regRestaurantCity', v.ort);
+    var k = document.getElementById('regRestaurantCuisine');
+    if (k && !k.value && v.kueche && k.querySelector('option[value="' + String(v.kueche).replace(/[^a-z]/g, '') + '"]')) k.value = v.kueche;
+    var notiz = 'Auf /starten gewählt: Farbe ' + (v.farbe || '–') + ' · ' + ((v.funktionen || []).join(', ') || 'keine Funktionen') + (v.quelle ? ' · gekommen über: ' + String(v.quelle).slice(0, 40) : '');
+    setze('regRestaurantMessage', notiz, 400);
+    return true;
+}
 function regWunschLoeschen() {
     window._pendingRegistration = false;
     try { localStorage.removeItem(KMI_REG_MERKER); } catch (e) {}
@@ -47311,6 +47409,7 @@ function startRestaurantRegistration() {
     var emailEl = document.getElementById('regRestaurantEmail');
     if (nameEl && currentUser.name) nameEl.value = currentUser.name;
     if (emailEl && currentUser.email) emailEl.value = currentUser.email;
+    regVorfuellenAusStarten();
 
     openModal('gastroRegistrationModal');
 }
@@ -49072,6 +49171,37 @@ async function openRestaurantBySlug(slug) {
 // (landingIsOpen ...), aber nie angezeigt.
 // Eine Oeffnungszeit wird nur genannt, wenn sie EINGETRAGEN ist --
 // getOpeningTimeToday liefert sonst "11:00" als Annahme.
+// HELLES LOGO IM WEISSEN KREIS (gefunden 07.11.2026 beim Nachbau fuer /starten):
+// Ein weisses oder silbernes Logo -- oft freigestellt -- verschwand auf dem
+// weissen Grund des Kreises. Jetzt: mittlere Helligkeit der sichtbaren Pixel
+// messen; ist sie hell, bekommt der Kreis einen dunklen Grund.
+// Mit einer ZWEITEN Bildanfrage (crossOrigin), damit das angezeigte Bild nie
+// davon abhaengt. Erlaubt der Speicher das Auslesen nicht, bleibt alles wie
+// vorher -- kein Fehler, nur kein dunkler Grund.
+function lpLogoHell(daten) {
+    var summe = 0, zahl = 0;
+    for (var i = 0; i < daten.length; i += 4) {
+        if (daten[i + 3] > 40) { summe += 0.2126 * daten[i] + 0.7152 * daten[i + 1] + 0.0722 * daten[i + 2]; zahl++; }
+    }
+    return zahl > 0 && summe / zahl > 200;
+}
+function lpLogoPruefen(bild) {
+    try {
+        if (!bild || bild._kmiGeprueft) return;
+        bild._kmiGeprueft = true;
+        var kreis = bild.parentNode, probe = new Image();
+        probe.crossOrigin = 'anonymous';
+        probe.onload = function () {
+            try {
+                var c = document.createElement('canvas'); c.width = 48; c.height = 48;
+                var x = c.getContext('2d'); x.drawImage(probe, 0, 0, 48, 48);
+                if (lpLogoHell(x.getImageData(0, 0, 48, 48).data) && kreis) kreis.style.background = '#1d2422';
+            } catch (e) {}
+        };
+        probe.src = bild.currentSrc || bild.src;
+    } catch (e) {}
+}
+
 function lpVisitenkarte(rest, offen, schliesst) {
     var teile = [];
     var tage = ['so', 'mo', 'di', 'mi', 'do', 'fr', 'sa'];
@@ -49265,7 +49395,8 @@ async function showRestaurantLanding(rest) {
     var landingOpenTime = typeof getOpeningTimeToday === 'function' ? getOpeningTimeToday(rest) : '';
 
     // Logo - rundes Badge mit Schatten
-    var logoHtml = rest.logo ? '<div style="width:64px;height:64px;border-radius:50%;overflow:hidden;border:3px solid rgba(255,255,255,0.9);margin:0 auto 12px;background:var(--bg-card);"><img src="' + rest.logo + '" style="width:100%;height:100%;object-fit:cover;" alt="' + rest.name + '" loading="lazy"></div>' : '';
+    // onload -> lpLogoPruefen: ein weisses/silbernes Logo war im weissen Kreis unsichtbar.
+    var logoHtml = rest.logo ? '<div style="width:64px;height:64px;border-radius:50%;overflow:hidden;border:3px solid rgba(255,255,255,0.9);margin:0 auto 12px;background:var(--bg-card);" class="lp-logo-kreis"><img src="' + rest.logo + '" style="width:100%;height:100%;object-fit:cover;" alt="' + rest.name + '" loading="lazy" onload="lpLogoPruefen(this)"></div>' : '';
 
     // Kein echtes Foto? (mapRestaurant setzt dann ein 1x1-GIF.) Statt einer
     // gestreckten gruenen Flaeche: gestalteter Grund mit dem Anfangsbuchstaben.
@@ -49662,6 +49793,25 @@ async function showRestaurantLanding(rest) {
                     Alle Restaurants entdecken
                 </button>
             </div>
+            <!-- FUER GASTRONOMEN (Ibo, 07.11.2026, Entwurf "D"): andere Wirte sehen
+                 hier im Kleinen genau die Seite, die sie gerade bewundern -- mit dem
+                 Foto DIESES Lokals und in seiner Farbe (--marke). Fuehrt auf /starten.
+                 Ruhig gehalten, damit es fuer Gaeste kein Werbeblock ist. -->
+            <a href="/starten?quelle=lokalseite" class="lp-fuer-wirte" style="display:flex;align-items:center;gap:14px;max-width:380px;margin:32px auto 0;padding:14px 14px 14px 18px;border-radius:20px;background:var(--bg-card,#fff);border:1px solid rgba(0,0,0,0.06);box-shadow:0 18px 40px -18px rgba(0,0,0,0.25);text-decoration:none;text-align:left;">
+                <span style="flex:1;min-width:0;">
+                    <span style="display:block;font:700 11px Inter,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:var(--marke,#003d33);">Für Gastronomen</span>
+                    <span style="display:block;font:800 17px/1.15 Epilogue,sans-serif;letter-spacing:-.02em;color:var(--ink-deep);margin:5px 0;">So eine Seite für Ihr Lokal</span>
+                    <span style="display:block;font:400 13px/1.45 Inter,sans-serif;color:var(--text-secondary);">Mit Ihrem Namen – in 10 Sekunden ansehen</span>
+                    <span style="display:inline-flex;align-items:center;gap:6px;margin-top:10px;background:var(--marke,#003d33);color:#fff;border-radius:999px;padding:9px 14px;font:700 13px Inter,sans-serif;">Ansehen <span aria-hidden="true">→</span></span>
+                </span>
+                <span aria-hidden="true" style="flex:none;width:64px;height:124px;border-radius:14px;background:#111;padding:4px;box-shadow:0 10px 24px -10px rgba(0,0,0,0.5);transform:rotate(4deg);">
+                    <span style="display:block;width:100%;height:100%;border-radius:12px;overflow:hidden;background:#f8f9fa;">
+                        <span style="display:block;height:62%;${lpEchtesFoto ? "background:linear-gradient(to bottom,transparent 30%,var(--marke,#003d33)),url('" + rest.image + "') center/cover no-repeat;" : 'background:var(--marke,#003d33);'}"></span>
+                        <span style="display:block;margin:-22px 6px 0;position:relative;background:var(--bg-card,#fff);border-radius:7px;padding:5px 4px;text-align:center;font:800 7px Epilogue,sans-serif;color:var(--marke,#003d33);text-transform:uppercase;">Ihr Lokal</span>
+                        <span style="display:block;margin:6px 10px 0;height:7px;border-radius:9px;background:var(--marke,#003d33);opacity:.85;"></span>
+                    </span>
+                </span>
+            </a>
         </div>
     `;
 

@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ihr Lokal auf Kiek mol in – in 10 Sekunden ansehen</title>
+<meta name="description" content="Sehen Sie Ihre eigene Seite auf Kiek mol in, bevor Sie sich anmelden: Speisekarte, Bestellen, Reservieren, Tisch-QR und eigenes Dashboard. 59,90 € im Monat, alles drin, 0 % Provision, monatlich kündbar.">
+<link rel="canonical" href="https://kiekmolin.de/starten">
+<meta name="theme-color" content="#003D33">
+<link rel="icon" href="/favicon-32.png">
+<link rel="preload" href="/public/fonts/epilogue-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/public/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face{font-family:'Epilogue';font-style:normal;font-display:swap;font-weight:100 900;src:url(/public/fonts/epilogue-latin.woff2) format('woff2-variations')}
+@font-face{font-family:'Inter';font-style:normal;font-display:swap;font-weight:100 900;src:url(/public/fonts/inter-latin.woff2) format('woff2-variations')}
+:root{
+  --gr:#003D33;--gr-tief:#00251e;--gold:#C5A233;--gold-hell:#FFD54F;
+  --grund:#f4f5f4;--flaeche:#fff;--kohle:#191c1d;--schiefer:#4a5551;--linie:rgba(0,37,30,.12);
+  --buehne:#e9ecea;--marke:#14342b;
+}
+@media (prefers-color-scheme:dark){:root{
+  --gr:#9cd1c3;--grund:#0a1612;--flaeche:#13221d;--kohle:#e8eeec;--schiefer:#a3b0ac;--linie:rgba(255,255,255,.10);--buehne:#0f1d18;
+}}
+*{box-sizing:border-box}
+html,body{margin:0;overflow-x:clip}
+body{background:var(--grund);color:var(--kohle);font:400 16px/1.55 Inter,-apple-system,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:Epilogue,Inter,sans-serif;font-weight:900;letter-spacing:-.035em;line-height:1.05;margin:0}
+a{color:inherit}
+button,input,select{font:inherit}
+:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+
+.kopf{position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;height:60px;padding:0 20px;background:var(--grund);border-bottom:1px solid var(--linie)}
+.kopf a.wort{font-family:Epilogue,sans-serif;font-weight:900;font-size:19px;letter-spacing:-.03em;color:var(--gr);text-decoration:none}
+.kopf span{font-size:13.5px;color:var(--schiefer)}
+
+/* Tesla-Aufbau: links die Bühne mit SEINER Seite, rechts die Auswahl */
+.bau{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(360px,460px);min-height:calc(100svh - 60px)}
+.buehne{position:sticky;top:60px;height:calc(100svh - 60px);background:var(--buehne);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.buehne .adresse{position:absolute;left:0;right:0;bottom:22px;text-align:center;font-size:13px;color:var(--schiefer)}
+.buehne .adresse b{color:var(--kohle);font-weight:700}
+.auswahl{padding:40px 36px 140px;background:var(--grund)}
+
+/* Laptop hinten, Handy vorn rechts – so sieht der Wirt beide Ansichten zugleich.
+   Alles in festen Maßen gebaut und als Ganzes skaliert (passen()). */
+.geraete{position:relative;width:1160px;height:660px;flex:none;transform-origin:center}
+.laptop{position:absolute;left:50px;top:56px;width:900px}
+.lt-schirm{height:540px;border-radius:18px 18px 0 0;background:#0b0d0c;padding:14px 14px 0;box-shadow:0 40px 80px -36px rgba(0,30,20,.45)}
+.lt-innen{height:100%;border-radius:6px 6px 0 0;overflow:hidden;background:#fff;color:#191c1d;display:flex;flex-direction:column}
+.lt-fuss{height:20px;margin:0 -50px;border-radius:0 0 18px 18px;background:linear-gradient(#d6dad8,#b9bfbc);box-shadow:0 20px 30px -18px rgba(0,30,20,.5)}
+.lt-fuss::before{content:'';display:block;width:120px;height:7px;margin:0 auto;border-radius:0 0 8px 8px;background:#a7aeab}
+.br-leiste{display:flex;align-items:center;gap:10px;padding:8px 14px;background:#eef1ef;border-bottom:1px solid #dfe4e1;font-size:12px;color:#4a5551;flex:none}
+.br-leiste i{width:9px;height:9px;border-radius:50%;background:#cfd5d2;flex:none}
+.br-leiste span{flex:1;max-width:420px;margin:0 auto;background:#fff;border-radius:999px;padding:4px 14px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.geraete .handy{position:absolute;left:850px;top:20px}
+.umschalter{display:none}
+/* Die Bildschirme sind scrollbar wie echt. Darin die Seite in ECHTEN Maßen
+   (Handy 390 px, Laptop 1440 px breit) und per zoom verkleinert. */
+.lp-rahmen{flex:1;overflow-y:auto;overflow-x:hidden;position:relative;scrollbar-width:none;background:#f8f9fa}
+.lp-rahmen::-webkit-scrollbar{display:none}
+.lp-rahmen.m .lp{width:390px;zoom:.7179}
+.lp-rahmen.d .lp{width:1440px;zoom:.6056}
+
+/* ===== Nachbau der echten Restaurantseite (index.html, showRestaurantLanding) ===== */
+.lp{--ink-deep:#00251e;--ink-strong:#003d33;--text2:#404946;position:relative;background:#f8f9fa;color:#191c1d;font-family:Inter,sans-serif}
+.lp *{box-sizing:border-box}
+.lp-nav{position:sticky;top:16px;z-index:20;margin:16px 16px -80px;height:64px;border-radius:9999px;background:rgba(255,255,255,.78);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);box-shadow:0 8px 24px rgba(0,0,0,.08);display:flex;align-items:center;gap:10px;padding:0 20px;color:#003d33}
+.lp-nav .marke{font:900 14px Epilogue,sans-serif;letter-spacing:-.02em;text-transform:uppercase;margin-left:auto}
+.lp.d .lp-nav .marke{position:absolute;left:50%;transform:translateX(-50%)}
+.lp-nav .spr{display:flex;background:rgba(0,0,0,.06);border-radius:50px;padding:2px;margin-left:6px}
+.lp.d .lp-nav .spr{margin-left:auto}
+.lp-nav .spr b{font:700 10px Inter,sans-serif;padding:5px 9px;border-radius:50px;color:#404946}
+.lp-nav .spr b:first-child{background:#fff;color:#191c1d}
+.lp-nav svg{flex:none}
+.lp-held{position:relative;height:751px;overflow:hidden;display:flex;align-items:flex-end;justify-content:center;padding:0 24px 150px}
+.lp.m .lp-held{padding:0 16px 96px}
+.lp-held .bg{position:absolute;inset:0;background:var(--lp-foto,none) center/cover no-repeat}
+.lp-held .bg.ohne{background:#003d33;background-image:radial-gradient(rgba(255,255,255,.06) 1.5px,transparent 1.5px);background-size:22px 22px;display:flex;align-items:center;justify-content:center}
+.lp-held .bg.ohne span{font:800 280px/1 Epilogue,sans-serif;color:rgba(254,214,91,.22);transform:translateY(-120px)}
+.lp-held .verlauf{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.4) 0%,transparent 30%),linear-gradient(to bottom,transparent 30%,var(--marke) 100%)}
+.lp-karte{position:relative;background:rgba(255,255,255,.85);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1);padding:32px 48px;border-radius:48px;max-width:640px;width:100%;text-align:center;box-shadow:0 25px 50px -12px rgba(0,0,0,.25)}
+.lp.m .lp-karte{padding:22px 20px;border-radius:28px}
+.lp-karte .logo{width:64px;height:64px;border-radius:50%;overflow:hidden;border:3px solid rgba(255,255,255,.9);margin:0 auto 12px;background:#fff center/cover no-repeat}
+.lp-karte h1{font:800 48px/1 Epilogue,sans-serif;color:var(--marke);letter-spacing:-.04em;margin:0 0 8px;text-transform:uppercase;overflow-wrap:anywhere}
+.lp.m .lp-karte h1{font-size:34px}
+.lp-karte .ort{font:400 18px Epilogue,sans-serif;color:#003d33;letter-spacing:.2em;text-transform:uppercase;margin:0 0 16px}
+.lp.m .lp-karte .ort{font-size:13px;letter-spacing:.14em}
+.lp-vk{display:flex;justify-content:center;flex-wrap:wrap;gap:8px;margin:0 0 16px}
+.lp-vk span{display:inline-flex;align-items:center;gap:7px;border-radius:9999px;padding:10px 16px;font:700 15px Inter,sans-serif}
+.lp-vk .offen{background:#dcfce7;color:#166534}.lp-vk .offen i{width:8px;height:8px;border-radius:50%;background:#16a34a}
+.lp-vk .ruf{background:#003d33;color:#fff}
+.lp-karte .satz{color:#404946;font:italic 400 16px/1.6 Inter,sans-serif;margin:0 auto;max-width:480px}
+.lp-leiste{position:sticky;top:96px;z-index:15;display:flex;flex-direction:column;align-items:center;gap:12px;padding:0 24px;margin:-64px 0 80px}
+.lp-aktionen{background:color-mix(in srgb,var(--marke) 70%,#000 30%);padding:8px;border-radius:9999px;display:flex;align-items:center;gap:8px;box-shadow:0 0 0 1px rgba(0,0,0,.18),0 20px 40px -8px rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.38)}
+.lp-aktionen span{color:#fff;padding:12px 16px;border-radius:9999px;font:700 12px Epilogue,sans-serif;letter-spacing:.08em;display:flex;align-items:center;gap:8px;text-transform:uppercase;background:rgba(255,255,255,.2);white-space:nowrap}
+.lp-aktionen span.erst{background:var(--marke);padding:12px 24px;letter-spacing:.1em;box-shadow:0 4px 12px rgba(0,37,30,.3)}
+.lp.m .lp-leiste{padding:0 12px}
+.lp.m .lp-aktionen{gap:5px;padding:6px}
+.lp.m .lp-aktionen span{padding:11px 10px;letter-spacing:.06em}
+.lp.m .lp-aktionen span.erst{padding:11px 13px}
+.lp-zahl{background:rgba(0,37,30,.72);color:rgba(255,255,255,.92);font:600 12px Inter,sans-serif;letter-spacing:.02em;border-radius:9999px;padding:6px 14px}
+.lp-ueber{max-width:1280px;margin:0 auto;padding:0 24px 128px;display:grid;grid-template-columns:1fr;gap:64px;align-items:center}
+.lp.d .lp-ueber{grid-template-columns:1fr 1fr}
+.lp-ueber .ubild{aspect-ratio:4/5;border-radius:16px;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,.25);transform:rotate(1deg);background:#e7e5e4 var(--lp-foto,none) center/cover no-repeat}
+.lp.m .lp-ueber .ubild{aspect-ratio:4/3;transform:none;border-radius:28px}
+.lp-ueber .eb{color:var(--marke);font:700 14px Epilogue,sans-serif;letter-spacing:.3em;text-transform:uppercase;display:block;margin-bottom:16px}
+.lp-ueber h2{font:700 48px/1.1 Epilogue,sans-serif;color:#00251e;margin:0 0 32px}
+.lp.m .lp-ueber h2{font-size:32px}
+.lp-ueber p{color:#404946;font:400 18px/1.6 Inter,sans-serif;margin:0}
+.lp-menu{max-width:1280px;margin:0 auto 112px;padding:0 24px}
+.lp-menu .kasten{background:#fff;border:1px solid #e7e5e4;border-radius:28px;padding:24px 0 20px;overflow:hidden;box-shadow:0 12px 32px -18px rgba(0,0,0,.18)}
+.lp-menu .mkopf{padding:0 20px 20px;display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+.lp-menu h2{font:700 28px Epilogue,sans-serif;color:#00251e;margin:0}
+.lp-menu .mkopf p{color:#404946;letter-spacing:.1em;text-transform:uppercase;font-size:12px;margin:8px 0 0}
+.lp-menu .mkopf b{font:700 13px Inter,sans-serif;color:#00251e;white-space:nowrap}
+.lp-menu .reihe{display:flex;overflow:hidden;gap:14px;padding:0 20px 6px}
+.lp-gk{flex:0 0 78%;max-width:280px;border-radius:24px;overflow:hidden;background:#fff;border:1px solid #ecebe9;display:flex;flex-direction:column}
+.lp.d .lp-gk{flex:0 0 300px;max-width:300px}
+.lp-gk .b{height:160px;background:linear-gradient(135deg,color-mix(in srgb,var(--marke) 60%,#000),var(--marke)) center/cover no-repeat}
+.lp-gk .t{padding:14px 16px 16px}
+.lp-gk .k{display:flex;justify-content:space-between;gap:8px;margin-bottom:6px}
+.lp-gk h3{font:700 17px/1.2 Epilogue,sans-serif;color:#00251e;margin:0}
+.lp-gk .k span{font:700 17px Epilogue,sans-serif;color:var(--marke);white-space:nowrap}
+.lp-gk p{font:400 13px/1.5 Inter,sans-serif;color:#404946;margin:0 0 12px}
+.lp-gk .kn{display:flex;justify-content:center;padding:10px;border-radius:9999px;background:rgba(0,61,51,.06);color:var(--marke);font:700 13px Inter,sans-serif}
+.lp-besuch{max-width:1280px;margin:0 auto;padding:0 24px 96px}
+.lp-besuch .wrap{background:#edeeef;border-radius:48px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.06);display:flex;flex-direction:column}
+.lp.d .lp-besuch .wrap{flex-direction:row}
+.lp-besuch .karte{height:400px;flex:1;background:#e4e7e5;background-image:linear-gradient(#d9dedb 2px,transparent 2px),linear-gradient(90deg,#d9dedb 2px,transparent 2px);background-size:64px 64px;display:flex;align-items:center;justify-content:center}
+.lp-besuch .karte i{width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--marke);box-shadow:0 6px 14px rgba(0,0,0,.25)}
+.lp-besuch .bfeld{padding:48px;background:var(--marke);color:#fff}
+.lp.d .lp-besuch .bfeld{width:42%}
+.lp-besuch h2{font:700 28px Epilogue,sans-serif;margin:0 0 32px}
+.lp-besuch .l{color:color-mix(in srgb,var(--marke) 35%,#fff);text-transform:uppercase;letter-spacing:.15em;font:700 12px Inter,sans-serif;margin:0 0 4px}
+.lp-besuch .v{font:400 18px Inter,sans-serif;margin:0 0 24px}
+.lp-zeit{display:flex;justify-content:space-between;padding:8px 12px;border-radius:12px;font:500 16px Inter,sans-serif;max-width:420px}
+.lp-zeit.heute{background:#fed65b;color:#00251e;font-weight:700}
+.lp-fusszeile{text-align:center;padding:0 24px 72px;color:#404946;font:400 12px Inter,sans-serif;letter-spacing:.15em;text-transform:uppercase}
+.lp-fusszeile b{display:block;font:700 20px Epilogue,sans-serif;letter-spacing:-.02em;text-transform:none;color:#00251e;margin-top:6px}
+.lp-fusszeile b span{color:var(--marke)}
+.lp-tisch{margin:0 16px 24px;border:1.5px dashed var(--marke);border-radius:16px;padding:12px 14px;font:400 14px Inter,sans-serif;display:flex;gap:10px;align-items:center;background:#fff}
+.lp-tisch b{display:block}
+.lp-tisch.aus{display:none}
+/* Das Handy: schlicht, kein Spielzeug – nur Rahmen und Bildschirm */
+.handy{width:300px;height:620px;border-radius:46px;background:#0b0d0c;padding:10px;box-shadow:0 40px 80px -30px rgba(0,30,20,.45),0 0 0 1px rgba(0,0,0,.25);flex:none}
+.schirm{width:100%;height:100%;border-radius:37px;overflow:hidden;background:#fff;color:#191c1d;position:relative;display:flex;flex-direction:column}
+.bild.logo-feld.da.hell{background-color:#1d2422}
+.meldung{position:absolute;left:10px;right:10px;top:12px;background:rgba(20,20,20,.92);color:#fff;border-radius:16px;padding:10px 12px;font-size:12px;line-height:1.35;transform:translateY(-130%);transition:transform .45s cubic-bezier(.2,.8,.2,1);z-index:3}
+.meldung.da{transform:none}
+.meldung b{display:block;font-size:12.5px}
+
+/* Auswahl rechts */
+.auswahl h1{font-size:clamp(30px,3.4vw,40px)}
+.auswahl .unter{color:var(--schiefer);margin:10px 0 26px}
+.dabei{display:flex;align-items:center;gap:12px;margin:0 0 22px;text-decoration:none;color:inherit}
+.dabei[hidden]{display:none}
+.dabei-bilder{display:flex;flex:none}
+.dabei-bilder img{width:38px;height:38px;border-radius:50%;object-fit:cover;border:2px solid var(--grund);background:var(--buehne)}
+.dabei-bilder img+img{margin-left:-11px}
+.dabei-text{font-size:14px;line-height:1.35;color:var(--schiefer);min-width:0}
+.dabei-text b{color:var(--kohle)}
+.schritt{border-top:1px solid var(--linie);padding:24px 0}
+.schritt h2{font-size:19px;margin-bottom:4px}
+.schritt .info{font-size:14px;color:var(--schiefer);margin:0 0 14px}
+.feld{display:grid;gap:6px;margin-bottom:12px;font-size:13.5px;font-weight:600}
+.feld input,.feld select{padding:13px 14px;border-radius:12px;border:1px solid var(--linie);background:var(--flaeche);color:var(--kohle);width:100%;min-height:48px}
+.bilder{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px}
+.bild{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:104px;border:1.5px dashed var(--linie);border-radius:14px;background:var(--flaeche) center/cover no-repeat;cursor:pointer;color:var(--schiefer);font-size:13.5px;font-weight:600;text-align:center;padding:10px;overflow:hidden}
+.bild input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
+.bild:focus-within{outline:3px solid var(--gold);outline-offset:2px}
+.bild .plus{font-size:24px;line-height:1;color:var(--gr)}
+.bild.da{border-style:solid;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.6)}
+.bild.da .plus{display:none}
+.bild.logo-feld.da{background-size:contain;background-origin:content-box;padding:14px;background-color:#fff;color:transparent;text-shadow:none}
+.bild.logo-feld.da .txt{position:absolute;bottom:6px;left:0;right:0;font-size:12px;color:var(--schiefer)}
+.bild.logo-feld.da.hell .txt{color:#cfd6d3}
+.bild .weg{position:absolute;top:6px;right:6px;width:32px;height:32px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;font-size:18px;cursor:pointer;display:none;z-index:2}
+.bild.da .weg{display:block}
+.farben{display:flex;flex-wrap:wrap;gap:8px}
+.farbe{width:40px;height:40px;border-radius:50%;border:3px solid var(--grund);box-shadow:0 0 0 1px var(--linie);cursor:pointer;padding:0}
+.farbe[aria-pressed=true]{box-shadow:0 0 0 2px var(--gold)}
+.farbname{font-size:13px;color:var(--schiefer);margin-top:10px}
+.wahl{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:var(--flaeche);border:1px solid var(--linie);border-radius:14px;padding:14px 16px;margin-bottom:10px;cursor:pointer;color:var(--kohle);min-height:60px}
+.wahl[aria-pressed=true]{border:2px solid var(--gr);padding:13px 15px}
+.wahl .k{width:22px;height:22px;border-radius:6px;border:2px solid var(--linie);flex:none;display:grid;place-items:center}
+.wahl[aria-pressed=true] .k{background:var(--gr);border-color:var(--gr)}
+.wahl[aria-pressed=true] .k::after{content:'';width:9px;height:5px;border-left:2px solid var(--grund);border-bottom:2px solid var(--grund);transform:rotate(-45deg) translate(1px,-1px)}
+.wahl b{display:block;font-size:15px}
+.wahl small{color:var(--schiefer);font-size:13px}
+.wahl .inkl{margin-left:auto;font-size:12px;font-weight:700;color:var(--gr);white-space:nowrap}
+.immer{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.immer li{display:flex;justify-content:space-between;gap:12px;font-size:15px}
+.immer li span:last-child{font-weight:700;color:var(--gr);font-size:13px;white-space:nowrap}
+.summe{background:var(--flaeche);border:1px solid var(--linie);border-radius:20px;padding:22px}
+.summe .zahl{font-family:Epilogue,sans-serif;font-weight:900;font-size:44px;letter-spacing:-.04em;color:var(--gr);line-height:1}
+.summe .zahl small{font-size:16px;font-weight:600;color:var(--schiefer);letter-spacing:0;font-family:Inter,sans-serif}
+.summe ul{margin:14px 0 0;padding:0;list-style:none;display:grid;gap:7px;font-size:14.5px}
+.summe li::before{content:'✓ ';color:var(--gr);font-weight:800}
+.gruender{margin-top:14px;background:rgba(255,213,79,.18);border-left:4px solid var(--gold);border-radius:0 10px 10px 0;padding:11px 14px;font-size:14px;font-weight:600}
+.recht{font-size:12.5px;color:var(--schiefer);margin:14px 0 0}
+
+/* Die Preisleiste bleibt immer sichtbar – wie bei Tesla */
+.leiste{position:fixed;right:0;bottom:0;z-index:40;width:min(460px,100%);display:flex;align-items:center;gap:14px;justify-content:space-between;padding:14px 22px calc(14px + env(safe-area-inset-bottom,0px));background:var(--flaeche);border-top:1px solid var(--linie);box-shadow:0 -10px 30px -12px rgba(0,30,20,.18)}
+.leiste .p{line-height:1.2}
+.leiste .p b{font-family:Epilogue,sans-serif;font-size:22px;letter-spacing:-.03em}
+.leiste .p small{display:block;font-size:12px;color:var(--schiefer)}
+.los{background:var(--gr);color:#fff;border:0;border-radius:999px;padding:0 24px;min-height:50px;font-weight:700;font-size:15.5px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;white-space:nowrap}
+@media (prefers-color-scheme:dark){.los{background:var(--gold-hell);color:#00251e}}
+
+@media (max-width:860px){
+  .bau{grid-template-columns:minmax(0,1fr)}
+  html{scroll-padding-top:calc(60px + 36svh + 12px);scroll-padding-bottom:84px}
+  .buehne{position:sticky;top:60px;height:36svh;z-index:5;border-bottom:1px solid var(--linie)}
+  .buehne .adresse{display:none}
+  .buehne{flex-direction:column;justify-content:flex-start;gap:6px;padding-top:8px}
+  .umschalter{display:flex;flex:none;z-index:6;background:var(--flaeche);border:1px solid var(--linie);border-radius:999px;padding:3px;gap:2px}
+  .umschalter button{border:0;background:transparent;color:var(--schiefer);border-radius:999px;padding:0 13px;min-height:34px;font-size:12.5px;font-weight:700;cursor:pointer}
+  .umschalter button[aria-pressed=true]{background:var(--gr);color:var(--grund)}
+  .buehne[data-zeige=handy] .laptop,.buehne[data-zeige=laptop] .handy{display:none}
+  .buehne[data-zeige=handy] .geraete{width:300px;height:620px}
+  .buehne[data-zeige=handy] .geraete .handy{left:0;top:0}
+  .buehne[data-zeige=laptop] .geraete{width:1000px;height:560px}
+  .buehne[data-zeige=laptop] .laptop{top:0;left:50px}
+  .leiste .p small{font-size:11.5px}
+  .leiste .p b{font-size:20px}
+  .los{padding:0 18px;font-size:15px}
+  .auswahl{padding:26px 18px 120px}
+  .leiste{width:100%;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px))}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="kopf"><a class="wort" href="/">Kiek mol in</a><span>Für Gastronomen</span></header>
+
+<main class="bau">
+  <div class="buehne" id="buehne" data-zeige="handy" aria-label="Vorschau Ihrer Seite">
+    <div class="umschalter" role="group" aria-label="Ansicht"><button type="button" data-zeige="handy" aria-pressed="true">Handy</button><button type="button" data-zeige="laptop" aria-pressed="false">Laptop</button></div>
+    <div class="geraete" id="geraete">
+    <div class="laptop" aria-hidden="true">
+      <div class="lt-schirm"><div class="lt-innen">
+        <div class="br-leiste"><i></i><i></i><i></i><span class="v-adresse">kiekmolin.de/ihr-lokal</span></div>
+        <div class="lp-rahmen d" id="seite-d"></div>
+      </div></div>
+      <div class="lt-fuss"></div>
+    </div>
+    <div class="handy" id="handy">
+      <div class="schirm">
+        <div class="meldung" id="meldung" aria-hidden="true"><b>Neue Bestellung · Tisch 4</b><span id="v-bestellung">2× Gericht</span> – direkt in Ihrem Dashboard</div>
+        <div class="lp-rahmen m" id="seite-m"></div>
+      </div>
+    </div>
+    </div>
+    <div class="adresse">Ihre Adresse: <b class="v-adresse">kiekmolin.de/ihr-lokal</b></div>
+  </div>
+
+  <div class="auswahl">
+    <h1>Ihr Lokal auf Kiek mol in.</h1>
+    <p class="unter">Laptop und Handy zeigen Ihre eigene Seite – sie ändert sich mit jeder Auswahl. Ein Preis, alles drin.</p>
+    <!-- SCHON DABEI (Ibo, 07.11.2026, Entwurf "2B"): echte, aktive Lokale mit Foto
+         aus der Datenbank. Laedt das nicht, bleibt der Block weg -- lieber nichts
+         als erfundene Namen. -->
+    <a class="dabei" id="dabei" href="/" hidden><span class="dabei-bilder" id="dabeiBilder"></span><span class="dabei-text" id="dabeiText"></span></a>
+
+    <section class="schritt">
+      <h2>1 · Ihr Lokal</h2>
+      <p class="info">Nur zum Ansehen – gespeichert wird hier nichts.</p>
+      <label class="feld">Name<input id="e-name" autocomplete="organization" placeholder="z. B. Fischhaus Norddeich" maxlength="60"></label>
+      <p class="info" style="margin:-4px 0 12px">Ihre Adresse: <b class="v-adresse" style="color:var(--kohle)">kiekmolin.de/ihr-lokal</b></p>
+      <label class="feld">Ort<input id="e-ort" autocomplete="address-level2" placeholder="z. B. Norden" maxlength="40"></label>
+      <div class="feld" style="margin-bottom:4px">Foto und Logo <span style="font-weight:400;color:var(--schiefer)">(freiwillig)</span></div>
+      <div class="bilder">
+        <label class="bild" id="b-foto"><span class="plus">+</span><span class="txt">Foto vom Essen oder Lokal</span><input type="file" id="e-foto" accept="image/*" aria-label="Foto vom Essen oder Lokal wählen"><button type="button" class="weg" data-weg="foto" aria-label="Foto entfernen">×</button></label>
+        <label class="bild logo-feld" id="b-logo"><span class="plus">+</span><span class="txt">Ihr Logo</span><input type="file" id="e-logo" accept="image/*" aria-label="Logo wählen"><button type="button" class="weg" data-weg="logo" aria-label="Logo entfernen">×</button></label>
+      </div>
+      <p class="info" id="bild-info" style="font-size:12.5px">Bleibt auf Ihrem Gerät – es wird nichts hochgeladen.</p>
+      <label class="feld">Küche<select id="e-kueche">
+        <option value="italienisch">Italienisch / Pizza</option>
+        <option value="fisch">Fisch &amp; Meeresfrüchte</option>
+        <option value="deutsch">Deutsch / Regional</option>
+        <option value="griechisch">Griechisch</option>
+        <option value="doener">Döner / Kebab</option>
+        <option value="asiatisch">Asiatisch</option>
+        <option value="burger">Burger</option>
+        <option value="cafe">Café / Bäckerei</option>
+      </select></label>
+    </section>
+
+    <section class="schritt">
+      <h2>2 · Ihre Farbe</h2>
+      <p class="info">Später jederzeit im Dashboard änderbar.</p>
+      <div class="farben" id="farben"></div>
+      <div class="farbname" id="farbname"></div>
+    </section>
+
+    <section class="schritt">
+      <h2>3 · Was Ihre Gäste können</h2>
+      <p class="info">Alles inklusive. Schalten Sie ein, was zu Ihnen passt.</p>
+      <div id="funktionen"></div>
+    </section>
+
+    <section class="schritt">
+      <h2>4 · Immer dabei</h2>
+      <ul class="immer">
+        <li><span>Eigenes Dashboard für Bestellungen &amp; Reservierungen</span><span>inklusive</span></li>
+        <li><span>Meldung aufs Handy bei jeder Bestellung</span><span>inklusive</span></li>
+        <li><span>QR-Aufsteller für jeden Tisch zum Ausdrucken</span><span>inklusive</span></li>
+        <li><span>Speisekarte mit Allergenen, Preise selbst ändern</span><span>inklusive</span></li>
+        <li><span>Statistiken</span><span>inklusive</span></li>
+      </ul>
+      <p class="info" style="margin-top:14px"><button type="button" class="wahl" id="probe" style="margin:0"><span><b>So sieht eine Bestellung bei Ihnen aus</b><small>Antippen – oben erscheint sie im Handy</small></span></button></p>
+    </section>
+
+    <section class="schritt">
+      <h2>5 · Ihr Preis</h2>
+      <div class="summe">
+        <div class="zahl">59,90 € <small>im Monat</small></div>
+        <ul>
+          <li>Alles drin – nichts kostet extra</li>
+          <li>0 % Provision auf Bestellungen</li>
+          <li>Monatlich kündbar</li>
+        </ul>
+        <div class="gruender">Für die ersten 20 Restaurants: Ihr Preis bleibt bei 59,90 €.</div>
+        <p class="recht">Sie melden sich mit Google an und schicken uns Ihre Daten. Wir prüfen und schalten Ihr Lokal frei – vorher wird nichts berechnet. Preis zzgl. MwSt., falls zutreffend.</p>
+      </div>
+    </section>
+  </div>
+</main>
+
+<div class="leiste">
+  <div class="p"><b>59,90 €</b> / Monat<small>alles drin · 0 % Provision</small></div>
+  <a class="los" id="los" href="/?wirt=starten">Jetzt Platz sichern</a>
+</div>
+
+<script>
+(function(){
+  // Dieselben Farben wie im Wirte-Dashboard (MARKE.PALETTE) – nichts zeigen, was er dort nicht wählen kann.
+  var FARBEN=[['Tannengrün','#14342b'],['Petrol','#14494f'],['Tiefblau','#1b3a5c'],['Nachtblau','#16233d'],['Aubergine','#452340'],['Bordeaux','#6b1220'],['Rostrot','#7c2d12'],['Terracotta','#8a3a1e']];
+  var FUNKTIONEN=[['bestellen','Online bestellen','Abholen oder Liefern – ohne Provision'],['reservieren','Tisch reservieren','Reservierung landet sofort bei Ihnen'],['tisch','Bestellen am Tisch','QR-Code auf jedem Tisch – Gast bestellt selbst']];
+  var KARTEN={
+    italienisch:['Italienisch',[['Pizza Margherita','Tomaten, Mozzarella, Basilikum','8,90 €'],['Spaghetti Carbonara','Speck, Ei, Parmesan','11,50 €'],['Tiramisu','Hausgemacht','5,90 €']]],
+    fisch:['Fisch & Meeresfrüchte',[['Scholle Finkenwerder Art','Speck, Bratkartoffeln','18,90 €'],['Krabbenbrot','Nordseekrabben, Rührei','12,50 €'],['Matjes Hausfrauenart','Apfel, Zwiebeln, Sahne','13,90 €']]],
+    deutsch:['Deutsch · Regional',[['Schnitzel Wiener Art','Pommes, Salat','14,90 €'],['Grünkohl mit Pinkel','Im Winter','15,50 €'],['Rote Grütze','Mit Vanillesoße','5,50 €']]],
+    griechisch:['Griechisch',[['Gyros-Teller','Tzatziki, Pommes, Salat','13,90 €'],['Souvlaki','Zwei Spieße, Reis','14,50 €'],['Bifteki','Mit Schafskäse gefüllt','15,90 €']]],
+    doener:['Döner · Kebab',[['Döner im Brot','Salat, Soße nach Wahl','7,50 €'],['Dürüm','Im Fladenbrot gerollt','8,50 €'],['Lahmacun','Mit Salat','6,50 €']]],
+    asiatisch:['Asiatisch',[['Gebratene Nudeln','Mit Hähnchen und Gemüse','11,90 €'],['Rotes Curry','Kokosmilch, Jasminreis','13,50 €'],['Frühlingsrollen','Vier Stück, süß-sauer','5,50 €']]],
+    burger:['Burger',[['Classic Burger','Rind, Cheddar, Salat','12,90 €'],['Chicken Burger','Knusprig, Coleslaw','12,50 €'],['Süßkartoffel-Pommes','Mit Dip','4,90 €']]],
+    cafe:['Café',[['Ostfriesentee-Gedeck','Mit Kluntje und Sahne','4,50 €'],['Hausgemachte Torte','Wechselnd','3,90 €'],['Frühstück Nordsee','Brötchen, Krabben, Rührei','12,50 €']]]
+  };
+  var $=function(i){return document.getElementById(i)};
+  // Jede Angabe steht doppelt (Laptop und Handy) – immer alle setzen.
+  var alle=function(k,f){document.querySelectorAll('.'+k).forEach(f)};
+  var bilder={foto:null,logo:null};
+  var zustand={name:'',ort:'',kueche:'italienisch',farbe:FARBEN[0],an:{bestellen:true,reservieren:true,tisch:true}};
+  var esc=function(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})};
+  var slug=function(s){return s.toLowerCase().replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')};
+
+  FARBEN.forEach(function(f,i){var b=document.createElement('button');b.type='button';b.className='farbe';b.style.background=f[1];b.setAttribute('aria-label',f[0]);b.setAttribute('aria-pressed',i===0);b.onclick=function(){zustand.farbe=f;document.querySelectorAll('.farbe').forEach(function(x){x.setAttribute('aria-pressed',x===b)});zeichnen()};$('farben').appendChild(b)});
+  FUNKTIONEN.forEach(function(f){var b=document.createElement('button');b.type='button';b.className='wahl';b.setAttribute('aria-pressed',!!zustand.an[f[0]]);b.innerHTML='<span class="k"></span><span><b>'+f[1]+'</b><small>'+f[2]+'</small></span><span class="inkl">inklusive</span>';b.onclick=function(){zustand.an[f[0]]=!zustand.an[f[0]];b.setAttribute('aria-pressed',zustand.an[f[0]]);zeichnen()};$('funktionen').appendChild(b)});
+
+  var ICON={
+    zurueck:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>',
+    teilen:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/><path d="M8.3 10.8l7.4-4.4M8.3 13.2l7.4 4.4"/></svg>',
+    kal:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>',
+    tasche:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>',
+    karte:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M7 3v8M5 3v4a2 2 0 0 0 4 0V3M7 11v10M17 3c-2 2-2 6 0 8v10"/></svg>',
+    ruf:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6.5 3.5h3l1.5 4-2 1.5a12 12 0 0 0 6 6l1.5-2 4 1.5v3a2 2 0 0 1-2.2 2A16.5 16.5 0 0 1 4.5 5.7 2 2 0 0 1 6.5 3.5z"/></svg>'
+  };
+  var TAGE=['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
+  function seite(modus){
+    var k=KARTEN[zustand.kueche],a=zustand.an,name=esc(zustand.name||'Ihr Lokal'),ort=esc(zustand.ort||'Ihr Ort');
+    var foto=bilder.foto,logo=bilder.logo,kueche=k[0].split(' ·')[0].split(' &')[0];
+    var heute=(new Date().getDay()+6)%7;
+    var h='<div class="lp '+modus+'"'+(foto?' style="--lp-foto:url(&quot;'+foto+'&quot;)"':'')+'>';
+    h+='<div class="lp-nav">'+ICON.zurueck+'<span class="marke">Kiek mol in</span><span class="spr"><b>DE</b><b>EN</b><b>NL</b></span>'+ICON.teilen+'</div>';
+    h+='<section class="lp-held"><div class="bg'+(foto?'':' ohne')+'">'+(foto?'':'<span>'+esc((zustand.name||'K').charAt(0).toUpperCase())+'</span>')+'</div><div class="verlauf"></div>';
+    h+='<div class="lp-karte">'+(logo?'<div class="logo" style="background-image:url(&quot;'+logo+'&quot;)'+(bilder.logoHell?';background-color:#1d2422':'')+'"></div>':'')+'<h1>'+name+'</h1><p class="ort">'+ort+', Ostfriesland</p>';
+    h+='<div class="lp-vk"><span class="offen"><i></i>Offen bis 22:00</span><span class="ruf">'+ICON.ruf+'Anrufen</span></div>';
+    h+='<p class="satz">"'+esc(kueche)+(zustand.ort?' in '+ort:'')+'"</p></div></section>';
+    h+='<div class="lp-leiste"><div class="lp-aktionen">'+(a.reservieren?'<span class="erst">'+ICON.kal+'Reservieren</span>':'')+(a.bestellen?'<span'+(a.reservieren?'':' class="erst"')+'>'+ICON.tasche+'Bestellen</span>':'')+'<span>'+ICON.karte+'Karte</span></div><div class="lp-zahl">Zahlung: Bar · Karte</div></div>';
+    h+='<section class="lp-ueber"><div class="ubild"></div><div><span class="eb">Über uns</span><h2>'+esc(kueche)+' trifft Nordsee</h2><p>'+name+(zustand.ort?' in '+ort:'')+': '+esc(kueche)+'. Frisch zubereitet, mit norddeutschem Flair.</p></div></section>';
+    // Wie die echte Seite: "Unsere Empfehlungen" NUR mit Fotos (index.html,
+    // Speisekarte Highlights). Ohne Foto gibt es den Bereich dort nicht – also
+    // hier auch nicht (vorher standen hier fast schwarze Kästen).
+    if(foto){
+      h+='<section class="lp-menu"><div class="kasten"><div class="mkopf"><div><h2>Speisekarte</h2><p>Unsere Empfehlungen</p></div><b>Alles ansehen →</b></div><div class="reihe">';
+      var z=k[1][0];h+='<div class="lp-gk"><div class="b" style="background-image:url(&quot;'+foto+'&quot;)"></div><div class="t"><div class="k"><h3>'+esc(z[0])+'</h3><span>'+z[2]+'</span></div><p>'+esc(z[1])+'</p>'+(a.bestellen||a.tisch?'<div class="kn">In den Warenkorb</div>':'')+'</div></div>';
+      h+='</div></div></section>';
+    }
+    h+='<section class="lp-besuch"><div class="wrap"><div class="karte"><i></i></div><div class="bfeld"><h2>Besuche uns</h2><p class="l">Adresse</p><p class="v">Ihre Straße 1<br>'+ort+'</p><p class="l">Öffnungszeiten</p>';
+    TAGE.forEach(function(t,i){if(Math.abs(i-heute)<=1||i===heute)h+='<div class="lp-zeit'+(i===heute?' heute':'')+'"><span>'+t+'</span><span>11:30 – 22:00</span></div>'});
+    h+='<p class="l" style="margin-top:24px">Telefon</p><p class="v">Ihre Nummer</p></div></div></section>';
+    h+='<div class="lp-fusszeile">Powered by<b>Kiek mol <span>in</span></b></div></div>';
+    return h;
+  }
+  function zeichnen(){
+    var k=KARTEN[zustand.kueche];
+    alle('v-adresse',function(e){e.textContent='kiekmolin.de/'+(slug(zustand.name)||'ihr-lokal')});
+    document.documentElement.style.setProperty('--marke',zustand.farbe[1]);
+    $('farbname').textContent=zustand.farbe[0];
+    $('seite-m').innerHTML=seite('m');$('seite-d').innerHTML=seite('d');
+    var g=k[1][0],pr=parseFloat(g[2].replace(',','.'))*2;$('v-bestellung').textContent='2× '+g[0]+' · '+pr.toFixed(2).replace('.',',')+' €';
+  }
+  $('e-name').addEventListener('input',function(e){zustand.name=e.target.value.trim();zeichnen()});
+  $('e-ort').addEventListener('input',function(e){zustand.ort=e.target.value.trim();zeichnen()});
+  // Eigenes Foto und Logo: nur im Browser angezeigt (Object-URL), nichts verlässt das Gerät.
+    function bildSetzen(art,datei){
+    if(bilder[art]){try{URL.revokeObjectURL(bilder[art])}catch(e){}bilder[art]=null}
+    if(datei){
+      if(!/^image\//.test(datei.type||'')){$('bild-info').textContent='Das ist kein Bild. Bitte ein Foto (JPG, PNG) wählen.';return}
+      bilder[art]=URL.createObjectURL(datei);$('bild-info').textContent='Bleibt auf Ihrem Gerät – es wird nichts hochgeladen.';
+    }
+    var feld=$('b-'+art),url=bilder[art];
+    feld.classList.toggle('da',!!url);feld.style.backgroundImage=url?'url("'+url+'")':'';
+    feld.querySelector('.txt').textContent=url?(art==='foto'?'Foto ändern':'Logo ändern'):(art==='foto'?'Foto vom Essen oder Lokal':'Ihr Logo');
+    if(art==='logo'){bilder.logoHell=false;feld.classList.remove('hell');if(url)logoHell(url,function(h){bilder.logoHell=h;feld.classList.toggle('hell',h);zeichnen()})}
+    zeichnen();
+    if(!datei)$('e-'+art).value='';
+  }
+  // Helles Logo (weiß/silber, oft freigestellt) wäre auf weißem Grund unsichtbar:
+  // mittlere Helligkeit der sichtbaren Pixel messen und dann dunkel hinterlegen.
+  function logoHell(url,fertig){
+    var img=new Image();img.onload=function(){try{var c=document.createElement('canvas'),w=c.width=48,h=c.height=48,x=c.getContext('2d');x.drawImage(img,0,0,w,h);var d=x.getImageData(0,0,w,h).data,s=0,n=0;
+      for(var i=0;i<d.length;i+=4){if(d[i+3]>40){s+=.2126*d[i]+.7152*d[i+1]+.0722*d[i+2];n++}}fertig(n>0&&s/n>200)}catch(e){fertig(false)}};
+    img.onerror=function(){fertig(false)};img.src=url;
+  }
+  ['foto','logo'].forEach(function(art){$('e-'+art).addEventListener('change',function(e){var f=e.target.files&&e.target.files[0];if(f)bildSetzen(art,f)})});
+  document.querySelectorAll('.weg').forEach(function(b){b.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();bildSetzen(b.getAttribute('data-weg'),null)})});
+  $('e-kueche').addEventListener('change',function(e){zustand.kueche=e.target.value;zeichnen()});
+  var t;$('probe').addEventListener('click',function(){var m=$('meldung');m.classList.add('da');clearTimeout(t);t=setTimeout(function(){m.classList.remove('da')},3800)});
+
+  // Geräte in die Bühne einpassen (am PC beide, am Handy eins mit Umschalter)
+  function passen(){var g=$('geraete'),b=$('buehne'),w=g.offsetWidth,h=g.offsetHeight,mobil=innerWidth<=860;
+    var s=Math.max(.2,Math.min(1.1,(b.clientHeight-(mobil?62:90))/h,(b.clientWidth-(mobil?24:60))/w));
+    g.style.transform='scale('+s+')';g.style.margin=(-(h*(1-s))/2)+'px '+(-(w*(1-s))/2)+'px'}
+  document.querySelectorAll('.umschalter button').forEach(function(btn){btn.addEventListener('click',function(){
+    $('buehne').setAttribute('data-zeige',btn.getAttribute('data-zeige'));
+    document.querySelectorAll('.umschalter button').forEach(function(x){x.setAttribute('aria-pressed',x===btn)});passen()})});
+  addEventListener('resize',passen);passen();
+
+  // Auswahl mitnehmen in die Anmeldung (dieselbe Seite, daher localStorage).
+  // Klappt das Speichern nicht, öffnet sich die Anmeldung trotzdem – nur leer.
+  $('los').addEventListener('click',function(){
+    try{localStorage.setItem('kmi_reg_vorfuellen',JSON.stringify({name:zustand.name,ort:zustand.ort,kueche:zustand.kueche,farbe:zustand.farbe[0],funktionen:FUNKTIONEN.filter(function(f){return zustand.an[f[0]]}).map(function(f){return f[1]}),quelle:quelle,zeit:Date.now()}))}catch(e){}
+  });
+  // Schon dabei: echte Lokale (oeffentlicher Schluessel wie in der App, nur lesen).
+  (function(){
+    var URL_='https://mvrgmbdokdzmumdyezha.supabase.co',KEY_='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cmdtYmRva2R6bXVtZHllemhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1NjEyOTgsImV4cCI6MjA4MTEzNzI5OH0.7Ciwa2UKUHwtorvq3p6sN69XmVvPg0Kvg5lgrovxpDw';
+    try{fetch(URL_+'/rest/v1/restaurants?select=name,slug,city,image_url&is_active=eq.true&image_url=not.is.null&limit=12',{headers:{apikey:KEY_,Authorization:'Bearer '+KEY_}})
+      .then(function(r){return r.ok?r.json():[]}).then(function(liste){
+        liste=(liste||[]).filter(function(x){return x&&x.name&&x.image_url&&/^https:\/\//.test(x.image_url)&&!/test|demo/i.test(x.name)}).slice(0,5);
+        if(liste.length<2)return;
+        var bilder=$('dabeiBilder');liste.forEach(function(x){var i=document.createElement('img');i.src=x.image_url;i.alt=x.name;i.loading='lazy';bilder.appendChild(i)});
+        var namen=liste.slice(0,3).map(function(x){return esc(x.name)}).join(', ');
+        $('dabeiText').innerHTML='<b>'+namen+'</b><br>'+(liste.length>3?'und weitere Lokale sind schon dabei':'sind schon dabei');
+        $('dabei').hidden=false;
+      }).catch(function(){});}catch(e){}
+  })();
+  // Kommt der Wirt von SEINEM Eintrag auf kiekmolin.de (Knopf "Ihre Seite in 10 Sekunden"),
+  // stehen Name, Ort und Küche im Link. Nur bekannte Küchen, Längen begrenzt; angezeigt wird
+  // alles als Text (textContent / esc), nie als HTML.
+  var quelle='';
+  try{var q=new URLSearchParams(location.search);
+    var qn=(q.get('name')||'').trim().slice(0,60),qo=(q.get('ort')||'').trim().slice(0,40),qk=q.get('art')||'';
+    if(qn){zustand.name=qn;$('e-name').value=qn}
+    if(qo){zustand.ort=qo;$('e-ort').value=qo}
+    if(Object.prototype.hasOwnProperty.call(KARTEN,qk)){zustand.kueche=qk;$('e-kueche').value=qk}
+    var QUELLEN={eintrag:'Eintrag auf kiekmolin.de',lokalseite:'Restaurantseite eines Kollegen',kurani:'Kurani-Check'};
+    if(Object.prototype.hasOwnProperty.call(QUELLEN,q.get('quelle')))quelle=QUELLEN[q.get('quelle')];
+  }catch(e){}
+  zeichnen();
+})();
+</script>
+</body>
+</html>

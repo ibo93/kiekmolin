@@ -139,7 +139,7 @@ function antwort(status, obj) { return function () { return { status: status, te
     t('SQL: nur der Server darf buchen (nicht anon/authenticated)', /revoke all on function public\.kmi_portionen_buchen\(uuid, jsonb, text\) from public, anon, authenticated;/.test(sql) && /grant execute on function public\.kmi_portionen_buchen\(uuid, jsonb, text\) to service_role;/.test(sql), '');
     t('SQL: bei 0 ausverkauft, nie unter 0', /portionen_rest = greatest\(portionen_rest - r\.menge, 0\),\s*\n\s*is_available = \(portionen_rest - r\.menge\) > 0/.test(sql), '');
     var sw = fs.readFileSync(path.join(KMI, 'sw.js'), 'utf8');
-    t('sw.js CACHE hochgezaehlt (mind. v135)', parseInt((/kmi-shell-v(\d+)/.exec(sw) || [])[1], 10) >= 135, '');
+    t('sw.js CACHE hochgezaehlt (mind. v140)', parseInt((/kmi-shell-v(\d+)/.exec(sw) || [])[1], 10) >= 140, '');
 
     console.log('\n' + ok + '/' + n + ' OK');
     process.exit(ok === n ? 0 : 1);
