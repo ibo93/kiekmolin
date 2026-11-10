@@ -12280,6 +12280,65 @@
         .dark-mode #kinDashSteuerSlot #dashSteuerung span:not(.material-symbols-outlined), .dark-mode #kinDashSteuerSlot #dashSteuerung div { color: var(--text-primary, #e8eeec); }
         .dark-mode #kinDashSteuerSlot #dashSteuerung, .dark-mode #kinDashSteuerSlot #dashSteuerung > div { color: var(--text-primary, #e8eeec) !important; }
 
+        /* TABLET-MODUS (thekeAn). Die Bestellseite legt sich ueber alles --
+           Seitenleiste, Kopf, Werkzeuge und Einstellungen sind darunter,
+           nicht weg. Unter den Dialogen (.modal-overlay 2000, Annehmen 10005),
+           damit "Andere Zeit" und "Ablehnen" weiter funktionieren. */
+        body.kin-theke { overflow: hidden; }
+        body.kin-theke #sectionOrders { display: block !important; position: fixed; inset: 0; z-index: 1500; overflow-y: auto; -webkit-overflow-scrolling: touch;
+            margin: 0; padding: 0 20px 32px; background: #eef2f0; }
+        body.kin-theke #sectionOrders > header.kin-bk,
+        body.kin-theke #ordersEinstellungen,
+        body.kin-theke #sectionOrders .kin-reiter,
+        body.kin-theke #ordersMehr,
+        body.kin-theke #fahrerLeiste .fahrer-zeile:has(.fahrer-leer) { display: none !important; }
+        .dark-mode body.kin-theke #sectionOrders, body.kin-theke.dark-mode #sectionOrders { background: #0a1612; }
+        .kin-theke-leiste { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+            margin: 0 -20px 18px; padding: 12px 20px; padding-top: max(12px, env(safe-area-inset-top));
+            background: #003d33; color: #ffffff; box-shadow: 0 6px 20px -8px rgba(0,37,30,0.45); }
+        .kin-theke-leiste[hidden] { display: none; }
+        .kin-theke-marke { font-family: 'Epilogue', sans-serif; font-weight: 800; font-size: 20px; letter-spacing: -0.02em; color: #ffffff; }
+        .kin-theke-marke b { color: #fed65b; font-weight: 800; }
+        .dark-mode .kin-theke-marke b { color: #fed65b !important; }
+        .kin-theke-lokal { font-size: 15px; font-weight: 600; color: #cfe3dc; max-width: 26ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .kin-theke-live { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #b8eddf; }
+        .kin-theke-live.aus { color: #fecaca; }
+        .kin-theke-punkt { width: 9px; height: 9px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 0 0 rgba(74,222,128,0.6); animation: kinThekePuls 2s infinite; }
+        .kin-theke-live.aus .kin-theke-punkt { background: #f87171; animation: none; }
+        @keyframes kinThekePuls { 0% { box-shadow: 0 0 0 0 rgba(74,222,128,0.55); } 70% { box-shadow: 0 0 0 8px rgba(74,222,128,0); } 100% { box-shadow: 0 0 0 0 rgba(74,222,128,0); } }
+        .kin-theke-zahlen { display: flex; gap: 8px; }
+        .kin-theke-zahl { display: inline-flex; align-items: baseline; gap: 6px; padding: 6px 14px; border-radius: 9999px; background: rgba(255,255,255,0.1); font-size: 13px; font-weight: 600; color: #cfe3dc; }
+        .kin-theke-zahl b { font-family: 'Epilogue', sans-serif; font-size: 20px; font-weight: 800; color: #ffffff; }
+        .kin-theke-zahl.neu.da { background: #fed65b; color: #00251e; }
+        .kin-theke-zahl.neu.da b { color: #00251e !important; }
+        .dark-mode .kin-theke-zahl.neu.da { background: #ffd54f; color: #00251e !important; }
+        .kin-theke-rechts { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+        .kin-theke-drucker { font-size: 13px; font-weight: 600; color: #cfe3dc; display: inline-flex; align-items: center; gap: 6px; }
+        .kin-theke-drucker:empty { display: none; }
+        .kin-theke-knopf { min-height: 44px; padding: 0 16px; border-radius: 9999px; border: 1px solid rgba(255,255,255,0.25); background: transparent; color: #ffffff;
+            font: 600 14px Inter, sans-serif; cursor: pointer; }
+        .kin-theke-knopf[aria-pressed="false"] { color: #fecaca; border-color: rgba(254,202,202,0.45); }
+        .kin-theke-uhr { font-family: 'Epilogue', sans-serif; font-size: 26px; font-weight: 800; color: #ffffff; font-variant-numeric: tabular-nums; min-width: 3.2em; text-align: right; }
+        .kin-theke-raus { position: relative; min-height: 44px; padding: 0 16px 0 44px; border-radius: 9999px; border: 0; background: rgba(255,255,255,0.12); color: #ffffff;
+            font: 600 13px Inter, sans-serif; cursor: pointer; overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
+        .kin-theke-raus-ring { position: absolute; left: 12px; top: 50%; width: 22px; height: 22px; margin-top: -11px; border-radius: 50%;
+            background: conic-gradient(#fed65b calc(var(--kin-halten, 0) * 1turn), rgba(255,255,255,0.25) 0); }
+        .kin-theke-raus-ring::after { content: ''; position: absolute; inset: 4px; border-radius: 50%; background: #0f4a3f; }
+        .kin-theke-start { background: #003d33 !important; color: #ffffff !important; border-color: #003d33 !important; }
+        .kin-theke-start svg { color: #fed65b; }
+        /* Im Tablet-Modus: groessere Schrift und Knoepfe, man steht davor. */
+        body.kin-theke #ordersGrid.kin-brett { gap: 20px !important; }
+        body.kin-theke .kin-spalte-kopf span { font-size: 22px; }
+        body.kin-theke #ordersGrid .kin-order-card { font-size: 16px; }
+        body.kin-theke #ordersGrid .kin-schnell-btn { min-height: 64px; }
+        body.kin-theke #ordersGrid .kin-order-btn.next { min-height: 56px; font-size: 17px; }
+        @media (max-width: 900px) {
+            .kin-theke-lokal, .kin-theke-drucker { display: none; }
+            .kin-theke-zahl { padding: 6px 10px; }
+            .kin-theke-raus-text { display: none; }
+            .kin-theke-raus { padding: 0 0 0 44px; width: 44px; }
+        }
+
         /* Drei Spalten (bestellBrettHtml). Das Raster steht inline am
            #ordersGrid -- daher !important. */
         #ordersGrid.kin-brett { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 16px !important; align-items: start; }
@@ -24685,6 +24744,27 @@ window.addEventListener('load', function () {
         <!-- BESTELLUNGEN DASHBOARD SECTION -->
         <!-- BESTELLUNGEN DASHBOARD SECTION - KIN DESIGN -->
         <div id="sectionOrders" class="dash-section">
+            <!-- TABLET-MODUS (10.11.2026, Ibo: "der Wirt muss ja nicht alle Einstellungen
+                 sehen, weil die Flaeche wirkt klein"). Diese Leiste ersetzt im Tablet-Modus
+                 Seitenleiste, Kopf, Werkzeuge und Schalter. Raus nur durch Gedrueckthalten. -->
+            <div id="thekeLeiste" class="kin-theke-leiste" hidden>
+                <div class="kin-theke-marke">Kiek mol <b>in</b></div>
+                <div class="kin-theke-lokal" id="thekeLokal"></div>
+                <span class="kin-theke-live" id="thekeLive"><span class="kin-theke-punkt" aria-hidden="true"></span>Live</span>
+                <div class="kin-theke-zahlen" aria-live="polite">
+                    <span class="kin-theke-zahl neu"><b id="thekeNeu">0</b>neu</span>
+                    <span class="kin-theke-zahl"><b id="thekeArbeit">0</b>in Arbeit</span>
+                    <span class="kin-theke-zahl"><b id="thekeFertig">0</b>fertig</span>
+                </div>
+                <div class="kin-theke-rechts">
+                    <span id="thekeDrucker" class="kin-theke-drucker"></span>
+                    <button type="button" id="thekeTon" class="kin-theke-knopf" onclick="toggleOrderSound();thekeLeisteZeichnen();" aria-pressed="true">Ton an</button>
+                    <div id="thekeUhr" class="kin-theke-uhr"></div>
+                    <button type="button" id="thekeRaus" class="kin-theke-raus" aria-label="Tablet-Modus beenden: gedrückt halten">
+                        <span class="kin-theke-raus-ring" aria-hidden="true"></span><span class="kin-theke-raus-text">Halten zum Beenden</span>
+                    </button>
+                </div>
+            </div>
             <!-- KOPF DER BESTELLSEITE -- eins zu eins nach dem Entwurf "Bestellseite Wirt"
                  (Claude Design, abgenommen 27.10.2026). Zwei Zeilen: oben Titel, Werkzeuge,
                  Restaurant und Zeitraum; darunter die Schalter mit AN/AUS und der Zustand von
@@ -24697,6 +24777,7 @@ window.addEventListener('load', function () {
                         <span id="ordersActiveCount" class="kin-bk-zahl">0 Aktiv</span>
                     </div>
                     <div class="kin-bk-werkzeuge">
+                        <button type="button" id="thekeKnopf" class="kin-bk-werkzeug kin-theke-start" onclick="thekeAn(true)" title="Nur die Bestellungen, groß und ohne Einstellungen – für das Tablet am Tresen"><svg class="kin-sym" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>Tablet-Modus</button>
                         <button type="button" id="ordersEinstKnopf" class="kin-bk-werkzeug kin-einst-knopf" onclick="bestellEinstellungen()" aria-expanded="false" aria-controls="ordersEinstellungen" title="Abholung, Lieferung, Vorbestellung, Wartezeit, Zahlungsarten, PayPal"><svg class="kin-sym" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Einstellungen</button>
                         <button type="button" onclick="openSoundSettings()" class="kin-bk-werkzeug" title="Klang einstellen"><svg class="kin-sym" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>Klang</button>
                         <button type="button" onclick="openPrinterSettings()" class="kin-bk-werkzeug" title="Bondrucker einrichten"><svg class="kin-sym" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>Drucker</button>
@@ -66699,6 +66780,7 @@ function renderDashboardOrders() {
     // Liste neu zeichnen, nicht erst beim naechsten Fahrer-Abruf.
     try { fahrerLeisteZeichnen(); } catch (e) {}
     try { bestellSchalterZeigen(); } catch (e) {}
+    try { if (typeof currentAdmin !== 'undefined' && currentAdmin) thekeWiederherstellen(); thekeLeisteZeichnen(); } catch (e) {}
     const grid = document.getElementById('ordersGrid');
     const emptyState = document.getElementById('ordersEmptyState');
 
@@ -68505,8 +68587,168 @@ async function dashGerichtUmschalten(knopf) {
 window.dashGerichtUmschalten = dashGerichtUmschalten;
 
 function bestellBrettAn() {
-    try { return orderFilterStatus === 'all' && window.matchMedia('(min-width: 1000px)').matches; } catch (e) { return false; }
+    // Im Tablet-Modus stehen die drei Spalten schon ab 700 px -- ein Tablet
+    // hochkant ist schmaler als 1000, und gerade dort sind die Spalten gewollt.
+    try {
+        if (orderFilterStatus !== 'all') return false;
+        return window.matchMedia('(min-width: ' + (thekeAktiv() ? 700 : 1000) + 'px)').matches;
+    } catch (e) { return false; }
 }
+
+// TABLET-MODUS (10.11.2026)
+//
+// Ibo: "der Wirt muss ja nicht alle Einstellungen sehen, weil die Flaeche
+// wirkt klein". Auf dem Tablet am Tresen stand die ganze Bestellseite:
+// Seitenleiste, zwei Zeilen Werkzeuge und Schalter, Restaurant, Zeitraum.
+// Fuer die Bestellungen blieb der Rest.
+//
+// Der Tablet-Modus baut NICHTS neu. Er legt dieselbe Bestellseite ueber den
+// ganzen Bildschirm und blendet den Kopf aus. Annehmen, Fertig, Bon,
+// Ton, Bluetooth-Druck und die Live-Verbindung sind dieselben wie vorher --
+// es gibt keine zweite Logik, die irgendwann anders laeuft.
+//
+// Raus nur durch GEDRUECKTHALTEN (0,9 s): ein Mitarbeiter, der aus Versehen
+// in die Ecke tippt, soll nicht in den Einstellungen landen.
+var THEKE_SCHLUESSEL = 'kin_theke';
+var THEKE_HALTEN_MS = 900;
+function thekeAktiv() {
+    return typeof document !== 'undefined' && !!document.body && document.body.classList.contains('kin-theke');
+}
+function thekeAn(an) {
+    var leiste = document.getElementById('thekeLeiste');
+    if (!leiste) return;
+    if (an) {
+        // Nur hinwechseln, wenn die Bestellseite nicht schon offen ist -- sonst
+        // laedt sie alles neu, und die Tafel blinkt einmal leer.
+        var _sek = document.getElementById('sectionOrders');
+        if (!(_sek && _sek.classList.contains('active')) && typeof showDashboardSection === 'function') {
+            try { showDashboardSection('orders'); } catch (e) {}
+        }
+        // Alle Spalten, nicht ein einzelner Reiter.
+        if (typeof orderFilterStatus !== 'undefined' && orderFilterStatus !== 'all') {
+            var alle = document.querySelector('.kin-filter-tab[data-status="all"]');
+            if (alle) filterOrders('all', alle); else orderFilterStatus = 'all';
+        }
+        document.body.classList.add('kin-theke');
+        leiste.hidden = false;
+        try { localStorage.setItem(THEKE_SCHLUESSEL, '1'); } catch (e) {}
+        // Vollbild geht nur nach einem Tipp -- beim Wiederherstellen nach dem
+        // Neuladen also nicht. Dann bleibt die Browserleiste, sonst nichts.
+        try {
+            var de = document.documentElement;
+            if (!document.fullscreenElement && de.requestFullscreen) de.requestFullscreen().catch(function () {});
+        } catch (e) {}
+        try { kinBildschirmWach(true); } catch (e) {}
+        try { btWiederAnmelden(); } catch (e) {}
+        clearInterval(window._thekeUhrTakt);
+        window._thekeUhrTakt = setInterval(thekeLeisteZeichnen, 15000);
+    } else {
+        document.body.classList.remove('kin-theke');
+        leiste.hidden = true;
+        try { localStorage.removeItem(THEKE_SCHLUESSEL); } catch (e) {}
+        clearInterval(window._thekeUhrTakt);
+        try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(function () {}); } catch (e) {}
+        // Die Kueche haelt den Bildschirm selbst wach -- nur loslassen, wenn sie zu ist.
+        if (!document.getElementById('kitchenDisplay')) { try { kinBildschirmWach(false); } catch (e) {} }
+    }
+    try { renderDashboardOrders(); } catch (e) {}
+    thekeLeisteZeichnen();
+}
+// Was die Leiste zeigt -- gerechnet aus derselben Liste wie die Spalten.
+function thekeZahlen(liste, restaurantFilter) {
+    var z = { neu: 0, arbeit: 0, fertig: 0 };
+    (liste || []).forEach(function (o) {
+        if (restaurantFilter && o.restaurant_id !== restaurantFilter) return;
+        var sp = bestellSpalte(o.status);
+        if (sp in z) z[sp]++;
+    });
+    return z;
+}
+function thekeLeisteZeichnen() {
+    if (!thekeAktiv()) return;
+    var filter = (typeof ordersRestaurantFilter !== 'undefined') ? ordersRestaurantFilter : '';
+    var z = thekeZahlen(typeof dashboardOrders !== 'undefined' ? dashboardOrders : [], filter);
+    var setz = function (id, wert) { var el = document.getElementById(id); if (el) el.textContent = wert; };
+    setz('thekeNeu', z.neu); setz('thekeArbeit', z.arbeit); setz('thekeFertig', z.fertig);
+    var neuChip = document.getElementById('thekeNeu');
+    if (neuChip && neuChip.parentNode) neuChip.parentNode.classList.toggle('da', z.neu > 0);
+    // Uhr
+    try {
+        setz('thekeUhr', new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' }));
+    } catch (e) {}
+    // Lokal
+    var haeuser = (window.APP_DATA && APP_DATA.restaurants) || [];
+    var haus = haeuser.find(function (r) { return r.id === filter; }) || (haeuser.length === 1 ? haeuser[0] : null);
+    setz('thekeLokal', haus ? (haus.name || '') : '');
+    // Live -- oder eben NICHT. Eine Tafel, die still nicht mehr nachlaedt,
+    // sieht aus wie ein ruhiger Abend (Regel 6).
+    var live = document.getElementById('thekeLive');
+    if (live) {
+        var kaputt = typeof ladeStandFehlt === 'function' && ladeStandFehlt('bestellungen');
+        live.classList.toggle('aus', !!kaputt);
+        live.lastChild.textContent = kaputt ? 'Keine Verbindung' : 'Live';
+    }
+    // Ton
+    var ton = document.getElementById('thekeTon');
+    if (ton) {
+        var tonAn = typeof orderSoundEnabled === 'undefined' ? true : !!orderSoundEnabled;
+        ton.setAttribute('aria-pressed', tonAn ? 'true' : 'false');
+        ton.textContent = tonAn ? 'Ton an' : 'Ton aus';
+    }
+    // Bluetooth-Drucker (nur wenn einer eingerichtet ist)
+    var dr = document.getElementById('thekeDrucker');
+    if (dr) {
+        var hat = (typeof btAlleBtDrucker === 'function') && btAlleBtDrucker().length > 0;
+        var verb = !!(window._kinBt && window._kinBt.verbunden);
+        dr.innerHTML = hat ? '<span class="kin-theke-punkt"' + (verb ? '' : ' style="background:#f87171;animation:none"') + ' aria-hidden="true"></span>'
+            + (verb ? 'Drucker verbunden' : 'Drucker getrennt') : '';
+    }
+}
+// Beenden: gedrueckt halten. Ein kurzer Tipp sagt, wie es geht.
+function thekeRausEinrichten() {
+    var k = document.getElementById('thekeRaus');
+    if (!k || k._eingerichtet) return;
+    k._eingerichtet = true;
+    var start = 0, rahmen = 0;
+    var stopp = function (kurz) {
+        cancelAnimationFrame(rahmen);
+        k.style.setProperty('--kin-halten', '0');
+        if (kurz && start && typeof showToast === 'function') showToast('Zum Beenden gedrückt halten', 'info');
+        start = 0;
+    };
+    var schritt = function () {
+        if (!start) return;
+        var anteil = Math.min(1, (Date.now() - start) / THEKE_HALTEN_MS);
+        k.style.setProperty('--kin-halten', String(anteil));
+        if (anteil >= 1) { start = 0; k.style.setProperty('--kin-halten', '0'); thekeAn(false); return; }
+        rahmen = requestAnimationFrame(schritt);
+    };
+    k.addEventListener('pointerdown', function (e) { e.preventDefault(); start = Date.now(); rahmen = requestAnimationFrame(schritt); });
+    k.addEventListener('pointerup', function () { stopp(true); });
+    k.addEventListener('pointerleave', function () { stopp(false); });
+    k.addEventListener('pointercancel', function () { stopp(false); });
+    k.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    // Tastatur: Enter/Leertaste lange halten geht nicht -- dort reicht Esc zweimal nicht
+    // zufaellig. Wer eine Tastatur hat, ist der Wirt am Rechner: ein Druck genuegt.
+    k.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); thekeAn(false); } });
+}
+// Nach dem Neuladen: war das Tablet im Tablet-Modus, bleibt es dort.
+// Einmal pro Sitzung pruefen, sobald die Bestellungen das erste Mal da sind.
+function thekeWiederherstellen() {
+    if (window._thekeGeprueft) return;
+    window._thekeGeprueft = true;
+    var war = false;
+    try { war = localStorage.getItem(THEKE_SCHLUESSEL) === '1'; } catch (e) {}
+    if (war && !thekeAktiv() && document.getElementById('thekeLeiste')) thekeAn(true);
+}
+if (typeof document !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', thekeRausEinrichten);
+    if (document.readyState !== 'loading') setTimeout(thekeRausEinrichten, 0);
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible' && thekeAktiv()) { try { kinBildschirmWach(true); } catch (e) {} thekeLeisteZeichnen(); }
+    });
+}
+window.thekeAn = thekeAn;
 try {
     window.matchMedia('(min-width: 1000px)').addEventListener('change', function () {
         try { renderDashboardOrders(); } catch (e) {}
