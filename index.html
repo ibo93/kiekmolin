@@ -11420,6 +11420,12 @@
 
         /* Karte wie im Entwurf */
         .kin-pos { display: flex; justify-content: space-between; gap: 8px; font-size: 15px; color: #191c1d; }
+        /* Gerichtnummer: kleines Schild vor dem Namen, wie auf der Karte des Hauses. */
+        .kin-nr { display: inline-block; min-width: 1.9em; padding: 1px 7px; margin-right: 2px; border-radius: 8px; background: #003d33; color: #ffffff;
+            font-family: 'Epilogue', sans-serif; font-weight: 800; font-size: 0.86em; text-align: center; line-height: 1.45; vertical-align: 1px; font-variant-numeric: tabular-nums; }
+        .dark-mode .kin-nr { background: #fed65b; color: #00251e !important; }
+        .kds2 .kin-nr { background: #fed65b; color: #00251e; }
+        .dark-mode .kds2 .kin-nr { background: #fed65b; color: #00251e !important; }
         .kin-pos b { font-weight: 800; }
         .kin-pos > b { white-space: nowrap; }
         .kin-pos-extra { font-size: 13px; color: #735c00; padding-left: 22px; margin-top: -2px; }
@@ -66241,7 +66247,7 @@ async function loadDashboardOrders() {
                 customer_email: order.customer_email,
                 delivery_address: order.delivery_address,
                 delivery_notes: order.delivery_notes || order.customer_notes || '',
-                items: (order.order_items && order.order_items.length > 0)
+                items: posNummernErgaenzen((order.order_items && order.order_items.length > 0)
                     ? order.order_items.map((item, _gi) => ({
                         name: item.item_name,
                         quantity: item.quantity,
@@ -66250,7 +66256,10 @@ async function loadDashboardOrders() {
                         notes: item.notes || '',
                         price: item.total_price,
                         // Der Gang steht nur in der JSON-Liste der Bestellung (gleiche Reihenfolge).
-                        gang: (order.items && order.items[_gi] && order.items[_gi].name === item.item_name) ? order.items[_gi].gang : undefined
+                        gang: (order.items && order.items[_gi] && order.items[_gi].name === item.item_name) ? order.items[_gi].gang : undefined,
+                        // Gerichtnummer ebenso nur in der JSON-Liste (seit 12.10.2026) -- siehe posNummernErgaenzen.
+                        menu_item_id: item.menu_item_id || null,
+                        dish_number: item.dish_number || ''
                     }))
                     : (order.items || []).map(item => ({
                         name: item.name,
@@ -66259,8 +66268,10 @@ async function loadDashboardOrders() {
                         selected_options: item.selected_options || [],
                         notes: item.notes || '',
                         price: item.price || item.total_price || 0,
+                        menu_item_id: item.menu_item_id || null,
+                        dish_number: item.dish_number || '',
                         gang: item.gang
-                    })),
+                    })), order.items),
                 subtotal: order.subtotal,
                 delivery_fee: order.delivery_fee || 0,
                 tip: order.tip || 0,
@@ -67665,7 +67676,7 @@ function bestellPosHtml(items, mitPreis, order) {
         }).join('');
     }
     return (items || []).map(function (it) {
-        return '<div class="kin-pos"><span><b>' + (it.quantity || 1) + '×</b> ' + escapeHtml(it.name || '') + '</span>'
+        return '<div class="kin-pos"><span><b>' + (it.quantity || 1) + '×</b> ' + (typeof posNrHtml === 'function' ? posNrHtml(it) : '') + escapeHtml(it.name || '') + '</span>'
             + (mitPreis ? '<b>' + formatPrice(it.base_price || it.price) + '</b>' : '') + '</div>'
             + (it.options ? '<div class="kin-pos-extra">' + escapeHtml(bestellExtrasText(it.options)) + '</div>' : '')
             + (it.notes ? '<div class="kin-pos-notiz">✎ ' + escapeHtml(it.notes) + '</div>' : '');
@@ -67673,7 +67684,31 @@ function bestellPosHtml(items, mitPreis, order) {
 }
 // Eine Zeile: "2× Cola · 1× Schnitzel"
 function bestellPosKurz(items) {
-    return (items || []).map(function (it) { return '<b>' + (it.quantity || 1) + '×</b> ' + escapeHtml(it.name || ''); }).join(' · ');
+    return (items || []).map(function (it) { return '<b>' + (it.quantity || 1) + '×</b> ' + (typeof posNrHtml === 'function' ? posNrHtml(it) : '') + escapeHtml(it.name || ''); }).join(' · ');
+}
+
+// GERICHTNUMMER AUF KARTE UND KUECHEN-DISPLAY (Ibo, 10.11.2026: "Wichtig die
+// Gericht ohne Nummer drauf"). Die Nummer wird seit 12.10.2026 mit jeder
+// Bestellung gespeichert und stand schon auf dem Bon -- nur hier fehlte sie.
+//
+// Wo sie steht: in der JSON-Liste orders.items (dish_number). Die Zeilen aus
+// order_items haben sie NICHT; dort wird sie ueber dieselbe Stelle in der
+// Liste (wie beim Gang) oder ueber menu_item_id / Namen nachgetragen.
+// Aeltere Bestellungen ohne Nummer: keine Nummer -- nichts Geratenes.
+function posNummernErgaenzen(liste, json) {
+    json = Array.isArray(json) ? json : [];
+    return (liste || []).map(function (it, i) {
+        if (!it || it.dish_number) return it;
+        var name = it.item_name || it.name;
+        var q = (json[i] && json[i].name === name) ? json[i]
+            : json.filter(function (j) { return j && ((it.menu_item_id && j.menu_item_id === it.menu_item_id) || (name && j.name === name)); })[0];
+        if (!q || !q.dish_number) return it;
+        var k = Object.assign({}, it); k.dish_number = String(q.dish_number); return k;
+    });
+}
+function posNrHtml(it) {
+    var nr = typeof bonGerichtNr === 'function' ? bonGerichtNr(it) : (it && it.dish_number) || '';
+    return nr ? '<span class="kin-nr">' + escapeHtml(String(nr)) + '</span> ' : '';
 }
 // Schild in der Spalte Fertig: "ABHOLBEREIT · 6 MIN"
 function bestellFertigSchild(order, jetzt) {
@@ -90907,7 +90942,7 @@ function kdsPosHtml(it) {
     var optionsText = '';
     if (it.selected_options && it.selected_options.length) optionsText = it.selected_options.map(optionText).filter(Boolean).join(', ');
     else if (it.options && typeof it.options === 'string') optionsText = it.options;
-    return '<div class="kds-pos"><b>' + (parseInt(it.quantity, 10) || 1) + '× ' + escapeHtml(it.item_name || it.name || 'Unbekannt') + '</b>'
+    return '<div class="kds-pos"><b>' + (parseInt(it.quantity, 10) || 1) + '× ' + (typeof posNrHtml === 'function' ? posNrHtml(it) : '') + escapeHtml(it.item_name || it.name || 'Unbekannt') + '</b>'
         + (optionsText ? '<small>' + escapeHtml(optionsText) + '</small>' : '')
         + (it.notes ? '<small class="kds-pos-notiz">' + escapeHtml(it.notes) + '</small>' : '')
         + '</div>';
@@ -90918,7 +90953,7 @@ function kdsZeitBasis(o) {
 }
 
 function _kdsRenderCard(o) {
-    var items = o.order_items || o.items || [];
+    var items = (o.order_items && o.order_items.length) ? (typeof posNummernErgaenzen === 'function' ? posNummernErgaenzen(o.order_items, o.items) : o.order_items) : (o.items || []);
     var k = kdsKopf(o);
     var basis = kdsZeitBasis(o);
     var stufe = kdsStufe((Date.now() - basis) / 60000);
