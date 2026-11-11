@@ -11429,6 +11429,7 @@
         .kiek-knopf-text { font: 800 16px Epilogue, sans-serif; color: #ffffff; white-space: nowrap; }
         .dark-mode .kiek-knopf-marke { color: #00251e !important; }
         .dark-mode .kiek-knopf-text { color: #ffffff !important; }
+        #assistantBtn.kiek-knopf.kiek-knopf-weg { opacity: 0 !important; pointer-events: none !important; transform: translateY(12px) !important; }
         @media (max-width: 600px) { #assistantBtn.kiek-knopf { height: 52px !important; bottom: 96px !important; right: 12px !important; } }
         .kiek-knoepfe { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; flex-basis: 100%; width: 100%; }
         .assistant-message.bot:has(.kiek-knoepfe) { flex-wrap: wrap; max-width: 92%; }
@@ -16484,6 +16485,28 @@
 .dark-mode .kmi-resok-knoepfe > * { background: #262a29; color: #f3f4f4; }
 .dark-mode .kmi-resok-knoepfe .haupt { background: #9cd1c3; color: #00251e; }
 /* STARTSEITE: Jetzt geoeffnet (06.10.2026) */
+/* Kiek-Startkarte */
+.kiek-start { position: relative; z-index: 2; margin: 8px 16px 20px; padding: 18px; border-radius: 28px; background: #ffffff; box-shadow: 0 24px 48px -8px rgba(0,37,30,0.12); display: flex; flex-direction: column; gap: 12px; }
+.kiek-start-kopf { display: flex; align-items: center; gap: 12px; }
+.kiek-start-marke { width: 48px; height: 48px; flex-shrink: 0; border-radius: 50%; background: #003d33; color: #ffffff; display: flex; align-items: center; justify-content: center; font: 900 15px Epilogue, sans-serif; letter-spacing: -0.02em; }
+.kiek-start h3 { margin: 0; font: 800 19px Epilogue, sans-serif; color: #00251e; }
+.kiek-start p { margin: 2px 0 0; font-size: 13px; color: #404946; }
+.kiek-start-feld { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 6px 0 18px; border-radius: 9999px; border: 1.5px solid rgba(0,61,51,0.18); background: #fafafa; }
+#kiekStartFrage { flex-grow: 1; min-width: 0; border: 0 !important; background: transparent !important; box-shadow: none !important; padding: 0 !important; font: 500 15px Inter, sans-serif; color: #191c1d; outline: none; }
+.kiek-start-feld:focus-within { border-color: #003d33; }
+.kiek-start-feld button { width: 40px; height: 40px; flex-shrink: 0; border: 0; border-radius: 50%; background: #003d33; color: #ffffff; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.kiek-start-unsichtbar { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.kiek-start-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.kiek-start-chips button { min-height: 40px; padding: 0 14px; border: 0; border-radius: 9999px; background: #edeeef; color: #003d33; font: 600 13px Inter, sans-serif; cursor: pointer; }
+.dark-mode .kiek-start { background: #1a2e27; box-shadow: none; }
+.dark-mode .kiek-start h3 { color: #e8eeec !important; }
+.dark-mode .kiek-start p { color: #9ca8a4 !important; }
+.dark-mode .kiek-start-marke { background: #fed65b; color: #00251e !important; }
+.dark-mode .kiek-start-feld { background: #12211c; border-color: rgba(255,255,255,0.14); }
+.dark-mode #kiekStartFrage { color: #e8eeec !important; }
+.dark-mode .kiek-start-feld button { background: #fed65b; color: #00251e !important; }
+.dark-mode .kiek-start-feld button svg { color: #00251e !important; stroke: #00251e !important; }
+.dark-mode .kiek-start-chips button { background: #24392f; color: #b8eddf !important; }
 .heute-abend { margin: 0 0 20px; }
 .ha-kopf { display: flex; align-items: baseline; justify-content: space-between; padding: 0 20px; margin-bottom: 10px; }
 .ha-kopf h3 { margin: 0; font-family: Epilogue, sans-serif; font-size: 20px; font-weight: 800; color: #00251e; }
@@ -18130,6 +18153,31 @@ window.addEventListener('load', function () {
                         Entdecken
                     </button>
                 </div>
+            </div>
+        </section>
+
+        <!-- KIEK-STARTKARTE (11.11.2026, Entwurf aus Claude Design): der Einstieg
+             zu Kiek auf der Startseite. Feld und Vorschlaege oeffnen Kiek und
+             stellen die Frage sofort -- kein zweiter Tipp noetig. -->
+        <section id="kiekStart" class="kiek-start" aria-labelledby="kiekStartTitel">
+            <div class="kiek-start-kopf">
+                <span class="kiek-start-marke" aria-hidden="true">Kiek</span>
+                <div>
+                    <h3 id="kiekStartTitel">Hunger, aber keine Idee?</h3>
+                    <p>Frag Kiek – kennt Karten, Zeiten und freie Tische.</p>
+                </div>
+            </div>
+            <form class="kiek-start-feld" onsubmit="event.preventDefault(); kiekStartFragen(this.elements.kiekStartFrage.value);">
+                <label for="kiekStartFrage" class="kiek-start-unsichtbar">Frage an Kiek</label>
+                <input id="kiekStartFrage" name="kiekStartFrage" type="text" autocomplete="off" enterkeyhint="send" placeholder="Wer hat jetzt auf?">
+                <button type="submit" aria-label="Kiek fragen">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="13 6 19 12 13 18"></polyline></svg>
+                </button>
+            </form>
+            <div class="kiek-start-chips" onclick="var b=event.target.closest('[data-frage]'); if(b) kiekStartFragen(b.getAttribute('data-frage'));">
+                <button type="button" data-frage="Wo gibt es guten Fisch?">Guter Fisch</button>
+                <button type="button" data-frage="Wer liefert gerade?">Wer liefert?</button>
+                <button type="button" data-frage="Tisch für heute Abend, 4 Personen">Tisch für heute, 4 Pers.</button>
             </div>
         </section>
 
@@ -55272,6 +55320,28 @@ function kiekVorschlaege() {
     el.onclick = function (e) { var b = e.target.closest ? e.target.closest('[data-frage]') : null; if (b) askAssistant(b.getAttribute('data-frage')); };
 }
 window.kiekVorschlaege = kiekVorschlaege;
+// Startkarte: Kiek oeffnen und die Frage gleich stellen. Leeres Feld = nur oeffnen.
+function kiekStartFragen(frage) {
+    frage = String(frage || '').trim();
+    openAssistant();
+    if (!frage) return;
+    var f = document.getElementById('kiekStartFrage');
+    if (f) f.value = '';
+    askAssistant(frage);
+}
+window.kiekStartFragen = kiekStartFragen;
+// Solange die Startkarte zu sehen ist, braucht es den schwebenden Knopf nicht --
+// er laege sonst ueber "Karte entdecken". Ohne IntersectionObserver bleibt er einfach.
+(function kiekStartBeobachten() {
+    try {
+        var karte = document.getElementById('kiekStart');
+        var knopf = document.getElementById('assistantBtn');
+        if (!karte || !knopf || typeof IntersectionObserver !== 'function') return;
+        new IntersectionObserver(function (e) {
+            knopf.classList.toggle('kiek-knopf-weg', !!(e[0] && e[0].isIntersecting));
+        }, { threshold: 0.15 }).observe(karte);
+    } catch (e) {}
+})();
 
 // KI fragen und die Antwort Wort für Wort in die Sprechblase schreiben.
 // offlineFallback = vorgefertigter Text, der genommen wird, wenn die KI
