@@ -12291,16 +12291,45 @@
            nicht weg. Unter den Dialogen (.modal-overlay 2000, Annehmen 10005),
            damit "Andere Zeit" und "Ablehnen" weiter funktionieren. */
         body.kin-theke { overflow: hidden; }
-        body.kin-theke #sectionOrders { display: block !important; position: fixed; inset: 0; z-index: 1500; overflow-y: auto; -webkit-overflow-scrolling: touch;
-            margin: 0; padding: 0 20px 32px; background: #eef2f0; }
+        body.kin-theke[data-theke-ansicht="bestellungen"] #sectionOrders,
+        body.kin-theke[data-theke-ansicht="reservierungen"] #sectionReservations { display: block !important; position: fixed; left: 0; right: 0; bottom: 0;
+            top: var(--kin-theke-h, 68px); z-index: 1500; overflow-y: auto; -webkit-overflow-scrolling: touch;
+            margin: 0; padding: 18px 20px 32px; background: #eef2f0; max-width: none; }
+        /* Die Leiste haengt im Tablet-Modus direkt am body (thekeAn) und steht fest oben. */
+        body.kin-theke #thekeLeiste { position: fixed; top: 0; left: 0; right: 0; margin: 0; z-index: 1600; }
+        /* Reservierungen: nur "Heute" -- Wartet auf Bestaetigung + der Tag nach Uhrzeit. */
+        body.kin-theke[data-theke-ansicht="reservierungen"] #sectionReservations > *:not(#resTabHeute):not(.kmi-stand) { display: none !important; }
+        body.kin-theke[data-theke-ansicht="reservierungen"] #resTabHeute { display: block !important; }
+        body.kin-theke #resTageLeiste { display: none !important; }
+        body.kin-theke .kin-res-karte .kin-res-bestaetigen { min-height: 56px; font-size: 17px; }
+        body.kin-theke .kin-res-gast { min-height: 60px; }
+        body.kin-theke .kin-res-btn { min-height: 48px; }
+        body.kin-theke[data-theke-ansicht="reservierungen"] .kin-theke-zahlen { display: none; }
+        .dark-mode body.kin-theke[data-theke-ansicht="reservierungen"] #sectionReservations { background: #0a1612; }
+        .kin-theke-reiter { display: flex; gap: 4px; padding: 4px; border-radius: 9999px; background: rgba(255,255,255,0.1); }
+        .kin-theke-reiter[hidden] { display: none; }
+        /* Mit Reitern stehen die Zahlen schon dort ("1 neu") und ueber den Spalten --
+           die drei Chips wuerden die Leiste in zwei Zeilen brechen. */
+        .kin-theke-reiter:not([hidden]) ~ .kin-theke-zahlen { display: none; }
+        @media (max-width: 1300px) { .kin-theke-reiter:not([hidden]) ~ .kin-theke-lokal { display: none; } }
+        .kin-theke-reiter button { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border: 0; border-radius: 9999px;
+            background: transparent; color: #cfe3dc; font: 700 16px Epilogue, sans-serif; cursor: pointer; }
+        .kin-theke-reiter button.aktiv { background: #ffffff; color: #00251e; font-weight: 800; }
+        .kin-theke-reiter button.ruft:not(.aktiv) { color: #ffffff; box-shadow: inset 0 0 0 2px #fed65b; }
+        .kin-theke-reiter-zahl { min-width: 24px; padding: 1px 8px; border-radius: 9999px; background: rgba(255,255,255,0.14); color: #ffffff; font-size: 13px; text-align: center; }
+        .kin-theke-reiter button.aktiv .kin-theke-reiter-zahl { background: #edeeef; color: #00251e; }
+        .kin-theke-reiter-zahl.neu, .kin-theke-reiter button.aktiv .kin-theke-reiter-zahl.neu { background: #fed65b; color: #00251e; }
+        .dark-mode .kin-theke-reiter button.aktiv { background: #ffffff; color: #00251e !important; }
+        .dark-mode .kin-theke-reiter button.aktiv .kin-theke-reiter-zahl { background: #edeeef; color: #00251e !important; }
+        .dark-mode .kin-theke-reiter-zahl.neu, .dark-mode .kin-theke-reiter button.aktiv .kin-theke-reiter-zahl.neu { background: #fed65b; color: #00251e !important; }
         body.kin-theke #sectionOrders > header.kin-bk,
         body.kin-theke #ordersEinstellungen,
         body.kin-theke #sectionOrders .kin-reiter,
         body.kin-theke #ordersMehr,
         body.kin-theke #fahrerLeiste .fahrer-zeile:has(.fahrer-leer) { display: none !important; }
-        .dark-mode body.kin-theke #sectionOrders, body.kin-theke.dark-mode #sectionOrders { background: #0a1612; }
+        .dark-mode body.kin-theke[data-theke-ansicht="bestellungen"] #sectionOrders, body.kin-theke.dark-mode #sectionOrders { background: #0a1612; }
         .kin-theke-leiste { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
-            margin: 0 -20px 18px; padding: 12px 20px; padding-top: max(12px, env(safe-area-inset-top));
+            margin: 0 0 18px; padding: 12px 20px; padding-top: max(12px, env(safe-area-inset-top));
             background: #003d33; color: #ffffff; box-shadow: 0 6px 20px -8px rgba(0,37,30,0.45); }
         .kin-theke-leiste[hidden] { display: none; }
         .kin-theke-marke { font-family: 'Epilogue', sans-serif; font-weight: 800; font-size: 20px; letter-spacing: -0.02em; color: #ffffff; }
@@ -20167,7 +20196,11 @@ window.addEventListener('load', function () {
                         card.style.animation = 'resAlertOut .22s ease forwards';
                         setTimeout(function() { if (card.parentNode) card.remove(); }, 220);
                     }
-                    card.onclick = closeResAlert;
+                    // Im Tablet-Modus fuehrt der Tipp zum Reiter Reservierungen.
+                    card.onclick = function () {
+                        closeResAlert();
+                        try { if (typeof thekeAktiv === 'function' && thekeAktiv()) thekeAnsicht('reservierungen'); } catch (e) {}
+                    };
                     document.body.appendChild(card);
                     setTimeout(function() { if (document.getElementById('newResAlert') === card) closeResAlert(); }, 30000);
 
@@ -24755,6 +24788,12 @@ window.addEventListener('load', function () {
                  Seitenleiste, Kopf, Werkzeuge und Schalter. Raus nur durch Gedrueckthalten. -->
             <div id="thekeLeiste" class="kin-theke-leiste" hidden>
                 <div class="kin-theke-marke">Kiek mol <b>in</b></div>
+                <!-- Zwei Reiter, wenn der Betrieb beides nutzt (Entwurf in Claude Design,
+                     abgenommen 11.11.2026). Nutzt er nur eines, ist die Leiste ohne Reiter. -->
+                <nav class="kin-theke-reiter" id="thekeReiter" aria-label="Ansicht">
+                    <button type="button" id="thekeReiterB" class="aktiv" aria-pressed="true" onclick="thekeAnsicht('bestellungen')">Bestellungen <span class="kin-theke-reiter-zahl" id="thekeReiterBZahl">0</span></button>
+                    <button type="button" id="thekeReiterR" aria-pressed="false" onclick="thekeAnsicht('reservierungen')">Reservierungen <span class="kin-theke-reiter-zahl" id="thekeReiterRZahl">0</span></button>
+                </nav>
                 <div class="kin-theke-lokal" id="thekeLokal"></div>
                 <span class="kin-theke-live" id="thekeLive"><span class="kin-theke-punkt" aria-hidden="true"></span>Live</span>
                 <div class="kin-theke-zahlen" aria-live="polite">
@@ -36937,6 +36976,12 @@ document.addEventListener('DOMContentLoaded', function () {
 function showDashboardSection(section) {
     // Auf dem Handy: nach der Auswahl die Navigations-Schublade schließen
     try { toggleDashSidebar(false); } catch (e) {}
+    // Tablet-Modus: Bestellungen und Reservierungen sind seine zwei Reiter.
+    try {
+        if (typeof thekeAktiv === 'function' && thekeAktiv() && (section === 'orders' || section === 'reservations')) {
+            setTimeout(function () { thekeAnsichtSetzen(section === 'reservations' ? 'reservierungen' : 'bestellungen'); }, 0);
+        }
+    } catch (e) {}
     // Team-Rechte: ein gesperrter Bereich oeffnet nicht (auch nicht ueber einen Knopf im Dashboard).
     // Die Startseite (dashboard) leitet still um -- sonst begruesst den Mitarbeiter ein Verbot.
     if (typeof teamDarfNicht === 'function' && teamDarfNicht(section)) {
@@ -68052,6 +68097,7 @@ function resHeuteZeichnen() {
     }
     try { bestellSchalterZeigen(); } catch (e) {}
     try { var rid = window.resCurrentRestaurant; if (rid && typeof gastProfileLaden === 'function') gastProfileLaden(rid); } catch (e) {}
+    try { if (typeof thekeLeisteZeichnen === 'function') thekeLeisteZeichnen(); } catch (e) {}
 }
 window.resHeuteZeichnen = resHeuteZeichnen;
 
@@ -68664,8 +68710,13 @@ function thekeAn(an) {
             var alle = document.querySelector('.kin-filter-tab[data-status="all"]');
             if (alle) filterOrders('all', alle); else orderFilterStatus = 'all';
         }
+        // Die Leiste gehoert im Tablet-Modus zu BEIDEN Ansichten -- stuende sie in
+        // #sectionOrders, verschwaende sie mit dem Wechsel zu den Reservierungen.
+        if (leiste.parentNode !== document.body) document.body.appendChild(leiste);
         document.body.classList.add('kin-theke');
+        if (!document.body.getAttribute('data-theke-ansicht')) document.body.setAttribute('data-theke-ansicht', 'bestellungen');
         leiste.hidden = false;
+        thekeReservierungenLaden(true);
         try { localStorage.setItem(THEKE_SCHLUESSEL, '1'); } catch (e) {}
         // Vollbild geht nur nach einem Tipp -- beim Wiederherstellen nach dem
         // Neuladen also nicht. Dann bleibt die Browserleiste, sonst nichts.
@@ -68676,15 +68727,19 @@ function thekeAn(an) {
         try { kinBildschirmWach(true); } catch (e) {}
         try { btWiederAnmelden(); } catch (e) {}
         clearInterval(window._thekeUhrTakt);
-        window._thekeUhrTakt = setInterval(thekeLeisteZeichnen, 15000);
+        window._thekeUhrTakt = setInterval(function () { thekeLeisteZeichnen(); thekeReservierungenLaden(false); }, 15000);
     } else {
+        var _warRes = document.body.getAttribute('data-theke-ansicht') === 'reservierungen';
         document.body.classList.remove('kin-theke');
+        document.body.removeAttribute('data-theke-ansicht');
         leiste.hidden = true;
         try { localStorage.removeItem(THEKE_SCHLUESSEL); } catch (e) {}
         clearInterval(window._thekeUhrTakt);
         try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(function () {}); } catch (e) {}
         // Die Kueche haelt den Bildschirm selbst wach -- nur loslassen, wenn sie zu ist.
         if (!document.getElementById('kitchenDisplay')) { try { kinBildschirmWach(false); } catch (e) {} }
+        // Wer in den Reservierungen war, landet dort auch im normalen Dashboard.
+        if (_warRes && typeof showDashboardSection === 'function') { try { showDashboardSection('reservations'); } catch (e) {} }
     }
     try { renderDashboardOrders(); } catch (e) {}
     thekeLeisteZeichnen();
@@ -68704,6 +68759,7 @@ function thekeLeisteZeichnen() {
     var filter = (typeof ordersRestaurantFilter !== 'undefined') ? ordersRestaurantFilter : '';
     var z = thekeZahlen(typeof dashboardOrders !== 'undefined' ? dashboardOrders : [], filter);
     var setz = function (id, wert) { var el = document.getElementById(id); if (el) el.textContent = wert; };
+    try { thekeReiterZeichnen(z); } catch (e) {}
     setz('thekeNeu', z.neu); setz('thekeArbeit', z.arbeit); setz('thekeFertig', z.fertig);
     var neuChip = document.getElementById('thekeNeu');
     if (neuChip && neuChip.parentNode) neuChip.parentNode.classList.toggle('da', z.neu > 0);
@@ -68738,6 +68794,94 @@ function thekeLeisteZeichnen() {
         dr.innerHTML = hat ? '<span class="kin-theke-punkt"' + (verb ? '' : ' style="background:#f87171;animation:none"') + ' aria-hidden="true"></span>'
             + (verb ? 'Drucker verbunden' : 'Drucker getrennt') : '';
     }
+    // Die Flaeche beginnt unter der Leiste -- die Leiste bricht auf schmalen
+    // Tablets in zwei Zeilen um, also messen statt raten.
+    var l = document.getElementById('thekeLeiste');
+    if (l && l.offsetHeight) document.body.style.setProperty('--kin-theke-h', l.offsetHeight + 'px');
+}
+
+// RESERVIERUNGEN IM TABLET-MODUS (11.11.2026, Entwurf in Claude Design:
+// "Ja richtig gut ... die Einstellungen stören nicht").
+//
+// Auch hier keine zweite Ansicht: es ist die vorhandene "Heute"-Seite der
+// Reservierungen (resHeuteZeichnen, resOffenKarteHtml, resGastZeileHtml) --
+// Bestaetigen, Ist da, Tisch frei, Nicht gekommen sind dieselben Knoepfe.
+// Der Tablet-Modus legt sie nur ueber den Bildschirm und blendet Kopf,
+// Kalender, Tischplan, Sperrzeiten und Einstellungen aus.
+function thekeHaus() {
+    var haeuser = (window.APP_DATA && APP_DATA.restaurants) || [];
+    var id = (typeof ordersRestaurantFilter !== 'undefined' && ordersRestaurantFilter) || window.resCurrentRestaurant || window._gastroOnlyRestaurantId || '';
+    return haeuser.find(function (r) { return r.id === id; }) || (haeuser.length === 1 ? haeuser[0] : null);
+}
+// Welche Reiter? Was der Betrieb abgeschaltet hat (features), bekommt keinen.
+function thekeReiterArten(haus) {
+    var f = (haus && Array.isArray(haus.features)) ? haus.features : [];
+    return { bestellungen: f.indexOf('no_ordering') < 0, reservierungen: f.indexOf('no_reservations') < 0 };
+}
+function thekeResZahlen(liste, heute) {
+    var z = { offen: 0, heute: 0 };
+    (liste || []).forEach(function (r) {
+        if (r.status === 'pending' && r.date >= heute) z.offen++;
+        else if (r.date === heute && r.status !== 'cancelled' && r.status !== 'no_show' && r.status !== 'finished') z.heute++;
+    });
+    return z;
+}
+function thekeReiterZeichnen(bz) {
+    var nav = document.getElementById('thekeReiter');
+    if (!nav) return;
+    var arten = thekeReiterArten(thekeHaus());
+    var beide = arten.bestellungen && arten.reservierungen;
+    nav.hidden = !beide;
+    var ansicht = document.body.getAttribute('data-theke-ansicht') || 'bestellungen';
+    // Nur eines aktiv? Dann steht die Tafel auf genau dem.
+    if (!beide) {
+        var soll = arten.reservierungen && !arten.bestellungen ? 'reservierungen' : 'bestellungen';
+        if (soll !== ansicht) { thekeAnsicht(soll); return; }
+    }
+    var heute = typeof localDayStr === 'function' ? localDayStr(new Date()) : new Date().toISOString().slice(0, 10);
+    var rz = thekeResZahlen(window.resAllReservations || [], heute);
+    var b = document.getElementById('thekeReiterB'), r = document.getElementById('thekeReiterR');
+    var bZ = document.getElementById('thekeReiterBZahl'), rZ = document.getElementById('thekeReiterRZahl');
+    bz = bz || { neu: 0, arbeit: 0, fertig: 0 };
+    if (bZ) { bZ.textContent = bz.neu ? bz.neu + ' neu' : String(bz.arbeit + bz.fertig); bZ.classList.toggle('neu', bz.neu > 0); }
+    if (rZ) { rZ.textContent = rz.offen ? rz.offen + ' neu' : String(rz.heute); rZ.classList.toggle('neu', rz.offen > 0); }
+    if (b) { b.classList.toggle('aktiv', ansicht === 'bestellungen'); b.setAttribute('aria-pressed', ansicht === 'bestellungen' ? 'true' : 'false'); b.classList.toggle('ruft', bz.neu > 0); }
+    if (r) { r.classList.toggle('aktiv', ansicht === 'reservierungen'); r.setAttribute('aria-pressed', ansicht === 'reservierungen' ? 'true' : 'false'); r.classList.toggle('ruft', rz.offen > 0); }
+}
+// Nur den Zustand setzen -- ohne Seitenwechsel (den macht showDashboardSection).
+function thekeAnsichtSetzen(ansicht) {
+    if (!thekeAktiv()) return;
+    document.body.setAttribute('data-theke-ansicht', ansicht === 'reservierungen' ? 'reservierungen' : 'bestellungen');
+    if (ansicht === 'reservierungen') {
+        // Im Tablet-Modus ist immer HEUTE -- ein vorher gewaehlter Tag bliebe sonst stehen.
+        try { _resHeuteTag = null; } catch (e) {}
+        try { if (typeof resHeuteZeichnen === 'function') resHeuteZeichnen(); } catch (e) {}
+    }
+    thekeLeisteZeichnen();
+}
+function thekeAnsicht(ansicht) {
+    if (!thekeAktiv()) return;
+    var ziel = ansicht === 'reservierungen' ? 'reservations' : 'orders';
+    var sek = document.getElementById(ziel === 'reservations' ? 'sectionReservations' : 'sectionOrders');
+    if (!(sek && sek.classList.contains('active')) && typeof showDashboardSection === 'function') {
+        try { showDashboardSection(ziel); } catch (e) {}
+    }
+    thekeAnsichtSetzen(ansicht);
+}
+// Die Reservierungen auch laden, solange man auf den Bestellungen steht --
+// sonst zaehlt der Reiter "0", obwohl jemand auf Bestaetigung wartet (Regel 6).
+// Danach hoechstens einmal pro Minute; neue kommen ohnehin ueber Echtzeit.
+function thekeReservierungenLaden(sofort) {
+    if (!thekeAktiv()) return;
+    if (!thekeReiterArten(thekeHaus()).reservierungen) return;
+    var jetzt = Date.now();
+    if (!sofort && window._thekeResZeit && jetzt - window._thekeResZeit < 60000) return;
+    window._thekeResZeit = jetzt;
+    if (!window.resCurrentRestaurant) {
+        var h = thekeHaus();
+        if (h) window.resCurrentRestaurant = h.id;
+    }
+    try { if (typeof window.resLoadReservations === 'function') window.resLoadReservations(); } catch (e) {}
 }
 // Beenden: gedrueckt halten. Ein kurzer Tipp sagt, wie es geht.
 function thekeRausEinrichten() {
@@ -68784,6 +68928,7 @@ if (typeof document !== 'undefined') {
     });
 }
 window.thekeAn = thekeAn;
+window.thekeAnsicht = thekeAnsicht;
 try {
     window.matchMedia('(min-width: 1000px)').addEventListener('change', function () {
         try { renderDashboardOrders(); } catch (e) {}
