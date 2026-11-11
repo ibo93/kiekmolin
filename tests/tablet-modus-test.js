@@ -192,15 +192,42 @@ var B = [
     t('Leiste: Ton aus wird angezeigt', T.el('thekeTon').textContent === 'Ton aus' && T.el('thekeTon').attrs['aria-pressed'] === 'false', T.el('thekeTon').textContent);
 })();
 
-// ---- 6. Beenden nur durch Gedrueckthalten --------------------------------
+// ---- 6. Zurueck ins Dashboard: sichtbarer Knopf + kurze Rueckfrage -------
+// 11.11.2026, Ibo: "Tablett Modus hat kein zurueck Knopf". Vorher nur
+// Gedrueckthalten, und unter 900 px ein Ring ohne Text.
 (function () {
-    var raus = fn('thekeRausEinrichten');
-    var ms = parseInt((/var THEKE_HALTEN_MS = (\d+);/.exec(H) || [])[1], 10);
-    t('Halten dauert mindestens 0,5 s', ms >= 500, String(ms));
-    t('Beenden erst bei vollem Halten (anteil >= 1)', /if \(anteil >= 1\)[^\n]*thekeAn\(false\)/.test(raus), '');
-    t('Loslassen vorher bricht ab (pointerup -> stopp)', /'pointerup'[^\n]*stopp\(true\)/.test(raus), '');
-    t('Kein Rechtsklick-/Langdruck-Menue des Browsers', /'contextmenu'/.test(raus), '');
-    t('Kein pointerdown, der sofort beendet', !/'pointerdown'[^\n]*thekeAn\(false\)/.test(raus), '');
+    function dom() {
+        var els = {}, timers = [];
+        function el(id) { return els[id] || (els[id] = { id: id, hidden: id === 'thekeRausFrage', attrs: {}, h: {},
+            setAttribute: function (k, v) { this.attrs[k] = v; }, addEventListener: function (e, f) { this.h[e] = f; }, focus: function () {} }); }
+        ['thekeRaus', 'thekeRausFrage', 'thekeRausJa', 'thekeRausBleiben'].forEach(el);
+        var aus = [];
+        var api = new Function('document', 'setTimeout', 'clearTimeout', 'window', 'thekeAn',
+            fn('thekeRausFrage') + fn('thekeRausEinrichten') + '; thekeRausEinrichten(); return {};')(
+            { getElementById: function (id) { return els[id] || null; } },
+            function (f, ms) { timers.push({ f: f, ms: ms }); return timers.length; }, function () {}, {},
+            function (an) { aus.push(an); });
+        return { els: els, aus: aus, timers: timers };
+    }
+    var d = dom();
+    d.els.thekeRaus.h.click();
+    t('Tipp auf "Dashboard" oeffnet die Rueckfrage, beendet noch nicht', d.els.thekeRausFrage.hidden === false && d.aus.length === 0, JSON.stringify(d.aus));
+    t('aria-expanded zeigt die offene Rueckfrage', d.els.thekeRaus.attrs['aria-expanded'] === 'true', '');
+    d.els.thekeRausJa.h.click();
+    t('"Zum Dashboard" beendet den Tablet-Modus', d.aus.join() === 'false' && d.els.thekeRausFrage.hidden === true, JSON.stringify(d.aus));
+    var b2 = dom(); b2.els.thekeRaus.h.click(); b2.els.thekeRausBleiben.h.click();
+    t('"Bleiben" schliesst nur die Frage', b2.aus.length === 0 && b2.els.thekeRausFrage.hidden === true, '');
+    var c = dom(); c.els.thekeRaus.h.click();
+    t('Rueckfrage schliesst von selbst (Zeitgeber 3-10 s)', c.timers.length === 1 && c.timers[0].ms >= 3000 && c.timers[0].ms <= 10000, JSON.stringify(c.timers.map(function (x) { return x.ms; })));
+    c.timers[0].f();
+    t('... und ist danach zu, ohne zu beenden', c.els.thekeRausFrage.hidden === true && c.aus.length === 0, '');
+    // Gegenprobe: beendet der Knopf sofort, muss der erste Test rot werden.
+    var kaputt = H.replace("thekeRausFrage(!!(f && f.hidden));", "thekeAn(false);");
+    var g = (function () { var H0 = H; H = kaputt; try { var x = dom(); x.els.thekeRaus.h.click(); return x; } finally { H = H0; } })();
+    t('Gegenprobe: Knopf ohne Rueckfrage wird erkannt', g.aus.length === 1, JSON.stringify(g.aus));
+    // Sichtbarkeit: der Text darf nirgends ausgeblendet werden
+    t('Text "Dashboard" steht im Knopf', /id="thekeRaus"[\s\S]{0,600}<span class="kin-theke-raus-text">Dashboard<\/span>/.test(H), '');
+    t('Text wird in keiner Ansicht/Breite versteckt', !/\.kin-theke-raus-text \{ display: none/.test(H), '');
 })();
 
 // ---- 6b. Reservierungen als zweiter Reiter ------------------------------
@@ -255,7 +282,7 @@ var B = [
 (function () {
     t('Knopf "Tablet-Modus" in der Bestellseite', /id="thekeKnopf"[^>]*onclick="thekeAn\(true\)"/.test(H), '');
     t('Leiste in #sectionOrders, anfangs versteckt', /id="sectionOrders"[\s\S]{0,600}id="thekeLeiste" class="kin-theke-leiste" hidden/.test(H), '');
-    t('Beenden-Knopf mit verstaendlichem Namen', /id="thekeRaus"[^>]*aria-label="Tablet-Modus beenden: gedrückt halten"/.test(H), '');
+    t('Rueckfrage ist ein Dialog mit Namen', /id="thekeRausFrage"[^>]*role="dialog"[^>]*aria-label="Tablet-Modus verlassen\?"/.test(H), '');
     var z = parseInt((/body\.kin-theke\[data-theke-ansicht="reservierungen"\] #sectionReservations \{[^}]*z-index: (\d+)/.exec(H) || [])[1], 10);
     var modal = parseInt((/\.modal-overlay \{[^}]*z-index: (\d+)/.exec(H) || [])[1], 10);
     t('Tablet-Modus liegt UNTER den Dialogen (' + z + ' < ' + modal + ')', z > 0 && modal > 0 && z < modal, z + ' / ' + modal);

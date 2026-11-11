@@ -12340,8 +12340,6 @@
         /* Mit den zwei Knoepfen wird die Leiste voll: Abstaende enger, "Halten zum
            Beenden" nur als Ring (der Name bleibt fuer Vorleser im aria-label). */
         body.kin-theke[data-theke-ansicht="reservierungen"] .kin-theke-leiste { gap: 12px; }
-        body.kin-theke[data-theke-ansicht="reservierungen"] .kin-theke-raus-text { display: none; }
-        body.kin-theke[data-theke-ansicht="reservierungen"] .kin-theke-raus { padding: 0 0 0 44px; width: 44px; }
         body.kin-theke[data-theke-ansicht="reservierungen"] .kin-theke-res-knoepfe { display: flex; }
         .kin-theke-walkin, .kin-theke-neu { min-height: 44px; padding: 0 18px; border-radius: 9999px; font: 700 15px Epilogue, sans-serif; cursor: pointer; }
         .kin-theke-walkin { border: 0; background: #fed65b; color: #00251e; }
@@ -12427,11 +12425,25 @@
             font: 600 14px Inter, sans-serif; cursor: pointer; }
         .kin-theke-knopf[aria-pressed="false"] { color: #fecaca; border-color: rgba(254,202,202,0.45); }
         .kin-theke-uhr { font-family: 'Epilogue', sans-serif; font-size: 26px; font-weight: 800; color: #ffffff; font-variant-numeric: tabular-nums; min-width: 3.2em; text-align: right; }
-        .kin-theke-raus { position: relative; min-height: 44px; padding: 0 16px 0 44px; border-radius: 9999px; border: 0; background: rgba(255,255,255,0.12); color: #ffffff;
-            font: 600 13px Inter, sans-serif; cursor: pointer; overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
-        .kin-theke-raus-ring { position: absolute; left: 12px; top: 50%; width: 22px; height: 22px; margin-top: -11px; border-radius: 50%;
-            background: conic-gradient(#fed65b calc(var(--kin-halten, 0) * 1turn), rgba(255,255,255,0.25) 0); }
-        .kin-theke-raus-ring::after { content: ''; position: absolute; inset: 4px; border-radius: 50%; background: #0f4a3f; }
+        .kin-theke-raus-box { position: relative; flex-shrink: 0; }
+        .kin-theke-raus { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px 0 12px; border-radius: 9999px; border: 0;
+            background: #ffffff; color: #003d33; font: 700 14px Inter, sans-serif; cursor: pointer; white-space: nowrap; }
+        .kin-theke-raus svg { color: #003d33; flex-shrink: 0; }
+        .kin-theke-raus-frage { position: absolute; right: 0; top: calc(100% + 10px); z-index: 10030; width: 260px; padding: 16px; border-radius: 20px;
+            background: #ffffff; color: #191c1d; box-shadow: 0 24px 48px -8px rgba(0,37,30,0.35); }
+        .kin-theke-raus-frage[hidden] { display: none; }
+        .kin-theke-raus-frage p { margin: 0 0 12px; font: 800 17px Epilogue, sans-serif; color: #00251e; }
+        .kin-theke-raus-frage div { display: flex; gap: 8px; }
+        .kin-theke-raus-frage button { flex: 1; min-height: 48px; border-radius: 9999px; font: 700 14px Inter, sans-serif; cursor: pointer; }
+        .kin-theke-raus-nein { background: #edeeef; color: #003d33; border: 0; }
+        .kin-theke-raus-ja { background: #003d33; color: #ffffff; border: 0; }
+        .dark-mode .kin-theke-raus { background: #ffffff !important; color: #003d33 !important; opacity: 1 !important; }
+        .dark-mode .kin-theke-raus .kin-theke-raus-text, .dark-mode .kin-theke-raus svg { color: #003d33 !important; opacity: 1 !important; }
+        .dark-mode .kin-theke-raus svg * { stroke: #003d33 !important; opacity: 1 !important; }
+        .dark-mode .kin-theke-raus-frage { background: #1a2e27; }
+        .dark-mode .kin-theke-raus-frage p { color: #e8eeec !important; }
+        .dark-mode .kin-theke-raus-nein { background: #24392f; color: #b8eddf !important; }
+        .dark-mode .kin-theke-raus-ja { background: #fed65b; color: #00251e !important; }
         .kin-theke-start { background: #003d33 !important; color: #ffffff !important; border-color: #003d33 !important; }
         .kin-theke-start svg { color: #fed65b; }
         /* Im Tablet-Modus: groessere Schrift und Knoepfe, man steht davor. */
@@ -12443,8 +12455,6 @@
         @media (max-width: 900px) {
             .kin-theke-lokal, .kin-theke-drucker { display: none; }
             .kin-theke-zahl { padding: 6px 10px; }
-            .kin-theke-raus-text { display: none; }
-            .kin-theke-raus { padding: 0 0 0 44px; width: 44px; }
         }
 
         /* Drei Spalten (bestellBrettHtml). Das Raster steht inline am
@@ -24917,9 +24927,23 @@ window.addEventListener('load', function () {
                     <span id="thekeDrucker" class="kin-theke-drucker"></span>
                     <button type="button" id="thekeTon" class="kin-theke-knopf" onclick="toggleOrderSound();thekeLeisteZeichnen();" aria-pressed="true">Ton an</button>
                     <div id="thekeUhr" class="kin-theke-uhr"></div>
-                    <button type="button" id="thekeRaus" class="kin-theke-raus" aria-label="Tablet-Modus beenden: gedrückt halten">
-                        <span class="kin-theke-raus-ring" aria-hidden="true"></span><span class="kin-theke-raus-text">Halten zum Beenden</span>
-                    </button>
+                    <!-- ZURUECK INS DASHBOARD (11.11.2026). Vorher: nur Gedrueckthalten, und
+                         unter 900 px nur ein Ring ohne Text -- Ibo fand keinen Weg zurueck.
+                         Jetzt immer mit Text; ein Tipp fragt kurz nach, damit niemand
+                         aus Versehen rausfliegt. -->
+                    <div class="kin-theke-raus-box">
+                        <button type="button" id="thekeRaus" class="kin-theke-raus" aria-haspopup="true" aria-expanded="false" aria-controls="thekeRausFrage">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="11 18 5 12 11 6"></polyline></svg>
+                            <span class="kin-theke-raus-text">Dashboard</span>
+                        </button>
+                        <div id="thekeRausFrage" class="kin-theke-raus-frage" role="dialog" aria-label="Tablet-Modus verlassen?" hidden>
+                            <p>Zurück ins Dashboard?</p>
+                            <div>
+                                <button type="button" id="thekeRausBleiben" class="kin-theke-raus-nein">Bleiben</button>
+                                <button type="button" id="thekeRausJa" class="kin-theke-raus-ja">Zum Dashboard</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
             <!-- KOPF DER BESTELLSEITE -- eins zu eins nach dem Entwurf "Bestellseite Wirt"
@@ -69011,7 +69035,6 @@ function bestellBrettAn() {
 // Raus nur durch GEDRUECKTHALTEN (0,9 s): ein Mitarbeiter, der aus Versehen
 // in die Ecke tippt, soll nicht in den Einstellungen landen.
 var THEKE_SCHLUESSEL = 'kin_theke';
-var THEKE_HALTEN_MS = 900;
 function thekeAktiv() {
     return typeof document !== 'undefined' && !!document.body && document.body.classList.contains('kin-theke');
 }
@@ -69203,33 +69226,34 @@ function thekeReservierungenLaden(sofort) {
     }
     try { if (typeof window.resLoadReservations === 'function') window.resLoadReservations(); } catch (e) {}
 }
-// Beenden: gedrueckt halten. Ein kurzer Tipp sagt, wie es geht.
+// Zurueck ins Dashboard: ein Tipp oeffnet die Rueckfrage, "Zum Dashboard"
+// beendet. Ohne Antwort schliesst sie nach 6 s von selbst -- ein Wisch des
+// Personals mit dem Ellbogen laesst das Tablet also nicht aus dem Modus fallen.
+function thekeRausFrage(auf) {
+    var f = document.getElementById('thekeRausFrage');
+    var k = document.getElementById('thekeRaus');
+    if (!f) return;
+    clearTimeout(window._thekeRausZeit);
+    f.hidden = !auf;
+    if (k) k.setAttribute('aria-expanded', auf ? 'true' : 'false');
+    if (auf) {
+        window._thekeRausZeit = setTimeout(function () { thekeRausFrage(false); }, 6000);
+        var ja = document.getElementById('thekeRausJa');
+        if (ja && ja.focus) ja.focus();
+    }
+}
 function thekeRausEinrichten() {
     var k = document.getElementById('thekeRaus');
     if (!k || k._eingerichtet) return;
     k._eingerichtet = true;
-    var start = 0, rahmen = 0;
-    var stopp = function (kurz) {
-        cancelAnimationFrame(rahmen);
-        k.style.setProperty('--kin-halten', '0');
-        if (kurz && start && typeof showToast === 'function') showToast('Zum Beenden gedrückt halten', 'info');
-        start = 0;
-    };
-    var schritt = function () {
-        if (!start) return;
-        var anteil = Math.min(1, (Date.now() - start) / THEKE_HALTEN_MS);
-        k.style.setProperty('--kin-halten', String(anteil));
-        if (anteil >= 1) { start = 0; k.style.setProperty('--kin-halten', '0'); thekeAn(false); return; }
-        rahmen = requestAnimationFrame(schritt);
-    };
-    k.addEventListener('pointerdown', function (e) { e.preventDefault(); start = Date.now(); rahmen = requestAnimationFrame(schritt); });
-    k.addEventListener('pointerup', function () { stopp(true); });
-    k.addEventListener('pointerleave', function () { stopp(false); });
-    k.addEventListener('pointercancel', function () { stopp(false); });
-    k.addEventListener('contextmenu', function (e) { e.preventDefault(); });
-    // Tastatur: Enter/Leertaste lange halten geht nicht -- dort reicht Esc zweimal nicht
-    // zufaellig. Wer eine Tastatur hat, ist der Wirt am Rechner: ein Druck genuegt.
-    k.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); thekeAn(false); } });
+    k.addEventListener('click', function () {
+        var f = document.getElementById('thekeRausFrage');
+        thekeRausFrage(!!(f && f.hidden));
+    });
+    var ja = document.getElementById('thekeRausJa');
+    if (ja) ja.addEventListener('click', function () { thekeRausFrage(false); thekeAn(false); });
+    var nein = document.getElementById('thekeRausBleiben');
+    if (nein) nein.addEventListener('click', function () { thekeRausFrage(false); });
 }
 // Nach dem Neuladen: war das Tablet im Tablet-Modus, bleibt es dort.
 // Einmal pro Sitzung pruefen, sobald die Bestellungen das erste Mal da sind.
