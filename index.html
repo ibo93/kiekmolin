@@ -12310,6 +12310,45 @@
         .dark-mode body.kin-theke[data-theke-ansicht="reservierungen"] #sectionReservations { background: #0a1612; }
         .kin-theke-reiter { display: flex; gap: 4px; padding: 4px; border-radius: 9999px; background: rgba(255,255,255,0.1); }
         .kin-theke-reiter[hidden] { display: none; }
+        .kin-theke-res-knoepfe { display: none; gap: 8px; }
+        /* Mit den zwei Knoepfen wird die Leiste voll: Abstaende enger, "Halten zum
+           Beenden" nur als Ring (der Name bleibt fuer Vorleser im aria-label). */
+        body.kin-theke[data-theke-ansicht="reservierungen"] .kin-theke-leiste { gap: 12px; }
+        body.kin-theke[data-theke-ansicht="reservierungen"] .kin-theke-raus-text { display: none; }
+        body.kin-theke[data-theke-ansicht="reservierungen"] .kin-theke-raus { padding: 0 0 0 44px; width: 44px; }
+        body.kin-theke[data-theke-ansicht="reservierungen"] .kin-theke-res-knoepfe { display: flex; }
+        .kin-theke-walkin, .kin-theke-neu { min-height: 44px; padding: 0 18px; border-radius: 9999px; font: 700 15px Epilogue, sans-serif; cursor: pointer; }
+        .kin-theke-walkin { border: 0; background: #fed65b; color: #00251e; }
+        .kin-theke-neu { border: 1px solid rgba(255,255,255,0.35); background: transparent; color: #ffffff; }
+        .dark-mode .kin-theke-walkin { background: #fed65b; color: #00251e !important; }
+        /* Walk-in: ein Fenster, drei Angaben, ein Knopf. */
+        .kin-walkin-grund { position: fixed; inset: 0; z-index: 10020; display: flex; align-items: center; justify-content: center; padding: 16px;
+            background: rgba(0,25,20,0.55); }
+        .kin-walkin { width: min(520px, 100%); box-sizing: border-box; background: #ffffff; color: #191c1d; border-radius: 34px; padding: 26px;
+            display: flex; flex-direction: column; gap: 16px; box-shadow: 0 32px 64px -12px rgba(0,37,30,0.25); font-family: Inter, sans-serif; }
+        .kin-walkin h2 { margin: 0; font: 900 26px Epilogue, sans-serif; color: #00251e; }
+        .kin-walkin p { margin: -8px 0 0; font-size: 15px; color: #404946; }
+        .kin-walkin-etikett { font-size: 12px; font-weight: 700; letter-spacing: 0.15em; color: #404946; }
+        .kin-walkin-pers { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+        .kin-walkin-pers button { min-height: 60px; border: 1.5px solid rgba(0,61,51,0.18); border-radius: 12px; background: #ffffff; color: #00251e;
+            font: 800 22px Epilogue, sans-serif; cursor: pointer; }
+        .kin-walkin-pers button.aktiv { background: #003d33; border-color: #003d33; color: #ffffff; }
+        .kin-walkin input, .kin-walkin select { min-height: 52px; border: 1.5px solid rgba(0,61,51,0.18) !important; border-radius: 9999px !important; padding: 0 18px !important;
+            font: 500 16px Inter, sans-serif; background: #fafafa !important; color: #191c1d; width: 100%; box-sizing: border-box; }
+        /* Ein globales Glas-Feld (weisser Rand, halbdurchsichtig) gewinnt sonst --
+           auf Weiss war das Tisch-Feld dadurch unsichtbar. */
+        #kinWalkInTisch, #kinWalkInName { border: 1.5px solid rgba(0,61,51,0.22) !important; background-color: #fafafa !important; border-radius: 9999px !important; }
+        .dark-mode #kinWalkInTisch, .dark-mode #kinWalkInName { background-color: #111f1a !important; border-color: rgba(255,255,255,0.18) !important; }
+        .kin-walkin-reihe { display: flex; gap: 10px; }
+        .kin-walkin-reihe > * { flex: 1; min-width: 0; }
+        .kin-walkin-los { min-height: 58px; border: 0; border-radius: 9999px; background: #003d33; color: #ffffff; font: 800 18px Epilogue, sans-serif; cursor: pointer; }
+        .kin-walkin-los:disabled { opacity: 0.6; }
+        .kin-walkin-ab { min-height: 48px; border: 0; background: transparent; color: #404946; font: 600 15px Inter, sans-serif; cursor: pointer; }
+        .dark-mode .kin-walkin { background: #1a2e27; }
+        .dark-mode .kin-walkin h2, .dark-mode .kin-walkin-pers button { color: #e8eeec !important; }
+        .dark-mode .kin-walkin-pers button { background: #111f1a; }
+        .dark-mode .kin-walkin-pers button.aktiv { background: #9cd1c3; color: #00251e !important; }
+        .dark-mode .kin-walkin input, .dark-mode .kin-walkin select { background: #111f1a !important; color: #e8eeec; }
         /* Mit Reitern stehen die Zahlen schon dort ("1 neu") und ueber den Spalten --
            die drei Chips wuerden die Leiste in zwei Zeilen brechen. */
         .kin-theke-reiter:not([hidden]) ~ .kin-theke-zahlen { display: none; }
@@ -24796,6 +24835,12 @@ window.addEventListener('load', function () {
                     <button type="button" id="thekeReiterB" class="aktiv" aria-pressed="true" onclick="thekeAnsicht('bestellungen')">Bestellungen <span class="kin-theke-reiter-zahl" id="thekeReiterBZahl">0</span></button>
                     <button type="button" id="thekeReiterR" aria-pressed="false" onclick="thekeAnsicht('reservierungen')">Reservierungen <span class="kin-theke-reiter-zahl" id="thekeReiterRZahl">0</span></button>
                 </nav>
+                <!-- Nur im Reiter Reservierungen: selbst eintragen (Ibo 11.11.2026:
+                     "Walk in Reservierungen auch, dass man selber eintragen kann"). -->
+                <div class="kin-theke-res-knoepfe">
+                    <button type="button" class="kin-theke-walkin" onclick="thekeWalkInOeffnen()">Walk-in</button>
+                    <button type="button" class="kin-theke-neu" onclick="thekeNeueReservierung()" aria-label="Neue Reservierung eintragen">+ Reservierung</button>
+                </div>
                 <div class="kin-theke-lokal" id="thekeLokal"></div>
                 <span class="kin-theke-live" id="thekeLive"><span class="kin-theke-punkt" aria-hidden="true"></span>Live</span>
                 <div class="kin-theke-zahlen" aria-live="polite">
@@ -68931,6 +68976,116 @@ if (typeof document !== 'undefined') {
 }
 window.thekeAn = thekeAn;
 window.thekeAnsicht = thekeAnsicht;
+
+// SELBST EINTRAGEN IM TABLET-MODUS (Ibo 11.11.2026).
+//
+// "+ Reservierung" ist das vorhandene Formular des Dashboards, vorbelegt mit
+// dem Tag, der gerade in der Tage-Leiste gewaehlt ist.
+//
+// "Walk-in" ist der Gast, der ohne Reservierung reinkommt. Drei Angaben,
+// ein Knopf: Personen, Name (darf leer bleiben), Tisch (darf leer bleiben).
+// Gespeichert wird wie jede Reservierung aus dem Dashboard (resSaveToDatabase),
+// Uhrzeit = jetzt, und sofort auf "Ist da" (seated) -- er sitzt ja schon.
+// So zaehlt er im Tag mit, und der Tisch ist fuer die naechste Anfrage belegt.
+function thekeNeueReservierung() {
+    try { if (typeof resNeueOeffnen === 'function') resNeueOeffnen(); } catch (e) {}
+    var tag = (typeof _resHeuteTag !== 'undefined' && _resHeuteTag) || localDayStr(new Date());
+    var d = document.getElementById('resDate');
+    if (d) { d.value = tag; try { d.dispatchEvent(new Event('change')); } catch (e) {} }
+}
+function walkInJetzt(jetzt) {
+    jetzt = jetzt || new Date();
+    var tag = localDayStr(jetzt);
+    var hh = String(jetzt.getHours()).padStart(2, '0'), mm = String(jetzt.getMinutes()).padStart(2, '0');
+    return { tag: tag, zeit: hh + ':' + mm };
+}
+function walkInDaten(personen, name, tisch, jetzt) {
+    var j = walkInJetzt(jetzt);
+    var n = parseInt(personen, 10);
+    return {
+        date: j.tag, time: j.zeit,
+        name: String(name || '').trim() || 'Walk-in',
+        persons: n > 0 ? n : 2,
+        phone: '',
+        table: tisch || null,
+        notes: 'Walk-in',
+        source: 'dashboard', status: 'confirmed'
+    };
+}
+async function thekeWalkInOeffnen() {
+    var alt = document.getElementById('kinWalkIn');
+    if (alt) alt.remove();
+    var g = document.createElement('div');
+    g.id = 'kinWalkIn';
+    g.className = 'kin-walkin-grund';
+    g.innerHTML = '<div class="kin-walkin" role="dialog" aria-modal="true" aria-labelledby="kinWalkInTitel">'
+        + '<h2 id="kinWalkInTitel">Walk-in</h2>'
+        + '<p>Gäste ohne Reservierung – stehen gleich als „Ist da“ im Tag.</p>'
+        + '<div class="kin-walkin-etikett">PERSONEN</div>'
+        + '<div class="kin-walkin-pers">' + [1, 2, 3, 4, 5, 6, 7, 8].map(function (n) {
+            return '<button type="button" data-p="' + n + '"' + (n === 2 ? ' class="aktiv" aria-pressed="true"' : ' aria-pressed="false"') + '>' + n + '</button>';
+        }).join('') + '</div>'
+        + '<div class="kin-walkin-reihe">'
+        + '<label style="display:flex;flex-direction:column;gap:6px;"><span class="kin-walkin-etikett">NAME (FREIWILLIG)</span><input type="text" id="kinWalkInName" autocomplete="off" placeholder="z. B. Meyer"></label>'
+        + '<label style="display:flex;flex-direction:column;gap:6px;"><span class="kin-walkin-etikett">TISCH</span><select id="kinWalkInTisch"><option value="">ohne festen Tisch</option></select></label>'
+        + '</div>'
+        + '<button type="button" class="kin-walkin-los" id="kinWalkInLos">Gäste setzen</button>'
+        + '<button type="button" class="kin-walkin-ab" id="kinWalkInAb">Abbrechen</button>'
+        + '</div>';
+    document.body.appendChild(g);
+    var personen = 2;
+    g.addEventListener('click', function (e) {
+        if (e.target === g) { g.remove(); return; }
+        var b = e.target.closest ? e.target.closest('[data-p]') : null;
+        if (b) {
+            personen = parseInt(b.getAttribute('data-p'), 10) || 2;
+            g.querySelectorAll('[data-p]').forEach(function (x) { var an = x === b; x.classList.toggle('aktiv', an); x.setAttribute('aria-pressed', an ? 'true' : 'false'); });
+        }
+    });
+    document.getElementById('kinWalkInAb').onclick = function () { g.remove(); };
+    // Die echten Tische des Lokals -- dieselbe Liste wie im Formular.
+    try {
+        if (typeof resFormTischeLaden === 'function') await resFormTischeLaden();
+        var quelle = document.getElementById('resTable'), ziel = document.getElementById('kinWalkInTisch');
+        if (quelle && ziel) Array.prototype.forEach.call(quelle.options, function (o) {
+            if (!o.value) return;
+            var k = document.createElement('option'); k.value = o.value; k.textContent = o.textContent; ziel.appendChild(k);
+        });
+    } catch (e) {}
+    document.getElementById('kinWalkInLos').onclick = async function () {
+        var knopf = this;
+        knopf.disabled = true; knopf.textContent = 'Wird gespeichert …';
+        var r = walkInDaten(personen, document.getElementById('kinWalkInName').value, document.getElementById('kinWalkInTisch').value);
+        var ok = await walkInSpeichern(r);
+        if (ok) { g.remove(); return; }
+        knopf.disabled = false; knopf.textContent = 'Gäste setzen';
+    };
+}
+// Speichern, dann auf "Ist da". Schlaegt der zweite Schritt fehl, steht der
+// Gast als bestaetigt im Tag -- das wird GESAGT, nicht verschwiegen (Regel 6).
+async function walkInSpeichern(r) {
+    if (!window.resCurrentRestaurant) {
+        var h = typeof thekeHaus === 'function' ? thekeHaus() : null;
+        if (h) window.resCurrentRestaurant = h.id;
+    }
+    var gesp = null;
+    try { gesp = await window.resSaveToDatabase(r); } catch (e) { gesp = { fehler: 'keine Verbindung' }; }
+    if (!gesp || !gesp.id) {
+        showToast('Walk-in nicht gespeichert – ' + ((gesp && gesp.fehler) || 'keine Verbindung') + '. Bitte nochmal.', 'error');
+        return false;
+    }
+    r.id = gesp.id;
+    r.status = 'confirmed';
+    try { (window.resAllReservations = window.resAllReservations || []).push(r); } catch (e) {}
+    var gesetzt = false;
+    try { gesetzt = await updateReservationStatus(gesp.id, 'seated'); } catch (e) { gesetzt = false; }
+    if (gesetzt === true) { r.status = 'seated'; showToast(r.persons + ' Pers. gesetzt' + (r.name !== 'Walk-in' ? ' – ' + escapeHtml(r.name) : ''), 'success'); }
+    else showToast('Eingetragen, aber nicht auf „Ist da“ gesetzt – bitte in der Liste „Ist da“ tippen.', 'warning');
+    try { if (typeof resHeuteZeichnen === 'function') resHeuteZeichnen(); } catch (e) {}
+    return true;
+}
+window.thekeNeueReservierung = thekeNeueReservierung;
+window.thekeWalkInOeffnen = thekeWalkInOeffnen;
 try {
     window.matchMedia('(min-width: 1000px)').addEventListener('change', function () {
         try { renderDashboardOrders(); } catch (e) {}
