@@ -50,7 +50,8 @@ var G = new Function('document', '_resSelectedGuests', fn('resGuestRender') + ';
 G({ getElementById: function () { return gridEl; } }, 1)();
 t('Personen 1: Minus gesperrt, Plus geht auf 2', /res-stepper-minus"[^>]*disabled/.test(gridEl.innerHTML) && /resGuestSelect\(2\)/.test(gridEl.innerHTML) && /1<\/b> Person</.test(gridEl.innerHTML), gridEl.innerHTML);
 G({ getElementById: function () { return gridEl; } }, 8)();
-t('Personen 8: "8+", Plus gesperrt (Grenze wie vorher)', /8\+<\/b> Personen/.test(gridEl.innerHTML) && /res-stepper-plus"[^>]*disabled/.test(gridEl.innerHTML), '');
+// Seit 11.11.2026 bis 30 (Ibo: "Wenn mehrere Personen kommen?") -- bei 8 geht es weiter.
+t('Personen 8: zeigt 8, Plus geht weiter (Grenze jetzt 30)', /<b id="resGuestZahl">8<\/b> Personen/.test(gridEl.innerHTML) && !/res-stepper-plus"[^>]*disabled/.test(gridEl.innerHTML), '');
 
 // ---- Ablauf ----
 var sel = fn('selectSlot');

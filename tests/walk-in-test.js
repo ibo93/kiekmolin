@@ -32,7 +32,7 @@ function bauen(opt, quelle) {
     var win = { resCurrentRestaurant: 'r1', resAllReservations: [],
         resSaveToDatabase: async function (r) { gespeichert.push(JSON.parse(JSON.stringify(r))); return opt.speichern; } };
     var f = new Function('window', 'showToast', 'escapeHtml', 'updateReservationStatus', 'resHeuteZeichnen', 'localDayStr', 'thekeHaus',
-        fn('walkInJetzt', quelle) + fn('walkInDaten', quelle) + fn('walkInSpeichern', quelle) + '; return { daten: walkInDaten, speichern: walkInSpeichern };')(
+        fn('walkInPersonen', quelle) + fn('walkInJetzt', quelle) + fn('walkInDaten', quelle) + fn('walkInSpeichern', quelle) + '; return { daten: walkInDaten, speichern: walkInSpeichern };')(
         win, function (m, a) { toasts.push([m, a]); }, function (x) { return String(x); },
         async function (id, st) { status.push(id + ':' + st); if (opt.statusWirft) throw new Error('weg'); return opt.status; },
         function () { gezeichnet++; },
@@ -50,6 +50,11 @@ function bauen(opt, quelle) {
     t('Walk-in: 4 Personen, kein Tisch, Notiz Walk-in', d.persons === 4 && d.table === null && d.notes === 'Walk-in', JSON.stringify(d));
     t('Mit Name und Tisch', A.f.daten(2, 'Meyer', 'tisch-uuid', jetzt).name === 'Meyer' && A.f.daten(2, 'Meyer', 'tisch-uuid', jetzt).table === 'tisch-uuid', '');
     t('Unsinnige Personenzahl -> 2', A.f.daten('x', '', '', jetzt).persons === 2, '');
+    t('Grosse Gruppe: 14 Personen', A.f.daten(14, '', '', jetzt).persons === 14, String(A.f.daten(14, '', '', jetzt).persons));
+    t('Grenze: 250 -> 99', A.f.daten(250, '', '', jetzt).persons === 99, String(A.f.daten(250, '', '', jetzt).persons));
+    t('Feld fuer mehr als 8 (Minus/Plus, bis 99)', /id="kinWalkInZahl" min="1" max="99"/.test(H) && /data-schritt="1"/.test(H) && /data-schritt="-1"/.test(H), '');
+    var MP = bauen({}, H.replace('return Math.min(99, z);', 'return Math.min(8, z);'));
+    t('Gegenprobe: Grenze 8 -> 14 Personen gingen verloren, Test wird rot', MP.f.daten(14, '', '', jetzt).persons === 8, '');
 
     var ok1 = await A.f.speichern(A.f.daten(3, 'Janssen', '', jetzt));
     t('Speichern ok: true', ok1 === true, String(ok1));

@@ -12333,6 +12333,12 @@
         .kin-walkin-pers button { min-height: 60px; border: 1.5px solid rgba(0,61,51,0.18); border-radius: 12px; background: #ffffff; color: #00251e;
             font: 800 22px Epilogue, sans-serif; cursor: pointer; }
         .kin-walkin-pers button.aktiv { background: #003d33; border-color: #003d33; color: #ffffff; }
+        .kin-walkin-mehr { display: flex; align-items: center; gap: 8px; }
+        .kin-walkin-mehr span { flex-grow: 1; font-size: 14px; font-weight: 600; color: #404946; }
+        .kin-walkin-mehr button { width: 52px; height: 52px; border-radius: 50%; border: 1.5px solid rgba(0,61,51,0.18); background: #ffffff; color: #003d33;
+            font: 800 24px Epilogue, sans-serif; cursor: pointer; }
+        #kinWalkInZahl { width: 84px !important; text-align: center; font: 800 20px Epilogue, sans-serif !important; padding: 0 8px !important; }
+        .dark-mode .kin-walkin-mehr button { background: #111f1a; color: #e8eeec !important; }
         .kin-walkin input, .kin-walkin select { min-height: 52px; border: 1.5px solid rgba(0,61,51,0.18) !important; border-radius: 9999px !important; padding: 0 18px !important;
             font: 500 16px Inter, sans-serif; background: #fafafa !important; color: #191c1d; width: 100%; box-sizing: border-box; }
         /* Ein globales Glas-Feld (weisser Rand, halbdurchsichtig) gewinnt sonst --
@@ -34682,18 +34688,24 @@ function resGuestSelect(n) {
     if (typeof updateResSummary === 'function') updateResSummary();
 }
 
+// Bis 30 Personen online (Ibo 11.11.2026: "Wenn mehrere Personen kommen?
+// ... auch beim Gast"). Vorher war bei 8 Schluss ("8+"), und eine Gruppe
+// von 12 ging als 8 in den Kalender -- der Wirt plante zu kleine Tische.
+// Der Server nimmt 1 bis 50 an und prueft selbst, ob am Abend noch so
+// viele Plaetze frei sind (reservation-guest.js); ist es zu voll, sagt er es.
+var RES_GAST_MAX = 30;
 function resGuestRender() {
     // PERSONEN ALS -/+ (Entwurf "BAUEN 1", 19.10.2026) statt acht Kacheln.
-    // Gleiche Grenzen wie vorher: 1 bis 8, und 8 heisst "8 oder mehr".
     var grid = document.getElementById('resGuestGrid');
     if (!grid) return;
-    var n = _resSelectedGuests || 2;
+    var max = typeof RES_GAST_MAX === 'number' ? RES_GAST_MAX : 30;
+    var n = Math.min(max, _resSelectedGuests || 2);
     grid.innerHTML = '<div class="res-stepper">'
         + '<span class="res-stepper-text"><span class="material-symbols-outlined" aria-hidden="true">group</span>'
-        + '<b id="resGuestZahl">' + (n >= 8 ? '8+' : n) + '</b> ' + (n === 1 ? 'Person' : 'Personen') + '</span>'
+        + '<b id="resGuestZahl">' + n + '</b> ' + (n === 1 ? 'Person' : 'Personen') + '</span>'
         + '<span class="res-stepper-knoepfe">'
         + '<button type="button" class="res-stepper-minus" aria-label="Eine Person weniger" onclick="resGuestSelect(' + Math.max(1, n - 1) + ')"' + (n <= 1 ? ' disabled' : '') + '><span class="material-symbols-outlined">remove</span></button>'
-        + '<button type="button" class="res-stepper-plus" aria-label="Eine Person mehr" onclick="resGuestSelect(' + Math.min(8, n + 1) + ')"' + (n >= 8 ? ' disabled' : '') + '><span class="material-symbols-outlined">add</span></button>'
+        + '<button type="button" class="res-stepper-plus" aria-label="Eine Person mehr" onclick="resGuestSelect(' + Math.min(max, n + 1) + ')"' + (n >= max ? ' disabled' : '') + '><span class="material-symbols-outlined">add</span></button>'
         + '</span></div>';
 }
 
@@ -36079,7 +36091,7 @@ function resDatumKurz() {
 }
 function resPersonenText() {
     var n = parseInt((document.getElementById('partySize') || {}).value) || 2;
-    return (n >= 8 ? '8+' : n) + (n === 1 ? ' Person' : ' Personen');
+    return n + (n === 1 ? ' Person' : ' Personen');
 }
 function resSchritt(n) {
     var m = document.getElementById('reservationModal');
@@ -68993,6 +69005,13 @@ function thekeNeueReservierung() {
     var d = document.getElementById('resDate');
     if (d) { d.value = tag; try { d.dispatchEvent(new Event('change')); } catch (e) {} }
 }
+// 1 bis 99. Alles andere (leer, Buchstaben, 0) bleibt bei der letzten
+// sinnvollen Zahl nicht haengen, sondern wird geklemmt.
+function walkInPersonen(n) {
+    var z = parseInt(n, 10);
+    if (!(z > 0)) return 1;
+    return Math.min(99, z);
+}
 function walkInJetzt(jetzt) {
     jetzt = jetzt || new Date();
     var tag = localDayStr(jetzt);
@@ -69001,11 +69020,11 @@ function walkInJetzt(jetzt) {
 }
 function walkInDaten(personen, name, tisch, jetzt) {
     var j = walkInJetzt(jetzt);
-    var n = parseInt(personen, 10);
+    var n = walkInPersonen(personen);
     return {
         date: j.tag, time: j.zeit,
         name: String(name || '').trim() || 'Walk-in',
-        persons: n > 0 ? n : 2,
+        persons: parseInt(personen, 10) > 0 ? n : 2,
         phone: '',
         table: tisch || null,
         notes: 'Walk-in',
@@ -69025,6 +69044,12 @@ async function thekeWalkInOeffnen() {
         + '<div class="kin-walkin-pers">' + [1, 2, 3, 4, 5, 6, 7, 8].map(function (n) {
             return '<button type="button" data-p="' + n + '"' + (n === 2 ? ' class="aktiv" aria-pressed="true"' : ' aria-pressed="false"') + '>' + n + '</button>';
         }).join('') + '</div>'
+        // Groessere Gruppen (Ibo 11.11.2026: "Wenn mehrere Personen kommen?"):
+        // eigene Zahl mit Minus/Plus, bis 99.
+        + '<div class="kin-walkin-mehr"><span>Mehr Personen</span>'
+        + '<button type="button" data-schritt="-1" aria-label="Eine Person weniger">−</button>'
+        + '<input type="number" id="kinWalkInZahl" min="1" max="99" step="1" inputmode="numeric" value="2" aria-label="Personen">'
+        + '<button type="button" data-schritt="1" aria-label="Eine Person mehr">+</button></div>'
         + '<div class="kin-walkin-reihe">'
         + '<label style="display:flex;flex-direction:column;gap:6px;"><span class="kin-walkin-etikett">NAME (FREIWILLIG)</span><input type="text" id="kinWalkInName" autocomplete="off" placeholder="z. B. Meyer"></label>'
         + '<label style="display:flex;flex-direction:column;gap:6px;"><span class="kin-walkin-etikett">TISCH</span><select id="kinWalkInTisch"><option value="">ohne festen Tisch</option></select></label>'
@@ -69034,14 +69059,24 @@ async function thekeWalkInOeffnen() {
         + '</div>';
     document.body.appendChild(g);
     var personen = 2;
+    var zahlFeld = document.getElementById('kinWalkInZahl');
+    // Knoepfe, Feld und Minus/Plus zeigen immer dieselbe Zahl.
+    var setzePersonen = function (n) {
+        personen = walkInPersonen(n);
+        if (zahlFeld) zahlFeld.value = personen;
+        g.querySelectorAll('[data-p]').forEach(function (x) {
+            var an = parseInt(x.getAttribute('data-p'), 10) === personen;
+            x.classList.toggle('aktiv', an); x.setAttribute('aria-pressed', an ? 'true' : 'false');
+        });
+    };
     g.addEventListener('click', function (e) {
         if (e.target === g) { g.remove(); return; }
         var b = e.target.closest ? e.target.closest('[data-p]') : null;
-        if (b) {
-            personen = parseInt(b.getAttribute('data-p'), 10) || 2;
-            g.querySelectorAll('[data-p]').forEach(function (x) { var an = x === b; x.classList.toggle('aktiv', an); x.setAttribute('aria-pressed', an ? 'true' : 'false'); });
-        }
+        if (b) setzePersonen(b.getAttribute('data-p'));
+        var st = e.target.closest ? e.target.closest('[data-schritt]') : null;
+        if (st) setzePersonen(personen + (parseInt(st.getAttribute('data-schritt'), 10) || 0));
     });
+    if (zahlFeld) zahlFeld.addEventListener('change', function () { setzePersonen(zahlFeld.value); });
     document.getElementById('kinWalkInAb').onclick = function () { g.remove(); };
     // Die echten Tische des Lokals -- dieselbe Liste wie im Formular.
     try {
