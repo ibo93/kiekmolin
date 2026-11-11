@@ -11420,6 +11420,31 @@
 
         /* Karte wie im Entwurf */
         .kin-pos { display: flex; justify-content: space-between; gap: 8px; font-size: 15px; color: #191c1d; }
+        /* KIEK (11.11.2026, Entwurf in Claude Design): ein Knopf mit Namen statt
+           eines kleinen Kreises -- in 7 Tagen hatte der Chat null Aufrufe. */
+        #assistantBtn.kiek-knopf { width: auto !important; height: 56px !important; padding: 0 20px 0 8px !important; border-radius: 9999px !important;
+            display: flex !important; align-items: center; gap: 8px; background: #003d33 !important; color: #ffffff !important; }
+        .kiek-knopf-marke { width: 40px; height: 40px; border-radius: 50%; background: #fed65b; color: #00251e; display: flex; align-items: center; justify-content: center;
+            font: 900 12px Epilogue, sans-serif; letter-spacing: -0.02em; }
+        .kiek-knopf-text { font: 800 16px Epilogue, sans-serif; color: #ffffff; white-space: nowrap; }
+        .dark-mode .kiek-knopf-marke { color: #00251e !important; }
+        .dark-mode .kiek-knopf-text { color: #ffffff !important; }
+        @media (max-width: 600px) { #assistantBtn.kiek-knopf { height: 52px !important; bottom: 96px !important; right: 12px !important; } }
+        .kiek-knoepfe { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; flex-basis: 100%; width: 100%; }
+        .assistant-message.bot:has(.kiek-knoepfe) { flex-wrap: wrap; max-width: 92%; }
+        .kiek-gericht { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 12px; border-radius: 20px; background: #ffffff; border: 1px solid rgba(0,0,0,0.07); }
+        .kiek-gericht-text { flex-grow: 1; min-width: 0; display: flex; flex-direction: column; }
+        .kiek-gericht-text b { font-size: 15px; color: #191c1d; }
+        .kiek-gericht-text small { font-size: 12px; color: #404946; }
+        .kiek-korb { min-height: 44px; padding: 0 14px; border: 0; border-radius: 9999px; background: #fed65b; color: #00251e; font: 800 14px Epilogue, sans-serif; cursor: pointer; white-space: nowrap; }
+        .kiek-tisch, .kiek-lokal { min-height: 48px; padding: 10px 18px; line-height: 1.3; border: 0; border-radius: 9999px; font: 800 15px Epilogue, sans-serif; cursor: pointer; text-align: left; }
+        .kiek-tisch { background: #fed65b; color: #00251e; }
+        .kiek-lokal { background: #003d33; color: #ffffff; }
+        .dark-mode .kiek-gericht { background: #1a2e27; border-color: rgba(255,255,255,0.08); }
+        .dark-mode .kiek-gericht-text b { color: #e8eeec !important; }
+        .dark-mode .kiek-gericht-text small { color: #9ca8a4 !important; }
+        .dark-mode .kiek-korb, .dark-mode .kiek-tisch { background: #fed65b; color: #00251e !important; }
+        .dark-mode .kiek-lokal { color: #ffffff !important; }
         /* Gerichtnummer: kleines Schild vor dem Namen, wie auf der Karte des Hauses. */
         .kin-nr { display: inline-block; min-width: 1.9em; padding: 1px 7px; margin-right: 2px; border-radius: 8px; background: #003d33; color: #ffffff;
             font-family: 'Epilogue', sans-serif; font-weight: 800; font-size: 0.86em; text-align: center; line-height: 1.45; vertical-align: 1px; font-variant-numeric: tabular-nums; }
@@ -18596,8 +18621,8 @@ window.addEventListener('load', function () {
     </div>
 
     <!-- KI Assistent Button -->
-    <button onclick="openAssistant()" class="assistant-btn" aria-label="KIN, den KI-Assistenten, öffnen" id="assistantBtn">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 10h.01M12 10h.01M16 10h.01"/></svg>
+    <button onclick="openAssistant()" class="assistant-btn kiek-knopf" aria-label="Kiek fragen, den KI-Assistenten" id="assistantBtn">
+        <span class="kiek-knopf-marke" aria-hidden="true">Kiek</span><span class="kiek-knopf-text">Frag Kiek</span>
     </button>
 </div>
 
@@ -18619,7 +18644,7 @@ window.addEventListener('load', function () {
                          steht es dauerhaft in der Kopfzeile -- nicht nur einmal in
                          einer Begruessung, die nach oben wegscrollt. -->
                     <div class="assistant-header-name">
-                        KIN
+                        Kiek
                         <span class="assistant-ai-badge">KI</span>
                     </div>
                     <div class="assistant-header-status">KI-Assistent · Antworten können Fehler enthalten</div>
@@ -18633,8 +18658,8 @@ window.addEventListener('load', function () {
         <div class="assistant-messages" id="assistantMessages">
             <div class="assistant-message bot">
                 <div class="message-content">
-                    Moin! Ich bin <strong>KIN</strong>, der KI-Assistent von Kiek mol in – kein Mensch,
-                    sondern ein Computerprogramm. Meine Antworten können falsch sein; bei Bestellungen,
+                    Moin! Ich bin <strong>Kiek</strong>, der KI-Assistent von Kiek mol in – kein Mensch,
+                    sondern ein Computerprogramm. Ich kenne die Karten, die Öffnungszeiten und sage dir, wo du jetzt noch einen Tisch bekommst. Meine Antworten können falsch sein; bei Bestellungen,
                     Preisen und Öffnungszeiten gilt immer, was das Restaurant sagt.<br><br>
                     Womit kann ich helfen?
                 </div>
@@ -18652,7 +18677,7 @@ window.addEventListener('load', function () {
         </div>
 
         <div class="assistant-input">
-            <input type="text" id="assistantInput" placeholder="Schreib eine Nachricht..." onkeypress="if(event.key==='Enter')sendAssistantMessage()" aria-label="Schreib eine Nachricht...">
+            <input type="text" id="assistantInput" placeholder="Frag Kiek zur Karte, zu Zeiten, zum Tisch …" onkeypress="if(event.key==='Enter')sendAssistantMessage()" aria-label="Frage an Kiek">
             <button onclick="sendAssistantMessage()">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
             </button>
@@ -54033,6 +54058,7 @@ function filterMap(filter) {
 
 // ==================== KI ASSISTENT ====================
 function openAssistant() {
+    try { kiekVorschlaege(); } catch (e) {}
     document.getElementById('assistantOverlay').classList.add('active');
     document.getElementById('assistantInput').focus();
 }
@@ -55055,30 +55081,94 @@ var _assistantChatHistory = [];   // letzte Nachrichten für KI-Kontext
 // gelesen, der Gast bezahlt es also in Wartezeit. Vorher gingen 40 Restaurants
 // mit Bewertung, Preisklasse und Abhol-Flag plus 25 Gerichte raus -- rund 2000
 // Wortteile pro Frage, von denen die KI fast nichts brauchte.
+// WAS KIEK WEISS (11.11.2026, Ibo: "es muss viel intelligenter sein").
+//
+// Vorher: die ersten 20 Gerichte (nur Name + Preis) und 25 Restaurant-
+// namen. Fragen wie "Was ist ohne Nuesse?" oder "Wer hat jetzt auf?" konnte
+// Kiek gar nicht richtig beantworten -- die Angaben fehlten.
+//
+// Jetzt: die ganze Karte des offenen Lokals (bis 60 Gerichte) mit Nummer,
+// Preis bzw. Groessen, kurzer Beschreibung, Allergenen und vegetarisch/
+// vegan/scharf -- und bei jedem Lokal, ob es JETZT offen ist und bis wann.
+//
+// Jedes Gericht und jedes Lokal bekommt ein kurzes Kennzeichen (g12, r3).
+// Damit setzt Kiek Knoepfe in die Antwort ("+ Korb", "Tisch anfragen"),
+// ohne lange IDs abzuschreiben -- und der Browser prueft jedes Kennzeichen
+// gegen diese Liste. Ein erfundenes Kennzeichen ergibt keinen Knopf.
+var _kiekRefs = { g: {}, r: {} };
+function kiekGerichtZeile(m, ref) {
+    var preis = '';
+    if (Array.isArray(m.sizes) && m.sizes.length) {
+        preis = m.sizes.map(function (z) { return (z.name || '') + ' ' + Number(z.price || 0).toFixed(2).replace('.', ','); }).join(' / ');
+    } else {
+        var p = m.base_price != null ? m.base_price : m.price;
+        if (p != null && !isNaN(Number(p))) preis = Number(p).toFixed(2).replace('.', ',');
+    }
+    var merk = [];
+    if (m.is_vegan) merk.push('vegan'); else if (m.is_vegetarian) merk.push('vegetarisch');
+    if (Number(m.is_spicy) > 0) merk.push('scharf');
+    var allerg = Array.isArray(m.allergens) ? m.allergens.filter(Boolean).join('') : '';
+    return {
+        ref: ref,
+        nr: (typeof getDishNumber === 'function' ? getDishNumber(m) : (m.dish_number || '')) || '',
+        name: m.name,
+        preis: preis,
+        kategorie: (m.menu_categories && m.menu_categories.name) || m.category_name || '',
+        info: String(m.description || '').slice(0, 40),
+        allergene: allerg,
+        merkmale: merk.join(',')
+    };
+}
+function kiekLokalStand(r) {
+    var st = { offen: false, text: '' };
+    try {
+        st.offen = typeof checkIfOpen === 'function' ? !!checkIfOpen(r) : false;
+        if (st.offen && typeof getClosingTimeToday === 'function') st.text = 'offen bis ' + getClosingTimeToday(r);
+        else if (typeof getOpeningTimeToday === 'function') { var o = getOpeningTimeToday(r); st.text = o ? 'öffnet heute ' + o : 'heute zu'; }
+    } catch (e) {}
+    return st;
+}
 async function _kinContext() {
     var context = {};
+    _kiekRefs = { g: {}, r: {} };
     try {
         if (window.APP_DATA && Array.isArray(APP_DATA.restaurants)) {
             context.restaurants = APP_DATA.restaurants
                 .filter(function(r) { return r && r.is_active !== false; })
-                .slice(0, 25)
-                .map(function(r) {
+                .slice(0, 40)
+                .map(function(r, i) {
+                    var ref = 'r' + (i + 1);
+                    _kiekRefs.r[ref] = r;
+                    var f = Array.isArray(r.features) ? r.features : [];
+                    var st = kiekLokalStand(r);
                     return {
+                        ref: ref,
                         name: r.name,
                         city: r.city || '',
                         cuisine: r.cuisine || '',
-                        delivery: !!r.has_delivery || !!r.delivery
+                        delivery: !!r.has_delivery || !!r.delivery || f.indexOf('lieferung') >= 0,
+                        stand: st.text,
+                        reservieren: f.indexOf('no_reservations') < 0,
+                        bestellen: f.indexOf('no_ordering') < 0
                     };
                 });
         }
-        var openRid = window.currentRestaurantId || null;
+        var openRid = window.currentRestaurantId || (window.currentOrderRestaurant && currentOrderRestaurant.id) || null;
         if (openRid && window.APP_DATA && APP_DATA.restaurants) {
             var openRest = APP_DATA.restaurants.find(function(r) { return r.id === openRid; });
             if (openRest) {
+                var refOffen = Object.keys(_kiekRefs.r).filter(function (k) { return _kiekRefs.r[k] === openRest; })[0];
+                if (!refOffen) { refOffen = 'r0'; _kiekRefs.r.r0 = openRest; }
+                var st0 = kiekLokalStand(openRest);
+                var abhol = 0;
+                try { abhol = typeof vorbereitungsMinuten === 'function' ? vorbereitungsMinuten(openRest, 'pickup') : 0; } catch (e) {}
                 context.currentRestaurant = {
+                    ref: refOffen,
                     name: openRest.name,
                     city: openRest.city || '',
-                    cuisine: openRest.cuisine || ''
+                    cuisine: openRest.cuisine || '',
+                    stand: st0.text,
+                    abholung: abhol ? 'Abholung in ca. ' + abhol + ' Min' : ''
                 };
                 try {
                     if (typeof assistantLoadDishes === 'function' &&
@@ -55087,20 +55177,101 @@ async function _kinContext() {
                     }
                 } catch (loadErr) { /* ohne Speisekarte antwortet die KI trotzdem */ }
                 if (window._assistantMenuCache && _assistantMenuCache[openRid]) {
-                    context.currentMenu = _assistantMenuCache[openRid].slice(0, 20).map(function(m) {
-                        return {
-                            name: m.name,
-                            price: m.base_price != null ? m.base_price : m.price,
-                            category: (m.menu_categories && m.menu_categories.name) || m.category_name || ''
-                        };
+                    context.currentMenu = _assistantMenuCache[openRid].slice(0, 60).map(function(m, i) {
+                        var ref = 'g' + (i + 1);
+                        _kiekRefs.g[ref] = { item: m, restaurant: openRest };
+                        return kiekGerichtZeile(m, ref);
                     });
                 }
             }
         }
         if (window._userCity) context.userCity = window._userCity;
+        try { context.jetzt = new Date().toLocaleString('de-DE', { weekday: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' }); } catch (e) {}
     } catch (ctxErr) { console.warn('Context-Gathering Fehler:', ctxErr); }
     return context;
 }
+
+// KNOEPFE IN DER ANTWORT. Kiek haengt sie als [[korb:g12]], [[lokal:r3]]
+// oder [[tisch:r3|19:30|4]] an. Im Text sieht der Gast sie nie -- auch
+// waehrend des Schreibens nicht (ein halbes "[[ko" am Ende wird versteckt).
+var KIEK_KNOPF_RE = /\[\[(korb|lokal|tisch):([a-z]\d{1,3})(?:\|(\d{1,2}:\d{2}))?(?:\|(\d{1,2}))?\]\]/g;
+function kiekTextOhneKnoepfe(text) {
+    return String(text || '').replace(KIEK_KNOPF_RE, '').replace(/\[\[[^\]]*$/, '').replace(/\n{3,}/g, '\n\n').trim();
+}
+function kiekKnoepfeLesen(text, refs) {
+    refs = refs || _kiekRefs;
+    var aus = [], gesehen = {};
+    String(text || '').replace(KIEK_KNOPF_RE, function (_, art, ref, zeit, pers) {
+        var key = art + ref + (zeit || '') + (pers || '');
+        if (gesehen[key] || aus.length >= 4) return '';
+        if (art === 'korb' && refs.g[ref]) { gesehen[key] = 1; aus.push({ art: art, ref: ref, eintrag: refs.g[ref] }); }
+        else if ((art === 'lokal' || art === 'tisch') && refs.r[ref]) {
+            var p = parseInt(pers, 10);
+            gesehen[key] = 1;
+            aus.push({ art: art, ref: ref, lokal: refs.r[ref], zeit: zeit || '', personen: p > 0 && p <= 30 ? p : 0 });
+        }
+        return '';
+    });
+    return aus;
+}
+function kiekKnoepfeHtml(knoepfe) {
+    if (!knoepfe || !knoepfe.length) return '';
+    var esc = function (x) { return String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
+    return '<div class="kiek-knoepfe">' + knoepfe.map(function (k, i) {
+        if (k.art === 'korb') {
+            var m = k.eintrag.item, z = kiekGerichtZeile(m, k.ref);
+            return '<div class="kiek-gericht">' + (z.nr ? '<span class="kin-nr">' + esc(z.nr) + '</span>' : '')
+                + '<div class="kiek-gericht-text"><b>' + esc(m.name) + '</b>' + (z.preis ? '<small>' + esc(z.preis) + ' €</small>' : '') + '</div>'
+                + '<button type="button" class="kiek-korb" data-kiek="' + i + '" aria-label="' + esc(m.name) + ' in den Warenkorb">+ Korb</button></div>';
+        }
+        if (k.art === 'tisch') {
+            return '<button type="button" class="kiek-tisch" data-kiek="' + i + '">Tisch anfragen · ' + esc(k.lokal.name)
+                + (k.zeit ? ' · ' + esc(k.zeit) : '') + (k.personen ? ' · ' + k.personen + ' Pers.' : '') + '</button>';
+        }
+        return '<button type="button" class="kiek-lokal" data-kiek="' + i + '">' + esc(k.lokal.name) + ' öffnen</button>';
+    }).join('') + '</div>';
+}
+async function kiekKnopfAusfuehren(k) {
+    if (!k) return;
+    try {
+        if (k.art === 'korb') {
+            var m = k.eintrag.item, r = k.eintrag.restaurant;
+            // Der Weg ueber das Gericht-Fenster: Groesse, Extras und "Bitte
+            // ohne" waehlt der Gast wie immer -- Kiek legt nichts heimlich in den Korb.
+            if (!(window.currentOrderRestaurant && currentOrderRestaurant.id === r.id) && typeof openMenuModal === 'function') {
+                closeAssistant();
+                await openMenuModal(r.id);
+            } else closeAssistant();
+            if (typeof openItemOptions === 'function') openItemOptions(m.id, m);
+            return;
+        }
+        closeAssistant();
+        if (k.art === 'tisch') {
+            if (typeof openReservation === 'function') openReservation(k.lokal.id);
+            if (k.personen && typeof resGuestSelect === 'function') setTimeout(function () { try { resGuestSelect(k.personen); } catch (e) {} }, 300);
+            if (k.zeit && typeof showToast === 'function') setTimeout(function () { showToast('Kiek schlägt ' + k.zeit + ' Uhr vor – bitte die Uhrzeit wählen.', 'info'); }, 600);
+            return;
+        }
+        if (typeof openRestaurantBySlug === 'function') openRestaurantBySlug(k.lokal.slug || k.lokal.id);
+    } catch (e) {
+        if (typeof showToast === 'function') showToast('Das hat nicht geklappt – bitte direkt über die Karte.', 'error');
+    }
+}
+window.kiekKnopfAusfuehren = kiekKnopfAusfuehren;
+// Vorschlaege passend zur Seite: auf einem Lokal Fragen zur Karte, sonst zum Ort.
+function kiekVorschlaege() {
+    var el = document.getElementById('assistantSuggestions');
+    if (!el) return;
+    var aufLokal = !!(window.currentRestaurantId || (window.currentOrderRestaurant && currentOrderRestaurant.id));
+    var liste = aufLokal
+        ? ['Was ist vegetarisch?', 'Was ist ohne Nüsse?', 'Habt ihr jetzt auf?', 'Tisch für heute Abend, 4 Personen']
+        : ['Wer hat jetzt auf?', 'Wo gibt es guten Fisch?', 'Wer liefert?', 'Tisch für heute Abend, 4 Personen'];
+    el.innerHTML = liste.map(function (q) {
+        return '<button type="button" data-frage="' + q.replace(/"/g, '&quot;') + '">' + q + '</button>';
+    }).join('');
+    el.onclick = function (e) { var b = e.target.closest ? e.target.closest('[data-frage]') : null; if (b) askAssistant(b.getAttribute('data-frage')); };
+}
+window.kiekVorschlaege = kiekVorschlaege;
 
 // KI fragen und die Antwort Wort für Wort in die Sprechblase schreiben.
 // offlineFallback = vorgefertigter Text, der genommen wird, wenn die KI
@@ -55129,7 +55300,7 @@ async function askKinAI(userMessage, offlineFallback) {
             container.appendChild(div);
             bubble = div.querySelector('.message-content');
         }
-        bubble.innerHTML = formatAssistantReply(full);
+        bubble.innerHTML = formatAssistantReply(kiekTextOhneKnoepfe(full));
         var c = document.getElementById('assistantMessages');
         if (c) c.scrollTop = c.scrollHeight;
     }
@@ -55150,7 +55321,7 @@ async function askKinAI(userMessage, offlineFallback) {
                 if (r.done) break;
                 push(dec.decode(r.value, { stream: true }));
             }
-            if (full.trim()) { _kinRemember(userMessage, full); return; }
+            if (full.trim()) { kiekKnoepfeAnhaengen(bubble, full); _kinRemember(userMessage, kiekTextOhneKnoepfe(full)); return; }
         }
     } catch (e) {
         console.warn('[KIN] Streamen nicht möglich, nehme die normale Antwort:', e.message);
@@ -55167,8 +55338,12 @@ async function askKinAI(userMessage, offlineFallback) {
         var data = await res2.json().catch(function() { return {}; });
         if (data && data.reply) {
             hideTyping();
-            addMessage(formatAssistantReply(data.reply), 'bot');
-            _kinRemember(userMessage, data.reply);
+            addMessage(formatAssistantReply(kiekTextOhneKnoepfe(data.reply)), 'bot');
+            try {
+                var _alle = document.querySelectorAll('#assistantMessages .assistant-message.bot .message-content');
+                kiekKnoepfeAnhaengen(_alle[_alle.length - 1], data.reply);
+            } catch (e) {}
+            _kinRemember(userMessage, kiekTextOhneKnoepfe(data.reply));
             return;
         }
     } catch (e) {
@@ -55182,6 +55357,24 @@ async function askKinAI(userMessage, offlineFallback) {
     } else {
         addMessage('Ich bin gerade nicht erreichbar. Probier es gleich nochmal – oder schreib an <strong>info@kiekmolin.de</strong>.', 'bot');
     }
+}
+
+function kiekKnoepfeAnhaengen(bubble, text) {
+    if (!bubble) return;
+    var k = kiekKnoepfeLesen(text);
+    if (!k.length) return;
+    var box = document.createElement('div');
+    box.innerHTML = kiekKnoepfeHtml(k);
+    var inhalt = box.firstChild;
+    if (!inhalt) return;
+    inhalt.addEventListener('click', function (e) {
+        var b = e.target.closest ? e.target.closest('[data-kiek]') : null;
+        if (b) kiekKnopfAusfuehren(k[parseInt(b.getAttribute('data-kiek'), 10)]);
+    });
+    bubble.parentNode.style.flexWrap = 'wrap';
+    bubble.parentNode.appendChild(inhalt);
+    var c = document.getElementById('assistantMessages');
+    if (c) c.scrollTop = c.scrollHeight;
 }
 
 function _kinRemember(userMessage, reply) {

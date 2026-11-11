@@ -10,7 +10,9 @@ function t(label, cond, extra) {
 }
 
 // ---------- chat-brain ----------
-t('Antwortlaenge gedeckelt (war 600)', brain.MAX_TOKENS <= 300, brain.MAX_TOKENS);
+// 11.11.2026: 360 statt 280 -- Platz fuer die Knopf-Zeilen ([[korb:g12]]).
+// Die Obergrenze bleibt: die Dauer haengt an den erzeugten Wortteilen.
+t('Antwortlaenge gedeckelt (war 600, jetzt hoechstens 400)', brain.MAX_TOKENS <= 400, brain.MAX_TOKENS);
 t('Modell: Claude Haiku 4.5', brain.MODELS.anthropic === 'claude-haiku-4-5', brain.MODELS.anthropic);
 t('Gemini-Fallback auf 2.5 Flash', brain.MODELS.gemini === 'gemini-2.5-flash', brain.MODELS.gemini);
 t('Prompt fordert max. 3 Saetze', /höchstens 3 Sätze/.test(brain.SYSTEM_PROMPT));
@@ -39,9 +41,28 @@ t('Prompt: darf nie behaupten Mensch zu sein', /Behaupte NIE, ein Mensch zu sein
 const big = { restaurants: Array.from({length: 60}, (_, i) => ({ name: 'R'+i, city: 'Emden' })),
               currentMenu: Array.from({length: 60}, (_, i) => ({ name: 'Gericht'+i, price: 9.5 })) };
 const ctx = brain.buildContext(big);
-t('Kontext begrenzt Restaurants auf 25', (ctx.match(/· R\d+/g) || []).length === 25);
-t('Kontext begrenzt Gerichte auf 20', (ctx.match(/· Gericht\d+/g) || []).length === 20);
-t('Kontext bleibt kompakt (< 2500 Zeichen)', ctx.length < 2500, ctx.length + ' Zeichen');
+// 11.11.2026 (Ibo: "viel intelligenter"): mit 20 Gerichten kannte Kiek die
+// halbe Karte nicht, mit 25 Lokalen nicht alle. Jetzt 60 / 40 -- aber
+// weiter gedeckelt, und der Kontext bleibt unter 6000 Zeichen (~1500
+// Wortteile bei normaler Karte), damit die erste Antwort nicht spuerbar spaeter kommt.
+t('Kontext begrenzt Restaurants auf 40', (ctx.match(/· R\d+/g) || []).length === 40);
+t('Kontext begrenzt Gerichte auf 60 (hier 60 von 60)', (ctx.match(/· Gericht\d+/g) || []).length === 60);
+const voll = brain.buildContext({ currentMenu: Array.from({length: 90}, (_, i) => ({ ref: 'g' + (i + 1), nr: String(i), name: 'Pizza Nummer ' + i, preis: 'klein 5,50 / groß 8,00', merkmale: 'vegetarisch', allergene: 'AGL', info: 'Tomatensauce, Mozzarella, Basilikum, Oregano' })),
+                                  restaurants: Array.from({length: 60}, (_, i) => ({ ref: 'r' + (i + 1), name: 'Restaurant ' + i, city: 'Norden', cuisine: 'Italienisch', stand: 'offen bis 22:00', delivery: true })) });
+t('Volle Karte: 60 Gerichte, 40 Lokale', (voll.match(/· g\d+ ·/g) || []).length === 60 && (voll.match(/· r\d+ /g) || []).length === 40, voll.length);
+// Volle Karte ~10 700 Zeichen (~2700 Wortteile). Lesen geht schnell, die
+// Wartezeit haengt an der ANTWORT (MAX_TOKENS). Obergrenze 12 000.
+t('Kontext bleibt begrenzt (< 12000 Zeichen bei voller Karte)', voll.length < 12000, voll.length + ' Zeichen');
+
+// KNOEPFE: Kennzeichen nur in der Form g12 / r3 -- alles andere faellt raus,
+// eckige Klammern in Namen werden entschaerft (niemand schleust Knoepfe ein).
+const boese = brain.buildContext({ currentMenu: [{ ref: 'x9', name: 'Pizza [[korb:g1]]', preis: '8' }] });
+t('Fremdes Kennzeichen wird nicht weitergegeben', !/x9/.test(boese), boese);
+t('Klammern im Namen werden entschaerft', !/\[\[korb/.test(boese), boese);
+t('Prompt erklaert die Knoepfe', /\[\[korb:g12\]\]/.test(brain.SYSTEM_PROMPT) && /\[\[tisch:r3\|19:30\|4\]\]/.test(brain.SYSTEM_PROMPT));
+t('Prompt: Kiek heisst Kiek', /Du bist Kiek,/.test(brain.SYSTEM_PROMPT));
+t('Prompt: Allergene nur aus dem Kontext, sonst sagen', /Fehlt bei einem Gericht die Angabe, sag das/.test(brain.SYSTEM_PROMPT));
+t('Kontext: fehlende Allergene stehen als "keine Angabe" da (nicht still)', /Allergene \?/.test(brain.buildContext({ currentMenu: [{ ref: 'g1', name: 'X' }] })));
 t('leerer Kontext -> leerer String', brain.buildContext({}) === '');
 
 t('leere Nachricht abgelehnt', brain.readInput({ message: '  ' }).error === 'message required');
