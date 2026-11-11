@@ -11420,6 +11420,38 @@
 
         /* Karte wie im Entwurf */
         .kin-pos { display: flex; justify-content: space-between; gap: 8px; font-size: 15px; color: #191c1d; }
+        /* KIEK (11.11.2026, Entwurf in Claude Design): ein Knopf mit Namen statt
+           eines kleinen Kreises -- in 7 Tagen hatte der Chat null Aufrufe. */
+        #assistantBtn.kiek-knopf { width: auto !important; height: 56px !important; padding: 0 20px 0 8px !important; border-radius: 9999px !important;
+            display: flex !important; align-items: center; gap: 8px; background: #003d33 !important; color: #ffffff !important; }
+        .kiek-knopf-marke { width: 40px; height: 40px; border-radius: 50%; background: #fed65b; color: #00251e; display: flex; align-items: center; justify-content: center;
+            font: 900 12px Epilogue, sans-serif; letter-spacing: -0.02em; }
+        .kiek-knopf-text { font: 800 16px Epilogue, sans-serif; color: #ffffff; white-space: nowrap; }
+        .dark-mode .kiek-knopf-marke { color: #00251e !important; }
+        .dark-mode .kiek-knopf-text { color: #ffffff !important; }
+        #assistantBtn.kiek-knopf.kiek-knopf-weg { opacity: 0 !important; pointer-events: none !important; transform: translateY(12px) !important; }
+        @media (max-width: 600px) { #assistantBtn.kiek-knopf { height: 52px !important; bottom: 96px !important; right: 12px !important; } }
+        .kiek-knoepfe { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; flex-basis: 100%; width: 100%; }
+        .assistant-message.bot:has(.kiek-knoepfe) { flex-wrap: wrap; max-width: 92%; }
+        .kiek-gericht { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 12px; border-radius: 20px; background: #ffffff; border: 1px solid rgba(0,0,0,0.07); }
+        .kiek-gericht-text { flex-grow: 1; min-width: 0; display: flex; flex-direction: column; }
+        .kiek-gericht-text b { font-size: 15px; color: #191c1d; }
+        .kiek-gericht-text small { font-size: 12px; color: #404946; }
+        .kiek-korb { min-height: 44px; padding: 0 14px; border: 0; border-radius: 9999px; background: #fed65b; color: #00251e; font: 800 14px Epilogue, sans-serif; cursor: pointer; white-space: nowrap; }
+        .kiek-tisch, .kiek-lokal { min-height: 48px; padding: 10px 18px; line-height: 1.3; border: 0; border-radius: 9999px; font: 800 15px Epilogue, sans-serif; cursor: pointer; text-align: left; }
+        .kiek-tisch { background: #fed65b; color: #00251e; }
+        .kiek-lokal { background: #003d33; color: #ffffff; }
+        .dark-mode .kiek-gericht { background: #1a2e27; border-color: rgba(255,255,255,0.08); }
+        .dark-mode .kiek-gericht-text b { color: #e8eeec !important; }
+        .dark-mode .kiek-gericht-text small { color: #9ca8a4 !important; }
+        .dark-mode .kiek-korb, .dark-mode .kiek-tisch { background: #fed65b; color: #00251e !important; }
+        .dark-mode .kiek-lokal { color: #ffffff !important; }
+        /* Gerichtnummer: kleines Schild vor dem Namen, wie auf der Karte des Hauses. */
+        .kin-nr { display: inline-block; min-width: 1.9em; padding: 1px 7px; margin-right: 2px; border-radius: 8px; background: #003d33; color: #ffffff;
+            font-family: 'Epilogue', sans-serif; font-weight: 800; font-size: 0.86em; text-align: center; line-height: 1.45; vertical-align: 1px; font-variant-numeric: tabular-nums; }
+        .dark-mode .kin-nr { background: #fed65b; color: #00251e !important; }
+        .kds2 .kin-nr { background: #fed65b; color: #00251e; }
+        .dark-mode .kds2 .kin-nr { background: #fed65b; color: #00251e !important; }
         .kin-pos b { font-weight: 800; }
         .kin-pos > b { white-space: nowrap; }
         .kin-pos-extra { font-size: 13px; color: #735c00; padding-left: 22px; margin-top: -2px; }
@@ -12279,6 +12311,141 @@
         .dark-mode .kin-dash-gericht.aus { background: rgba(185,28,28,0.25); } .dark-mode .kin-dash-gericht b { color: #86efac; } .dark-mode .kin-dash-gericht.aus b { color: #fca5a5; }
         .dark-mode #kinDashSteuerSlot #dashSteuerung span:not(.material-symbols-outlined), .dark-mode #kinDashSteuerSlot #dashSteuerung div { color: var(--text-primary, #e8eeec); }
         .dark-mode #kinDashSteuerSlot #dashSteuerung, .dark-mode #kinDashSteuerSlot #dashSteuerung > div { color: var(--text-primary, #e8eeec) !important; }
+
+        /* TABLET-MODUS (thekeAn). Die Bestellseite legt sich ueber alles --
+           Seitenleiste, Kopf, Werkzeuge und Einstellungen sind darunter,
+           nicht weg. Unter den Dialogen (.modal-overlay 2000, Annehmen 10005),
+           damit "Andere Zeit" und "Ablehnen" weiter funktionieren. */
+        body.kin-theke { overflow: hidden; }
+        body.kin-theke[data-theke-ansicht="bestellungen"] #sectionOrders,
+        body.kin-theke[data-theke-ansicht="reservierungen"] #sectionReservations { display: block !important; position: fixed; left: 0; right: 0; bottom: 0;
+            top: var(--kin-theke-h, 68px); z-index: 1500; overflow-y: auto; -webkit-overflow-scrolling: touch;
+            margin: 0; padding: 18px 20px 32px; background: #eef2f0; max-width: none; }
+        /* Die Leiste haengt im Tablet-Modus direkt am body (thekeAn) und steht fest oben. */
+        body.kin-theke #thekeLeiste { position: fixed; top: 0; left: 0; right: 0; margin: 0; z-index: 1600; }
+        /* Reservierungen: nur "Heute" -- Wartet auf Bestaetigung + der Tag nach Uhrzeit. */
+        body.kin-theke[data-theke-ansicht="reservierungen"] #sectionReservations > *:not(#resTabHeute):not(.kmi-stand) { display: none !important; }
+        body.kin-theke[data-theke-ansicht="reservierungen"] #resTabHeute { display: block !important; }
+        /* Die Tage-Leiste (heute + 6 Tage) bleibt: Ibo 11.11.2026 "Beim Reservieren auch
+           den Kalender rein". Beim Wechsel in den Reiter steht sie immer auf heute. */
+        body.kin-theke .kin-res-tagknopf { min-height: 64px; min-width: 64px; }
+        body.kin-theke .kin-res-karte .kin-res-bestaetigen { min-height: 56px; font-size: 17px; }
+        body.kin-theke .kin-res-gast { min-height: 60px; }
+        body.kin-theke .kin-res-btn { min-height: 48px; }
+        body.kin-theke[data-theke-ansicht="reservierungen"] .kin-theke-zahlen { display: none; }
+        .dark-mode body.kin-theke[data-theke-ansicht="reservierungen"] #sectionReservations { background: #0a1612; }
+        .kin-theke-reiter { display: flex; gap: 4px; padding: 4px; border-radius: 9999px; background: rgba(255,255,255,0.1); }
+        .kin-theke-reiter[hidden] { display: none; }
+        .kin-theke-res-knoepfe { display: none; gap: 8px; }
+        /* Mit den zwei Knoepfen wird die Leiste voll: Abstaende enger, "Halten zum
+           Beenden" nur als Ring (der Name bleibt fuer Vorleser im aria-label). */
+        body.kin-theke[data-theke-ansicht="reservierungen"] .kin-theke-leiste { gap: 12px; }
+        body.kin-theke[data-theke-ansicht="reservierungen"] .kin-theke-raus-text { display: none; }
+        body.kin-theke[data-theke-ansicht="reservierungen"] .kin-theke-raus { padding: 0 0 0 44px; width: 44px; }
+        body.kin-theke[data-theke-ansicht="reservierungen"] .kin-theke-res-knoepfe { display: flex; }
+        .kin-theke-walkin, .kin-theke-neu { min-height: 44px; padding: 0 18px; border-radius: 9999px; font: 700 15px Epilogue, sans-serif; cursor: pointer; }
+        .kin-theke-walkin { border: 0; background: #fed65b; color: #00251e; }
+        .kin-theke-neu { border: 1px solid rgba(255,255,255,0.35); background: transparent; color: #ffffff; }
+        .dark-mode .kin-theke-walkin { background: #fed65b; color: #00251e !important; }
+        /* Walk-in: ein Fenster, drei Angaben, ein Knopf. */
+        .kin-walkin-grund { position: fixed; inset: 0; z-index: 10020; display: flex; align-items: center; justify-content: center; padding: 16px;
+            background: rgba(0,25,20,0.55); }
+        .kin-walkin { width: min(520px, 100%); box-sizing: border-box; background: #ffffff; color: #191c1d; border-radius: 34px; padding: 26px;
+            display: flex; flex-direction: column; gap: 16px; box-shadow: 0 32px 64px -12px rgba(0,37,30,0.25); font-family: Inter, sans-serif; }
+        .kin-walkin h2 { margin: 0; font: 900 26px Epilogue, sans-serif; color: #00251e; }
+        .kin-walkin p { margin: -8px 0 0; font-size: 15px; color: #404946; }
+        .kin-walkin-etikett { font-size: 12px; font-weight: 700; letter-spacing: 0.15em; color: #404946; }
+        .kin-walkin-pers { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+        .kin-walkin-pers button { min-height: 60px; border: 1.5px solid rgba(0,61,51,0.18); border-radius: 12px; background: #ffffff; color: #00251e;
+            font: 800 22px Epilogue, sans-serif; cursor: pointer; }
+        .kin-walkin-pers button.aktiv { background: #003d33; border-color: #003d33; color: #ffffff; }
+        .kin-walkin-mehr { display: flex; align-items: center; gap: 8px; }
+        .kin-walkin-mehr span { flex-grow: 1; font-size: 14px; font-weight: 600; color: #404946; }
+        .kin-walkin-mehr button { width: 52px; height: 52px; border-radius: 50%; border: 1.5px solid rgba(0,61,51,0.18); background: #ffffff; color: #003d33;
+            font: 800 24px Epilogue, sans-serif; cursor: pointer; }
+        #kinWalkInZahl { width: 84px !important; text-align: center; font: 800 20px Epilogue, sans-serif !important; padding: 0 8px !important; }
+        .dark-mode .kin-walkin-mehr button { background: #111f1a; color: #e8eeec !important; }
+        .kin-walkin input, .kin-walkin select { min-height: 52px; border: 1.5px solid rgba(0,61,51,0.18) !important; border-radius: 9999px !important; padding: 0 18px !important;
+            font: 500 16px Inter, sans-serif; background: #fafafa !important; color: #191c1d; width: 100%; box-sizing: border-box; }
+        /* Ein globales Glas-Feld (weisser Rand, halbdurchsichtig) gewinnt sonst --
+           auf Weiss war das Tisch-Feld dadurch unsichtbar. */
+        #kinWalkInTisch, #kinWalkInName { border: 1.5px solid rgba(0,61,51,0.22) !important; background-color: #fafafa !important; border-radius: 9999px !important; }
+        .dark-mode #kinWalkInTisch, .dark-mode #kinWalkInName { background-color: #111f1a !important; border-color: rgba(255,255,255,0.18) !important; }
+        .kin-walkin-reihe { display: flex; gap: 10px; }
+        .kin-walkin-reihe > * { flex: 1; min-width: 0; }
+        .kin-walkin-los { min-height: 58px; border: 0; border-radius: 9999px; background: #003d33; color: #ffffff; font: 800 18px Epilogue, sans-serif; cursor: pointer; }
+        .kin-walkin-los:disabled { opacity: 0.6; }
+        .kin-walkin-ab { min-height: 48px; border: 0; background: transparent; color: #404946; font: 600 15px Inter, sans-serif; cursor: pointer; }
+        .dark-mode .kin-walkin { background: #1a2e27; }
+        .dark-mode .kin-walkin h2, .dark-mode .kin-walkin-pers button { color: #e8eeec !important; }
+        .dark-mode .kin-walkin-pers button { background: #111f1a; }
+        .dark-mode .kin-walkin-pers button.aktiv { background: #9cd1c3; color: #00251e !important; }
+        .dark-mode .kin-walkin input, .dark-mode .kin-walkin select { background: #111f1a !important; color: #e8eeec; }
+        /* Mit Reitern stehen die Zahlen schon dort ("1 neu") und ueber den Spalten --
+           die drei Chips wuerden die Leiste in zwei Zeilen brechen. */
+        .kin-theke-reiter:not([hidden]) ~ .kin-theke-zahlen { display: none; }
+        @media (max-width: 1300px) { .kin-theke-reiter:not([hidden]) ~ .kin-theke-lokal { display: none; } }
+        .kin-theke-reiter button { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border: 0; border-radius: 9999px;
+            background: transparent; color: #cfe3dc; font: 700 16px Epilogue, sans-serif; cursor: pointer; }
+        .kin-theke-reiter button.aktiv { background: #ffffff; color: #00251e; font-weight: 800; }
+        .kin-theke-reiter button.ruft:not(.aktiv) { color: #ffffff; box-shadow: inset 0 0 0 2px #fed65b; }
+        .kin-theke-reiter-zahl { min-width: 24px; padding: 1px 8px; border-radius: 9999px; background: rgba(255,255,255,0.14); color: #ffffff; font-size: 13px; text-align: center; }
+        .kin-theke-reiter button.aktiv .kin-theke-reiter-zahl { background: #edeeef; color: #00251e; }
+        .kin-theke-reiter-zahl.neu, .kin-theke-reiter button.aktiv .kin-theke-reiter-zahl.neu { background: #fed65b; color: #00251e; }
+        .dark-mode .kin-theke-reiter button.aktiv { background: #ffffff; color: #00251e !important; }
+        .dark-mode .kin-theke-reiter button.aktiv .kin-theke-reiter-zahl { background: #edeeef; color: #00251e !important; }
+        .dark-mode .kin-theke-reiter-zahl.neu, .dark-mode .kin-theke-reiter button.aktiv .kin-theke-reiter-zahl.neu { background: #fed65b; color: #00251e !important; }
+        body.kin-theke #sectionOrders > header.kin-bk,
+        body.kin-theke #ordersEinstellungen,
+        body.kin-theke #sectionOrders .kin-reiter,
+        body.kin-theke #ordersMehr,
+        body.kin-theke #fahrerLeiste .fahrer-zeile:has(.fahrer-leer) { display: none !important; }
+        .dark-mode body.kin-theke[data-theke-ansicht="bestellungen"] #sectionOrders, body.kin-theke.dark-mode #sectionOrders { background: #0a1612; }
+        .kin-theke-leiste { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+            margin: 0 0 18px; padding: 12px 20px; padding-top: max(12px, env(safe-area-inset-top));
+            background: #003d33; color: #ffffff; box-shadow: 0 6px 20px -8px rgba(0,37,30,0.45); }
+        .kin-theke-leiste[hidden] { display: none; }
+        .kin-theke-marke { font-family: 'Epilogue', sans-serif; font-weight: 800; font-size: 20px; letter-spacing: -0.02em; color: #ffffff; }
+        .kin-theke-marke b { color: #fed65b; font-weight: 800; }
+        .dark-mode .kin-theke-marke b { color: #fed65b !important; }
+        .kin-theke-lokal { font-size: 15px; font-weight: 600; color: #cfe3dc; max-width: 26ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .kin-theke-live { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #b8eddf; }
+        .kin-theke-live.aus { color: #fecaca; }
+        .kin-theke-punkt { width: 9px; height: 9px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 0 0 rgba(74,222,128,0.6); animation: kinThekePuls 2s infinite; }
+        .kin-theke-live.aus .kin-theke-punkt { background: #f87171; animation: none; }
+        @keyframes kinThekePuls { 0% { box-shadow: 0 0 0 0 rgba(74,222,128,0.55); } 70% { box-shadow: 0 0 0 8px rgba(74,222,128,0); } 100% { box-shadow: 0 0 0 0 rgba(74,222,128,0); } }
+        .kin-theke-zahlen { display: flex; gap: 8px; }
+        .kin-theke-zahl { display: inline-flex; align-items: baseline; gap: 6px; padding: 6px 14px; border-radius: 9999px; background: rgba(255,255,255,0.1); font-size: 13px; font-weight: 600; color: #cfe3dc; }
+        .kin-theke-zahl b { font-family: 'Epilogue', sans-serif; font-size: 20px; font-weight: 800; color: #ffffff; }
+        .kin-theke-zahl.neu.da { background: #fed65b; color: #00251e; }
+        .kin-theke-zahl.neu.da b { color: #00251e !important; }
+        .dark-mode .kin-theke-zahl.neu.da { background: #ffd54f; color: #00251e !important; }
+        .kin-theke-rechts { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+        .kin-theke-drucker { font-size: 13px; font-weight: 600; color: #cfe3dc; display: inline-flex; align-items: center; gap: 6px; }
+        .kin-theke-drucker:empty { display: none; }
+        .kin-theke-knopf { min-height: 44px; padding: 0 16px; border-radius: 9999px; border: 1px solid rgba(255,255,255,0.25); background: transparent; color: #ffffff;
+            font: 600 14px Inter, sans-serif; cursor: pointer; }
+        .kin-theke-knopf[aria-pressed="false"] { color: #fecaca; border-color: rgba(254,202,202,0.45); }
+        .kin-theke-uhr { font-family: 'Epilogue', sans-serif; font-size: 26px; font-weight: 800; color: #ffffff; font-variant-numeric: tabular-nums; min-width: 3.2em; text-align: right; }
+        .kin-theke-raus { position: relative; min-height: 44px; padding: 0 16px 0 44px; border-radius: 9999px; border: 0; background: rgba(255,255,255,0.12); color: #ffffff;
+            font: 600 13px Inter, sans-serif; cursor: pointer; overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
+        .kin-theke-raus-ring { position: absolute; left: 12px; top: 50%; width: 22px; height: 22px; margin-top: -11px; border-radius: 50%;
+            background: conic-gradient(#fed65b calc(var(--kin-halten, 0) * 1turn), rgba(255,255,255,0.25) 0); }
+        .kin-theke-raus-ring::after { content: ''; position: absolute; inset: 4px; border-radius: 50%; background: #0f4a3f; }
+        .kin-theke-start { background: #003d33 !important; color: #ffffff !important; border-color: #003d33 !important; }
+        .kin-theke-start svg { color: #fed65b; }
+        /* Im Tablet-Modus: groessere Schrift und Knoepfe, man steht davor. */
+        body.kin-theke #ordersGrid.kin-brett { gap: 20px !important; }
+        body.kin-theke .kin-spalte-kopf span { font-size: 22px; }
+        body.kin-theke #ordersGrid .kin-order-card { font-size: 16px; }
+        body.kin-theke #ordersGrid .kin-schnell-btn { min-height: 64px; }
+        body.kin-theke #ordersGrid .kin-order-btn.next { min-height: 56px; font-size: 17px; }
+        @media (max-width: 900px) {
+            .kin-theke-lokal, .kin-theke-drucker { display: none; }
+            .kin-theke-zahl { padding: 6px 10px; }
+            .kin-theke-raus-text { display: none; }
+            .kin-theke-raus { padding: 0 0 0 44px; width: 44px; }
+        }
 
         /* Drei Spalten (bestellBrettHtml). Das Raster steht inline am
            #ordersGrid -- daher !important. */
@@ -16318,6 +16485,28 @@
 .dark-mode .kmi-resok-knoepfe > * { background: #262a29; color: #f3f4f4; }
 .dark-mode .kmi-resok-knoepfe .haupt { background: #9cd1c3; color: #00251e; }
 /* STARTSEITE: Jetzt geoeffnet (06.10.2026) */
+/* Kiek-Startkarte */
+.kiek-start { position: relative; padding: 16px; border-radius: 24px; background: rgba(255,255,255,0.9); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.4); display: flex; flex-direction: column; gap: 12px; }
+.kiek-start-kopf { display: flex; align-items: center; gap: 12px; }
+.kiek-start-marke { width: 44px; height: 44px; flex-shrink: 0; border-radius: 50%; background: #003d33; color: #ffffff; display: flex; align-items: center; justify-content: center; font: 900 15px Epilogue, sans-serif; letter-spacing: -0.02em; }
+.kiek-start .kiek-start-titel { margin: 0; font: 800 17px Epilogue, sans-serif; color: #00251e; }
+.kiek-start .kiek-start-unter { margin: 2px 0 0; font-size: 13px; color: #404946; }
+.kiek-start-feld { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 6px 0 18px; border-radius: 9999px; border: 1.5px solid rgba(0,61,51,0.18); background: #fafafa; }
+#kiekStartFrage { flex-grow: 1; min-width: 0; border: 0 !important; background: transparent !important; box-shadow: none !important; padding: 0 !important; font: 500 15px Inter, sans-serif; color: #191c1d; outline: none; }
+.kiek-start-feld:focus-within { border-color: #003d33; }
+.kiek-start-feld button { width: 40px; height: 40px; flex-shrink: 0; border: 0; border-radius: 50%; background: #003d33; color: #ffffff; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.kiek-start-unsichtbar { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.kiek-start-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.kiek-start-chips button { min-height: 40px; padding: 0 14px; border: 0; border-radius: 9999px; background: #edeeef; color: #003d33; font: 600 13px Inter, sans-serif; cursor: pointer; }
+.dark-mode .kiek-start { background: rgba(26,46,39,0.92); border-color: rgba(255,255,255,0.08); }
+.dark-mode .kiek-start .kiek-start-titel { color: #e8eeec !important; }
+.dark-mode .kiek-start .kiek-start-unter { color: #9ca8a4 !important; }
+.dark-mode .kiek-start-marke { background: #fed65b; color: #00251e !important; }
+.dark-mode .kiek-start-feld { background: #12211c; border-color: rgba(255,255,255,0.14); }
+.dark-mode #kiekStartFrage { color: #e8eeec !important; }
+.dark-mode .kiek-start-feld button { background: #fed65b; color: #00251e !important; }
+.dark-mode .kiek-start-feld button svg { color: #00251e !important; stroke: #00251e !important; }
+.dark-mode .kiek-start-chips button { background: #24392f; color: #b8eddf !important; }
 .heute-abend { margin: 0 0 20px; }
 .ha-kopf { display: flex; align-items: baseline; justify-content: space-between; padding: 0 20px; margin-bottom: 10px; }
 .ha-kopf h3 { margin: 0; font-family: Epilogue, sans-serif; font-size: 20px; font-weight: 800; color: #00251e; }
@@ -17945,25 +18134,36 @@ window.addEventListener('load', function () {
             <div class="hero-scrim" style="position:absolute;inset:0;background:linear-gradient(to bottom, rgba(0,37,30,0.15) 0%, rgba(0,37,30,0.40) 35%, rgba(0,37,30,0.72) 56%, rgba(0,37,30,0.72) 76%, #f8f9fa 100%);"></div>
             <!-- Hero Content -->
             <div style="position:absolute;bottom:0;left:0;right:0;padding:0 24px 24px;">
-                <span style="display:inline-block;padding:5px 14px;border-radius:50px;background:#fed65b;color:#574500;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;">Ostfriesland</span>
+                <span style="display:inline-block;padding:5px 14px;border-radius:50px;background:#fed65b;color:#574500;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;">An der Nordsee</span>
                 <h2 style="font-family:'Epilogue',sans-serif;font-weight:900;font-size:36px;color:white;line-height:1.05;letter-spacing:-0.03em;margin-bottom:4px;text-shadow:0 2px 8px rgba(0,0,0,0.15);">
                     Entdecke den Geschmack der Nordsee.
                 </h2>
                 <!-- heroSub: wird von JS mit Übersetzung befüllt -->
                 <p style="font-size:14px;color:rgba(255,255,255,0.85);margin-bottom:16px;display:none;">Bestelle online bei Restaurants in Ostfriesland.</p>
-                <div style="background:rgba(255,255,255,0.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.4);border-radius:20px;padding:16px 20px;display:flex;align-items:center;gap:12px;">
-                    <div style="flex:1;">
-                        <!-- Hier stand fest "2 Restaurants in Greetsiel" und "Italienisch &
-                             Norddeutsche Kueche" -- kein Skript hat es je angepasst. Jetzt
-                             zaehlt heuteAbendZeichnen() echte Haeuser. -->
-                        <p style="font-family:'Epilogue',sans-serif;font-weight:800;font-size:15px;color:var(--ink-strong);" id="heroRestCount">Moin! Wo essen wir heute?</p>
-                        <p style="font-size:12px;color:var(--text-secondary);margin-top:2px;" id="heroTagline">Tisch reservieren oder Essen bestellen</p>
+                <!-- EINE KARTE STATT ZWEI (11.11.2026): Gruss + Kiek. Vorher stand hier
+                     "Moin!" mit "Entdecken" (sprang nur zum Suchfeld) und darunter eine
+                     zweite Kiek-Karte -- zweimal dieselbe Frage. -->
+                <section id="kiekStart" class="kiek-start" aria-labelledby="heroRestCount">
+                    <div class="kiek-start-kopf">
+                        <span class="kiek-start-marke" aria-hidden="true">Kiek</span>
+                        <div>
+                            <p class="kiek-start-titel" id="heroRestCount">Moin! Wo essen wir heute?</p>
+                            <p class="kiek-start-unter" id="heroTagline">Tisch reservieren oder Essen bestellen</p>
+                        </div>
                     </div>
-                    <button style="background:linear-gradient(135deg,#00251e,#003d33);color:white;border:none;padding:12px 20px;border-radius:50px;font-family:'Inter',sans-serif;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;transition:transform 0.2s,opacity 0.2s;" onclick="document.getElementById('searchInput').focus(); document.getElementById('searchInput').scrollIntoView({behavior:'smooth', block:'center'});" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">
-                        <span class="material-symbols-outlined" style="font-size:16px;">explore</span>
-                        Entdecken
-                    </button>
-                </div>
+                    <form class="kiek-start-feld" onsubmit="event.preventDefault(); kiekStartFragen(this.elements.kiekStartFrage.value);">
+                        <label for="kiekStartFrage" class="kiek-start-unsichtbar">Frage an Kiek</label>
+                        <input id="kiekStartFrage" name="kiekStartFrage" type="text" autocomplete="off" enterkeyhint="send" placeholder="Wer hat jetzt auf?">
+                        <button type="submit" aria-label="Kiek fragen">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="13 6 19 12 13 18"></polyline></svg>
+                        </button>
+                    </form>
+                    <div class="kiek-start-chips" onclick="var b=event.target.closest('[data-frage]'); if(b) kiekStartFragen(b.getAttribute('data-frage'));">
+                        <button type="button" data-frage="Wo gibt es guten Fisch?">Guter Fisch</button>
+                        <button type="button" data-frage="Wer liefert gerade?">Wer liefert?</button>
+                        <button type="button" data-frage="Tisch für heute Abend, 4 Personen">Tisch für heute, 4 Pers.</button>
+                    </div>
+                </section>
             </div>
         </section>
 
@@ -18455,8 +18655,8 @@ window.addEventListener('load', function () {
     </div>
 
     <!-- KI Assistent Button -->
-    <button onclick="openAssistant()" class="assistant-btn" aria-label="KIN, den KI-Assistenten, öffnen" id="assistantBtn">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 10h.01M12 10h.01M16 10h.01"/></svg>
+    <button onclick="openAssistant()" class="assistant-btn kiek-knopf" aria-label="Kiek fragen, den KI-Assistenten" id="assistantBtn">
+        <span class="kiek-knopf-marke" aria-hidden="true">Kiek</span><span class="kiek-knopf-text">Frag Kiek</span>
     </button>
 </div>
 
@@ -18478,7 +18678,7 @@ window.addEventListener('load', function () {
                          steht es dauerhaft in der Kopfzeile -- nicht nur einmal in
                          einer Begruessung, die nach oben wegscrollt. -->
                     <div class="assistant-header-name">
-                        KIN
+                        Kiek
                         <span class="assistant-ai-badge">KI</span>
                     </div>
                     <div class="assistant-header-status">KI-Assistent · Antworten können Fehler enthalten</div>
@@ -18492,8 +18692,8 @@ window.addEventListener('load', function () {
         <div class="assistant-messages" id="assistantMessages">
             <div class="assistant-message bot">
                 <div class="message-content">
-                    Moin! Ich bin <strong>KIN</strong>, der KI-Assistent von Kiek mol in – kein Mensch,
-                    sondern ein Computerprogramm. Meine Antworten können falsch sein; bei Bestellungen,
+                    Moin! Ich bin <strong>Kiek</strong>, der KI-Assistent von Kiek mol in – kein Mensch,
+                    sondern ein Computerprogramm. Ich kenne die Karten, die Öffnungszeiten und sage dir, wo du jetzt noch einen Tisch bekommst. Meine Antworten können falsch sein; bei Bestellungen,
                     Preisen und Öffnungszeiten gilt immer, was das Restaurant sagt.<br><br>
                     Womit kann ich helfen?
                 </div>
@@ -18511,7 +18711,7 @@ window.addEventListener('load', function () {
         </div>
 
         <div class="assistant-input">
-            <input type="text" id="assistantInput" placeholder="Schreib eine Nachricht..." onkeypress="if(event.key==='Enter')sendAssistantMessage()" aria-label="Schreib eine Nachricht...">
+            <input type="text" id="assistantInput" placeholder="Frag Kiek zur Karte, zu Zeiten, zum Tisch …" onkeypress="if(event.key==='Enter')sendAssistantMessage()" aria-label="Frage an Kiek">
             <button onclick="sendAssistantMessage()">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
             </button>
@@ -20102,7 +20302,11 @@ window.addEventListener('load', function () {
                         card.style.animation = 'resAlertOut .22s ease forwards';
                         setTimeout(function() { if (card.parentNode) card.remove(); }, 220);
                     }
-                    card.onclick = closeResAlert;
+                    // Im Tablet-Modus fuehrt der Tipp zum Reiter Reservierungen.
+                    card.onclick = function () {
+                        closeResAlert();
+                        try { if (typeof thekeAktiv === 'function' && thekeAktiv()) thekeAnsicht('reservierungen'); } catch (e) {}
+                    };
                     document.body.appendChild(card);
                     setTimeout(function() { if (document.getElementById('newResAlert') === card) closeResAlert(); }, 30000);
 
@@ -24685,6 +24889,39 @@ window.addEventListener('load', function () {
         <!-- BESTELLUNGEN DASHBOARD SECTION -->
         <!-- BESTELLUNGEN DASHBOARD SECTION - KIN DESIGN -->
         <div id="sectionOrders" class="dash-section">
+            <!-- TABLET-MODUS (10.11.2026, Ibo: "der Wirt muss ja nicht alle Einstellungen
+                 sehen, weil die Flaeche wirkt klein"). Diese Leiste ersetzt im Tablet-Modus
+                 Seitenleiste, Kopf, Werkzeuge und Schalter. Raus nur durch Gedrueckthalten. -->
+            <div id="thekeLeiste" class="kin-theke-leiste" hidden>
+                <div class="kin-theke-marke">Kiek mol <b>in</b></div>
+                <!-- Zwei Reiter, wenn der Betrieb beides nutzt (Entwurf in Claude Design,
+                     abgenommen 11.11.2026). Nutzt er nur eines, ist die Leiste ohne Reiter. -->
+                <nav class="kin-theke-reiter" id="thekeReiter" aria-label="Ansicht">
+                    <button type="button" id="thekeReiterB" class="aktiv" aria-pressed="true" onclick="thekeAnsicht('bestellungen')">Bestellungen <span class="kin-theke-reiter-zahl" id="thekeReiterBZahl">0</span></button>
+                    <button type="button" id="thekeReiterR" aria-pressed="false" onclick="thekeAnsicht('reservierungen')">Reservierungen <span class="kin-theke-reiter-zahl" id="thekeReiterRZahl">0</span></button>
+                </nav>
+                <!-- Nur im Reiter Reservierungen: selbst eintragen (Ibo 11.11.2026:
+                     "Walk in Reservierungen auch, dass man selber eintragen kann"). -->
+                <div class="kin-theke-res-knoepfe">
+                    <button type="button" class="kin-theke-walkin" onclick="thekeWalkInOeffnen()">Walk-in</button>
+                    <button type="button" class="kin-theke-neu" onclick="thekeNeueReservierung()" aria-label="Neue Reservierung eintragen">+ Reservierung</button>
+                </div>
+                <div class="kin-theke-lokal" id="thekeLokal"></div>
+                <span class="kin-theke-live" id="thekeLive"><span class="kin-theke-punkt" aria-hidden="true"></span>Live</span>
+                <div class="kin-theke-zahlen" aria-live="polite">
+                    <span class="kin-theke-zahl neu"><b id="thekeNeu">0</b>neu</span>
+                    <span class="kin-theke-zahl"><b id="thekeArbeit">0</b>in Arbeit</span>
+                    <span class="kin-theke-zahl"><b id="thekeFertig">0</b>fertig</span>
+                </div>
+                <div class="kin-theke-rechts">
+                    <span id="thekeDrucker" class="kin-theke-drucker"></span>
+                    <button type="button" id="thekeTon" class="kin-theke-knopf" onclick="toggleOrderSound();thekeLeisteZeichnen();" aria-pressed="true">Ton an</button>
+                    <div id="thekeUhr" class="kin-theke-uhr"></div>
+                    <button type="button" id="thekeRaus" class="kin-theke-raus" aria-label="Tablet-Modus beenden: gedrückt halten">
+                        <span class="kin-theke-raus-ring" aria-hidden="true"></span><span class="kin-theke-raus-text">Halten zum Beenden</span>
+                    </button>
+                </div>
+            </div>
             <!-- KOPF DER BESTELLSEITE -- eins zu eins nach dem Entwurf "Bestellseite Wirt"
                  (Claude Design, abgenommen 27.10.2026). Zwei Zeilen: oben Titel, Werkzeuge,
                  Restaurant und Zeitraum; darunter die Schalter mit AN/AUS und der Zustand von
@@ -24697,6 +24934,7 @@ window.addEventListener('load', function () {
                         <span id="ordersActiveCount" class="kin-bk-zahl">0 Aktiv</span>
                     </div>
                     <div class="kin-bk-werkzeuge">
+                        <button type="button" id="thekeKnopf" class="kin-bk-werkzeug kin-theke-start" onclick="thekeAn(true)" title="Nur die Bestellungen, groß und ohne Einstellungen – für das Tablet am Tresen"><svg class="kin-sym" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>Tablet-Modus</button>
                         <button type="button" id="ordersEinstKnopf" class="kin-bk-werkzeug kin-einst-knopf" onclick="bestellEinstellungen()" aria-expanded="false" aria-controls="ordersEinstellungen" title="Abholung, Lieferung, Vorbestellung, Wartezeit, Zahlungsarten, PayPal"><svg class="kin-sym" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Einstellungen</button>
                         <button type="button" onclick="openSoundSettings()" class="kin-bk-werkzeug" title="Klang einstellen"><svg class="kin-sym" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>Klang</button>
                         <button type="button" onclick="openPrinterSettings()" class="kin-bk-werkzeug" title="Bondrucker einrichten"><svg class="kin-sym" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>Drucker</button>
@@ -34509,18 +34747,24 @@ function resGuestSelect(n) {
     if (typeof updateResSummary === 'function') updateResSummary();
 }
 
+// Bis 30 Personen online (Ibo 11.11.2026: "Wenn mehrere Personen kommen?
+// ... auch beim Gast"). Vorher war bei 8 Schluss ("8+"), und eine Gruppe
+// von 12 ging als 8 in den Kalender -- der Wirt plante zu kleine Tische.
+// Der Server nimmt 1 bis 50 an und prueft selbst, ob am Abend noch so
+// viele Plaetze frei sind (reservation-guest.js); ist es zu voll, sagt er es.
+var RES_GAST_MAX = 30;
 function resGuestRender() {
     // PERSONEN ALS -/+ (Entwurf "BAUEN 1", 19.10.2026) statt acht Kacheln.
-    // Gleiche Grenzen wie vorher: 1 bis 8, und 8 heisst "8 oder mehr".
     var grid = document.getElementById('resGuestGrid');
     if (!grid) return;
-    var n = _resSelectedGuests || 2;
+    var max = typeof RES_GAST_MAX === 'number' ? RES_GAST_MAX : 30;
+    var n = Math.min(max, _resSelectedGuests || 2);
     grid.innerHTML = '<div class="res-stepper">'
         + '<span class="res-stepper-text"><span class="material-symbols-outlined" aria-hidden="true">group</span>'
-        + '<b id="resGuestZahl">' + (n >= 8 ? '8+' : n) + '</b> ' + (n === 1 ? 'Person' : 'Personen') + '</span>'
+        + '<b id="resGuestZahl">' + n + '</b> ' + (n === 1 ? 'Person' : 'Personen') + '</span>'
         + '<span class="res-stepper-knoepfe">'
         + '<button type="button" class="res-stepper-minus" aria-label="Eine Person weniger" onclick="resGuestSelect(' + Math.max(1, n - 1) + ')"' + (n <= 1 ? ' disabled' : '') + '><span class="material-symbols-outlined">remove</span></button>'
-        + '<button type="button" class="res-stepper-plus" aria-label="Eine Person mehr" onclick="resGuestSelect(' + Math.min(8, n + 1) + ')"' + (n >= 8 ? ' disabled' : '') + '><span class="material-symbols-outlined">add</span></button>'
+        + '<button type="button" class="res-stepper-plus" aria-label="Eine Person mehr" onclick="resGuestSelect(' + Math.min(max, n + 1) + ')"' + (n >= max ? ' disabled' : '') + '><span class="material-symbols-outlined">add</span></button>'
         + '</span></div>';
 }
 
@@ -35906,7 +36150,7 @@ function resDatumKurz() {
 }
 function resPersonenText() {
     var n = parseInt((document.getElementById('partySize') || {}).value) || 2;
-    return (n >= 8 ? '8+' : n) + (n === 1 ? ' Person' : ' Personen');
+    return n + (n === 1 ? ' Person' : ' Personen');
 }
 function resSchritt(n) {
     var m = document.getElementById('reservationModal');
@@ -36850,6 +37094,12 @@ document.addEventListener('DOMContentLoaded', function () {
 function showDashboardSection(section) {
     // Auf dem Handy: nach der Auswahl die Navigations-Schublade schließen
     try { toggleDashSidebar(false); } catch (e) {}
+    // Tablet-Modus: Bestellungen und Reservierungen sind seine zwei Reiter.
+    try {
+        if (typeof thekeAktiv === 'function' && thekeAktiv() && (section === 'orders' || section === 'reservations')) {
+            setTimeout(function () { thekeAnsichtSetzen(section === 'reservations' ? 'reservierungen' : 'bestellungen'); }, 0);
+        }
+    } catch (e) {}
     // Team-Rechte: ein gesperrter Bereich oeffnet nicht (auch nicht ueber einen Knopf im Dashboard).
     // Die Startseite (dashboard) leitet still um -- sonst begruesst den Mitarbeiter ein Verbot.
     if (typeof teamDarfNicht === 'function' && teamDarfNicht(section)) {
@@ -44213,6 +44463,12 @@ window.aboStandWort = aboStandWort;
 window.aboAnzeige = aboAnzeige;
 
 async function loadCustomers() {
+    // NUR FUER DEN VERWALTER (gemessen 11.11.2026). init() ruft das bei JEDEM
+    // Seitenaufruf auf -- auch bei Gaesten und Wirten. Der Server hat das
+    // jedes Mal richtig abgelehnt (admin-meldungen 403, mahnung 403), in
+    // 7 Tagen rund 450 Mal. Daten gingen dabei nicht raus, aber jedes
+    // Gast-Handy hat drei ueberfluessige Anfragen geschickt.
+    if (typeof istVerwalter === 'function' && !istVerwalter()) return;
     try { adminMeldungenLaden(); } catch (e) {}
     try {
         const response = await fetch(`${SUPABASE_URL}/rest/v1/customers?select=*&role=neq.superadmin&order=created_at.desc`, {
@@ -53836,6 +54092,7 @@ function filterMap(filter) {
 
 // ==================== KI ASSISTENT ====================
 function openAssistant() {
+    try { kiekVorschlaege(); } catch (e) {}
     document.getElementById('assistantOverlay').classList.add('active');
     document.getElementById('assistantInput').focus();
 }
@@ -54858,30 +55115,94 @@ var _assistantChatHistory = [];   // letzte Nachrichten für KI-Kontext
 // gelesen, der Gast bezahlt es also in Wartezeit. Vorher gingen 40 Restaurants
 // mit Bewertung, Preisklasse und Abhol-Flag plus 25 Gerichte raus -- rund 2000
 // Wortteile pro Frage, von denen die KI fast nichts brauchte.
+// WAS KIEK WEISS (11.11.2026, Ibo: "es muss viel intelligenter sein").
+//
+// Vorher: die ersten 20 Gerichte (nur Name + Preis) und 25 Restaurant-
+// namen. Fragen wie "Was ist ohne Nuesse?" oder "Wer hat jetzt auf?" konnte
+// Kiek gar nicht richtig beantworten -- die Angaben fehlten.
+//
+// Jetzt: die ganze Karte des offenen Lokals (bis 60 Gerichte) mit Nummer,
+// Preis bzw. Groessen, kurzer Beschreibung, Allergenen und vegetarisch/
+// vegan/scharf -- und bei jedem Lokal, ob es JETZT offen ist und bis wann.
+//
+// Jedes Gericht und jedes Lokal bekommt ein kurzes Kennzeichen (g12, r3).
+// Damit setzt Kiek Knoepfe in die Antwort ("+ Korb", "Tisch anfragen"),
+// ohne lange IDs abzuschreiben -- und der Browser prueft jedes Kennzeichen
+// gegen diese Liste. Ein erfundenes Kennzeichen ergibt keinen Knopf.
+var _kiekRefs = { g: {}, r: {} };
+function kiekGerichtZeile(m, ref) {
+    var preis = '';
+    if (Array.isArray(m.sizes) && m.sizes.length) {
+        preis = m.sizes.map(function (z) { return (z.name || '') + ' ' + Number(z.price || 0).toFixed(2).replace('.', ','); }).join(' / ');
+    } else {
+        var p = m.base_price != null ? m.base_price : m.price;
+        if (p != null && !isNaN(Number(p))) preis = Number(p).toFixed(2).replace('.', ',');
+    }
+    var merk = [];
+    if (m.is_vegan) merk.push('vegan'); else if (m.is_vegetarian) merk.push('vegetarisch');
+    if (Number(m.is_spicy) > 0) merk.push('scharf');
+    var allerg = Array.isArray(m.allergens) ? m.allergens.filter(Boolean).join('') : '';
+    return {
+        ref: ref,
+        nr: (typeof getDishNumber === 'function' ? getDishNumber(m) : (m.dish_number || '')) || '',
+        name: m.name,
+        preis: preis,
+        kategorie: (m.menu_categories && m.menu_categories.name) || m.category_name || '',
+        info: String(m.description || '').slice(0, 40),
+        allergene: allerg,
+        merkmale: merk.join(',')
+    };
+}
+function kiekLokalStand(r) {
+    var st = { offen: false, text: '' };
+    try {
+        st.offen = typeof checkIfOpen === 'function' ? !!checkIfOpen(r) : false;
+        if (st.offen && typeof getClosingTimeToday === 'function') st.text = 'offen bis ' + getClosingTimeToday(r);
+        else if (typeof getOpeningTimeToday === 'function') { var o = getOpeningTimeToday(r); st.text = o ? 'öffnet heute ' + o : 'heute zu'; }
+    } catch (e) {}
+    return st;
+}
 async function _kinContext() {
     var context = {};
+    _kiekRefs = { g: {}, r: {} };
     try {
         if (window.APP_DATA && Array.isArray(APP_DATA.restaurants)) {
             context.restaurants = APP_DATA.restaurants
                 .filter(function(r) { return r && r.is_active !== false; })
-                .slice(0, 25)
-                .map(function(r) {
+                .slice(0, 40)
+                .map(function(r, i) {
+                    var ref = 'r' + (i + 1);
+                    _kiekRefs.r[ref] = r;
+                    var f = Array.isArray(r.features) ? r.features : [];
+                    var st = kiekLokalStand(r);
                     return {
+                        ref: ref,
                         name: r.name,
                         city: r.city || '',
                         cuisine: r.cuisine || '',
-                        delivery: !!r.has_delivery || !!r.delivery
+                        delivery: !!r.has_delivery || !!r.delivery || f.indexOf('lieferung') >= 0,
+                        stand: st.text,
+                        reservieren: f.indexOf('no_reservations') < 0,
+                        bestellen: f.indexOf('no_ordering') < 0
                     };
                 });
         }
-        var openRid = window.currentRestaurantId || null;
+        var openRid = window.currentRestaurantId || (window.currentOrderRestaurant && currentOrderRestaurant.id) || null;
         if (openRid && window.APP_DATA && APP_DATA.restaurants) {
             var openRest = APP_DATA.restaurants.find(function(r) { return r.id === openRid; });
             if (openRest) {
+                var refOffen = Object.keys(_kiekRefs.r).filter(function (k) { return _kiekRefs.r[k] === openRest; })[0];
+                if (!refOffen) { refOffen = 'r0'; _kiekRefs.r.r0 = openRest; }
+                var st0 = kiekLokalStand(openRest);
+                var abhol = 0;
+                try { abhol = typeof vorbereitungsMinuten === 'function' ? vorbereitungsMinuten(openRest, 'pickup') : 0; } catch (e) {}
                 context.currentRestaurant = {
+                    ref: refOffen,
                     name: openRest.name,
                     city: openRest.city || '',
-                    cuisine: openRest.cuisine || ''
+                    cuisine: openRest.cuisine || '',
+                    stand: st0.text,
+                    abholung: abhol ? 'Abholung in ca. ' + abhol + ' Min' : ''
                 };
                 try {
                     if (typeof assistantLoadDishes === 'function' &&
@@ -54890,20 +55211,123 @@ async function _kinContext() {
                     }
                 } catch (loadErr) { /* ohne Speisekarte antwortet die KI trotzdem */ }
                 if (window._assistantMenuCache && _assistantMenuCache[openRid]) {
-                    context.currentMenu = _assistantMenuCache[openRid].slice(0, 20).map(function(m) {
-                        return {
-                            name: m.name,
-                            price: m.base_price != null ? m.base_price : m.price,
-                            category: (m.menu_categories && m.menu_categories.name) || m.category_name || ''
-                        };
+                    context.currentMenu = _assistantMenuCache[openRid].slice(0, 60).map(function(m, i) {
+                        var ref = 'g' + (i + 1);
+                        _kiekRefs.g[ref] = { item: m, restaurant: openRest };
+                        return kiekGerichtZeile(m, ref);
                     });
                 }
             }
         }
         if (window._userCity) context.userCity = window._userCity;
+        try { context.jetzt = new Date().toLocaleString('de-DE', { weekday: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' }); } catch (e) {}
     } catch (ctxErr) { console.warn('Context-Gathering Fehler:', ctxErr); }
     return context;
 }
+
+// KNOEPFE IN DER ANTWORT. Kiek haengt sie als [[korb:g12]], [[lokal:r3]]
+// oder [[tisch:r3|19:30|4]] an. Im Text sieht der Gast sie nie -- auch
+// waehrend des Schreibens nicht (ein halbes "[[ko" am Ende wird versteckt).
+var KIEK_KNOPF_RE = /\[\[(korb|lokal|tisch):([a-z]\d{1,3})(?:\|(\d{1,2}:\d{2}))?(?:\|(\d{1,2}))?\]\]/g;
+function kiekTextOhneKnoepfe(text) {
+    return String(text || '').replace(KIEK_KNOPF_RE, '').replace(/\[\[[^\]]*$/, '').replace(/\n{3,}/g, '\n\n').trim();
+}
+function kiekKnoepfeLesen(text, refs) {
+    refs = refs || _kiekRefs;
+    var aus = [], gesehen = {};
+    String(text || '').replace(KIEK_KNOPF_RE, function (_, art, ref, zeit, pers) {
+        var key = art + ref + (zeit || '') + (pers || '');
+        if (gesehen[key] || aus.length >= 4) return '';
+        if (art === 'korb' && refs.g[ref]) { gesehen[key] = 1; aus.push({ art: art, ref: ref, eintrag: refs.g[ref] }); }
+        else if ((art === 'lokal' || art === 'tisch') && refs.r[ref]) {
+            var p = parseInt(pers, 10);
+            gesehen[key] = 1;
+            aus.push({ art: art, ref: ref, lokal: refs.r[ref], zeit: zeit || '', personen: p > 0 && p <= 30 ? p : 0 });
+        }
+        return '';
+    });
+    return aus;
+}
+function kiekKnoepfeHtml(knoepfe) {
+    if (!knoepfe || !knoepfe.length) return '';
+    var esc = function (x) { return String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
+    return '<div class="kiek-knoepfe">' + knoepfe.map(function (k, i) {
+        if (k.art === 'korb') {
+            var m = k.eintrag.item, z = kiekGerichtZeile(m, k.ref);
+            return '<div class="kiek-gericht">' + (z.nr ? '<span class="kin-nr">' + esc(z.nr) + '</span>' : '')
+                + '<div class="kiek-gericht-text"><b>' + esc(m.name) + '</b>' + (z.preis ? '<small>' + esc(z.preis) + ' €</small>' : '') + '</div>'
+                + '<button type="button" class="kiek-korb" data-kiek="' + i + '" aria-label="' + esc(m.name) + ' in den Warenkorb">+ Korb</button></div>';
+        }
+        if (k.art === 'tisch') {
+            return '<button type="button" class="kiek-tisch" data-kiek="' + i + '">Tisch anfragen · ' + esc(k.lokal.name)
+                + (k.zeit ? ' · ' + esc(k.zeit) : '') + (k.personen ? ' · ' + k.personen + ' Pers.' : '') + '</button>';
+        }
+        return '<button type="button" class="kiek-lokal" data-kiek="' + i + '">' + esc(k.lokal.name) + ' öffnen</button>';
+    }).join('') + '</div>';
+}
+async function kiekKnopfAusfuehren(k) {
+    if (!k) return;
+    try {
+        if (k.art === 'korb') {
+            var m = k.eintrag.item, r = k.eintrag.restaurant;
+            // Der Weg ueber das Gericht-Fenster: Groesse, Extras und "Bitte
+            // ohne" waehlt der Gast wie immer -- Kiek legt nichts heimlich in den Korb.
+            if (!(window.currentOrderRestaurant && currentOrderRestaurant.id === r.id) && typeof openMenuModal === 'function') {
+                closeAssistant();
+                await openMenuModal(r.id);
+            } else closeAssistant();
+            if (typeof openItemOptions === 'function') openItemOptions(m.id, m);
+            return;
+        }
+        closeAssistant();
+        if (k.art === 'tisch') {
+            if (typeof openReservation === 'function') openReservation(k.lokal.id);
+            if (k.personen && typeof resGuestSelect === 'function') setTimeout(function () { try { resGuestSelect(k.personen); } catch (e) {} }, 300);
+            if (k.zeit && typeof showToast === 'function') setTimeout(function () { showToast('Kiek schlägt ' + k.zeit + ' Uhr vor – bitte die Uhrzeit wählen.', 'info'); }, 600);
+            return;
+        }
+        if (typeof openRestaurantBySlug === 'function') openRestaurantBySlug(k.lokal.slug || k.lokal.id);
+    } catch (e) {
+        if (typeof showToast === 'function') showToast('Das hat nicht geklappt – bitte direkt über die Karte.', 'error');
+    }
+}
+window.kiekKnopfAusfuehren = kiekKnopfAusfuehren;
+// Vorschlaege passend zur Seite: auf einem Lokal Fragen zur Karte, sonst zum Ort.
+function kiekVorschlaege() {
+    var el = document.getElementById('assistantSuggestions');
+    if (!el) return;
+    var aufLokal = !!(window.currentRestaurantId || (window.currentOrderRestaurant && currentOrderRestaurant.id));
+    var liste = aufLokal
+        ? ['Was ist vegetarisch?', 'Was ist ohne Nüsse?', 'Habt ihr jetzt auf?', 'Tisch für heute Abend, 4 Personen']
+        : ['Wer hat jetzt auf?', 'Wo gibt es guten Fisch?', 'Wer liefert?', 'Tisch für heute Abend, 4 Personen'];
+    el.innerHTML = liste.map(function (q) {
+        return '<button type="button" data-frage="' + q.replace(/"/g, '&quot;') + '">' + q + '</button>';
+    }).join('');
+    el.onclick = function (e) { var b = e.target.closest ? e.target.closest('[data-frage]') : null; if (b) askAssistant(b.getAttribute('data-frage')); };
+}
+window.kiekVorschlaege = kiekVorschlaege;
+// Startkarte: Kiek oeffnen und die Frage gleich stellen. Leeres Feld = nur oeffnen.
+function kiekStartFragen(frage) {
+    frage = String(frage || '').trim();
+    openAssistant();
+    if (!frage) return;
+    var f = document.getElementById('kiekStartFrage');
+    if (f) f.value = '';
+    askAssistant(frage);
+}
+window.kiekStartFragen = kiekStartFragen;
+// Solange die Startkarte zu sehen ist, braucht es den schwebenden Knopf nicht --
+// er laege sonst ueber "Karte entdecken". Ohne IntersectionObserver bleibt er einfach.
+(function kiekStartBeobachten() {
+    try {
+        var karte = document.getElementById('kiekStart');
+        var knopf = document.getElementById('assistantBtn');
+        if (!karte || !knopf || typeof IntersectionObserver !== 'function') return;
+        new IntersectionObserver(function (e) {
+            knopf.classList.toggle('kiek-knopf-weg', !!(e[0] && e[0].isIntersecting));
+        }, { threshold: 0.15 }).observe(karte);
+    } catch (e) {}
+})();
 
 // KI fragen und die Antwort Wort für Wort in die Sprechblase schreiben.
 // offlineFallback = vorgefertigter Text, der genommen wird, wenn die KI
@@ -54932,7 +55356,7 @@ async function askKinAI(userMessage, offlineFallback) {
             container.appendChild(div);
             bubble = div.querySelector('.message-content');
         }
-        bubble.innerHTML = formatAssistantReply(full);
+        bubble.innerHTML = formatAssistantReply(kiekTextOhneKnoepfe(full));
         var c = document.getElementById('assistantMessages');
         if (c) c.scrollTop = c.scrollHeight;
     }
@@ -54953,7 +55377,7 @@ async function askKinAI(userMessage, offlineFallback) {
                 if (r.done) break;
                 push(dec.decode(r.value, { stream: true }));
             }
-            if (full.trim()) { _kinRemember(userMessage, full); return; }
+            if (full.trim()) { kiekKnoepfeAnhaengen(bubble, full); _kinRemember(userMessage, kiekTextOhneKnoepfe(full)); return; }
         }
     } catch (e) {
         console.warn('[KIN] Streamen nicht möglich, nehme die normale Antwort:', e.message);
@@ -54970,8 +55394,12 @@ async function askKinAI(userMessage, offlineFallback) {
         var data = await res2.json().catch(function() { return {}; });
         if (data && data.reply) {
             hideTyping();
-            addMessage(formatAssistantReply(data.reply), 'bot');
-            _kinRemember(userMessage, data.reply);
+            addMessage(formatAssistantReply(kiekTextOhneKnoepfe(data.reply)), 'bot');
+            try {
+                var _alle = document.querySelectorAll('#assistantMessages .assistant-message.bot .message-content');
+                kiekKnoepfeAnhaengen(_alle[_alle.length - 1], data.reply);
+            } catch (e) {}
+            _kinRemember(userMessage, kiekTextOhneKnoepfe(data.reply));
             return;
         }
     } catch (e) {
@@ -54985,6 +55413,24 @@ async function askKinAI(userMessage, offlineFallback) {
     } else {
         addMessage('Ich bin gerade nicht erreichbar. Probier es gleich nochmal – oder schreib an <strong>info@kiekmolin.de</strong>.', 'bot');
     }
+}
+
+function kiekKnoepfeAnhaengen(bubble, text) {
+    if (!bubble) return;
+    var k = kiekKnoepfeLesen(text);
+    if (!k.length) return;
+    var box = document.createElement('div');
+    box.innerHTML = kiekKnoepfeHtml(k);
+    var inhalt = box.firstChild;
+    if (!inhalt) return;
+    inhalt.addEventListener('click', function (e) {
+        var b = e.target.closest ? e.target.closest('[data-kiek]') : null;
+        if (b) kiekKnopfAusfuehren(k[parseInt(b.getAttribute('data-kiek'), 10)]);
+    });
+    bubble.parentNode.style.flexWrap = 'wrap';
+    bubble.parentNode.appendChild(inhalt);
+    var c = document.getElementById('assistantMessages');
+    if (c) c.scrollTop = c.scrollHeight;
 }
 
 function _kinRemember(userMessage, reply) {
@@ -66160,7 +66606,7 @@ async function loadDashboardOrders() {
                 customer_email: order.customer_email,
                 delivery_address: order.delivery_address,
                 delivery_notes: order.delivery_notes || order.customer_notes || '',
-                items: (order.order_items && order.order_items.length > 0)
+                items: posNummernErgaenzen((order.order_items && order.order_items.length > 0)
                     ? order.order_items.map((item, _gi) => ({
                         name: item.item_name,
                         quantity: item.quantity,
@@ -66169,7 +66615,10 @@ async function loadDashboardOrders() {
                         notes: item.notes || '',
                         price: item.total_price,
                         // Der Gang steht nur in der JSON-Liste der Bestellung (gleiche Reihenfolge).
-                        gang: (order.items && order.items[_gi] && order.items[_gi].name === item.item_name) ? order.items[_gi].gang : undefined
+                        gang: (order.items && order.items[_gi] && order.items[_gi].name === item.item_name) ? order.items[_gi].gang : undefined,
+                        // Gerichtnummer ebenso nur in der JSON-Liste (seit 12.10.2026) -- siehe posNummernErgaenzen.
+                        menu_item_id: item.menu_item_id || null,
+                        dish_number: item.dish_number || ''
                     }))
                     : (order.items || []).map(item => ({
                         name: item.name,
@@ -66178,8 +66627,10 @@ async function loadDashboardOrders() {
                         selected_options: item.selected_options || [],
                         notes: item.notes || '',
                         price: item.price || item.total_price || 0,
+                        menu_item_id: item.menu_item_id || null,
+                        dish_number: item.dish_number || '',
                         gang: item.gang
-                    })),
+                    })), order.items),
                 subtotal: order.subtotal,
                 delivery_fee: order.delivery_fee || 0,
                 tip: order.tip || 0,
@@ -66699,6 +67150,7 @@ function renderDashboardOrders() {
     // Liste neu zeichnen, nicht erst beim naechsten Fahrer-Abruf.
     try { fahrerLeisteZeichnen(); } catch (e) {}
     try { bestellSchalterZeigen(); } catch (e) {}
+    try { if (typeof currentAdmin !== 'undefined' && currentAdmin) thekeWiederherstellen(); thekeLeisteZeichnen(); } catch (e) {}
     const grid = document.getElementById('ordersGrid');
     const emptyState = document.getElementById('ordersEmptyState');
 
@@ -67583,7 +68035,7 @@ function bestellPosHtml(items, mitPreis, order) {
         }).join('');
     }
     return (items || []).map(function (it) {
-        return '<div class="kin-pos"><span><b>' + (it.quantity || 1) + '×</b> ' + escapeHtml(it.name || '') + '</span>'
+        return '<div class="kin-pos"><span><b>' + (it.quantity || 1) + '×</b> ' + (typeof posNrHtml === 'function' ? posNrHtml(it) : '') + escapeHtml(it.name || '') + '</span>'
             + (mitPreis ? '<b>' + formatPrice(it.base_price || it.price) + '</b>' : '') + '</div>'
             + (it.options ? '<div class="kin-pos-extra">' + escapeHtml(bestellExtrasText(it.options)) + '</div>' : '')
             + (it.notes ? '<div class="kin-pos-notiz">✎ ' + escapeHtml(it.notes) + '</div>' : '');
@@ -67591,7 +68043,31 @@ function bestellPosHtml(items, mitPreis, order) {
 }
 // Eine Zeile: "2× Cola · 1× Schnitzel"
 function bestellPosKurz(items) {
-    return (items || []).map(function (it) { return '<b>' + (it.quantity || 1) + '×</b> ' + escapeHtml(it.name || ''); }).join(' · ');
+    return (items || []).map(function (it) { return '<b>' + (it.quantity || 1) + '×</b> ' + (typeof posNrHtml === 'function' ? posNrHtml(it) : '') + escapeHtml(it.name || ''); }).join(' · ');
+}
+
+// GERICHTNUMMER AUF KARTE UND KUECHEN-DISPLAY (Ibo, 10.11.2026: "Wichtig die
+// Gericht ohne Nummer drauf"). Die Nummer wird seit 12.10.2026 mit jeder
+// Bestellung gespeichert und stand schon auf dem Bon -- nur hier fehlte sie.
+//
+// Wo sie steht: in der JSON-Liste orders.items (dish_number). Die Zeilen aus
+// order_items haben sie NICHT; dort wird sie ueber dieselbe Stelle in der
+// Liste (wie beim Gang) oder ueber menu_item_id / Namen nachgetragen.
+// Aeltere Bestellungen ohne Nummer: keine Nummer -- nichts Geratenes.
+function posNummernErgaenzen(liste, json) {
+    json = Array.isArray(json) ? json : [];
+    return (liste || []).map(function (it, i) {
+        if (!it || it.dish_number) return it;
+        var name = it.item_name || it.name;
+        var q = (json[i] && json[i].name === name) ? json[i]
+            : json.filter(function (j) { return j && ((it.menu_item_id && j.menu_item_id === it.menu_item_id) || (name && j.name === name)); })[0];
+        if (!q || !q.dish_number) return it;
+        var k = Object.assign({}, it); k.dish_number = String(q.dish_number); return k;
+    });
+}
+function posNrHtml(it) {
+    var nr = typeof bonGerichtNr === 'function' ? bonGerichtNr(it) : (it && it.dish_number) || '';
+    return nr ? '<span class="kin-nr">' + escapeHtml(String(nr)) + '</span> ' : '';
 }
 // Schild in der Spalte Fertig: "ABHOLBEREIT · 6 MIN"
 function bestellFertigSchild(order, jetzt) {
@@ -67935,6 +68411,7 @@ function resHeuteZeichnen() {
     }
     try { bestellSchalterZeigen(); } catch (e) {}
     try { var rid = window.resCurrentRestaurant; if (rid && typeof gastProfileLaden === 'function') gastProfileLaden(rid); } catch (e) {}
+    try { if (typeof thekeLeisteZeichnen === 'function') thekeLeisteZeichnen(); } catch (e) {}
 }
 window.resHeuteZeichnen = resHeuteZeichnen;
 
@@ -68401,6 +68878,12 @@ function dashZeitraum(z) {
 async function dashLaden() {
     var box = document.getElementById('kinDash');
     if (!box) return;
+    // Nur mit Anmeldung (gemessen 11.11.2026): init() -> updateDashboard()
+    // lief bei JEDEM Besucher, auch bei Gaesten. Sie fragten Bestellungen,
+    // Reservierungen, Kasse, Bewertungen und push-status eines Lokals ab --
+    // die Datenbank gab leer zurueck, push-status antwortete 403 (in 7 Tagen
+    // rund 400 Mal). Nach dem Anmelden wird das Dashboard ohnehin neu gezeichnet.
+    if (typeof currentAdmin === 'undefined' || !currentAdmin) return;
     var rid = getControlRestaurantId();
     if (!rid) { box.innerHTML = '<div class="kin-dash-wenig">Bitte oben ein Restaurant wählen.</div>'; return; }
     var Z = dashZeitraumWahl();
@@ -68505,8 +68988,400 @@ async function dashGerichtUmschalten(knopf) {
 window.dashGerichtUmschalten = dashGerichtUmschalten;
 
 function bestellBrettAn() {
-    try { return orderFilterStatus === 'all' && window.matchMedia('(min-width: 1000px)').matches; } catch (e) { return false; }
+    // Im Tablet-Modus stehen die drei Spalten schon ab 700 px -- ein Tablet
+    // hochkant ist schmaler als 1000, und gerade dort sind die Spalten gewollt.
+    try {
+        if (orderFilterStatus !== 'all') return false;
+        return window.matchMedia('(min-width: ' + (thekeAktiv() ? 700 : 1000) + 'px)').matches;
+    } catch (e) { return false; }
 }
+
+// TABLET-MODUS (10.11.2026)
+//
+// Ibo: "der Wirt muss ja nicht alle Einstellungen sehen, weil die Flaeche
+// wirkt klein". Auf dem Tablet am Tresen stand die ganze Bestellseite:
+// Seitenleiste, zwei Zeilen Werkzeuge und Schalter, Restaurant, Zeitraum.
+// Fuer die Bestellungen blieb der Rest.
+//
+// Der Tablet-Modus baut NICHTS neu. Er legt dieselbe Bestellseite ueber den
+// ganzen Bildschirm und blendet den Kopf aus. Annehmen, Fertig, Bon,
+// Ton, Bluetooth-Druck und die Live-Verbindung sind dieselben wie vorher --
+// es gibt keine zweite Logik, die irgendwann anders laeuft.
+//
+// Raus nur durch GEDRUECKTHALTEN (0,9 s): ein Mitarbeiter, der aus Versehen
+// in die Ecke tippt, soll nicht in den Einstellungen landen.
+var THEKE_SCHLUESSEL = 'kin_theke';
+var THEKE_HALTEN_MS = 900;
+function thekeAktiv() {
+    return typeof document !== 'undefined' && !!document.body && document.body.classList.contains('kin-theke');
+}
+function thekeAn(an) {
+    var leiste = document.getElementById('thekeLeiste');
+    if (!leiste) return;
+    if (an) {
+        // Nur hinwechseln, wenn die Bestellseite nicht schon offen ist -- sonst
+        // laedt sie alles neu, und die Tafel blinkt einmal leer.
+        var _sek = document.getElementById('sectionOrders');
+        if (!(_sek && _sek.classList.contains('active')) && typeof showDashboardSection === 'function') {
+            try { showDashboardSection('orders'); } catch (e) {}
+        }
+        // Alle Spalten, nicht ein einzelner Reiter.
+        if (typeof orderFilterStatus !== 'undefined' && orderFilterStatus !== 'all') {
+            var alle = document.querySelector('.kin-filter-tab[data-status="all"]');
+            if (alle) filterOrders('all', alle); else orderFilterStatus = 'all';
+        }
+        // Die Leiste gehoert im Tablet-Modus zu BEIDEN Ansichten -- stuende sie in
+        // #sectionOrders, verschwaende sie mit dem Wechsel zu den Reservierungen.
+        if (leiste.parentNode !== document.body) document.body.appendChild(leiste);
+        document.body.classList.add('kin-theke');
+        if (!document.body.getAttribute('data-theke-ansicht')) document.body.setAttribute('data-theke-ansicht', 'bestellungen');
+        leiste.hidden = false;
+        thekeReservierungenLaden(true);
+        try { localStorage.setItem(THEKE_SCHLUESSEL, '1'); } catch (e) {}
+        // Vollbild geht nur nach einem Tipp -- beim Wiederherstellen nach dem
+        // Neuladen also nicht. Dann bleibt die Browserleiste, sonst nichts.
+        try {
+            var de = document.documentElement;
+            if (!document.fullscreenElement && de.requestFullscreen) de.requestFullscreen().catch(function () {});
+        } catch (e) {}
+        try { kinBildschirmWach(true); } catch (e) {}
+        try { btWiederAnmelden(); } catch (e) {}
+        clearInterval(window._thekeUhrTakt);
+        window._thekeUhrTakt = setInterval(function () { thekeLeisteZeichnen(); thekeReservierungenLaden(false); }, 15000);
+    } else {
+        var _warRes = document.body.getAttribute('data-theke-ansicht') === 'reservierungen';
+        document.body.classList.remove('kin-theke');
+        document.body.removeAttribute('data-theke-ansicht');
+        leiste.hidden = true;
+        try { localStorage.removeItem(THEKE_SCHLUESSEL); } catch (e) {}
+        clearInterval(window._thekeUhrTakt);
+        try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(function () {}); } catch (e) {}
+        // Die Kueche haelt den Bildschirm selbst wach -- nur loslassen, wenn sie zu ist.
+        if (!document.getElementById('kitchenDisplay')) { try { kinBildschirmWach(false); } catch (e) {} }
+        // Wer in den Reservierungen war, landet dort auch im normalen Dashboard.
+        if (_warRes && typeof showDashboardSection === 'function') { try { showDashboardSection('reservations'); } catch (e) {} }
+    }
+    try { renderDashboardOrders(); } catch (e) {}
+    thekeLeisteZeichnen();
+}
+// Was die Leiste zeigt -- gerechnet aus derselben Liste wie die Spalten.
+function thekeZahlen(liste, restaurantFilter) {
+    var z = { neu: 0, arbeit: 0, fertig: 0 };
+    (liste || []).forEach(function (o) {
+        if (restaurantFilter && o.restaurant_id !== restaurantFilter) return;
+        var sp = bestellSpalte(o.status);
+        if (sp in z) z[sp]++;
+    });
+    return z;
+}
+function thekeLeisteZeichnen() {
+    if (!thekeAktiv()) return;
+    var filter = (typeof ordersRestaurantFilter !== 'undefined') ? ordersRestaurantFilter : '';
+    var z = thekeZahlen(typeof dashboardOrders !== 'undefined' ? dashboardOrders : [], filter);
+    var setz = function (id, wert) { var el = document.getElementById(id); if (el) el.textContent = wert; };
+    try { thekeReiterZeichnen(z); } catch (e) {}
+    setz('thekeNeu', z.neu); setz('thekeArbeit', z.arbeit); setz('thekeFertig', z.fertig);
+    var neuChip = document.getElementById('thekeNeu');
+    if (neuChip && neuChip.parentNode) neuChip.parentNode.classList.toggle('da', z.neu > 0);
+    // Uhr
+    try {
+        setz('thekeUhr', new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' }));
+    } catch (e) {}
+    // Lokal
+    var haeuser = (window.APP_DATA && APP_DATA.restaurants) || [];
+    var haus = haeuser.find(function (r) { return r.id === filter; }) || (haeuser.length === 1 ? haeuser[0] : null);
+    setz('thekeLokal', haus ? (haus.name || '') : '');
+    // Live -- oder eben NICHT. Eine Tafel, die still nicht mehr nachlaedt,
+    // sieht aus wie ein ruhiger Abend (Regel 6).
+    var live = document.getElementById('thekeLive');
+    if (live) {
+        var kaputt = typeof ladeStandFehlt === 'function' && ladeStandFehlt('bestellungen');
+        live.classList.toggle('aus', !!kaputt);
+        live.lastChild.textContent = kaputt ? 'Keine Verbindung' : 'Live';
+    }
+    // Ton
+    var ton = document.getElementById('thekeTon');
+    if (ton) {
+        var tonAn = typeof orderSoundEnabled === 'undefined' ? true : !!orderSoundEnabled;
+        ton.setAttribute('aria-pressed', tonAn ? 'true' : 'false');
+        ton.textContent = tonAn ? 'Ton an' : 'Ton aus';
+    }
+    // Bluetooth-Drucker (nur wenn einer eingerichtet ist)
+    var dr = document.getElementById('thekeDrucker');
+    if (dr) {
+        var hat = (typeof btAlleBtDrucker === 'function') && btAlleBtDrucker().length > 0;
+        var verb = !!(window._kinBt && window._kinBt.verbunden);
+        dr.innerHTML = hat ? '<span class="kin-theke-punkt"' + (verb ? '' : ' style="background:#f87171;animation:none"') + ' aria-hidden="true"></span>'
+            + (verb ? 'Drucker verbunden' : 'Drucker getrennt') : '';
+    }
+    // Die Flaeche beginnt unter der Leiste -- die Leiste bricht auf schmalen
+    // Tablets in zwei Zeilen um, also messen statt raten.
+    var l = document.getElementById('thekeLeiste');
+    if (l && l.offsetHeight) document.body.style.setProperty('--kin-theke-h', l.offsetHeight + 'px');
+}
+
+// RESERVIERUNGEN IM TABLET-MODUS (11.11.2026, Entwurf in Claude Design:
+// "Ja richtig gut ... die Einstellungen stören nicht").
+//
+// Auch hier keine zweite Ansicht: es ist die vorhandene "Heute"-Seite der
+// Reservierungen (resHeuteZeichnen, resOffenKarteHtml, resGastZeileHtml) --
+// Bestaetigen, Ist da, Tisch frei, Nicht gekommen sind dieselben Knoepfe.
+// Der Tablet-Modus legt sie nur ueber den Bildschirm und blendet Kopf,
+// Kalender, Tischplan, Sperrzeiten und Einstellungen aus.
+function thekeHaus() {
+    var haeuser = (window.APP_DATA && APP_DATA.restaurants) || [];
+    var id = (typeof ordersRestaurantFilter !== 'undefined' && ordersRestaurantFilter) || window.resCurrentRestaurant || window._gastroOnlyRestaurantId || '';
+    return haeuser.find(function (r) { return r.id === id; }) || (haeuser.length === 1 ? haeuser[0] : null);
+}
+// Welche Reiter? Was der Betrieb abgeschaltet hat (features), bekommt keinen.
+function thekeReiterArten(haus) {
+    var f = (haus && Array.isArray(haus.features)) ? haus.features : [];
+    return { bestellungen: f.indexOf('no_ordering') < 0, reservierungen: f.indexOf('no_reservations') < 0 };
+}
+function thekeResZahlen(liste, heute) {
+    var z = { offen: 0, heute: 0 };
+    (liste || []).forEach(function (r) {
+        if (r.status === 'pending' && r.date >= heute) z.offen++;
+        else if (r.date === heute && r.status !== 'cancelled' && r.status !== 'no_show' && r.status !== 'finished') z.heute++;
+    });
+    return z;
+}
+function thekeReiterZeichnen(bz) {
+    var nav = document.getElementById('thekeReiter');
+    if (!nav) return;
+    var arten = thekeReiterArten(thekeHaus());
+    var beide = arten.bestellungen && arten.reservierungen;
+    nav.hidden = !beide;
+    var ansicht = document.body.getAttribute('data-theke-ansicht') || 'bestellungen';
+    // Nur eines aktiv? Dann steht die Tafel auf genau dem.
+    if (!beide) {
+        var soll = arten.reservierungen && !arten.bestellungen ? 'reservierungen' : 'bestellungen';
+        if (soll !== ansicht) { thekeAnsicht(soll); return; }
+    }
+    var heute = typeof localDayStr === 'function' ? localDayStr(new Date()) : new Date().toISOString().slice(0, 10);
+    var rz = thekeResZahlen(window.resAllReservations || [], heute);
+    var b = document.getElementById('thekeReiterB'), r = document.getElementById('thekeReiterR');
+    var bZ = document.getElementById('thekeReiterBZahl'), rZ = document.getElementById('thekeReiterRZahl');
+    bz = bz || { neu: 0, arbeit: 0, fertig: 0 };
+    if (bZ) { bZ.textContent = bz.neu ? bz.neu + ' neu' : String(bz.arbeit + bz.fertig); bZ.classList.toggle('neu', bz.neu > 0); }
+    if (rZ) { rZ.textContent = rz.offen ? rz.offen + ' neu' : String(rz.heute); rZ.classList.toggle('neu', rz.offen > 0); }
+    if (b) { b.classList.toggle('aktiv', ansicht === 'bestellungen'); b.setAttribute('aria-pressed', ansicht === 'bestellungen' ? 'true' : 'false'); b.classList.toggle('ruft', bz.neu > 0); }
+    if (r) { r.classList.toggle('aktiv', ansicht === 'reservierungen'); r.setAttribute('aria-pressed', ansicht === 'reservierungen' ? 'true' : 'false'); r.classList.toggle('ruft', rz.offen > 0); }
+}
+// Nur den Zustand setzen -- ohne Seitenwechsel (den macht showDashboardSection).
+function thekeAnsichtSetzen(ansicht) {
+    if (!thekeAktiv()) return;
+    document.body.setAttribute('data-theke-ansicht', ansicht === 'reservierungen' ? 'reservierungen' : 'bestellungen');
+    if (ansicht === 'reservierungen') {
+        // Im Tablet-Modus ist immer HEUTE -- ein vorher gewaehlter Tag bliebe sonst stehen.
+        try { _resHeuteTag = null; } catch (e) {}
+        try { if (typeof resHeuteZeichnen === 'function') resHeuteZeichnen(); } catch (e) {}
+    }
+    thekeLeisteZeichnen();
+}
+function thekeAnsicht(ansicht) {
+    if (!thekeAktiv()) return;
+    var ziel = ansicht === 'reservierungen' ? 'reservations' : 'orders';
+    var sek = document.getElementById(ziel === 'reservations' ? 'sectionReservations' : 'sectionOrders');
+    if (!(sek && sek.classList.contains('active')) && typeof showDashboardSection === 'function') {
+        try { showDashboardSection(ziel); } catch (e) {}
+    }
+    thekeAnsichtSetzen(ansicht);
+}
+// Die Reservierungen auch laden, solange man auf den Bestellungen steht --
+// sonst zaehlt der Reiter "0", obwohl jemand auf Bestaetigung wartet (Regel 6).
+// Danach hoechstens einmal pro Minute; neue kommen ohnehin ueber Echtzeit.
+function thekeReservierungenLaden(sofort) {
+    if (!thekeAktiv()) return;
+    if (!thekeReiterArten(thekeHaus()).reservierungen) return;
+    var jetzt = Date.now();
+    if (!sofort && window._thekeResZeit && jetzt - window._thekeResZeit < 60000) return;
+    window._thekeResZeit = jetzt;
+    if (!window.resCurrentRestaurant) {
+        var h = thekeHaus();
+        if (h) window.resCurrentRestaurant = h.id;
+    }
+    try { if (typeof window.resLoadReservations === 'function') window.resLoadReservations(); } catch (e) {}
+}
+// Beenden: gedrueckt halten. Ein kurzer Tipp sagt, wie es geht.
+function thekeRausEinrichten() {
+    var k = document.getElementById('thekeRaus');
+    if (!k || k._eingerichtet) return;
+    k._eingerichtet = true;
+    var start = 0, rahmen = 0;
+    var stopp = function (kurz) {
+        cancelAnimationFrame(rahmen);
+        k.style.setProperty('--kin-halten', '0');
+        if (kurz && start && typeof showToast === 'function') showToast('Zum Beenden gedrückt halten', 'info');
+        start = 0;
+    };
+    var schritt = function () {
+        if (!start) return;
+        var anteil = Math.min(1, (Date.now() - start) / THEKE_HALTEN_MS);
+        k.style.setProperty('--kin-halten', String(anteil));
+        if (anteil >= 1) { start = 0; k.style.setProperty('--kin-halten', '0'); thekeAn(false); return; }
+        rahmen = requestAnimationFrame(schritt);
+    };
+    k.addEventListener('pointerdown', function (e) { e.preventDefault(); start = Date.now(); rahmen = requestAnimationFrame(schritt); });
+    k.addEventListener('pointerup', function () { stopp(true); });
+    k.addEventListener('pointerleave', function () { stopp(false); });
+    k.addEventListener('pointercancel', function () { stopp(false); });
+    k.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    // Tastatur: Enter/Leertaste lange halten geht nicht -- dort reicht Esc zweimal nicht
+    // zufaellig. Wer eine Tastatur hat, ist der Wirt am Rechner: ein Druck genuegt.
+    k.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); thekeAn(false); } });
+}
+// Nach dem Neuladen: war das Tablet im Tablet-Modus, bleibt es dort.
+// Einmal pro Sitzung pruefen, sobald die Bestellungen das erste Mal da sind.
+function thekeWiederherstellen() {
+    if (window._thekeGeprueft) return;
+    window._thekeGeprueft = true;
+    var war = false;
+    try { war = localStorage.getItem(THEKE_SCHLUESSEL) === '1'; } catch (e) {}
+    if (war && !thekeAktiv() && document.getElementById('thekeLeiste')) thekeAn(true);
+}
+if (typeof document !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', thekeRausEinrichten);
+    if (document.readyState !== 'loading') setTimeout(thekeRausEinrichten, 0);
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible' && thekeAktiv()) { try { kinBildschirmWach(true); } catch (e) {} thekeLeisteZeichnen(); }
+    });
+}
+window.thekeAn = thekeAn;
+window.thekeAnsicht = thekeAnsicht;
+
+// SELBST EINTRAGEN IM TABLET-MODUS (Ibo 11.11.2026).
+//
+// "+ Reservierung" ist das vorhandene Formular des Dashboards, vorbelegt mit
+// dem Tag, der gerade in der Tage-Leiste gewaehlt ist.
+//
+// "Walk-in" ist der Gast, der ohne Reservierung reinkommt. Drei Angaben,
+// ein Knopf: Personen, Name (darf leer bleiben), Tisch (darf leer bleiben).
+// Gespeichert wird wie jede Reservierung aus dem Dashboard (resSaveToDatabase),
+// Uhrzeit = jetzt, und sofort auf "Ist da" (seated) -- er sitzt ja schon.
+// So zaehlt er im Tag mit, und der Tisch ist fuer die naechste Anfrage belegt.
+function thekeNeueReservierung() {
+    try { if (typeof resNeueOeffnen === 'function') resNeueOeffnen(); } catch (e) {}
+    var tag = (typeof _resHeuteTag !== 'undefined' && _resHeuteTag) || localDayStr(new Date());
+    var d = document.getElementById('resDate');
+    if (d) { d.value = tag; try { d.dispatchEvent(new Event('change')); } catch (e) {} }
+}
+// 1 bis 99. Alles andere (leer, Buchstaben, 0) bleibt bei der letzten
+// sinnvollen Zahl nicht haengen, sondern wird geklemmt.
+function walkInPersonen(n) {
+    var z = parseInt(n, 10);
+    if (!(z > 0)) return 1;
+    return Math.min(99, z);
+}
+function walkInJetzt(jetzt) {
+    jetzt = jetzt || new Date();
+    var tag = localDayStr(jetzt);
+    var hh = String(jetzt.getHours()).padStart(2, '0'), mm = String(jetzt.getMinutes()).padStart(2, '0');
+    return { tag: tag, zeit: hh + ':' + mm };
+}
+function walkInDaten(personen, name, tisch, jetzt) {
+    var j = walkInJetzt(jetzt);
+    var n = walkInPersonen(personen);
+    return {
+        date: j.tag, time: j.zeit,
+        name: String(name || '').trim() || 'Walk-in',
+        persons: parseInt(personen, 10) > 0 ? n : 2,
+        phone: '',
+        table: tisch || null,
+        notes: 'Walk-in',
+        source: 'dashboard', status: 'confirmed'
+    };
+}
+async function thekeWalkInOeffnen() {
+    var alt = document.getElementById('kinWalkIn');
+    if (alt) alt.remove();
+    var g = document.createElement('div');
+    g.id = 'kinWalkIn';
+    g.className = 'kin-walkin-grund';
+    g.innerHTML = '<div class="kin-walkin" role="dialog" aria-modal="true" aria-labelledby="kinWalkInTitel">'
+        + '<h2 id="kinWalkInTitel">Walk-in</h2>'
+        + '<p>Gäste ohne Reservierung – stehen gleich als „Ist da“ im Tag.</p>'
+        + '<div class="kin-walkin-etikett">PERSONEN</div>'
+        + '<div class="kin-walkin-pers">' + [1, 2, 3, 4, 5, 6, 7, 8].map(function (n) {
+            return '<button type="button" data-p="' + n + '"' + (n === 2 ? ' class="aktiv" aria-pressed="true"' : ' aria-pressed="false"') + '>' + n + '</button>';
+        }).join('') + '</div>'
+        // Groessere Gruppen (Ibo 11.11.2026: "Wenn mehrere Personen kommen?"):
+        // eigene Zahl mit Minus/Plus, bis 99.
+        + '<div class="kin-walkin-mehr"><span>Mehr Personen</span>'
+        + '<button type="button" data-schritt="-1" aria-label="Eine Person weniger">−</button>'
+        + '<input type="number" id="kinWalkInZahl" min="1" max="99" step="1" inputmode="numeric" value="2" aria-label="Personen">'
+        + '<button type="button" data-schritt="1" aria-label="Eine Person mehr">+</button></div>'
+        + '<div class="kin-walkin-reihe">'
+        + '<label style="display:flex;flex-direction:column;gap:6px;"><span class="kin-walkin-etikett">NAME (FREIWILLIG)</span><input type="text" id="kinWalkInName" autocomplete="off" placeholder="z. B. Meyer"></label>'
+        + '<label style="display:flex;flex-direction:column;gap:6px;"><span class="kin-walkin-etikett">TISCH</span><select id="kinWalkInTisch"><option value="">ohne festen Tisch</option></select></label>'
+        + '</div>'
+        + '<button type="button" class="kin-walkin-los" id="kinWalkInLos">Gäste setzen</button>'
+        + '<button type="button" class="kin-walkin-ab" id="kinWalkInAb">Abbrechen</button>'
+        + '</div>';
+    document.body.appendChild(g);
+    var personen = 2;
+    var zahlFeld = document.getElementById('kinWalkInZahl');
+    // Knoepfe, Feld und Minus/Plus zeigen immer dieselbe Zahl.
+    var setzePersonen = function (n) {
+        personen = walkInPersonen(n);
+        if (zahlFeld) zahlFeld.value = personen;
+        g.querySelectorAll('[data-p]').forEach(function (x) {
+            var an = parseInt(x.getAttribute('data-p'), 10) === personen;
+            x.classList.toggle('aktiv', an); x.setAttribute('aria-pressed', an ? 'true' : 'false');
+        });
+    };
+    g.addEventListener('click', function (e) {
+        if (e.target === g) { g.remove(); return; }
+        var b = e.target.closest ? e.target.closest('[data-p]') : null;
+        if (b) setzePersonen(b.getAttribute('data-p'));
+        var st = e.target.closest ? e.target.closest('[data-schritt]') : null;
+        if (st) setzePersonen(personen + (parseInt(st.getAttribute('data-schritt'), 10) || 0));
+    });
+    if (zahlFeld) zahlFeld.addEventListener('change', function () { setzePersonen(zahlFeld.value); });
+    document.getElementById('kinWalkInAb').onclick = function () { g.remove(); };
+    // Die echten Tische des Lokals -- dieselbe Liste wie im Formular.
+    try {
+        if (typeof resFormTischeLaden === 'function') await resFormTischeLaden();
+        var quelle = document.getElementById('resTable'), ziel = document.getElementById('kinWalkInTisch');
+        if (quelle && ziel) Array.prototype.forEach.call(quelle.options, function (o) {
+            if (!o.value) return;
+            var k = document.createElement('option'); k.value = o.value; k.textContent = o.textContent; ziel.appendChild(k);
+        });
+    } catch (e) {}
+    document.getElementById('kinWalkInLos').onclick = async function () {
+        var knopf = this;
+        knopf.disabled = true; knopf.textContent = 'Wird gespeichert …';
+        var r = walkInDaten(personen, document.getElementById('kinWalkInName').value, document.getElementById('kinWalkInTisch').value);
+        var ok = await walkInSpeichern(r);
+        if (ok) { g.remove(); return; }
+        knopf.disabled = false; knopf.textContent = 'Gäste setzen';
+    };
+}
+// Speichern, dann auf "Ist da". Schlaegt der zweite Schritt fehl, steht der
+// Gast als bestaetigt im Tag -- das wird GESAGT, nicht verschwiegen (Regel 6).
+async function walkInSpeichern(r) {
+    if (!window.resCurrentRestaurant) {
+        var h = typeof thekeHaus === 'function' ? thekeHaus() : null;
+        if (h) window.resCurrentRestaurant = h.id;
+    }
+    var gesp = null;
+    try { gesp = await window.resSaveToDatabase(r); } catch (e) { gesp = { fehler: 'keine Verbindung' }; }
+    if (!gesp || !gesp.id) {
+        showToast('Walk-in nicht gespeichert – ' + ((gesp && gesp.fehler) || 'keine Verbindung') + '. Bitte nochmal.', 'error');
+        return false;
+    }
+    r.id = gesp.id;
+    r.status = 'confirmed';
+    try { (window.resAllReservations = window.resAllReservations || []).push(r); } catch (e) {}
+    var gesetzt = false;
+    try { gesetzt = await updateReservationStatus(gesp.id, 'seated'); } catch (e) { gesetzt = false; }
+    if (gesetzt === true) { r.status = 'seated'; showToast(r.persons + ' Pers. gesetzt' + (r.name !== 'Walk-in' ? ' – ' + escapeHtml(r.name) : ''), 'success'); }
+    else showToast('Eingetragen, aber nicht auf „Ist da“ gesetzt – bitte in der Liste „Ist da“ tippen.', 'warning');
+    try { if (typeof resHeuteZeichnen === 'function') resHeuteZeichnen(); } catch (e) {}
+    return true;
+}
+window.thekeNeueReservierung = thekeNeueReservierung;
+window.thekeWalkInOeffnen = thekeWalkInOeffnen;
 try {
     window.matchMedia('(min-width: 1000px)').addEventListener('change', function () {
         try { renderDashboardOrders(); } catch (e) {}
@@ -90665,7 +91540,7 @@ function kdsPosHtml(it) {
     var optionsText = '';
     if (it.selected_options && it.selected_options.length) optionsText = it.selected_options.map(optionText).filter(Boolean).join(', ');
     else if (it.options && typeof it.options === 'string') optionsText = it.options;
-    return '<div class="kds-pos"><b>' + (parseInt(it.quantity, 10) || 1) + '× ' + escapeHtml(it.item_name || it.name || 'Unbekannt') + '</b>'
+    return '<div class="kds-pos"><b>' + (parseInt(it.quantity, 10) || 1) + '× ' + (typeof posNrHtml === 'function' ? posNrHtml(it) : '') + escapeHtml(it.item_name || it.name || 'Unbekannt') + '</b>'
         + (optionsText ? '<small>' + escapeHtml(optionsText) + '</small>' : '')
         + (it.notes ? '<small class="kds-pos-notiz">' + escapeHtml(it.notes) + '</small>' : '')
         + '</div>';
@@ -90676,7 +91551,7 @@ function kdsZeitBasis(o) {
 }
 
 function _kdsRenderCard(o) {
-    var items = o.order_items || o.items || [];
+    var items = (o.order_items && o.order_items.length) ? (typeof posNummernErgaenzen === 'function' ? posNummernErgaenzen(o.order_items, o.items) : o.order_items) : (o.items || []);
     var k = kdsKopf(o);
     var basis = kdsZeitBasis(o);
     var stufe = kdsStufe((Date.now() - basis) / 60000);
@@ -91243,6 +92118,22 @@ function _bonTrackerHtml(status, orderType) {
     return html;
 }
 
+// Die Bestellung zur Nummer aus dem Link -- nur mit Geheimnis.
+// Liefert { ok, order }: ok=false heisst "Server nicht erreichbar" (anders
+// anzeigen als "nicht gefunden"), order=null heisst "kein passendes Geheimnis".
+async function bonBestellungHolen(orderNumber, linkToken) {
+    var t = String(linkToken || '').trim().toLowerCase();
+    // Aus dem Link merken: dann taucht sie auch unter "Meine Bestellungen" auf.
+    if (VERFOLG_FORM.test(t)) verfolgMerken('b', t);
+    var v = await verfolgHolen();
+    if (!v.ok) return { ok: false, order: null };
+    var nr = String(orderNumber || '').trim().toLowerCase();
+    var liste = v.bestellungen || [];
+    var treffer = liste.filter(function (o) { return String(o.order_number || '').toLowerCase() === nr; })[0]
+        || (VERFOLG_FORM.test(t) ? liste.filter(function (o) { return String(o.track_token || '').toLowerCase() === t; })[0] : null);
+    return { ok: true, order: treffer || null };
+}
+
 async function showOrderBon(orderNumber) {
     // Fullscreen Bon anzeigen
     var bon = document.createElement('div');
@@ -91259,43 +92150,49 @@ async function showOrderBon(orderNumber) {
     '</div>';
     document.body.appendChild(bon);
 
-    // Bestellung aus Supabase laden
+    // BESTELLUNG UEBER IHR GEHEIMNIS HOLEN -- NICHT UEBER DIE NUMMER.
+    //
+    // Gemeldet am 11.11.2026, 07:33, Bildschirmfoto: Link "Bestellstatus
+    // verfolgen" aus der Mail -> "Bestellung nicht gefunden". Gemessen:
+    // orders?order_number=ilike.*ki-261110-017521* -> 200, NULL Zeilen. Die
+    // Tabelle ist fuer den oeffentlichen Schluessel zu (richtig so: die Nummer
+    // ist ratbar), und die leere Antwort sah aus wie "gibt es nicht".
+    //
+    // Jetzt: das Geheimnis kommt aus dem Link (?t=..., seit 11.11. in der
+    // Mail) oder von diesem Geraet (es hat beim Bestellen eines bekommen).
+    // Gefragt wird order-track -- derselbe Weg wie "Meine Bestellungen".
+    var _bonFehler = function (titel, text) {
+        bon.querySelector('div').innerHTML = '<div style="text-align:center;padding:60px 20px;">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="var(--slate)" stroke-width="1.5" width="48" height="48" style="margin-bottom:12px;opacity:0.4;"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>' +
+            '<h2 style="font-family:Epilogue,sans-serif;font-size:20px;color:var(--text-primary);margin:0 0 8px;">' + titel + '</h2>' +
+            '<p style="color:var(--slate);font-size:14px;line-height:1.5;max-width:340px;margin:0 auto;">' + text + '</p>' +
+            '<p style="color:var(--slate);font-size:13px;margin-top:10px;">Bestellnummer: ' + _alarmEsc(String(orderNumber || '').toUpperCase()) + '</p>' +
+            '<a href="/" style="display:inline-block;margin-top:20px;padding:12px 24px;background:var(--primary);color:white;border-radius:48px;text-decoration:none;font-weight:600;">Zur Startseite</a>' +
+        '</div>';
+    };
     try {
-        var client = sb || window.sb;
-        if (!client) throw new Error('Keine Verbindung');
-
-        var { data: orders, error } = await client.from('orders').select('*, order_items(*)')
-            .ilike('order_number', '%' + orderNumber + '%')
-            .limit(1);
-
-        if (error) throw error;
-        if (!orders || orders.length === 0) {
-            // Versuche auch ohne Prefix
-            var { data: orders2 } = await client.from('orders').select('*, order_items(*)')
-                .ilike('order_number', '%' + orderNumber.split('-').pop() + '%')
-                .limit(1);
-            orders = orders2;
-        }
-
-        if (!orders || orders.length === 0) {
-            bon.querySelector('div').innerHTML = '<div style="text-align:center;padding:60px 20px;">' +
-                '<svg viewBox="0 0 24 24" fill="none" stroke="var(--slate)" stroke-width="1.5" width="48" height="48" style="margin-bottom:12px;opacity:0.4;"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>' +
-                '<h2 style="font-family:Epilogue,sans-serif;font-size:20px;color:var(--text-primary);margin:0 0 8px;">Bestellung nicht gefunden</h2>' +
-                '<p style="color:var(--slate);font-size:14px;">Bestellnummer: ' + orderNumber + '</p>' +
-                '<a href="/" style="display:inline-block;margin-top:20px;padding:12px 24px;background:var(--primary);color:white;border-radius:48px;text-decoration:none;font-weight:600;">Zur Startseite</a>' +
-            '</div>';
+        var _bonGefunden = await bonBestellungHolen(orderNumber, (new URLSearchParams(window.location.search)).get('t'));
+        if (!_bonGefunden.ok) {
+            _bonFehler('Gerade nicht abrufbar', 'Der Bestellstatus konnte nicht geladen werden. Bitte gleich nochmal versuchen.');
             return;
         }
-
+        if (!_bonGefunden.order) {
+            _bonFehler('Bestellung hier nicht zu öffnen',
+                'Diese Bestellung lässt sich nur mit dem Link aus der Bestätigungsmail öffnen – oder auf dem Handy, mit dem bestellt wurde. ' +
+                'Ältere Mails haben den Link noch nicht; dann bitte direkt beim Restaurant nachfragen.');
+            return;
+        }
+        var orders = [_bonGefunden.order];
         var order = orders[0];
-        var items = order.order_items || [];
+        // order-track liefert die Gerichte als JSON-Liste (items), nicht als order_items.
+        var items = (order.order_items && order.order_items.length) ? order.order_items : (order.items || []);
         var createdAt = new Date(order.created_at);
         var dateStr = createdAt.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
         var timeStr = createdAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
         var typeLabels = { pickup: 'Abholung', delivery: 'Lieferung', dine_in: 'Vor Ort' };
 
-        // Restaurant-Name finden
-        var restName = 'Restaurant';
+        // Restaurant-Name finden (order-track liefert ihn mit)
+        var restName = order.restaurant_name || 'Restaurant';
         if (order.restaurant_id && APP_DATA.restaurants) {
             var r = APP_DATA.restaurants.find(function(x) { return x.id === order.restaurant_id; });
             if (r) restName = r.name;
@@ -91326,7 +92223,7 @@ async function showOrderBon(orderNumber) {
                         (it.notes ? '<div style="font-size:12px;color:#ea580c;margin-top:2px;">' + _alarmEsc(it.notes) + '</div>' : '') +
                     '</div>' +
                 '</div>' +
-                '<span style="font-weight:600;font-size:14px;color:var(--text-primary);">' + ((it.total_price || it.unit_price || 0).toFixed(2).replace('.', ',')) + ' &euro;</span>' +
+                '<span style="font-weight:600;font-size:14px;color:var(--text-primary);">' + (Number(it.total_price || it.price || it.unit_price || 0).toFixed(2).replace('.', ',')) + ' &euro;</span>' +
             '</div>';
         }).join('');
 
@@ -91335,7 +92232,8 @@ async function showOrderBon(orderNumber) {
         // sonst passt die Zwischensumme nicht zu den Positionszeilen darüber.
         var subtotal = items.reduce(function(s, it) {
             return s + (it.total_price != null ? Number(it.total_price)
-                                               : (Number(it.unit_price) || 0) * (it.quantity || 1));
+                      : it.price != null ? Number(it.price)
+                      : (Number(it.unit_price) || 0) * (it.quantity || 1));
         }, 0);
 
         bon.querySelector('div').innerHTML =
@@ -91381,7 +92279,7 @@ async function showOrderBon(orderNumber) {
             '<div style="background:rgba(255,255,255,0.7);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.8);border-radius:32px;padding:20px;margin-bottom:16px;box-shadow:0 10px 30px -5px rgba(0,61,51,0.06);">' +
                 '<div style="display:flex;justify-content:space-between;align-items:center;">' +
                     '<span style="font-family:Epilogue,sans-serif;font-size:18px;font-weight:800;color:var(--text-primary);">Gesamt</span>' +
-                    '<span style="font-family:Epilogue,sans-serif;font-size:22px;font-weight:900;color:var(--primary);">' + (order.total || subtotal).toFixed(2).replace('.', ',') + ' &euro;</span>' +
+                    '<span style="font-family:Epilogue,sans-serif;font-size:22px;font-weight:900;color:var(--primary);">' + Number(order.total || subtotal).toFixed(2).replace('.', ',') + ' &euro;</span>' +
                 '</div>' +
             '</div>' +
 
@@ -91413,8 +92311,7 @@ async function showOrderBon(orderNumber) {
             var _bonPoll = setInterval(async function () {
                 if (!document.getElementById('orderBonView')) { clearInterval(_bonPoll); return; }
                 try {
-                    var upd = await client.from('orders').select('status,order_type').eq('id', order.id).limit(1);
-                    var row = upd && upd.data && upd.data[0];
+                    var row = await verfolgBestellung(order.id);
                     if (!row) return;
                     var nsc = statusConfig[row.status] || statusConfig.received;
                     var badge = document.getElementById('bonStatusBadge');

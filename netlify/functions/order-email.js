@@ -58,6 +58,17 @@ var CORS = {
     'Content-Type': 'application/json; charset=utf-8'
 };
 
+
+// DER LINK "BESTELLSTATUS VERFOLGEN" BRAUCHT DAS GEHEIMNIS DER BESTELLUNG.
+//
+// Gemeldet am 11.11.2026, 07:33, mit Bildschirmfoto: Link aus der Mail ->
+// "Bestellung nicht gefunden". Im Protokoll: orders?order_number=ilike...
+// -> 200, null Zeilen. Die Bestelltabelle ist fuer Fremde zu (gut so), die
+// Bestellnummer ist ratbar und darf nichts oeffnen. order-track.js sagt
+// seit Monaten "es steht im Link der Bestaetigungsmail" -- es stand nie drin.
+// Die Regel steht in den drei Mails (Bestaetigung, Annahme, neue Zeit) direkt
+// am trackUrl -- die Tests ziehen die Mail-Bausteine einzeln heraus.
+
 function json(code, obj) { return { statusCode: code, headers: CORS, body: JSON.stringify(obj) }; }
 
 function sbHeaders(extra) {
@@ -122,7 +133,9 @@ function buildEmail(o, rest) {
             esc((da.zip || '') + ' ' + (da.city || '')) + '</p>';
     }
 
-    var trackUrl = 'https://kiekmolin.de/order/' + encodeURIComponent(o.order_number || '');
+    // Mit Geheimnis (?t=), sonst oeffnet der Link nichts -- siehe DER LINK ... oben.
+    var trackUrl = 'https://kiekmolin.de/order/' + encodeURIComponent(o.order_number || '')
+        + (/^[0-9a-f]{32}$/.test(String(o.track_token || '').toLowerCase()) ? '?t=' + String(o.track_token).toLowerCase() : '');
     // Auch hier stand eine eigene Liste ohne card_on_delivery -- in der
     // Mail an den Gast stand dann "Zahlung: card_on_delivery".
     var payLabel = esc(ZAHLART.text(o.payment_method));
@@ -267,7 +280,9 @@ function buildAcceptedEmail(o, rest) {
         zeitText = 'Das Restaurant bereitet deine Bestellung jetzt zu.';
     }
 
-    var trackUrl = 'https://kiekmolin.de/order/' + encodeURIComponent(o.order_number || '');
+    // Mit Geheimnis (?t=), sonst oeffnet der Link nichts -- siehe DER LINK ... oben.
+    var trackUrl = 'https://kiekmolin.de/order/' + encodeURIComponent(o.order_number || '')
+        + (/^[0-9a-f]{32}$/.test(String(o.track_token || '').toLowerCase()) ? '?t=' + String(o.track_token).toLowerCase() : '');
     var restName = o.restaurant_name || (rest && rest.name) || 'Restaurant';
 
     var adresse = '';
@@ -343,7 +358,9 @@ function buildZeitEmail(o, rest) {
         satz = 'Das Restaurant hat die Zeit für deine Bestellung angepasst.';
     }
 
-    var trackUrl = 'https://kiekmolin.de/order/' + encodeURIComponent(o.order_number || '');
+    // Mit Geheimnis (?t=), sonst oeffnet der Link nichts -- siehe DER LINK ... oben.
+    var trackUrl = 'https://kiekmolin.de/order/' + encodeURIComponent(o.order_number || '')
+        + (/^[0-9a-f]{32}$/.test(String(o.track_token || '').toLowerCase()) ? '?t=' + String(o.track_token).toLowerCase() : '');
 
     var html = MAIL.rahmen({
         titelText: 'Neue Zeit für deine Bestellung',
