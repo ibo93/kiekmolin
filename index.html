@@ -12300,7 +12300,9 @@
         /* Reservierungen: nur "Heute" -- Wartet auf Bestaetigung + der Tag nach Uhrzeit. */
         body.kin-theke[data-theke-ansicht="reservierungen"] #sectionReservations > *:not(#resTabHeute):not(.kmi-stand) { display: none !important; }
         body.kin-theke[data-theke-ansicht="reservierungen"] #resTabHeute { display: block !important; }
-        body.kin-theke #resTageLeiste { display: none !important; }
+        /* Die Tage-Leiste (heute + 6 Tage) bleibt: Ibo 11.11.2026 "Beim Reservieren auch
+           den Kalender rein". Beim Wechsel in den Reiter steht sie immer auf heute. */
+        body.kin-theke .kin-res-tagknopf { min-height: 64px; min-width: 64px; }
         body.kin-theke .kin-res-karte .kin-res-bestaetigen { min-height: 56px; font-size: 17px; }
         body.kin-theke .kin-res-gast { min-height: 60px; }
         body.kin-theke .kin-res-btn { min-height: 48px; }
