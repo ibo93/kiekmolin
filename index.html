@@ -44404,6 +44404,12 @@ window.aboStandWort = aboStandWort;
 window.aboAnzeige = aboAnzeige;
 
 async function loadCustomers() {
+    // NUR FUER DEN VERWALTER (gemessen 11.11.2026). init() ruft das bei JEDEM
+    // Seitenaufruf auf -- auch bei Gaesten und Wirten. Der Server hat das
+    // jedes Mal richtig abgelehnt (admin-meldungen 403, mahnung 403), in
+    // 7 Tagen rund 450 Mal. Daten gingen dabei nicht raus, aber jedes
+    // Gast-Handy hat drei ueberfluessige Anfragen geschickt.
+    if (typeof istVerwalter === 'function' && !istVerwalter()) return;
     try { adminMeldungenLaden(); } catch (e) {}
     try {
         const response = await fetch(`${SUPABASE_URL}/rest/v1/customers?select=*&role=neq.superadmin&order=created_at.desc`, {
@@ -68623,6 +68629,12 @@ function dashZeitraum(z) {
 async function dashLaden() {
     var box = document.getElementById('kinDash');
     if (!box) return;
+    // Nur mit Anmeldung (gemessen 11.11.2026): init() -> updateDashboard()
+    // lief bei JEDEM Besucher, auch bei Gaesten. Sie fragten Bestellungen,
+    // Reservierungen, Kasse, Bewertungen und push-status eines Lokals ab --
+    // die Datenbank gab leer zurueck, push-status antwortete 403 (in 7 Tagen
+    // rund 400 Mal). Nach dem Anmelden wird das Dashboard ohnehin neu gezeichnet.
+    if (typeof currentAdmin === 'undefined' || !currentAdmin) return;
     var rid = getControlRestaurantId();
     if (!rid) { box.innerHTML = '<div class="kin-dash-wenig">Bitte oben ein Restaurant wählen.</div>'; return; }
     var Z = dashZeitraumWahl();
