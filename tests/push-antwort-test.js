@@ -177,7 +177,20 @@ var RID = '11111111-2222-4333-8444-555555555555', RES = 'aaaaaaaa-bbbb-4ccc-8ddd
     t('kein Gerät -> Warnung, nicht leer (Regel 6)', /Kein Gerät angemeldet/.test(a2.text) && a2.warn, a2.text);
     var a3 = TXT({ ok: false, error: 'HTTP 403' });
     t('Status nicht abrufbar -> wird gesagt', /nicht abrufbar \(HTTP 403\)/.test(a3.text) && a3.warn, a3.text);
-    t('Karte steht in den Reservierungs-Einstellungen und lädt mit', /id="pushStatusKarte"/.test(H) && /if \(typeof pushStatusLaden === 'function'\) pushStatusLaden\(\);/.test(fn('loadResSettingsUI')), 'fehlt');
+    // 11.11.2026, Ibo: "muss nicht fuer Reservierungen sein, fuer alle". Die Karte
+    // stand nur unter Reservierungen -> Einstellungen; ein Lieferbetrieb ohne
+    // Reservierungen fand sie nie, obwohl der Server auch Bestellungen meldet.
+    function karteImDashboard(q) {
+        var dash = q.slice(q.indexOf('<div id="sectionDashboard"'), q.indexOf('<div id="sectionReservations"'));
+        var resEinst = q.slice(q.indexOf('<div id="resTabSettings"'), q.indexOf('<div id="resTabSettings"') + 20000);
+        return /id="pushStatusKarte"/.test(dash) && !/id="pushStatusKarte"/.test(resEinst);
+    }
+    t('Karte steht in der Dashboard-Uebersicht, nicht mehr nur bei Reservierungen', karteImDashboard(H), 'falscher Ort');
+    t('Gegenprobe: Karte zurueck in die Reservierungs-Einstellungen wird erkannt',
+        !karteImDashboard(H.replace('id="pushStatusKarte"', 'id="pushWeg"').replace('<div id="resTabSettings"', '<div id="resTabSettings"><div id="pushStatusKarte"></div>')), '');
+    t('Karte nennt Bestellung UND Reservierung', /id="pushStatusKarte"[\s\S]{0,800}<b>Bestellung<\/b> und <b>Reservierung<\/b>/.test(H), '');
+    t('Laedt beim Oeffnen der Uebersicht', /case 'dashboard':\s*updateDashboard\(\);\s*if \(typeof pushStatusLaden === 'function'\) pushStatusLaden\(\);/.test(H), '');
+    t('Warnung ohne Geraet nennt auch Bestellungen', /Bestellungen und Reservierungen kommen nicht aufs Handy/.test(a2.text), a2.text);
 
     console.log('\n' + (ok === n ? 'Alle ' + n + ' Tests bestanden.' : (n - ok) + ' von ' + n + ' Tests FEHLGESCHLAGEN.'));
     process.exit(ok === n ? 0 : 1);
