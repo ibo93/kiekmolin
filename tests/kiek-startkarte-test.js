@@ -46,5 +46,10 @@ t('Dunkelmodus fuer Karte, Feld und Vorschlaege', /\.dark-mode \.kiek-start \{/.
 t('Schwebender Knopf weicht, solange die Karte sichtbar ist', /IntersectionObserver[\s\S]{0,200}kiek-knopf-weg/.test(H) && /#assistantBtn\.kiek-knopf\.kiek-knopf-weg \{[^}]*pointer-events: none/.test(H), '');
 t('Ohne IntersectionObserver bleibt der Knopf (kein stiller Ausfall)', /typeof IntersectionObserver !== 'function'\) return;/.test(H), '');
 
+// Friesland-Kunden (11.11.2026): oben stand fest "Ostfriesland" -- Gaeste in Jever
+// oder Varel fuehlten sich nicht gemeint. Ibo: "An der Nordsee".
+var marke = (/<section id="heroBanner"[\s\S]*?<h2/.exec(H) || [''])[0];
+t('Titelbild-Marke: "An der Nordsee", nicht nur Ostfriesland', />An der Nordsee<\/span>/.test(marke) && !/>Ostfriesland<\/span>/.test(marke), '');
+
 console.log('\n' + ok + '/' + n + ' bestanden');
 process.exit(ok === n ? 0 : 1);
