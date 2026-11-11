@@ -12425,6 +12425,16 @@
             font: 600 14px Inter, sans-serif; cursor: pointer; }
         .kin-theke-knopf[aria-pressed="false"] { color: #fecaca; border-color: rgba(254,202,202,0.45); }
         .kin-theke-uhr { font-family: 'Epilogue', sans-serif; font-size: 26px; font-weight: 800; color: #ffffff; font-variant-numeric: tabular-nums; min-width: 3.2em; text-align: right; }
+        #pushStatusKarte.kin-push-karte { margin: 0 0 24px; padding: 18px; border-radius: 24px; background: #ffffff; box-shadow: 0 1px 2px rgba(0,37,30,0.06), 0 10px 28px -14px rgba(0,37,30,0.18); }
+        #pushStatusKarte h4 { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font: 900 19px Epilogue, Inter, sans-serif; letter-spacing: -0.01em; color: #00251e; }
+        #pushStatusKarte h4 .material-symbols-outlined { font-size: 22px; color: #003d33; }
+        #pushStatusKarte .kin-push-erkl { margin: 0 0 10px; font-size: 13px; color: #404946; }
+        .dark-mode #pushStatusKarte.kin-push-karte { background: rgba(255,255,255,0.06); box-shadow: none; }
+        .dark-mode #pushStatusKarte h4 { color: #ffffff !important; }
+        .dark-mode #pushStatusKarte h4 .material-symbols-outlined { color: #fed65b !important; }
+        .dark-mode #pushStatusKarte .kin-push-erkl { color: #b9c4c0 !important; }
+        #pushStatusText.kin-push-warn { color: #b91c1c !important; }
+        .dark-mode #pushStatusText.kin-push-warn { color: #fca5a5 !important; }
         .kin-theke-raus-box { position: relative; flex-shrink: 0; }
         .kin-theke-raus { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px 0 12px; border-radius: 9999px; border: 0;
             background: #ffffff; color: #003d33; font: 700 14px Inter, sans-serif; cursor: pointer; white-space: nowrap; }
@@ -19019,6 +19029,25 @@ window.addEventListener('load', function () {
                  Fuellt dashLaden(). Die alte Ansicht darunter bleibt im DOM (an ihren
                  Kennungen haengt updateDashboard), ist aber ausgeblendet. -->
             <div id="kinDash" class="kin-dash"><div class="kin-dash-wenig">Dashboard lädt …</div></div>
+            <!-- BENACHRICHTIGUNGEN FUER ALLES (11.11.2026). Stand bis heute nur unter
+                 Reservierungen -> Einstellungen und sprach nur von Reservierungen. Ibo:
+                 "muss nicht fuer Reservierungen sein, fuer alle". Der Server schickt
+                 laengst beides (pending-reminder.js: neue Bestellung + neue Reservierung);
+                 ein Lieferbetrieb ohne Reservierungen fand die Karte aber nie. -->
+            <div class="kin-push-karte" id="pushStatusKarte">
+                <h4>
+                    <span class="material-symbols-outlined" aria-hidden="true">notifications_active</span>
+                    Benachrichtigungen aufs Handy
+                </h4>
+                <p class="kin-push-erkl">Bei jeder neuen <b>Bestellung</b> und <b>Reservierung</b> – auch wenn das Dashboard zu ist.</p>
+                <p id="pushStatusText" style="font-size:14px;font-weight:600;color:var(--text-primary);margin:0 0 6px;">Wird geprüft …</p>
+                <p id="pushStatusTest" style="font-size:12px;color:var(--text-secondary);margin:0 0 10px;min-height:16px;"></p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button type="button" id="pushTestKnopf" onclick="pushTestSenden()" style="padding:9px 16px;border:none;border-radius:9999px;background:var(--primary);color:#fff;font-weight:700;font-size:13px;cursor:pointer;">Test senden</button>
+                    <button type="button" onclick="pushHierAktivieren()" style="padding:9px 16px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-weight:600;font-size:13px;cursor:pointer;">Auf diesem Gerät</button>
+                </div>
+                <p style="font-size:12px;color:var(--text-secondary);margin:10px 0 0;line-height:1.45;">Neue Reservierungen haben in der Benachrichtigung die Knöpfe <b>Annehmen</b> und <b>Ablehnen</b> (Android, Computer). Auf dem iPhone kommen Benachrichtigungen nur, wenn Kiek mol in über „Teilen → Zum Home-Bildschirm“ geöffnet wird.</p>
+            </div>
             <!-- Hier stand bis 07.11.2026 ein dunkler Kurani-Kasten mit blauem Knopf.
                  Ibo: "es nervt" -- und Wirte, die schon bei Kiek mol in sind, brauchen
                  keinen Check fuer eine Restaurant-Seite. Ersatzlos entfernt. -->
@@ -24000,22 +24029,6 @@ window.addEventListener('load', function () {
             <!-- EINSTELLUNGEN TAB -->
             <div id="resTabSettings" class="res-tab-content" style="display: none;">
                 <div class="res-settings-grid">
-                    <!-- Benachrichtigungen: kommen sie an? (14.10.2026) -->
-                    <div class="res-settings-card" id="pushStatusKarte">
-                        <h4>
-                            <span class="settings-icon green">
-                                <span class="material-symbols-outlined" style="font-size:20px;">notifications_active</span>
-                            </span>
-                            Benachrichtigungen
-                        </h4>
-                        <p id="pushStatusText" style="font-size:14px;font-weight:600;color:var(--text-primary);margin:0 0 6px;">Wird geprüft …</p>
-                        <p id="pushStatusTest" style="font-size:12px;color:var(--text-secondary);margin:0 0 10px;min-height:16px;"></p>
-                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                            <button type="button" id="pushTestKnopf" onclick="pushTestSenden()" style="padding:9px 16px;border:none;border-radius:9999px;background:var(--primary);color:#fff;font-weight:700;font-size:13px;cursor:pointer;">Test senden</button>
-                            <button type="button" onclick="pushHierAktivieren()" style="padding:9px 16px;border:1px solid var(--border-color);border-radius:9999px;background:var(--bg-secondary);color:var(--text-primary);font-weight:600;font-size:13px;cursor:pointer;">Auf diesem Gerät</button>
-                        </div>
-                        <p style="font-size:12px;color:var(--text-secondary);margin:10px 0 0;line-height:1.45;">Neue Reservierungen haben in der Benachrichtigung die Knöpfe <b>Annehmen</b> und <b>Ablehnen</b> (Android, Computer). Auf dem iPhone öffnet das Antippen die Reservierung – dort kommen Benachrichtigungen nur, wenn Kiek mol in über „Teilen → Zum Home-Bildschirm“ geöffnet wird.</p>
-                    </div>
                     <!-- OEFFNUNGSZEITEN FUER DEN WIRT (Ibo, 02.11.2026: "Oeffnungszeiten
                          auch fuer Wirt"). Bisher nur im Admin-Formular. Speichert
                          opening_hours (die Wochentage, alles andere darin bleibt) und
@@ -37226,6 +37239,7 @@ function showDashboardSection(section) {
             break;
         case 'dashboard':
             updateDashboard();
+            if (typeof pushStatusLaden === 'function') pushStatusLaden();
             break;
         case 'instagram':
             loadInstagramDashInit();
@@ -50987,7 +51001,7 @@ function pushZeit(iso) {
 function pushStatusText(st) {
     if (!st || !st.ok) return { text: 'Status nicht abrufbar' + (st && st.error ? ' (' + st.error + ')' : '') + '.', warn: true };
     if (!st.vapid) return { text: '⚠ Auf dem Server fehlen die Push-Schlüssel – es geht keine Benachrichtigung raus.', warn: true };
-    if (!st.geraete) return { text: '⚠ Kein Gerät angemeldet – neue Reservierungen kommen nicht aufs Handy.', warn: true };
+    if (!st.geraete) return { text: '⚠ Kein Gerät angemeldet – neue Bestellungen und Reservierungen kommen nicht aufs Handy.', warn: true };
     return {
         text: '✓ Aktiv auf ' + st.geraete + (st.geraete === 1 ? ' Gerät' : ' Geräten') + ' · ' + (st.letzte ? 'letzte Meldung ' + pushZeit(st.letzte) : 'noch keine Meldung verschickt'),
         warn: false
@@ -51006,6 +51020,7 @@ async function pushStatusLaden() {
     var t = pushStatusText(st);
     el.textContent = t.text;
     el.style.color = t.warn ? '#b91c1c' : 'var(--text-primary)';
+    el.classList.toggle('kin-push-warn', !!t.warn);
 }
 async function pushTestSenden() {
     var rid = sperrLokal(), aus = document.getElementById('pushStatusTest'), knopf = document.getElementById('pushTestKnopf');
