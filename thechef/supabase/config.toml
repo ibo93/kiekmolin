@@ -1,0 +1,18 @@
+# Supabase-Einstellungen von The Chef – NUR was hier steht, wird mit
+# `supabase config push` übertragen; alles andere bleibt, wie es ist.
+# Eingerichtet von werkzeug/einrichten.sh.
+project_id = "thechef"
+
+[auth]
+# Mitarbeiter treten per Code bei, ohne Passwort (EINRICHTEN.md, Schritt 1.2).
+enable_anonymous_sign_ins = true
+
+# Der Zeitplan (0003_zeitplan.sql) liest diese beiden Werte zur Laufzeit.
+# Sie kommen aus der Umgebung von einrichten.sh, nicht aus dem Quelltext.
+[db.vault]
+chef_projekt_url = "env(CHEF_PROJEKT_URL)"
+chef_zeitplan_key = "env(ZEITPLAN_SCHLUESSEL)"
+
+# Wird von pg_cron mit eigenem Schlüssel aufgerufen, nicht von einem Nutzer.
+[functions.zeitplan]
+verify_jwt = false
