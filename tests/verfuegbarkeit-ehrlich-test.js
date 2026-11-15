@@ -19,15 +19,28 @@ var n = 0, ok = 0;
 function t(l, c, x) { n++; if (c === true) ok++; console.log((c === true ? 'OK  ' : 'FAIL') + ' | ' + l + (c === true ? '' : '  -> ' + x)); }
 function fn(name) { var i = H.indexOf('function ' + name + '('); if (i < 0) return ''; if (H.slice(i - 6, i) === 'async ') i -= 6; var d = 0, j = H.indexOf('{', i); for (var k = j; k < H.length; k++) { if (H[k] === '{') d++; else if (H[k] === '}') { d--; if (!d) return H.slice(i, k + 1); } } return ''; }
 
+// UHR EINFRIEREN (07.11.2026): getTableAvailabilityByTime filtert vergangene
+// Slots mit new Date().getHours(). Mit echter Uhr war der Test ab 23:00
+// rot (23:00 vergangen), ab 23:30 kam []. Jetzt steht die Uhr fest auf
+// 12:00 Ortszeit am 07.10.2026 -- unabhaengig von Tageszeit und TZ.
+var EchtDate = Date, jetzt = { h: 12, m: 0 };
+function FesteUhr() {
+  if (arguments.length) return new (Function.prototype.bind.apply(EchtDate, [null].concat([].slice.call(arguments))))();
+  return new EchtDate(2026, 9, 7, jetzt.h, jetzt.m, 0);
+}
+FesteUhr.prototype = EchtDate.prototype;
+FesteUhr.now = function () { return new FesteUhr().getTime(); };
+FesteUhr.UTC = EchtDate.UTC; FesteUhr.parse = EchtDate.parse;
+
 var lage = {};
 function antwort(body, ok) { return Promise.resolve({ ok: ok !== false, json: function () { return Promise.resolve(body); } }); }
 var sb = {
   SUPABASE_URL: 'https://x', SUPABASE_KEY: 'k', kmiToken: function () { return 'k'; },
   todayStrLocal: function () { return '2026-10-07'; },
-  generateReservationSlots: function () { return ['23:00', '23:30']; },   // spaet: nie "vergangen"
+  generateReservationSlots: function () { return ['23:00', '23:30']; },   // Uhr steht auf 12:00 (FesteUhr)
   sbRead: function () { if (lage.tische === 'kaputt') return Promise.reject(new Error('500')); return antwort(lage.tische); },
   fetch: function () { return lage.belegung === 'kaputt' ? antwort({ ok: false }, false) : antwort({ ok: true, belegung: lage.belegung }); },
-  encodeURIComponent: encodeURIComponent, parseInt: parseInt, Array: Array, Date: Date, Promise: Promise, Error: Error, Math: Math
+  encodeURIComponent: encodeURIComponent, parseInt: parseInt, Array: Array, Date: FesteUhr, Promise: Promise, Error: Error, Math: Math
 };
 vm.createContext(sb);
 vm.runInContext(fn('belegungHolen') + '\n' + fn('getTableAvailabilityByTime'), sb);
@@ -37,6 +50,12 @@ vm.runInContext(fn('belegungHolen') + '\n' + fn('getTableAvailabilityByTime'), s
   lage = { tische: [{ id: 1 }, { id: 2 }], belegung: [{ reservation_time: '23:00:00', status: 'confirmed' }] };
   var s = await sb.getTableAvailabilityByTime('r1');
   t('2 Tische, 1 Buchung um 23:00 -> 23:00 noch 1 frei, 23:30 noch 2', s.length === 2 && s[0].free === 1 && s[1].free === 2, JSON.stringify(s));
+
+  // 1b) Vergangene Slots fallen weg -- nach der eingefrorenen Uhr, nicht der echten
+  jetzt = { h: 23, m: 10 };
+  s = await sb.getTableAvailabilityByTime('r1');
+  t('um 23:10: 23:00 vergangen, nur 23:30 bleibt (Uhr wirkt)', s.length === 1 && s[0].time === '23:30' && s[0].free === 2, JSON.stringify(s));
+  jetzt = { h: 12, m: 0 };
 
   // 2) Belegung kaputt: werfen, nicht "alles frei"
   lage = { tische: [{ id: 1 }], belegung: 'kaputt' };
