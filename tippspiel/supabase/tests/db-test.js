@@ -191,6 +191,9 @@ if (boost.length === 3) {
   r = place(B, [{ type: 'single', stake: 10, selections: [{ outcome_id: boost[0], price: Number(boost[2]) }] }]);
   check('Boost: erhöhte Quote wird angenommen und markiert',
     r.ok && psql(`select boosted from bet_selections where bet_id='${r.bet_ids[0]}'`) === 't', r);
+  // 10 × (2,00/2,00) × 0,95 = 9 – nicht 10 × (2,00/1,70) × 0,95 = 11 (sofortiger Gewinn)
+  const boostCo = Number(psql(`select cashout_value('${r.bet_ids[0]}')`));
+  check('Boost-Wette: Cash-Out sofort danach unter Einsatz', boostCo === 9, boostCo);
 }
 
 // ───── 6. Cash-Out ─────

@@ -13,8 +13,18 @@ ist `/tippspiel/` gesperrt (`netlify.toml`).
 |---|---|---|
 | 1 | Datenbank-Schema, Migrationen, Seed | fertig, lokal geprüft |
 | 2 | Edge Functions (Odds holen, Wette, Abrechnung, Cash-Out) | offen |
-| 3 | Frontend (React/Vite/TS/Tailwind, PWA) | offen |
+| 3 | Frontend (React/Vite/TS/Tailwind, PWA) | läuft im Demo-Betrieb (ohne Supabase) |
 | 4 | Netlify-Deploy, Seed prüfen | offen |
+
+## App (`app/`)
+
+```bash
+cd tippspiel/app && npm install && npm run dev
+```
+
+Ohne Supabase läuft sie im **Demo-Betrieb**: dieselben Spiele wie `seed.sql`,
+dieselben Prüfregeln wie `place_bets()`, Live-Spiele ticken (Quoten blinken,
+Märkte sperren). Stand bleibt auf dem Gerät gespeichert. Bilder: `vorschau/`.
 
 ## Datenbank (`supabase/`)
 

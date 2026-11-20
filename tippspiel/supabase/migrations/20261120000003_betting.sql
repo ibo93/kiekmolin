@@ -368,8 +368,9 @@ begin
   select * into b from bets where id = p_bet;
   if not found or b.status <> 'open' then return null; end if;
 
-  for s in select bs.*, o.price as cur from bet_selections bs
-             join outcomes o on o.id = bs.outcome_id
+  -- aktuelle Quote INKL. Boost: sonst wäre ein Boost sofort mit Gewinn auszahlbar
+  -- (angenommen 2,52 / aktuell 2,10 → Cash-Out über dem Einsatz, ohne Risiko)
+  for s in select bs.*, effective_price(bs.outcome_id) as cur from bet_selections bs
             where bs.bet_id = p_bet order by bs.position loop
     if s.status = 'open' then
       if outcome_block_reason(s.outcome_id) is not null then return null; end if;  -- gesperrt
