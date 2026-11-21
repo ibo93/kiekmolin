@@ -28,6 +28,7 @@ create table public.api_usage (
 );
 create index on public.api_usage(at desc);
 alter table public.api_usage enable row level security;   -- keine Policy: Clients sehen nichts
+revoke all on public.api_usage from anon, authenticated;  -- und kein Tabellenrecht (doppelt hält besser)
 
 insert into public.app_config(key, value, note) values
   ('odds_max_leagues',   12, 'So viele Ligen werden regelmäßig abgerufen (nach Priorität)'),

@@ -344,5 +344,48 @@ check('Beendetes Spiel wird von späterem Abruf nicht mehr verändert',
   psql(`select upsert_event_markets('${evJson()}', '${mk(9.9, 9.9, 9.9)}')`) === '0' &&
   psql(`select status from events where id='api_ev1'`) === 'finished');
 
+
+// ───── 10. Push-Benachrichtigungen ─────
+const C = newUser('carla@example.org'), D = newUser('dirk@example.org');
+psql(`update profiles set push_prefs='{"bet_won":true,"event_start":true,"boost":true}' where id in ('${C}','${D}')`);
+psql(`insert into push_subscriptions(user_id, endpoint, p256dh, auth) values ('${C}','https://push.example/c','k','a')`);
+// D hat KEIN Gerät angemeldet
+psql(`select upsert_event_markets('${evJson({ id: 'api_ev2' })}', '${mk(2.0, 3.5, 3.6)}')`);
+const h2 = outcome('api_ev2', 'h2h', 'home');
+place(C, [{ type: 'single', stake: 10, selections: [sel(h2)] }]);
+place(D, [{ type: 'single', stake: 10, selections: [sel(h2)] }]);
+psql(`update events set commence_time = now() - interval '5 minutes' where id='api_ev2'`);
+psql(`select apply_score('api_ev2', 0, 0, false, '~5''')`);
+psql(`select apply_score('api_ev2', 0, 0, false, '~6''')`);
+check('Anpfiff → genau eine Meldung an Tipper mit Gerät',
+  psql(`select count(*) from push_queue where kind='event_start' and user_id='${C}'`) === '1');
+check('Ohne angemeldetes Gerät keine Meldung',
+  psql(`select count(*) from push_queue where user_id='${D}'`) === '0');
+psql(`select apply_score('api_ev2', 1, 0, true, null)`);
+check('Wette gewonnen → Meldung mit Betrag',
+  psql(`select body from push_queue where kind='bet_won' and user_id='${C}'`) === 'Deine Wette bringt 20 Coins.');
+psql(`update profiles set push_prefs='{"bet_won":false,"event_start":true,"boost":true}' where id='${C}'`);
+psql(`select upsert_event_markets('${evJson({ id: 'api_ev3' })}', '${mk(2.0, 3.5, 3.6)}')`);
+place(C, [{ type: 'single', stake: 10, selections: [sel(outcome('api_ev3', 'h2h', 'home'))] }]);
+psql(`update events set commence_time = now() - interval '5 minutes' where id='api_ev3'`);
+psql(`select apply_score('api_ev3', 1, 0, true, null)`);
+check('Ausgeschaltet → keine Gewinn-Meldung',
+  psql(`select count(*) from push_queue where kind='bet_won' and user_id='${C}'`) === '1');
+psql(`update profiles set push_prefs='{"bet_won":true,"event_start":true,"boost":true}' where id='${C}'`);
+psql(`select upsert_event_markets('${evJson({ id: 'api_ev4' })}', '${mk(2.0, 3.5, 3.6)}')`);
+place(C, [{ type: 'single', stake: 10, selections: [sel(outcome('api_ev4', 'h2h', 'away'))] }]);
+psql(`update events set commence_time = now() - interval '5 minutes' where id='api_ev4'`);
+psql(`select apply_score('api_ev4', 2, 0, true, null)`);
+check('Verlorene Wette → keine „Gewonnen“-Meldung',
+  psql(`select count(*) from push_queue where kind='bet_won' and user_id='${C}'`) === '1');
+psql(`delete from boosts`); psql(`select create_daily_boosts(3)`);
+const nb = Number(psql(`select count(*) from boosts`));
+check('Boost-Alarm genau einmal pro Tag, auch bei mehreren Boosts',
+  nb >= 1 && psql(`select count(*) from push_queue where kind='boost' and user_id='${C}'`) === '1', nb);
+err = fails_with(() => psql(`select count(*) from push_queue`, { role: 'authenticated', uid: C }));
+check('Client sieht die Push-Warteschlange nicht', err && /permission denied/.test(err), err);
+err = fails_with(() => psql(`select count(*) from api_usage`, { role: 'authenticated', uid: C }));
+check('Client sieht das Kontingent-Protokoll nicht', err && /permission denied/.test(err), err);
+
 console.log(fails ? `\n${fails} ROT` : '\nalles grün');
 process.exit(fails ? 1 : 0);

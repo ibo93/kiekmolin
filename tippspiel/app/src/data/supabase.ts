@@ -1,7 +1,7 @@
 // Echter Betrieb: Daten aus Supabase, Live-Updates über Realtime.
 // Gleiche Oberfläche wie der Demo-Betrieb – die Screens merken keinen Unterschied.
 import { createClient, type RealtimeChannel, type SupabaseClient } from '@supabase/supabase-js';
-import { DemoBackend, type State } from './demo';
+import { DemoBackend, type PushPrefs, type State } from './demo';
 import type { Bet, BetRequest, Group, LeaderRow, League, Market, Outcome, PlaceResult, Sport, SportEvent, Stats } from './types';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -122,8 +122,12 @@ export class SupabaseBackend extends DemoBackend {
   // ───── Nutzer ─────
   private async onUser(u: { id: string; email?: string } | null) {
     if (!u) { this.set({ user: null, bets: [], wallet: { balance: 0, lastDailyBonus: null, lastRefillAt: null } }); return; }
-    const { data: prof } = await this.sb.from('profiles').select('username').eq('id', u.id).maybeSingle();
-    this.set({ user: { email: u.email ?? '', username: prof?.username ?? 'Spieler' } });
+    const { data: prof } = await this.sb.from('profiles').select('username, push_prefs').eq('id', u.id).maybeSingle();
+    const hasDevice = (await this.sb.from('push_subscriptions').select('id', { count: 'exact', head: true })).count ?? 0;
+    const pp = (prof?.push_prefs ?? {}) as PushPrefs;
+    this.set({ user: { email: u.email ?? '', username: prof?.username ?? 'Spieler' },
+      // Ohne angemeldetes Gerät kommt nichts an – dann auch nicht "an" anzeigen
+      pushPrefs: hasDevice ? { bet_won: !!pp.bet_won, event_start: !!pp.event_start, boost: !!pp.boost } : { bet_won: false, event_start: false, boost: false } });
     await Promise.all([this.loadWallet(), this.loadBets()]);
     await this.claimDailyBonus(true);
     const ch = this.sb.channel('mine')
@@ -188,6 +192,29 @@ export class SupabaseBackend extends DemoBackend {
     return { ok: false as const, message: data.code === 'CASHOUT_CHANGED' ? `Wert gesunken auf ${data.value} Coins` : 'Cash-Out gerade nicht möglich' };
   }
 
+  // ───── Push ─────
+  async setPushPrefs(prefs: PushPrefs) {
+    const { data: me } = await this.sb.auth.getUser();
+    if (!me.user) return this.toast('Bitte erst anmelden', 'err');
+    if (Object.values(prefs).some(Boolean)) {
+      const vapid = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
+      if (!vapid || !('serviceWorker' in navigator) || !('PushManager' in window))
+        return this.toast('Benachrichtigungen werden auf diesem Gerät nicht unterstützt', 'err');
+      if (Notification.permission !== 'granted' && (await Notification.requestPermission()) !== 'granted')
+        return this.toast('Benachrichtigungen im Browser nicht erlaubt', 'err');
+      const reg = await navigator.serviceWorker.ready;
+      const sub = (await reg.pushManager.getSubscription()) ?? await reg.pushManager.subscribe({
+        userVisibleOnly: true, applicationServerKey: urlB64(vapid) as BufferSource });
+      const j = sub.toJSON();
+      const { error } = await this.sb.from('push_subscriptions').upsert(
+        { user_id: me.user.id, endpoint: j.endpoint, p256dh: j.keys?.p256dh, auth: j.keys?.auth }, { onConflict: 'endpoint' });
+      if (error) return this.fail('Gerät nicht angemeldet', error);
+    }
+    const { error } = await this.sb.from('profiles').update({ push_prefs: prefs }).eq('id', me.user.id);
+    if (error) return this.fail('Einstellung nicht gespeichert', error);
+    this.set({ pushPrefs: prefs });
+  }
+
   // ───── Rangliste, Gruppen, Statistik ─────
   async leaderboard(period: 'week' | 'month' | 'all', groupId?: string): Promise<LeaderRow[]> {
     const { data, error } = await this.sb.rpc('leaderboard', { p_period: period, p_group: groupId ?? null, p_limit: 100 });
@@ -219,6 +246,12 @@ export class SupabaseBackend extends DemoBackend {
     return { betsTotal: d.bets_total ?? 0, betsOpen: d.bets_open ?? 0, hitRate: d.hit_rate === null || d.hit_rate === undefined ? null : Number(d.hit_rate),
       biggestWin: d.biggest_win ?? null, profitTotal: Number(d.profit_total ?? 0), favoriteLeague: d.favorite_league ?? null };
   }
+}
+
+function urlB64(s: string) {
+  const pad = '='.repeat((4 - (s.length % 4)) % 4);
+  const raw = atob((s + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from(raw, (c) => c.charCodeAt(0));
 }
 
 export type { State };

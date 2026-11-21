@@ -44,10 +44,11 @@ Märkte sperren). Stand bleibt auf dem Gerät gespeichert. Bilder: `vorschau/`.
 ### Einrichten (einmalig)
 
 1. Supabase-Projekt anlegen, Migrationen + `seed.sql` einspielen
-2. Secrets: `ODDS_API_KEY`, `CRON_SECRET` (beliebige lange Zufallszeichenkette)
+2. Secrets: `ODDS_API_KEY`, `CRON_SECRET` (beliebige lange Zufallszeichenkette);
+   für Push zusätzlich `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (`npx web-push generate-vapid-keys`)
 3. Functions deployen: `supabase functions deploy sync place-bet cashout`
 4. `cron.sql` im SQL-Editor ausführen (vorher die zwei Vault-Werte setzen)
-5. App: `VITE_SUPABASE_URL` und `VITE_SUPABASE_ANON_KEY` setzen → echter Betrieb
+5. App: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (und für Push `VITE_VAPID_PUBLIC_KEY`) setzen → echter Betrieb
 
 ## Datenbank (`supabase/`)
 
@@ -58,6 +59,7 @@ Märkte sperren). Stand bleibt auf dem Gerät gespeichert. Bilder: `vorschau/`.
 | `migrations/…03_betting.sql` | Wette platzieren, Abrechnung, Cash-Out, Boosts |
 | `migrations/…04_social.sql` | Rangliste, Tippgruppen, Profil-Statistik, Realtime |
 | `migrations/…05_sync.sql` | Abruf echter Spiele: Upsert in einer Transaktion, Spielstand, Kontingent-Protokoll |
+| `migrations/…06_push.sql` | Push: Wette gewonnen, Anpfiff (getippte Spiele), Boost-Alarm 1×/Tag – nur mit angemeldetem Gerät |
 | `seed.sql` | Sportarten, Ligen (The-Odds-API-Schlüssel), 9 Demo-Spiele |
 
 **Guthaben nur serverseitig:** Clients haben auf `wallets`, `transactions`,
@@ -82,8 +84,8 @@ Bonusbeträge, Cash-Out-Abschlag, Alter der Live-Quoten …).
 Prüfen das Verhalten an einer echten Postgres-Datenbank, nicht den Quelltext:
 
 ```bash
-TIPP_PG="-h <host> -p <port> -U postgres" node tippspiel/supabase/tests/db-test.js   # 92 Prüfungen
-node --experimental-strip-types tippspiel/supabase/tests/model-test.ts                # 36 Prüfungen
+TIPP_PG="-h <host> -p <port> -U postgres" node tippspiel/supabase/tests/db-test.js   # 100 Prüfungen
+node --experimental-strip-types tippspiel/supabase/tests/model-test.ts                # 37 Prüfungen
 ```
 
 `tests/supabase-shim.sql` bildet Rollen, `auth.users` und `auth.uid()` nach –

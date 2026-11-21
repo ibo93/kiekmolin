@@ -237,16 +237,10 @@ export function Profile() {
   const favs = useFavs();
   const [stats, setStats] = useState<Stats | null>(null);
   useEffect(() => { backend.stats().then(setStats); }, [bets]);
-  const [push, setPush] = useState({ bet_won: true, event_start: true, boost: true });
+  const push = useApp((s) => s.pushPrefs);
 
-  async function togglePush(k: keyof typeof push) {
-    const next = { ...push, [k]: !push[k] };
-    if (next[k] && 'Notification' in window && Notification.permission === 'default') {
-      const p = await Notification.requestPermission();
-      if (p !== 'granted') return backend.toast('Benachrichtigungen im Browser nicht erlaubt', 'err');
-    }
-    setPush(next);
-  }
+  function togglePush(k: keyof typeof push) { backend.setPushPrefs({ ...push, [k]: !push[k] }); }
+
 
   if (backend.requiresLogin && !user) return (
     <div className="px-4 pt-6">

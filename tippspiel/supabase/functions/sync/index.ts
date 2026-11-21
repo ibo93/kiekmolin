@@ -15,6 +15,7 @@ import { admin, json } from '../_shared/supa.ts';
 import { buildMarkets, mapSport, parseScore, PRIORITY, syncIntervalMinutes,
          type ApiEvent, type ApiScore, type ApiSport } from '../_shared/oddsapi.ts';
 import { estimateMinute, soccerMarkets } from '../_shared/model.ts';
+import { sendPushQueue } from '../_shared/push.ts';
 
 const BASE = 'https://api.the-odds-api.com/v4';
 const MARKETS = 'h2h,totals,spreads';
@@ -193,6 +194,7 @@ Deno.serve(async (req) => {
   const { data: removed } = await sb.rpc('remove_demo_events');
   if (boosts) report.push(`Boosts: ${boosts}`);
   if (removed) report.push(`Demo-Spiele entfernt: ${removed}`);
+  try { await sendPushQueue(sb, report); } catch (e) { report.push(`Push: FEHLER ${(e as Error).message}`); }
   console.log(report.join('\n'));
   return json({ ok: !report.some((r) => r.includes('FEHLER')), report });
 });

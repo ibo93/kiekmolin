@@ -7,6 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: { importScripts: ['push-sw.js'], navigateFallbackDenylist: [/^\/functions/] },
       includeAssets: ['icon.svg'],
       manifest: {
         name: 'TippArena – Tippspiel mit Spielgeld',

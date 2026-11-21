@@ -23,7 +23,9 @@ export interface State {
   toast: { text: string; kind: 'ok' | 'info' | 'err' } | null;
   /** Dauerhafter Fehler (z. B. Server nicht erreichbar) – darf nicht wie "keine Spiele" aussehen */
   error: string | null;
+  pushPrefs: PushPrefs;
 }
+export type PushPrefs = { bet_won: boolean; event_start: boolean; boost: boolean };
 
 const MIN = 60_000;
 const now = () => Date.now();
@@ -131,6 +133,7 @@ function initialState(): State {
     sports: SPORTS, leagues: LEAGUES, events, markets, outcomes, boosts,
     wallet: saved?.wallet ?? { balance: 1000, lastDailyBonus: null, lastRefillAt: null },
     bets: saved?.bets ?? demoHistory(), toast: null, error: null,
+    pushPrefs: { bet_won: false, event_start: false, boost: false },
   };
 }
 
@@ -316,6 +319,13 @@ export class DemoBackend {
       wallet: { ...this.state.wallet, balance: this.state.wallet.balance + v },
     });
     return { ok: true as const, payout: v };
+  }
+
+  // ───── Push ─────
+  /** Demo: nur Einstellungen merken, nichts senden */
+  async setPushPrefs(prefs: PushPrefs) {
+    this.set({ pushPrefs: prefs });
+    if (Object.values(prefs).some(Boolean)) this.toast('Demo: Benachrichtigungen kommen erst im echten Betrieb', 'info');
   }
 
   // ───── Rangliste, Gruppen, Statistik ─────
