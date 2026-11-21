@@ -299,5 +299,50 @@ const st = J(psql(`select my_stats()`, { role: 'authenticated', uid: A }));
 check('Profil-Statistik: Trefferquote & größter Gewinn',
   st.hit_rate !== null && st.biggest_win === 436 && st.favorite_league, st);
 
+
+// ───── 9. Echte Spiele aus der API (sync) ─────
+const evJson = (extra = {}) => JSON.stringify({ id: 'api_ev1', league_key: 'soccer_germany_bundesliga', sport_key: 'soccer',
+  home_team: 'FC Bayern München', away_team: 'Borussia Dortmund', commence_time: new Date(Date.now() + 3 * 3600e3).toISOString(),
+  bookmakers: 12, lambda_home: 2.1, lambda_away: 1.2, odds_source: 'api', ...extra });
+const mk = (h, d, a, withTotals = true) => JSON.stringify([
+  { key: 'h2h', line: null, name: 'Endergebnis', source: 'api', sort: 10, outcomes: [
+    { name: 'home', label: 'FC Bayern München', price: h }, { name: 'draw', label: 'Unentschieden', price: d },
+    { name: 'away', label: 'Borussia Dortmund', price: a }] },
+  ...(withTotals ? [{ key: 'totals', line: 3.5, name: 'Über/Unter 3,5 Tore', source: 'api', sort: 30, outcomes: [
+    { name: 'over', label: 'Über 3,5', price: 1.55, point: 3.5 }, { name: 'under', label: 'Unter 3,5', price: 2.4, point: 3.5 }] }] : [])]);
+err = fails_with(() => psql(`select upsert_event_markets('${evJson()}', '${mk(1.6, 4.4, 4.8)}')`, { role: 'authenticated', uid: A }));
+check('Client darf keine Spiele/Quoten schreiben', err && /permission denied/.test(err), err);
+check('Echtes Spiel + Märkte angelegt', psql(`select upsert_event_markets('${evJson()}', '${mk(1.6, 4.4, 4.8)}')`) === '5');
+psql(`select upsert_event_markets('${evJson()}', '${mk(1.55, 4.5, 5.0)}')`);
+check('Neuer Abruf aktualisiert Quote und merkt die alte (Blinken)',
+  psql(`select o.price||'|'||o.previous_price from outcomes o join markets m on m.id=o.market_id where o.event_id='api_ev1' and m.key='h2h' and o.name='home'`) === '1.550|1.600');
+check('Kein doppelter Markt beim zweiten Abruf', psql(`select count(*) from markets where event_id='api_ev1'`) === '2');
+psql(`select upsert_event_markets('${evJson()}', '${mk(1.55, 4.5, 5.0, false)}')`);
+check('Nicht mehr gelieferter Markt wird gesperrt, nicht gelöscht',
+  psql(`select status from markets where event_id='api_ev1' and key='totals'`) === 'suspended');
+psql(`select upsert_event_markets('${evJson()}', '${mk(1.55, 4.5, 5.0)}')`);
+check('Wieder gelieferter Markt geht wieder auf', psql(`select status from markets where event_id='api_ev1' and key='totals'`) === 'open');
+check('Demo-Spiele ohne Wetten werden entfernt, mit Wetten bleiben',
+  Number(psql(`select remove_demo_events()`)) > 0 && psql(`select count(*) from events where id='demo_7'`) === '1' &&
+  psql(`select count(*) from events where id='demo_9'`) === '0');
+
+// Wette auf das echte Spiel, dann Anpfiff, Tor, Abpfiff
+const realHome = outcome('api_ev1', 'h2h', 'home');
+r = place(A, [{ type: 'single', stake: 20, selections: [sel(realHome)] }]);
+check('Wette auf echtes Spiel', r.ok === true, r);
+const realBet = r.bet_ids[0];
+psql(`update events set commence_time = now() - interval '20 minutes' where id='api_ev1'`);
+check('Tor → Spiel live, Stand gesetzt', psql(`select apply_score('api_ev1', 1, 0, false, '~20''')`) === 't' &&
+  psql(`select status||'|'||home_score||':'||away_score from events where id='api_ev1'`) === 'live|1:0');
+check('Tor → alle Märkte sofort gesperrt', psql(`select count(*) from markets where event_id='api_ev1' and status='open'`) === '0');
+check('Gleicher Stand nochmal → keine Änderung', psql(`select apply_score('api_ev1', 1, 0, false, '~25''')`) === 'f');
+const bal = balance(A);
+psql(`select apply_score('api_ev1', 2, 1, true, null)`);
+check('Abpfiff → Spiel beendet und Wette automatisch abgerechnet (20 × 1,55 = 31)',
+  psql(`select status||'|'||payout from bets where id='${realBet}'`) === 'won|31' && balance(A) === bal + 31);
+check('Beendetes Spiel wird von späterem Abruf nicht mehr verändert',
+  psql(`select upsert_event_markets('${evJson()}', '${mk(9.9, 9.9, 9.9)}')`) === '0' &&
+  psql(`select status from events where id='api_ev1'`) === 'finished');
+
 console.log(fails ? `\n${fails} ROT` : '\nalles grün');
 process.exit(fails ? 1 : 0);

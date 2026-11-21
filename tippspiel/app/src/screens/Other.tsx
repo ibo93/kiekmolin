@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { backend, favStore, useApp, useFavs } from '../data/store';
 import { fmtCoins, fmtOdds } from '../data/odds';
 import { Coins, Disclaimer, EventCard, EventSkeleton, Icon, Segmented, Skel } from '../components/ui';
 import { SportBar } from './Home';
-import type { Bet, Group, LeaderRow } from '../data/types';
+import type { Bet, Group, LeaderRow, Stats } from '../data/types';
 
 // ───────────────────────── Live ─────────────────────────
 export function Live() {
@@ -210,15 +210,33 @@ export function JoinGroup() {
 }
 
 // ───────────────────────── Profil ─────────────────────────
+function LoginCard() {
+  const [email, setEmail] = useState('');
+  return (
+      <div className="rounded-2xl bg-s1 p-4 space-y-3">
+        <div className="flex gap-2">
+          <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="E-Mail-Adresse"
+            className="flex-1 rounded-xl bg-s2 px-3 py-2.5 text-[14px] outline-none focus:ring-1 focus:ring-acc" />
+          <button onClick={() => email && backend.signInMagic(email)} className="rounded-xl bg-acc px-3 text-[13px] font-bold text-white">Magic Link</button>
+        </div>
+        <button onClick={() => backend.signInGoogle()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-white py-2.5 text-[14px] font-semibold text-[#1f1f1f]">
+          <svg viewBox="0 0 48 48" className="h-4 w-4"><path fill="#4285F4" d="M45 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h11.8c-.5 2.7-2.1 5-4.4 6.6v5.5h7.1c4.2-3.8 6.5-9.5 6.5-16.1Z"/><path fill="#34A853" d="M24 46c5.9 0 10.9-2 14.5-5.4l-7.1-5.5c-2 1.3-4.5 2.1-7.4 2.1-5.7 0-10.5-3.8-12.2-9H4.5v5.7C8.1 41.1 15.5 46 24 46Z"/><path fill="#FBBC05" d="M11.8 28.2c-.4-1.3-.7-2.7-.7-4.2s.3-2.9.7-4.2v-5.7H4.5A22 22 0 0 0 2 24c0 3.5.8 6.9 2.5 9.9l7.3-5.7Z"/><path fill="#EA4335" d="M24 10.8c3.2 0 6.1 1.1 8.4 3.3l6.3-6.3C34.9 4.2 29.9 2 24 2 15.5 2 8.1 6.9 4.5 14.1l7.3 5.7c1.7-5.2 6.5-9 12.2-9Z"/></svg>
+          Mit Google anmelden
+        </button>
+      </div>
+  );
+}
+
 export function Profile() {
   const user = useApp((s) => s.user);
   const demo = useApp((s) => s.demo);
+  const loaded = useApp((s) => s.loaded);
   const wallet = useApp((s) => s.wallet);
   const bets = useApp((s) => s.bets);
   const sports = useApp((s) => s.sports);
   const favs = useFavs();
-  const stats = useMemo(() => backend.stats(), [bets]);
-  const [email, setEmail] = useState('');
+  const [stats, setStats] = useState<Stats | null>(null);
+  useEffect(() => { backend.stats().then(setStats); }, [bets]);
   const [push, setPush] = useState({ bet_won: true, event_start: true, boost: true });
 
   async function togglePush(k: keyof typeof push) {
@@ -229,6 +247,15 @@ export function Profile() {
     }
     setPush(next);
   }
+
+  if (backend.requiresLogin && !user) return (
+    <div className="px-4 pt-6">
+      <h1 className="text-2xl font-extrabold">Willkommen bei TippArena</h1>
+      <p className="mt-1 mb-4 text-[14px] text-mute">{loaded ? 'Melde dich an und starte mit 1.000 Coins Spielgeld.' : '…'}</p>
+      <LoginCard />
+      <Disclaimer />
+    </div>
+  );
 
   return (
     <div className="px-4 pt-3">
@@ -253,7 +280,7 @@ export function Profile() {
 
       <h2 className="mt-6 mb-2 text-[17px] font-bold">Statistik</h2>
       <div className="grid grid-cols-2 gap-2">
-        {[
+        {!stats ? [0, 1, 2, 3].map((i) => <Skel key={i} className="h-16" />) : [
           ['Trefferquote', stats.hitRate === null ? '–' : `${String(stats.hitRate).replace('.', ',')} %`],
           ['Größter Gewinn', stats.biggestWin === null ? '–' : `+${fmtCoins(stats.biggestWin)}`],
           ['Lieblingsliga', stats.favoriteLeague ?? '–'],
@@ -288,17 +315,8 @@ export function Profile() {
         ))}
       </div>
 
-      <h2 className="mt-6 mb-2 text-[17px] font-bold">Anmeldung</h2>
+      <h2 className="mt-6 mb-2 text-[17px] font-bold">Konto</h2>
       <div className="rounded-2xl bg-s1 p-4 space-y-3">
-        <div className="flex gap-2">
-          <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="E-Mail-Adresse"
-            className="flex-1 rounded-xl bg-s2 px-3 py-2.5 text-[14px] outline-none focus:ring-1 focus:ring-acc" />
-          <button onClick={() => email && backend.signInMagic(email)} className="rounded-xl bg-acc px-3 text-[13px] font-bold text-white">Magic Link</button>
-        </div>
-        <button onClick={() => backend.signInGoogle()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-white py-2.5 text-[14px] font-semibold text-[#1f1f1f]">
-          <svg viewBox="0 0 48 48" className="h-4 w-4"><path fill="#4285F4" d="M45 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h11.8c-.5 2.7-2.1 5-4.4 6.6v5.5h7.1c4.2-3.8 6.5-9.5 6.5-16.1Z"/><path fill="#34A853" d="M24 46c5.9 0 10.9-2 14.5-5.4l-7.1-5.5c-2 1.3-4.5 2.1-7.4 2.1-5.7 0-10.5-3.8-12.2-9H4.5v5.7C8.1 41.1 15.5 46 24 46Z"/><path fill="#FBBC05" d="M11.8 28.2c-.4-1.3-.7-2.7-.7-4.2s.3-2.9.7-4.2v-5.7H4.5A22 22 0 0 0 2 24c0 3.5.8 6.9 2.5 9.9l7.3-5.7Z"/><path fill="#EA4335" d="M24 10.8c3.2 0 6.1 1.1 8.4 3.3l6.3-6.3C34.9 4.2 29.9 2 24 2 15.5 2 8.1 6.9 4.5 14.1l7.3 5.7c1.7-5.2 6.5-9 12.2-9Z"/></svg>
-          Mit Google anmelden
-        </button>
         <button onClick={() => backend.signOut()} className="w-full py-1 text-[13px] text-mute">Abmelden</button>
       </div>
       <Disclaimer />

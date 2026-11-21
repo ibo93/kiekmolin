@@ -21,6 +21,8 @@ export interface State {
   wallet: Wallet;
   bets: Bet[];
   toast: { text: string; kind: 'ok' | 'info' | 'err' } | null;
+  /** Dauerhafter Fehler (z. B. Server nicht erreichbar) – darf nicht wie "keine Spiele" aussehen */
+  error: string | null;
 }
 
 const MIN = 60_000;
@@ -128,7 +130,7 @@ function initialState(): State {
     loaded: false, demo: true, user: { email: 'demo@tipparena.app', username: 'Du' },
     sports: SPORTS, leagues: LEAGUES, events, markets, outcomes, boosts,
     wallet: saved?.wallet ?? { balance: 1000, lastDailyBonus: null, lastRefillAt: null },
-    bets: saved?.bets ?? demoHistory(), toast: null,
+    bets: saved?.bets ?? demoHistory(), toast: null, error: null,
   };
 }
 
@@ -151,14 +153,16 @@ type Listener = () => void;
 
 export class DemoBackend {
   state: State = initialState();
+  /** Demo-Betrieb: kein Login nötig */
+  requiresLogin = false;
   private listeners = new Set<Listener>();
   private timer: number | undefined;
 
   subscribe = (l: Listener) => { this.listeners.add(l); return () => this.listeners.delete(l); };
   getState = () => this.state;
-  private set(patch: Partial<State>) {
+  protected set(patch: Partial<State>) {
     this.state = { ...this.state, ...patch };
-    if (patch.wallet || patch.bets) {
+    if (this.state.demo && (patch.wallet || patch.bets)) {
       try { localStorage.setItem(SAVE_KEY, JSON.stringify({ wallet: this.state.wallet, bets: this.state.bets })); } catch { /* privater Modus */ }
     }
     this.listeners.forEach((l) => l());
@@ -230,8 +234,9 @@ export class DemoBackend {
   blockReason(outcomeId: string): string | null {
     const o = this.state.outcomes[outcomeId];
     if (!o) return 'Nicht gefunden';
-    const m = this.state.markets.find((x) => x.id === o.marketId)!;
-    const e = this.state.events.find((x) => x.id === o.eventId)!;
+    const m = this.state.markets.find((x) => x.id === o.marketId);
+    const e = this.state.events.find((x) => x.id === o.eventId);
+    if (!m || !e) return 'Nicht mehr verfügbar';
     if (['finished', 'cancelled', 'postponed'].includes(e.status)) return 'Spiel ist vorbei';
     if (o.status !== 'open' || m.status !== 'open') return 'Markt gesperrt';
     if (e.status === 'scheduled' && e.commence <= now()) return 'Spiel hat begonnen';
@@ -341,7 +346,7 @@ export class DemoBackend {
     this.groups = [...this.groups, g];
     return { ok: true, name: g.name };
   }
-  stats(): Stats {
+  async stats(): Promise<Stats> {
     const b = this.state.bets;
     const decided = b.filter((x) => ['won', 'lost', 'cashed_out'].includes(x.status));
     const won = decided.filter((x) => x.payout > x.stake);

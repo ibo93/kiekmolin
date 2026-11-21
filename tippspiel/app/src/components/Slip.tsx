@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { backend, slipStore, useApp, useSlip } from '../data/store';
 import { builderOdds, coins, comboOdds, fmtCoins, fmtOdds, systemInfo } from '../data/odds';
 import type { BetRequest } from '../data/types';
@@ -30,6 +31,8 @@ export function SlipSheet() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  const nav = useNavigate();
+  const needLogin = backend.requiresLogin && !st.user;
 
   // Modus an Anzahl Tipps anpassen
   useEffect(() => {
@@ -187,10 +190,13 @@ export function SlipSheet() {
               </div>
               {calc.total > balance && <div className="text-[12px] text-down">Nicht genug Coins.</div>}
 
-              <button disabled={!canPlace} onClick={place}
+              {needLogin ? (
+                <button onClick={() => { slipStore.setOpen(false); nav('/profil'); }}
+                  className="w-full rounded-2xl bg-acc py-3.5 text-[15px] font-extrabold text-white">Anmelden zum Tippen</button>
+              ) : <button disabled={!canPlace} onClick={place}
                 className={`w-full rounded-2xl py-3.5 text-[15px] font-extrabold transition ${canPlace ? 'bg-acc text-white active:scale-[.99]' : 'bg-s3 text-mute'}`}>
                 {busy ? 'Wird geprüft …' : changes.length ? 'Erst Quoten akzeptieren' : `Tipp abgeben · ${fmtCoins(calc.total)} Coins`}
-              </button>
+              </button>}
             </div>
           </>
         )}

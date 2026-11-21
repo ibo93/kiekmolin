@@ -1,9 +1,13 @@
 import { useSyncExternalStore } from 'react';
 import { DemoBackend, type State } from './demo';
+import { SupabaseBackend } from './supabase';
 import type { SlipItem } from './types';
 
-// Später: SupabaseBackend mit derselben Oberfläche, gewählt über VITE_SUPABASE_URL.
-export const backend = new DemoBackend();
+// Echter Betrieb, sobald Supabase eingetragen ist (.env / Netlify-Umgebung),
+// sonst Demo-Betrieb mit Beispielspielen.
+const URL_ = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const KEY_ = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+export const backend: DemoBackend = URL_ && KEY_ ? new SupabaseBackend(URL_, KEY_) : new DemoBackend();
 
 export function useApp<T>(sel: (s: State) => T): T {
   return useSyncExternalStore(backend.subscribe, () => sel(backend.getState()));

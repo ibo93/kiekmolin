@@ -21,6 +21,7 @@ export default function App() {
   const liveCount = useApp((s) => s.events.filter((e) => e.status === 'live').length);
   const openBets = useApp((s) => s.bets.filter((b) => b.status === 'open').length);
   const { pathname } = useLocation();
+  const error = useApp((s) => s.error);
 
   useEffect(() => { backend.start(); return () => backend.stop(); }, []);
   useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
@@ -35,6 +36,12 @@ export default function App() {
         <NavLink to="/profil" className="rounded-full bg-s1 px-3 py-1.5 text-[14px] font-bold"><Coins value={balance} /></NavLink>
       </header>
 
+      {error && (
+        <div className="mx-4 mt-2 flex items-center justify-between gap-3 rounded-xl border border-down/40 bg-down/10 px-3 py-2 text-[13px] text-down">
+          <span>{error}. Die Anzeige ist gerade nicht aktuell.</span>
+          <button onClick={() => location.reload()} className="shrink-0 rounded-lg bg-down/20 px-2.5 py-1 font-bold">Neu laden</button>
+        </div>
+      )}
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/live" element={<Live />} />

@@ -111,8 +111,15 @@ export default function Home() {
   const live = useMemo(() => events.filter((e) => e.status === 'live' && (sport === 'all' || e.sportKey === sport)), [events, sport]);
   const upcoming = useMemo(() => events.filter((e) => e.status === 'scheduled' && (sport === 'all' || e.sportKey === sport))
     .sort((a, b) => Number(b.isTop) - Number(a.isTop) || a.commence - b.commence), [events, sport]);
-  const top = upcoming.filter((e) => e.isTop || sport !== 'all').slice(0, 6);
-  const shownLeagues = leagues.filter((l) => sport === 'all' || l.sportKey === sport)
+  // Top-Events: markierte Spiele, sonst die nächsten aus den wichtigsten Ligen (36 h)
+  const prio = (k: string) => leagues.find((l) => l.key === k)?.sort ?? 1e9;
+  const soon = upcoming.filter((e) => e.commence < Date.now() + 36 * 3600e3);
+  const top = [...(soon.length ? soon : upcoming)]
+    .sort((a, b) => Number(b.isTop) - Number(a.isTop) || prio(a.leagueKey) - prio(b.leagueKey) || a.commence - b.commence)
+    .slice(0, 6);
+  const shownLeagues = leagues
+    .filter((l) => (sport === 'all' || l.sportKey === sport)
+      && (favs.leagues.includes(l.key) || events.some((e) => e.leagueKey === l.key)))
     .sort((a, b) => Number(favs.leagues.includes(b.key)) - Number(favs.leagues.includes(a.key)) || a.sort - b.sort);
 
   return (
