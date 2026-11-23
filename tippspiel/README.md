@@ -14,7 +14,7 @@ ist `/tippspiel/` gesperrt (`netlify.toml`).
 | 1 | Datenbank-Schema, Migrationen, Seed | fertig, lokal geprüft |
 | 2 | Edge Functions `sync`, `place-bet`, `cashout` | fertig, lokal geprüft – nicht deployed |
 | 3 | Frontend (React/Vite/TS/Tailwind, PWA) | Demo-Betrieb geprüft; Supabase-Anschluss gebaut, ungetestet gegen echtes Projekt |
-| 4 | Netlify-Deploy, Seed prüfen | offen |
+| 4 | Netlify-Deploy, Seed prüfen | Demo live auf https://tipparena.netlify.app (eigenes Netlify-Projekt „tipparena“, Upload aus `app/`, kein Git-Anschluss); Seed erst mit Supabase |
 
 ## App (`app/`)
 
