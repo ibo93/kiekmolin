@@ -31,7 +31,7 @@ export default function App() {
   return (
     <div className="mx-auto min-h-screen max-w-md bg-bg">
       <header className="sticky top-0 z-20 flex h-16 items-center justify-between bg-bg/90 px-[18px] backdrop-blur" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-        <NavLink to="/" className="font-wide text-[19px] font-black tracking-wide text-ink">TIPPARENA<span className="text-acc [text-shadow:0_0_12px_rgba(0,255,136,.8)]">.</span></NavLink>
+        <NavLink to="/" className="font-wide text-[19px] font-black tracking-wide text-ink">TIPPARENA<span className="text-acc [text-shadow:0_0_12px_rgba(198,255,0,.8)]">.</span></NavLink>
         {(user || !backend.requiresLogin) && (
           <div className="flex h-11 items-center gap-2.5 rounded-full bg-s2 pl-4 pr-1.5">
             <NavLink to="/profil" className="text-[16px] font-bold text-ink">

@@ -133,13 +133,13 @@ export default function EventPage() {
       </nav>
 
       {mine.length >= 2 && (
-        <div className="mx-[18px] mb-3 flex items-center justify-between gap-3 rounded-[26px] bg-lav py-3 pl-[18px] pr-3 text-[#00200F]">
+        <div className="mx-[18px] mb-3 flex items-center justify-between gap-3 rounded-[26px] bg-lav py-3 pl-[18px] pr-3 text-[#1A2000]">
           <div className="min-w-0">
-            <div className="text-[11px] font-extrabold uppercase tracking-wider text-[#00401F]">Wetten-Konfigurator</div>
+            <div className="text-[11px] font-extrabold uppercase tracking-wider text-[#2F3D00]">Wetten-Konfigurator</div>
             <div className="text-[13px] font-medium">{onlyThisEvent ? `${mine.length} Tipps aus diesem Spiel` : 'Nur Tipps aus diesem Spiel im Schein lassen'}</div>
           </div>
-          <button onClick={() => slipStore.setOpen(true)} className="flex h-12 shrink-0 items-center gap-2 rounded-full bg-[#00200F] px-4 text-[14px] font-bold text-white">
-            Quote <span className="font-num text-[17px] text-[#7DFFBE]">{fmtOdds(builderOdds(mine.map((i) => i.price)))}</span>
+          <button onClick={() => slipStore.setOpen(true)} className="flex h-12 shrink-0 items-center gap-2 rounded-full bg-[#1A2000] px-4 text-[14px] font-bold text-white">
+            Quote <span className="font-num text-[17px] text-[#E2FF7A]">{fmtOdds(builderOdds(mine.map((i) => i.price)))}</span>
           </button>
         </div>
       )}

@@ -29,16 +29,16 @@ function Teaser() {
         {slides.map((s, idx) => (
           <div key={idx} className="w-full shrink-0 snap-center">
             {s.kind === 'boost' && s.ev ? (
-              <div className="relative h-[170px] overflow-hidden rounded-[26px] bg-lav p-[18px] text-[#00200F]">
+              <div className="relative h-[170px] overflow-hidden rounded-[26px] bg-lav p-[18px] text-[#1A2000]">
                 <div aria-hidden="true" className="absolute -bottom-16 -right-8 h-[210px] w-[210px] rounded-full bg-lav2" />
                 <div aria-hidden="true" className="absolute right-6 top-5 grid h-[88px] w-[88px] place-items-center rounded-full bg-black text-acc">{Icon.boost('w-11 h-11')}</div>
                 <div className="relative">
                   <div className="font-wide text-[24px] font-black leading-none">BOOST<br />DES TAGES</div>
-                  <div className="mt-3 inline-flex max-w-[200px] items-center gap-1.5 truncate rounded-full bg-[#00200F] px-2.5 py-1 text-[11px] font-bold uppercase text-white">
+                  <div className="mt-3 inline-flex max-w-[200px] items-center gap-1.5 truncate rounded-full bg-[#1A2000] px-2.5 py-1 text-[11px] font-bold uppercase text-white">
                     {s.ev.home} <span className="text-acc-hi">vs</span> {s.ev.away}
                   </div>
                   <div className="mt-3 flex items-center gap-2.5">
-                    <span className="font-num text-[15px] text-[#007A3E] line-through">{fmtOdds(s.b.original)}</span>
+                    <span className="font-num text-[15px] text-[#5E7A00] line-through">{fmtOdds(s.b.original)}</span>
                     <span className="font-num text-[30px] font-black leading-none">{fmtOdds(s.b.boosted)}</span>
                     {(() => {
                       const on = slipIds.split(',').includes(s.b.outcomeId);
@@ -51,7 +51,7 @@ function Teaser() {
                 </div>
               </div>
             ) : s.kind === 'group' ? (
-              <Link to="/rangliste" className="relative block h-[170px] overflow-hidden rounded-[26px] bg-card p-[18px] text-ink shadow-[inset_0_0_0_1px_rgba(0,255,136,.35)]">
+              <Link to="/rangliste" className="relative block h-[170px] overflow-hidden rounded-[26px] bg-card p-[18px] text-ink shadow-[inset_0_0_0_1px_rgba(198,255,0,.35)]">
                 <div aria-hidden="true" className="absolute -bottom-16 -right-10 h-[200px] w-[200px] rounded-full bg-acc-lo" />
                 <div className="relative">
                   <div className="font-wide text-[24px] font-black leading-none">TIPP-<br />GRUPPEN</div>

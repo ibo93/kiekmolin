@@ -4,7 +4,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        // 60 % Schwarz · 30 % Anthrazit · 10 % Neon-Grün
+        // 60 % Schwarz · 30 % Anthrazit · 10 % Neon-Lime
         bg: '#050608',
         s1: '#101217',
         s2: '#16181F',
@@ -12,7 +12,7 @@ export default {
         line: '#1C1F27',
         ink: '#F2F3F7',
         mute: '#9AA1B5',
-        acc: { DEFAULT: '#00FF88', hi: '#7DFFBE', lo: '#00331B' },
+        acc: { DEFAULT: '#C6FF00', hi: '#E2FF7A', lo: '#2A3600' },
         boost: '#FF6B8A',
         up: '#3DF29A',
         down: '#FF5E6C',
@@ -25,13 +25,13 @@ export default {
         cmute: '#9AA1B5',
         mint: '#0E2A20',
         rose: '#2D1218',
-        lav: '#00FF88',
-        lav2: '#00CC6D',
+        lav: '#C6FF00',
+        lav2: '#9ECC00',
         warn: '#2A2410',
       },
       boxShadow: {
-        neon: '0 0 0 1px rgba(0,255,136,.55), 0 0 22px rgba(0,255,136,.45)',
-        neonlg: '0 0 0 1px rgba(0,255,136,.6), 0 0 40px rgba(0,255,136,.55)',
+        neon: '0 0 0 1px rgba(198,255,0,.55), 0 0 22px rgba(198,255,0,.45)',
+        neonlg: '0 0 0 1px rgba(198,255,0,.6), 0 0 40px rgba(198,255,0,.55)',
       },
       fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'], num: ['Archivo', 'Inter', 'sans-serif'] },
       keyframes: {

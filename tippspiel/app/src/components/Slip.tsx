@@ -180,13 +180,13 @@ export function SlipSheet() {
                 </label>
               </div>
 
-              <div className="flex items-center justify-between gap-3 rounded-[26px] bg-black py-4 pl-5 pr-4 text-ink shadow-[inset_0_0_0_1px_rgba(0,255,136,.35)]">
+              <div className="flex items-center justify-between gap-3 rounded-[26px] bg-black py-4 pl-5 pr-4 text-ink shadow-[inset_0_0_0_1px_rgba(198,255,0,.35)]">
                 <div className="min-w-0">
                   <div className="text-[12px] text-mute">
                     {calc.label}{calc.odds !== null && <> · Quote <b className="font-num text-ink">{fmtOdds(calc.odds)}</b></>}
                   </div>
                   <div className="text-[12px] text-mute">Möglicher Gewinn</div>
-                  <div className="font-num text-[32px] font-black leading-none text-acc [text-shadow:0_0_18px_rgba(0,255,136,.55)]"><Coins value={calc.potential} /> <span className="font-sans text-[13px] font-semibold text-mute">Coins</span></div>
+                  <div className="font-num text-[32px] font-black leading-none text-acc [text-shadow:0_0_18px_rgba(198,255,0,.55)]"><Coins value={calc.potential} /> <span className="font-sans text-[13px] font-semibold text-mute">Coins</span></div>
                 </div>
                 {needLogin ? (
                   <button onClick={() => { slipStore.setOpen(false); nav('/profil'); }}

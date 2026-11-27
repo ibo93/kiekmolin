@@ -188,7 +188,7 @@ export function Leaderboard() {
               const first = r.rank === 1;
               return (
                 <div key={r.username} className="min-w-0">
-                  {first && <svg width="22" height="16" viewBox="0 0 24 16" aria-hidden="true" className="mx-auto mb-1"><path d="M2 14 4 3l5 5 3-7 3 7 5-5 2 11Z" fill="#00FF88" /></svg>}
+                  {first && <svg width="22" height="16" viewBox="0 0 24 16" aria-hidden="true" className="mx-auto mb-1"><path d="M2 14 4 3l5 5 3-7 3 7 5-5 2 11Z" fill="#C6FF00" /></svg>}
                   <span className={`font-num mx-auto grid place-items-center rounded-full font-black ${first ? 'h-14 w-14 bg-acc text-[18px] text-black shadow-neon' : 'h-12 w-12 bg-s3 text-[16px] text-ink'}`}>{r.username[0]?.toUpperCase()}</span>
                   <div className="mt-1.5 truncate text-[13px] font-bold">{r.isMe ? 'Du' : r.username}</div>
                   <div className="font-num text-[14px] font-extrabold text-acc">{r.profit >= 0 ? '+' : '−'}{fmtCoins(Math.abs(r.profit))}</div>
@@ -307,16 +307,16 @@ export function Profile() {
         </div>
       </div>
 
-      <div className="relative mt-4 overflow-hidden rounded-[28px] bg-lav p-[18px] text-[#00200F]">
+      <div className="relative mt-4 overflow-hidden rounded-[28px] bg-lav p-[18px] text-[#1A2000]">
         <div aria-hidden="true" className="absolute -bottom-16 -right-10 h-[190px] w-[190px] rounded-full bg-lav2" />
-        <div className="relative text-[13px] font-semibold text-[#004D27]">Guthaben · Spielgeld</div>
-        <div className="relative font-num text-[44px] font-black leading-none"><Coins value={wallet.balance} /> <span className="font-sans text-[15px] font-semibold text-[#004D27]">Coins</span></div>
+        <div className="relative text-[13px] font-semibold text-[#3D4D00]">Guthaben · Spielgeld</div>
+        <div className="relative font-num text-[44px] font-black leading-none"><Coins value={wallet.balance} /> <span className="font-sans text-[15px] font-semibold text-[#3D4D00]">Coins</span></div>
         <div className="relative mt-4 flex gap-2">
-          <button onClick={() => backend.claimDailyBonus()} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-[#00200F] text-[14px] font-bold text-white">{Icon.gift('w-4 h-4')} Bonus +100</button>
+          <button onClick={() => backend.claimDailyBonus()} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-[#1A2000] text-[14px] font-bold text-white">{Icon.gift('w-4 h-4')} Bonus +100</button>
           <button onClick={() => backend.claimRefill()} disabled={wallet.balance > 0}
-            className={`h-12 flex-1 rounded-full text-[14px] font-bold ${wallet.balance > 0 ? 'bg-black/15 text-[#004D27]' : 'bg-black text-acc'}`}>Auf 500 füllen</button>
+            className={`h-12 flex-1 rounded-full text-[14px] font-bold ${wallet.balance > 0 ? 'bg-black/15 text-[#3D4D00]' : 'bg-black text-acc'}`}>Auf 500 füllen</button>
         </div>
-        <p className="relative mt-3 text-[12px] text-[#004D27]">Nachfüllen geht bei 0 Coins, höchstens 1× pro Woche. Coins kann man nicht kaufen.</p>
+        <p className="relative mt-3 text-[12px] text-[#3D4D00]">Nachfüllen geht bei 0 Coins, höchstens 1× pro Woche. Coins kann man nicht kaufen.</p>
       </div>
 
       <h2 className="mb-3 mt-7 text-[22px] font-bold tracking-tight">Statistik</h2>
@@ -329,7 +329,7 @@ export function Profile() {
           ['Wetten', String(stats.betsTotal)],
           ['Davon offen', String(stats.betsOpen)],
         ].map(([k, v]) => (
-          <div key={k} className="rounded-[22px] border border-line bg-s1 p-3.5"><div className="text-[12px] text-mute">{k}</div><div className="font-num mt-1 truncate text-[20px] font-extrabold text-[#7DFFBE]">{v}</div></div>
+          <div key={k} className="rounded-[22px] border border-line bg-s1 p-3.5"><div className="text-[12px] text-mute">{k}</div><div className="font-num mt-1 truncate text-[20px] font-extrabold text-[#E2FF7A]">{v}</div></div>
         ))}
       </div>
 
