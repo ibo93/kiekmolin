@@ -729,6 +729,192 @@ function speicherePipelineStand(stand) {
   fs.writeFileSync(PIPELINE_DATEI, JSON.stringify(stand, null, 2));
 }
 
+// ------------------------------------------------- Telefon-Waechter --------
+// Ein Telefon-Retter, der aus ist, sieht nach nichts aus. Kein Fehler, kein
+// rotes Feld - es klingelt einfach niemand mehr. Genau deshalb ist das der
+// gefaehrlichste Ausfall im ganzen Aufbau: Man merkt ihn erst, wenn sich der
+// Wirt beschwert, und dann ist ein Wochenende weg.
+//
+// Der Waechter sieht regelmaessig nach und meldet sich EINMAL, wenn der
+// Dienst laenger weg ist - und einmal, wenn er wieder da ist. Nicht oefter:
+// wer alle zwei Minuten eine SMS bekommt, schaltet die Meldungen ab, und
+// dann ist es schlimmer als vorher.
+const WACHE_TAKT_MS = 2 * 60 * 1000;      // so oft wird nachgesehen
+const WACHE_GEDULD_MS = 10 * 60 * 1000;   // so lange darf er weg sein, ohne dass es Alarm gibt
+
+const telefonWache = { seitWannWeg: null, gemeldet: false, letzterStand: null };
+
+function wacheEmpfaenger() {
+  return {
+    sms: process.env.AGENTUR_SMS || null,
+    email: process.env.AGENTUR_EMAIL || null
+  };
+}
+
+async function pruefeTelefonWache() {
+  if (DEMO) return;
+  let betreute = 0;
+  try { betreute = telefonKunden.listeKunden().length; } catch (_e) { betreute = 0; }
+  // Ohne betreute Betriebe ist "aus" der Normalzustand und kein Alarm wert.
+  if (!betreute) { telefonWache.seitWannWeg = null; telefonWache.gemeldet = false; return; }
+
+  let laeuft = false;
+  try { laeuft = !!(await telefonStatus()).laeuft; } catch (_e) { laeuft = false; }
+  telefonWache.letzterStand = { laeuft, betreute, zeit: new Date().toISOString() };
+
+  if (laeuft) {
+    // War er weg und ist wieder da: einmal Entwarnung, dann Ruhe.
+    if (telefonWache.gemeldet) {
+      const weg = Math.round((Date.now() - telefonWache.seitWannWeg) / 60000);
+      meldeWache('Telefon-Retter laeuft wieder',
+        'Der Telefon-Retter ist wieder erreichbar. Er war ' + weg + ' Minuten weg.\n' +
+        'Anrufe in dieser Zeit sind verloren - bei den betreuten Betrieben nachfragen, ' +
+        'ob sich jemand beschwert hat.');
+    }
+    telefonWache.seitWannWeg = null;
+    telefonWache.gemeldet = false;
+    return;
+  }
+
+  if (!telefonWache.seitWannWeg) {
+    telefonWache.seitWannWeg = Date.now();
+    console.warn('[wache] Telefon-Retter antwortet nicht. Alarm, falls das ' +
+      (WACHE_GEDULD_MS / 60000) + ' Minuten so bleibt.');
+    return;
+  }
+  const wegSeit = Date.now() - telefonWache.seitWannWeg;
+  if (wegSeit >= WACHE_GEDULD_MS && !telefonWache.gemeldet) {
+    telefonWache.gemeldet = true;
+    meldeWache('ACHTUNG: Telefon-Retter ist aus',
+      'Der Telefon-Retter antwortet seit ' + Math.round(wegSeit / 60000) + ' Minuten nicht.\n\n' +
+      'Solange geht bei ' + betreute + ' betreuten Betrieben niemand ans Telefon.\n\n' +
+      'Was zu tun ist: "Agentur starten" doppelklicken. Laeuft es schon, ins Protokoll ' +
+      'sehen (dauerbetrieb.log) - dort steht, warum er nicht hochkommt.');
+  }
+}
+
+function meldeWache(betreff, text) {
+  const an = wacheEmpfaenger();
+  if (!an.sms && !an.email) {
+    // Ohne Empfaenger nicht so tun, als waere jemand informiert worden.
+    console.warn('[wache] ' + betreff + ' - aber weder AGENTUR_SMS noch AGENTUR_EMAIL gesetzt, ' +
+      'es wurde NIEMAND benachrichtigt.');
+    return;
+  }
+  console.warn('[wache] ' + betreff);
+  require('../telefon-retter/lib/benachrichtigung')
+    .melde(an, betreff, text)
+    .catch((e) => console.warn('[wache] Meldung fehlgeschlagen: ' + e.message));
+}
+
+// ------------------------------------------------- Tagesplan ---------------
+// Traegt zusammen, was in den einzelnen Ecken der App liegt. Jede Quelle
+// steckt in ihrem eigenen try: eine nicht erreichbare Datenbank darf nicht
+// dazu fuehren, dass der ganze Tagesplan leer bleibt - dann wuerde man
+// glauben, es sei nichts zu tun.
+async function baueTagesplanDaten() {
+  const heute = new Date();
+  const daten = { offeneRueckrufe: 0, kunden: 0, reportsMonat: 0 };
+
+  try {
+    const u = await baueUebersicht();
+    daten.kunden = u.kunden || 0;
+    daten.reportsMonat = u.reportsMonat || 0;
+    daten.offeneRueckrufe = u.offeneRueckrufe || 0;
+  } catch (_e) { /* dann eben ohne die Zahlen */ }
+
+  try {
+    const t = await telefonStatus();
+    const telefonKundenAnzahl = DEMO ? 1 : telefonKunden.listeKunden().length;
+    daten.telefon = { laeuft: !!t.laeuft, betreuteKunden: telefonKundenAnzahl };
+  } catch (_e) { /* Status unbekannt = keine Meldung, statt Fehlalarm */ }
+
+  try {
+    const liste = await baueInteressentenListe();
+    daten.wiedervorlagen = liste.filter((e) => e.faellig).map((e) => ({ name: e.name, schluessel: e.schluessel }));
+    daten.anfragen = liste.filter((e) => e.quelle === 'anfrage' && e.stufe === 'neu')
+      .map((e) => ({ name: e.name, restaurant: e.name, stufe: e.stufe }));
+    daten.ungeprueft = liste.filter((e) => !e.befund && !e.erledigt).length;
+  } catch (_e) { /* Pipeline nicht lesbar */ }
+
+  try {
+    const kunden = await ladeKunden();
+    const monat = report.monatsSchluessel();
+    daten.roteAmpeln = [];
+    daten.alarme = [];
+    for (const k of kunden) {
+      const historie = kundenHistorie(effektiverSlug(k));
+      if (bewerteKunde({ historie, aktuellerMonat: monat }).stufe === 'rot') {
+        daten.roteAmpeln.push({ name: k.name, id: k.id });
+      }
+      try {
+        const w = await fruehwarnungFuer(k);
+        if (w.stufe === 'alarm' || w.stufe === 'warnung') {
+          daten.alarme.push({
+            name: k.name, id: k.id, stufe: w.stufe,
+            meldung: (w.meldungen && w.meldungen[0] && w.meldungen[0].text) || ''
+          });
+        }
+      } catch (_e) { /* ein Kunde ohne Zahlen kippt den Plan nicht */ }
+    }
+  } catch (_e) { /* Kundenliste nicht erreichbar */ }
+
+  return require('./lib/tagesplan').baueTagesplan(daten, { heute });
+}
+
+// ------------------------------------------------- Onboarding-Stand --------
+// Beobachtet, was bei diesem Kunden wirklich da ist - nicht, was da sein
+// sollte. Jede Pruefung ist eine Tatsache aus einer Datei oder der Datenbank.
+async function onboardingStand(kunde) {
+  const slug = effektiverSlug(kunde);
+  const zustand = {};
+
+  zustand.aufbereitung = !!dateiInOrdner(AUFBEREITUNG_ORDNER, slug + '-jsonld.json') ||
+    fs.existsSync(path.join(AUFBEREITUNG_ORDNER, slug));
+  zustand.report = kundenHistorie(slug).length > 0;
+  zustand.angebot = !!dateiInOrdner(PITCH_ORDNER, pitchDateiname({ name: kunde.name }));
+
+  // Telefon: ist fuer diesen Betrieb eine Nummer zugeordnet?
+  try {
+    const telefonListe = telefonKunden.listeKunden();
+    const meiner = telefonListe.find((t) =>
+      String(t.restaurant || '') === String(kunde.id) ||
+      (t.name && String(t.name).toLowerCase() === String(kunde.name || '').toLowerCase()));
+    zustand.telefon = !!meiner;
+    zustand.speisekarte = !!(meiner && meiner.gerichte > 0);
+    // "problem" setzt telefon-kunden.js, wenn der Meldeweg fehlt.
+    zustand.meldeweg = !!(meiner && !/Meldeweg/i.test(String(meiner.problem || '')));
+  } catch (_e) {
+    zustand.telefon = false;
+  }
+
+  // Den Portal-Link kann die App nicht beobachten - ob er verschickt wurde,
+  // weiss nur Ibo. Deshalb wird er als offen gefuehrt, bis er ihn abhakt.
+  zustand.portal = abgehakt(slug, 'portal');
+
+  const liste = require('./lib/onboarding-liste').baueListe(zustand, { name: kunde.name });
+  return Object.assign({ kunde: kunde.name }, liste);
+}
+
+// Von Hand abgehakte Schritte (das, was die App nicht selbst sehen kann).
+const ONBOARDING_DATEI = () => path.join(DATEN_ORDNER, 'onboarding-haken.json');
+
+function alleHaken() {
+  try { return JSON.parse(fs.readFileSync(ONBOARDING_DATEI(), 'utf8')) || {}; } catch (_e) { return {}; }
+}
+
+function abgehakt(slug, schritt) {
+  const h = alleHaken()[slug];
+  return !!(h && h[schritt]);
+}
+
+function setzeHaken(slug, schritt, wert) {
+  const alle = alleHaken();
+  alle[slug] = Object.assign({}, alle[slug], { [schritt]: !!wert });
+  fs.mkdirSync(DATEN_ORDNER, { recursive: true });
+  fs.writeFileSync(ONBOARDING_DATEI(), JSON.stringify(alle, null, 2));
+}
+
 // ------------------------------------------------- OSM-Import --------------
 // Der Import laeuft mehrere Minuten im Hintergrund. Damit man nicht ratlos
 // vor einem Knopf sitzt, wird sein Verlauf hier mitgeschrieben und ueber
@@ -1557,6 +1743,62 @@ const server = http.createServer(async (req, res) => {
     // API: Uebersicht (Dashboard-Kopf)
     if (req.method === 'GET' && pfad === '/api/uebersicht') {
       json(res, 200, await baueUebersicht());
+      return;
+    }
+
+    // API: Tagesplan - was ist heute dran? Sammelt aus allen Ecken der App
+    // zusammen, was liegen bleibt, und sortiert nach Dringlichkeit.
+    // Faellt eine Quelle aus, faellt nur dieser eine Punkt weg.
+    if (req.method === 'GET' && pfad === '/api/tagesplan') {
+      json(res, 200, await baueTagesplanDaten());
+      return;
+    }
+
+    // API: Die Vorgeschichte eines Kunden - wie er gewonnen wurde.
+    // Bis eben war das eine Sackgasse: Wer Kunde wurde, verschwand aus der
+    // Pipeline, und der Betriebs-Check und alle Notizen waren nicht mehr
+    // zu sehen. Genau die braucht man aber im Gespraech ein Jahr spaeter.
+    if (req.method === 'GET' && pfad.startsWith('/api/vorgeschichte/')) {
+      const kunde = await findeKunde(decodeURIComponent(pfad.split('/').pop()));
+      if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
+      const schluessel = pipeline.schluesselFuer(kunde.name, kunde.city);
+      const eintrag = (await baueInteressentenListe()).find((e) => e.schluessel === schluessel);
+      if (!eintrag) {
+        json(res, 200, {
+          vorhanden: false,
+          hinweis: 'Dieser Betrieb stand nie in der Pipeline – er kam auf einem anderen Weg dazu.'
+        });
+        return;
+      }
+      json(res, 200, {
+        vorhanden: true, schluessel,
+        quelle: eintrag.quelle, notiz: eintrag.notiz, befund: eintrag.befund,
+        verlauf: eintrag.verlauf, anfrage: eintrag.anfrage, kontakt: eintrag.kontakt,
+        zeit: eintrag.zeit
+      });
+      return;
+    }
+
+    // API: Onboarding-Stand eines Kunden - was ist eingerichtet, was fehlt.
+    if (req.method === 'GET' && pfad.startsWith('/api/onboarding-stand/')) {
+      const kunde = await findeKunde(decodeURIComponent(pfad.split('/').pop()));
+      if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
+      json(res, 200, await onboardingStand(kunde));
+      return;
+    }
+
+    // API: einen Schritt von Hand abhaken (fuer das, was die App nicht
+    // selbst sehen kann - etwa ob der Portal-Link wirklich verschickt wurde).
+    if (req.method === 'POST' && pfad === '/api/onboarding-haken') {
+      const { kennung, schritt, wert } = await leseBody(req);
+      const kunde = await findeKunde(kennung);
+      if (!kunde) { json(res, 404, { fehler: 'Kunde nicht gefunden' }); return; }
+      if (!require('./lib/onboarding-liste').SCHRITTE.some((s) => s.id === schritt)) {
+        json(res, 400, { fehler: 'Unbekannter Schritt: ' + schritt });
+        return;
+      }
+      if (!DEMO) setzeHaken(effektiverSlug(kunde), schritt, wert);
+      json(res, 200, await onboardingStand(kunde));
       return;
     }
 
@@ -2586,3 +2828,12 @@ if (AUTO_TAG > 0) {
 // Wochen-Digest (Montags-Mail an AGENTUR_EMAIL) - gleiche stuendliche Pruefung
 setTimeout(() => pruefeDigest().catch((e) => console.warn('Digest-Pruefung: ' + e.message)), 20000);
 setInterval(() => pruefeDigest().catch((e) => console.warn('Digest-Pruefung: ' + e.message)), 60 * 60 * 1000);
+
+// Telefon-Waechter: sieht nach, ob der Telefon-Retter noch da ist. Meldet
+// sich einmal, wenn er laenger weg ist, und einmal, wenn er wiederkommt.
+// Der erste Blick erst nach einer Minute - beim Start des Dauerbetriebs
+// braucht der Telefon-Retter selbst ein paar Sekunden.
+setTimeout(() => {
+  pruefeTelefonWache().catch(() => {});
+  setInterval(() => pruefeTelefonWache().catch((e) => console.warn('Telefon-Wache: ' + e.message)), WACHE_TAKT_MS);
+}, 60000);
