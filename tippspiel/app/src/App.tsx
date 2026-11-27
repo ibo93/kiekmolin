@@ -1,23 +1,25 @@
 import { useEffect, type ReactNode } from 'react';
 import { NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import { backend, useApp } from './data/store';
-import { Coins, Toast } from './components/ui';
+import { Coins, Icon, Toast } from './components/ui';
 import { SlipFab, SlipSheet } from './components/Slip';
 import Home from './screens/Home';
 import EventPage, { LeaguePage } from './screens/Event';
 import { JoinGroup, Leaderboard, Live, MyBets, Profile } from './screens/Other';
 
-const ic = (d: ReactNode) => <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">{d}</svg>;
+const ic = (d: ReactNode) => <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{d}</svg>;
 const TABS = [
-  { to: '/', label: 'Sport', icon: ic(<><circle cx="12" cy="12" r="9" /><path d="m12 7 4 3-1.5 4.5h-5L8 10l4-3Z" /></>) },
+  { to: '/', label: 'Sport', icon: ic(<path d="M3 11 12 4l9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-9Z" />) },
   { to: '/live', label: 'Live', icon: ic(<><circle cx="12" cy="12" r="2.5" /><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14" /></>) },
-  { to: '/wetten', label: 'Meine Wetten', icon: ic(<><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M9 8h6M9 12h6M9 16h3" /></>) },
+  { to: '/wetten', label: 'Wetten', icon: ic(<><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M9 8h6M9 12h6M9 16h3" /></>) },
   { to: '/rangliste', label: 'Rangliste', icon: ic(<path d="M8 21V11H3v10h5Zm0 0h8m-8 0V5h8v16m0 0h5v-7h-5" />) },
   { to: '/profil', label: 'Profil', icon: ic(<><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></>) },
 ];
 
 export default function App() {
   const balance = useApp((s) => s.wallet.balance);
+  const user = useApp((s) => s.user);
+  const bonusToday = useApp((s) => s.wallet.lastDailyBonus === new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' }));
   const liveCount = useApp((s) => s.events.filter((e) => e.status === 'live').length);
   const openBets = useApp((s) => s.bets.filter((b) => b.status === 'open').length);
   const { pathname } = useLocation();
@@ -27,19 +29,27 @@ export default function App() {
   useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
 
   return (
-    <div className="mx-auto min-h-screen max-w-md bg-bg pb-24">
-      <header className="sticky top-0 z-20 flex h-[52px] items-center justify-between bg-bg/90 px-4 backdrop-blur" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-        <div className="flex items-center gap-2">
-          <img src="/icon.svg" alt="" className="h-7 w-7" />
-          <span className="text-[18px] font-extrabold tracking-tight">Tipp<span className="text-acc-hi">Arena</span></span>
-        </div>
-        <NavLink to="/profil" className="rounded-full bg-s1 px-3 py-1.5 text-[14px] font-bold"><Coins value={balance} /></NavLink>
+    <div className="mx-auto min-h-screen max-w-md bg-bg">
+      <header className="sticky top-0 z-20 flex h-16 items-center justify-between bg-bg/90 px-[18px] backdrop-blur" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+        <NavLink to="/" className="font-wide text-[19px] font-black tracking-wide text-ink">TIPPARENA<span className="text-acc-hi">.</span></NavLink>
+        {(user || !backend.requiresLogin) && (
+          <div className="flex h-11 items-center gap-2.5 rounded-full bg-s2 pl-4 pr-1.5">
+            <NavLink to="/profil" className="text-[16px] font-bold text-ink">
+              <Coins value={balance} /> <span className="text-[12px] font-medium text-mute">Coins</span>
+            </NavLink>
+            <button onClick={() => backend.claimDailyBonus()} aria-label={bonusToday ? 'Tagesbonus heute schon abgeholt' : 'Tagesbonus abholen'}
+              className={`relative grid h-[34px] w-[34px] place-items-center rounded-full ${bonusToday ? 'bg-s3 text-mute' : 'bg-acc text-white'}`}>
+              {Icon.gift()}
+              {!bonusToday && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-s2 bg-boost" />}
+            </button>
+          </div>
+        )}
       </header>
 
       {error && (
-        <div className="mx-4 mt-2 flex items-center justify-between gap-3 rounded-xl border border-down/40 bg-down/10 px-3 py-2 text-[13px] text-down">
-          <span>{error}. Die Anzeige ist gerade nicht aktuell.</span>
-          <button onClick={() => location.reload()} className="shrink-0 rounded-lg bg-down/20 px-2.5 py-1 font-bold">Neu laden</button>
+        <div className="mx-[18px] mt-1 flex items-center justify-between gap-3 rounded-full bg-rose py-1.5 pl-4 pr-1.5 text-[13px] font-semibold text-[#5A1220]">
+          <span>{error}. Anzeige nicht aktuell.</span>
+          <button onClick={() => location.reload()} className="h-9 shrink-0 rounded-full bg-cink px-3.5 font-bold text-white">Neu laden</button>
         </div>
       )}
       <Routes>
@@ -58,17 +68,18 @@ export default function App() {
       <SlipSheet />
       <Toast />
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-md border-t border-line bg-s1/95 backdrop-blur" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <div className="grid grid-cols-5">
-          {TABS.map((t) => (
-            <NavLink key={t.to} to={t.to} end={t.to === '/'}
-              className={({ isActive }) => `relative flex flex-col items-center gap-0.5 py-2 text-[10.5px] font-semibold ${isActive ? 'text-acc-hi' : 'text-mute'}`}>
-              {t.icon}{t.label}
-              {t.to === '/live' && liveCount > 0 && <span className="absolute right-[22%] top-1.5 h-2 w-2 rounded-full bg-down" />}
-              {t.to === '/wetten' && openBets > 0 && <span className="absolute right-[24%] top-1 grid h-4 min-w-4 place-items-center rounded-full bg-acc px-1 text-[9px] text-white">{openBets}</span>}
-            </NavLink>
-          ))}
-        </div>
+      <nav aria-label="Hauptmenü" className="fixed left-1/2 z-30 flex h-16 -translate-x-1/2 items-center gap-1.5 rounded-full bg-[#1C1F26] px-[7px] shadow-[0_12px_40px_rgba(0,0,0,.6)]"
+           style={{ bottom: 'calc(20px + env(safe-area-inset-bottom))' }}>
+        {TABS.map((t) => (
+          <NavLink key={t.to} to={t.to} end={t.to === '/'} aria-label={t.label}
+            className={({ isActive }) => `relative flex h-[50px] items-center justify-center gap-2 rounded-full text-[14px] font-bold transition-all ${isActive ? 'bg-bg px-4 text-white' : 'w-[50px] bg-s3 text-[#D5D8E2]'}`}>
+            {({ isActive }) => (<>
+              {t.icon}{isActive && <span>{t.label}</span>}
+              {t.to === '/live' && liveCount > 0 && !isActive && <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-down" />}
+              {t.to === '/wetten' && openBets > 0 && <span className="font-num absolute -right-0.5 -top-0.5 grid h-5 min-w-5 place-items-center rounded-full bg-acc px-1 text-[11px] font-black text-white">{openBets}</span>}
+            </>)}
+          </NavLink>
+        ))}
       </nav>
     </div>
   );

@@ -1,66 +1,78 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { favStore, useApp, useFavs } from '../data/store';
+import { favStore, slipStore, useApp, useFavs, useSlip } from '../data/store';
 import { fmtOdds } from '../data/odds';
-import { Disclaimer, EventCard, EventSkeleton, Icon, LiveBadge, OddsButton, SectionTitle, useH2H } from '../components/ui';
-import type { SportEvent } from '../data/types';
+import { Disclaimer, EventCard, EventSkeleton, Icon, SectionTitle, sportIcon } from '../components/ui';
 
 function Teaser() {
   const boosts = useApp((s) => s.boosts);
   const events = useApp((s) => s.events);
-  const outcomes = useApp((s) => s.outcomes);
+  const slipIds = useSlip((s) => s.items.map((i) => i.outcomeId).join());
   const [i, setI] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
 
   const slides = [
-    ...boosts.map((b) => ({ kind: 'boost' as const, b, ev: events.find((e) => e.id === b.eventId)! })),
+    ...boosts.map((b) => ({ kind: 'boost' as const, b, ev: events.find((e) => e.id === b.eventId) })).filter((x) => x.ev),
     { kind: 'group' as const },
     { kind: 'bonus' as const },
   ];
   useEffect(() => {
-    const t = setInterval(() => setI((x) => (x + 1) % slides.length), 5000);
+    const t = setInterval(() => setI((x) => (x + 1) % slides.length), 6000);
     return () => clearInterval(t);
   }, [slides.length]);
   useEffect(() => { ref.current?.scrollTo({ left: i * ref.current.clientWidth, behavior: 'smooth' }); }, [i]);
 
   return (
-    <div className="px-4 pt-3">
-      <div ref={ref} className="flex snap-x snap-mandatory overflow-x-auto no-scrollbar rounded-2xl"
+    <div className="px-[18px] pt-1">
+      <div ref={ref} className="flex snap-x snap-mandatory overflow-x-auto no-scrollbar rounded-[26px]"
            onScroll={(e) => { const el = e.currentTarget; setI(Math.round(el.scrollLeft / el.clientWidth)); }}>
         {slides.map((s, idx) => (
           <div key={idx} className="w-full shrink-0 snap-center">
-            {s.kind === 'boost' ? (
-              <div className="relative h-36 overflow-hidden rounded-2xl bg-gradient-to-br from-[#3b1d5e] via-[#2a2552] to-[#151729] p-4">
-                <div className="absolute -right-6 -top-8 h-40 w-40 rounded-full bg-boost/20 blur-2xl" />
-                <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-boost">{Icon.boost()} Boost des Tages</div>
-                <div className="mt-2 text-[17px] font-extrabold leading-tight">{s.b.title}</div>
-                <div className="text-[12px] text-mute">{s.ev.home} – {s.ev.away}</div>
-                <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-mute line-through tabular-nums">{fmtOdds(s.b.original)}</span>
-                    <span className="text-2xl font-extrabold text-white tabular-nums">{fmtOdds(s.b.boosted)}</span>
+            {s.kind === 'boost' && s.ev ? (
+              <div className="relative h-[170px] overflow-hidden rounded-[26px] bg-lav p-[18px] text-[#120E33]">
+                <div aria-hidden="true" className="absolute -bottom-16 -right-8 h-[210px] w-[210px] rounded-full bg-lav2" />
+                <div aria-hidden="true" className="absolute right-6 top-5 grid h-[88px] w-[88px] place-items-center rounded-full bg-acc text-white">{Icon.boost('w-11 h-11')}</div>
+                <div className="relative">
+                  <div className="font-wide text-[24px] font-black leading-none">BOOST<br />DES TAGES</div>
+                  <div className="mt-3 inline-flex max-w-[200px] items-center gap-1.5 truncate rounded-full bg-[#120E33] px-2.5 py-1 text-[11px] font-bold uppercase text-white">
+                    {s.ev.home} <span className="text-acc-hi">vs</span> {s.ev.away}
                   </div>
-                  <div className="w-24"><OddsButton o={outcomes[s.b.outcomeId]} compact /></div>
+                  <div className="mt-3 flex items-center gap-2.5">
+                    <span className="font-num text-[15px] text-[#5B54A0] line-through">{fmtOdds(s.b.original)}</span>
+                    <span className="font-num text-[30px] font-black leading-none">{fmtOdds(s.b.boosted)}</span>
+                    {(() => {
+                      const on = slipIds.split(',').includes(s.b.outcomeId);
+                      return (
+                        <button aria-pressed={on} onClick={() => slipStore.toggle({ outcomeId: s.b.outcomeId, eventId: s.b.eventId, price: s.b.boosted })}
+                          className={`ml-1 h-10 rounded-full px-4 text-[14px] font-bold ${on ? 'bg-acc text-white' : 'bg-[#120E33] text-white'}`}>{on ? 'Im Schein ✓' : 'Tippen'}</button>
+                      );
+                    })()}
+                  </div>
                 </div>
               </div>
             ) : s.kind === 'group' ? (
-              <Link to="/rangliste" className="block h-36 rounded-2xl bg-gradient-to-br from-[#123a3a] to-[#151729] p-4">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-[#5eead4]">Tippgruppen</div>
-                <div className="mt-2 text-[17px] font-extrabold leading-tight">Tippt mit eurem Verein,<br />eurer Kneipe, euren Leuten</div>
-                <div className="mt-3 inline-block rounded-lg bg-white/10 px-3 py-1.5 text-[13px] font-semibold">Gruppe gründen ›</div>
+              <Link to="/rangliste" className="relative block h-[170px] overflow-hidden rounded-[26px] bg-mint p-[18px] text-[#0B3B22]">
+                <div aria-hidden="true" className="absolute -bottom-16 -right-10 h-[200px] w-[200px] rounded-full bg-[#B5E0C6]" />
+                <div className="relative">
+                  <div className="font-wide text-[24px] font-black leading-none">TIPP-<br />GRUPPEN</div>
+                  <p className="mt-3 max-w-[230px] text-[14px] font-medium leading-snug">Tippt mit eurem Verein, eurer Kneipe, euren Leuten.</p>
+                  <span className="mt-3 inline-block rounded-full bg-[#0B3B22] px-4 py-2 text-[13px] font-bold text-white">Gruppe gründen</span>
+                </div>
               </Link>
             ) : (
-              <Link to="/profil" className="block h-36 rounded-2xl bg-gradient-to-br from-[#2a2552] to-[#151729] p-4">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-acc-hi">Jeden Tag</div>
-                <div className="mt-2 text-[17px] font-extrabold leading-tight">100 Coins Tagesbonus –<br />einfach App öffnen</div>
-                <div className="mt-3 text-[12px] text-mute">Nur Spielgeld. Kein Kauf, keine Auszahlung.</div>
+              <Link to="/profil" className="relative block h-[170px] overflow-hidden rounded-[26px] bg-card p-[18px] text-cink">
+                <div aria-hidden="true" className="absolute right-6 top-5 grid h-[88px] w-[88px] place-items-center rounded-full bg-cink text-white">{Icon.gift('w-10 h-10')}</div>
+                <div className="relative">
+                  <div className="font-wide text-[24px] font-black leading-none">+100<br />JEDEN TAG</div>
+                  <p className="mt-3 max-w-[210px] text-[14px] font-medium leading-snug">Tagesbonus beim Öffnen. Nur Spielgeld – kein Kauf, keine Auszahlung.</p>
+                </div>
               </Link>
             )}
           </div>
         ))}
       </div>
-      <div className="mt-2 flex justify-center gap-1.5">
-        {slides.map((_, idx) => <span key={idx} className={`h-1.5 rounded-full transition-all ${idx === i ? 'w-5 bg-acc' : 'w-1.5 bg-line'}`} />)}
+      <div className="mt-2.5 flex justify-center gap-1.5" aria-hidden="true">
+        {slides.map((_, idx) => <span key={idx} className={`h-[5px] rounded-full transition-all ${idx === i ? 'w-[18px] bg-acc-hi' : 'w-[5px] bg-s3'}`} />)}
       </div>
     </div>
   );
@@ -68,36 +80,26 @@ function Teaser() {
 
 export function SportBar({ value, onChange }: { value: string; onChange: (k: string) => void }) {
   const sports = useApp((s) => s.sports);
+  const events = useApp((s) => s.events);
   const favs = useFavs();
-  const sorted = [...sports].sort((a, b) => Number(favs.sports.includes(b.key)) - Number(favs.sports.includes(a.key)) || a.sort - b.sort);
+  const withGames = sports.filter((s) => events.some((e) => e.sportKey === s.key));
+  const sorted = [...(withGames.length ? withGames : sports)]
+    .sort((a, b) => Number(favs.sports.includes(b.key)) - Number(favs.sports.includes(a.key)) || a.sort - b.sort);
   return (
-    <div className="flex gap-2 overflow-x-auto no-scrollbar px-4 py-1">
-      <button onClick={() => onChange('all')}
-        className={`shrink-0 rounded-full px-4 py-2 text-[13px] font-semibold ${value === 'all' ? 'bg-ink text-bg' : 'bg-s1 text-mute'}`}>Alle</button>
-      {sorted.map((s) => (
-        <button key={s.key} onClick={() => onChange(s.key)}
-          className={`shrink-0 flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] font-semibold ${value === s.key ? 'bg-ink text-bg' : 'bg-s1 text-ink/90'}`}>
-          <span>{s.icon}</span>{s.title}
-          {favs.sports.includes(s.key) && <span className="text-amber-300">{Icon.star(true, 'w-3 h-3')}</span>}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function LiveMini({ ev }: { ev: SportEvent }) {
-  const { home, draw, away } = useH2H(ev.id);
-  return (
-    <div className="w-[260px] shrink-0 rounded-2xl bg-s1 p-3">
-      <Link to={`/event/${ev.id}`} className="block">
-        <div className="mb-2"><LiveBadge minute={ev.minute} /></div>
-        <div className="flex justify-between text-[13px] font-semibold"><span className="truncate">{ev.home}</span><span className="tabular-nums text-acc-hi">{ev.homeScore}</span></div>
-        <div className="flex justify-between text-[13px] font-semibold"><span className="truncate">{ev.away}</span><span className="tabular-nums text-acc-hi">{ev.awayScore}</span></div>
-      </Link>
-      <div className={`mt-2 grid gap-1.5 ${draw ? 'grid-cols-3' : 'grid-cols-2'}`}>
-        <OddsButton o={home} compact />{draw && <OddsButton o={draw} compact />}<OddsButton o={away} compact />
-      </div>
-    </div>
+    <nav aria-label="Sportarten" className="flex gap-2 overflow-x-auto no-scrollbar px-[18px] py-0.5">
+      <button onClick={() => onChange('all')} aria-pressed={value === 'all'}
+        className={`h-[46px] shrink-0 rounded-full px-5 text-[14px] font-bold ${value === 'all' ? 'bg-ink text-bg' : 'border border-[#2A2E39] text-[#C9CDDA]'}`}>Alle</button>
+      {sorted.map((s) => {
+        const on = value === s.key;
+        return (
+          <button key={s.key} onClick={() => onChange(s.key)} aria-pressed={on} aria-label={s.title}
+            className={`flex h-[46px] shrink-0 items-center gap-2 rounded-full ${on ? 'bg-ink pl-1.5 pr-4 text-bg' : 'w-[46px] justify-center border border-[#2A2E39] bg-[#0E1015] text-[#C9CDDA]'}`}>
+            {on ? <span className="grid h-[34px] w-[34px] place-items-center rounded-full bg-acc text-white">{sportIcon(s.key)}</span> : sportIcon(s.key)}
+            {on && <span className="text-[14px] font-bold">{s.title}</span>}
+          </button>
+        );
+      })}
+    </nav>
   );
 }
 
@@ -125,33 +127,34 @@ export default function Home() {
   return (
     <div>
       <Teaser />
-      <div className="mt-4"><SportBar value={sport} onChange={setSport} /></div>
 
-      <SectionTitle right={<Link to="/live" className="text-[13px] font-semibold text-acc-hi">Alle ›</Link>}>
-        <span className="flex items-center gap-2">Jetzt live <span className="h-2 w-2 rounded-full bg-down animate-pulseDot" /></span>
+      <SectionTitle right={<Link to="/live" className="text-[14px] text-mute">Alle ansehen</Link>}>
+        <span className="flex items-center gap-2.5">Jetzt live <span className="h-2 w-2 rounded-full bg-down shadow-[0_0_0_4px_rgba(255,94,108,.2)]" /></span>
       </SectionTitle>
-      {!loaded ? <div className="px-4"><EventSkeleton /></div> : live.length === 0
-        ? <p className="px-4 text-[13px] text-mute">Gerade läuft nichts{sport !== 'all' ? ' in dieser Sportart' : ''}.</p>
-        : <div className="flex gap-3 overflow-x-auto no-scrollbar px-4">{live.map((e) => <LiveMini key={e.id} ev={e} />)}</div>}
+      {!loaded ? <div className="px-[18px]"><EventSkeleton /></div> : live.length === 0
+        ? <p className="px-[18px] text-[14px] text-mute">Gerade läuft nichts{sport !== 'all' ? ' in dieser Sportart' : ''}.</p>
+        : <div className="flex gap-3 overflow-x-auto no-scrollbar px-[18px]">{live.map((e) => <EventCard key={e.id} ev={e} compact />)}</div>}
 
-      <SectionTitle>Top-Events heute</SectionTitle>
-      <div className="space-y-3 px-4">
-        {!loaded ? [0, 1, 2].map((i) => <EventSkeleton key={i} />)
-          : top.length === 0 ? <p className="text-[13px] text-mute">Keine anstehenden Spiele.</p>
+      <SectionTitle right={<span className="text-[14px] text-mute">{top.length} Spiele</span>}>Top-Events</SectionTitle>
+      <SportBar value={sport} onChange={setSport} />
+      <div className="mt-3 space-y-3 px-[18px]">
+        {!loaded ? [0, 1].map((i) => <EventSkeleton key={i} />)
+          : top.length === 0 ? <p className="text-[14px] text-mute">Keine anstehenden Spiele.</p>
           : top.map((e) => <EventCard key={e.id} ev={e} />)}
       </div>
 
       <SectionTitle>Ligen</SectionTitle>
-      <div className="mx-4 divide-y divide-line overflow-hidden rounded-2xl bg-s1">
+      <div className="mx-[18px] space-y-1.5">
         {shownLeagues.map((l) => {
           const n = events.filter((e) => e.leagueKey === l.key && e.status !== 'finished').length;
           const fav = favs.leagues.includes(l.key);
           return (
-            <div key={l.key} className="flex items-center gap-3 px-4 py-3">
-              <button onClick={() => favStore.toggle('leagues', l.key)} className={fav ? 'text-amber-300' : 'text-mute'} aria-label="Favorit">{Icon.star(fav)}</button>
-              <Link to={`/liga/${l.key}`} className="flex flex-1 items-center justify-between">
-                <div><div className="text-[14px] font-semibold">{l.title}</div><div className="text-[12px] text-mute">{l.country}</div></div>
-                <span className="text-[12px] text-mute">{n} ›</span>
+            <div key={l.key} className="flex h-14 items-center gap-2 rounded-full bg-s1 pl-2 pr-4">
+              <button onClick={() => favStore.toggle('leagues', l.key)} aria-pressed={fav} aria-label={`${l.title} als Favorit`}
+                className={`grid h-11 w-11 place-items-center rounded-full ${fav ? 'text-[#FFC857]' : 'text-mute'}`}>{Icon.star(fav)}</button>
+              <Link to={`/liga/${l.key}`} className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                <div className="min-w-0"><div className="truncate text-[15px] font-semibold">{l.title}</div><div className="truncate text-[12px] text-mute">{l.country}</div></div>
+                <span className="font-num shrink-0 rounded-full bg-s3 px-2.5 py-1 text-[13px] font-bold">{n}</span>
               </Link>
             </div>
           );

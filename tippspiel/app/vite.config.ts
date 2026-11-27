@@ -14,8 +14,8 @@ export default defineConfig({
         short_name: 'TippArena',
         description: 'Sport-Tippspiel mit Spielgeld. Kein Glücksspiel – nur Spielgeld, keine Gewinne in Geld.',
         lang: 'de',
-        theme_color: '#0d0e13',
-        background_color: '#0d0e13',
+        theme_color: '#050608',
+        background_color: '#050608',
         display: 'standalone',
         start_url: '/',
         icons: [
