@@ -15,10 +15,10 @@ export function SlipFab() {
   if (!n) return null;
   return (
     <button onClick={() => slipStore.setOpen(true)} aria-label={`Wettschein öffnen, ${n} Tipps`}
-      className="fixed z-30 grid h-[58px] w-[58px] place-items-center rounded-full bg-acc text-white shadow-[0_10px_30px_rgba(106,88,245,.5)] transition active:scale-95"
+      className="fixed z-30 grid h-[58px] w-[58px] place-items-center rounded-full bg-acc text-black shadow-neonlg transition active:scale-95"
       style={{ bottom: 'calc(100px + env(safe-area-inset-bottom))', right: 'max(18px, calc((100vw - 448px) / 2 + 18px))' }}>
       {Icon.slip()}
-      <span className="font-num absolute -right-0.5 -top-0.5 grid h-[22px] min-w-[22px] place-items-center rounded-full bg-white px-1 text-[12px] font-black text-[#3B2DC4]">{n}</span>
+      <span className="font-num absolute -right-0.5 -top-0.5 grid h-[22px] min-w-[22px] place-items-center rounded-full bg-black px-1 text-[12px] font-black text-acc">{n}</span>
     </button>
   );
 }
@@ -98,18 +98,18 @@ export function SlipSheet() {
       <div className="absolute inset-0 bg-black/70" onClick={() => slipStore.setOpen(false)} />
       <section aria-label="Wettschein" className="absolute inset-x-0 bottom-0 mx-auto flex max-h-[90vh] max-w-md flex-col rounded-t-[32px] bg-card2 text-cink animate-sheetIn"
            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <div className="flex justify-center pt-2.5"><div className="h-[5px] w-[42px] rounded-full bg-[#C3C9D6]" /></div>
+        <div className="flex justify-center pt-2.5"><div className="h-[5px] w-[42px] rounded-full bg-[#2A2E37]" /></div>
         <div className="flex items-center justify-between px-[18px] pt-2.5">
           <h2 className="font-wide text-[22px] font-black">WETTSCHEIN <span className="font-num text-cmute">{items.length || ''}</span></h2>
           <div className="flex items-center gap-1">
             {items.length > 0 && <button onClick={() => slipStore.clear()} className="h-11 px-3 text-[14px] font-medium text-cmute">Leeren</button>}
-            <button onClick={() => slipStore.setOpen(false)} aria-label="Schließen" className="grid h-11 w-11 place-items-center rounded-full bg-white">{Icon.close()}</button>
+            <button onClick={() => slipStore.setOpen(false)} aria-label="Schließen" className="grid h-11 w-11 place-items-center rounded-full bg-chip">{Icon.close()}</button>
           </div>
         </div>
 
         {done ? (
           <div className="px-6 py-14 text-center">
-            <div className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-full bg-mint text-[#0D7A4A]">{Icon.check('w-7 h-7')}</div>
+            <div className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-full bg-mint text-[#3DF29A]">{Icon.check('w-7 h-7')}</div>
             <p className="text-[17px] font-bold">{done}</p><p className="text-[14px] text-cmute">Viel Glück!</p>
           </div>
         ) : items.length === 0 ? (
@@ -117,19 +117,19 @@ export function SlipSheet() {
         ) : (
           <>
             <div className="px-[18px] pt-3">
-              <div className="grid grid-cols-3 gap-1 rounded-full bg-[#DDE2EC] p-[5px]">
+              <div className="grid grid-cols-3 gap-1 rounded-full bg-[#101217] p-[5px]">
                 {(['single', 'combo', 'system'] as Mode[]).map((m) => {
                   const dis = (m === 'combo' && items.length < 2) || (m === 'system' && items.length < 3);
                   const label = m === 'single' ? 'Einzel' : m === 'combo' ? (sameEvent ? 'Konfigurator' : 'Kombi') : 'System';
                   return <button key={m} disabled={dis} onClick={() => setMode(m)} aria-pressed={mode === m}
-                    className={`h-10 rounded-full text-[14px] font-semibold ${mode === m ? 'bg-cink text-white' : dis ? 'text-cmute/40' : 'text-cmute'}`}>{label}</button>;
+                    className={`h-10 rounded-full text-[14px] font-semibold ${mode === m ? 'bg-acc text-black' : dis ? 'text-cmute/40' : 'text-cmute'}`}>{label}</button>;
                 })}
               </div>
               {mode === 'system' && (
                 <div className="mt-2 flex gap-1.5 overflow-x-auto no-scrollbar">
                   {Array.from({ length: items.length - 2 }, (_, i) => i + 2).map((kk) => (
                     <button key={kk} onClick={() => setK(kk)} aria-pressed={k === kk}
-                      className={`h-9 shrink-0 rounded-full px-4 text-[13px] font-semibold ${k === kk ? 'bg-acc text-white' : 'bg-white text-cink'}`}>{kk} aus {items.length}</button>
+                      className={`h-9 shrink-0 rounded-full px-4 text-[13px] font-semibold ${k === kk ? 'bg-acc text-black' : 'bg-chip text-ink'}`}>{kk} aus {items.length}</button>
                   ))}
                 </div>
               )}
@@ -139,7 +139,7 @@ export function SlipSheet() {
               {rows.map(({ it, o, m, e, current, changed, blocked }) => {
                 const team = o?.name === 'home' ? e?.home : o?.name === 'away' ? e?.away : null;
                 return (
-                  <div key={it.outcomeId} className={`flex items-center gap-3 rounded-[22px] bg-white py-3 pl-3.5 pr-3 ${changed ? 'shadow-[inset_0_0_0_2px_#F0B43C]' : ''}`}>
+                  <div key={it.outcomeId} className={`flex items-center gap-3 rounded-[22px] bg-card py-3 pl-3.5 pr-3 ${changed ? 'shadow-[inset_0_0_0_2px_#FFC857]' : ''}`}>
                     {team ? <Crest name={team} size={40} /> : <span className="font-num grid h-10 w-10 shrink-0 place-items-center rounded-full bg-card2 text-[13px] font-black">{SYMBOL[o?.name ?? ''] ?? (o?.name ?? '').slice(0, 2).toUpperCase()}</span>}
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-[15px] font-bold">{o?.label}</div>
@@ -148,7 +148,7 @@ export function SlipSheet() {
                     {blocked ? <span className="flex shrink-0 items-center gap-1 text-[12px] text-cmute">{Icon.lock()} {blocked}</span> : (
                       <div className="shrink-0 text-right">
                         {changed && <div className="font-num text-[12px] text-[#7A8194] line-through">{fmtOdds(it.price)}</div>}
-                        <div className={`font-num text-[18px] font-black ${changed ? (current > it.price ? 'text-[#0D7A4A]' : 'text-[#B3243C]') : ''}`}>
+                        <div className={`font-num text-[18px] font-black ${changed ? (current > it.price ? 'text-[#3DF29A]' : 'text-[#FF5E6C]') : ''}`}>
                           {fmtOdds(current)}{changed ? (current > it.price ? ' ▲' : ' ▼') : ''}
                         </div>
                       </div>
@@ -162,44 +162,44 @@ export function SlipSheet() {
             <div className="space-y-3 px-[18px] pb-6 pt-1">
               {changes.length > 0 && (
                 <div className="flex items-center justify-between gap-3 rounded-full bg-warn py-1.5 pl-4 pr-1.5">
-                  <span className="text-[13px] font-semibold text-[#6B4A05]">{changes.length === 1 ? 'Eine Quote hat sich geändert' : `${changes.length} Quoten haben sich geändert`}</span>
-                  <button onClick={() => slipStore.acceptPrices(changes)} className="h-10 shrink-0 rounded-full bg-cink px-4 text-[13px] font-bold text-white">Akzeptieren</button>
+                  <span className="text-[13px] font-semibold text-[#FFD98A]">{changes.length === 1 ? 'Eine Quote hat sich geändert' : `${changes.length} Quoten haben sich geändert`}</span>
+                  <button onClick={() => slipStore.acceptPrices(changes)} className="h-10 shrink-0 rounded-full bg-acc px-4 text-[13px] font-bold text-black">Akzeptieren</button>
                 </div>
               )}
-              {(comboError || error) && <div className="rounded-[18px] bg-rose px-4 py-2.5 text-[13px] font-medium text-[#5A1220]">{comboError || error}</div>}
+              {(comboError || error) && <div className="rounded-[18px] bg-rose px-4 py-2.5 text-[13px] font-medium text-[#FFB3BC]">{comboError || error}</div>}
 
               <div className="grid grid-cols-[1fr_1fr_1fr_1.4fr] gap-1.5">
                 {[10, 50, 100].map((v) => (
                   <button key={v} onClick={() => setStake(v)} aria-pressed={stake === v}
-                    className={`font-num h-[50px] rounded-full text-[16px] font-extrabold ${stake === v ? 'bg-acc text-white' : 'bg-white text-cink'}`}>{v}</button>
+                    className={`font-num h-[50px] rounded-full text-[16px] font-extrabold ${stake === v ? 'bg-acc text-black' : 'bg-chip text-ink'}`}>{v}</button>
                 ))}
-                <label className="flex h-[50px] items-center gap-1 rounded-full bg-white px-4 focus-within:ring-2 focus-within:ring-acc">
+                <label className="flex h-[50px] items-center gap-1 rounded-full bg-chip px-4 focus-within:ring-2 focus-within:ring-acc">
                   <span className="text-[12px] text-cmute">Einsatz</span>
                   <input inputMode="numeric" value={stake || ''} onChange={(e) => setStake(Math.max(0, parseInt(e.target.value.replace(/\D/g, '')) || 0))}
                     className="font-num w-full bg-transparent text-right text-[16px] font-extrabold outline-none" aria-label="Einsatz in Coins" />
                 </label>
               </div>
 
-              <div className="flex items-center justify-between gap-3 rounded-[26px] bg-cink py-4 pl-5 pr-4 text-ink">
+              <div className="flex items-center justify-between gap-3 rounded-[26px] bg-black py-4 pl-5 pr-4 text-ink shadow-[inset_0_0_0_1px_rgba(0,255,136,.35)]">
                 <div className="min-w-0">
                   <div className="text-[12px] text-mute">
                     {calc.label}{calc.odds !== null && <> · Quote <b className="font-num text-ink">{fmtOdds(calc.odds)}</b></>}
                   </div>
                   <div className="text-[12px] text-mute">Möglicher Gewinn</div>
-                  <div className="font-num text-[32px] font-black leading-none text-[#7FE3B0]"><Coins value={calc.potential} /> <span className="font-sans text-[13px] font-semibold text-mute">Coins</span></div>
+                  <div className="font-num text-[32px] font-black leading-none text-acc [text-shadow:0_0_18px_rgba(0,255,136,.55)]"><Coins value={calc.potential} /> <span className="font-sans text-[13px] font-semibold text-mute">Coins</span></div>
                 </div>
                 {needLogin ? (
                   <button onClick={() => { slipStore.setOpen(false); nav('/profil'); }}
-                    className="h-[54px] shrink-0 rounded-full bg-acc px-5 text-[14px] font-bold text-white">Anmelden</button>
+                    className="h-[54px] shrink-0 rounded-full bg-acc px-5 text-[14px] font-bold text-black">Anmelden</button>
                 ) : (
                   <button disabled={!canPlace} onClick={place}
-                    className={`h-[54px] shrink-0 rounded-full px-5 text-[14px] font-bold transition ${canPlace ? 'bg-acc text-white active:scale-95' : 'bg-s3 text-mute'}`}>
+                    className={`h-[54px] shrink-0 rounded-full px-5 text-[14px] font-bold transition ${canPlace ? 'bg-acc text-black shadow-neon active:scale-95' : 'bg-s3 text-mute'}`}>
                     {busy ? 'Prüfe …' : changes.length ? 'Erst akzeptieren' : `Tippen · ${fmtCoins(calc.total)}`}
                   </button>
                 )}
               </div>
               <p className="text-center text-[12px] text-cmute">
-                {calc.total > balance ? <b className="text-[#B3243C]">Nicht genug Coins ({fmtCoins(balance)}). </b> : <>Guthaben {fmtCoins(balance)} · </>}
+                {calc.total > balance ? <b className="text-[#FF5E6C]">Nicht genug Coins ({fmtCoins(balance)}). </b> : <>Guthaben {fmtCoins(balance)} · </>}
                 {mode === 'single' && items.length > 1 ? `${stake} je Tipp · ` : ''}
                 {sameEvent && mode === 'combo' ? '−10 % je weiterem Tipp · ' : ''}
                 Kein Glücksspiel – nur Spielgeld

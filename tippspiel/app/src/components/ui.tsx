@@ -110,19 +110,19 @@ export function OddsButton({ o, top }: { o: Outcome | undefined; top?: string; c
       className={[
         'flex h-12 min-w-0 items-center justify-between gap-1.5 rounded-full px-3.5 transition-colors select-none',
         locked ? 'justify-center bg-lock text-[#6E758A] cursor-not-allowed'
-          : selected ? 'bg-acc text-white'
-          : 'bg-white text-cink active:scale-[.97]',
+          : selected ? 'bg-acc text-black shadow-neon'
+          : 'bg-chip text-ink active:scale-[.97]',
         flash === 'up' && !selected && !locked ? 'animate-flashUp' : '',
         flash === 'down' && !selected && !locked ? 'animate-flashDown' : '',
       ].join(' ')}
     >
       {locked ? Icon.lock() : (
         <>
-          {top && <span className={`truncate text-[12px] ${selected ? 'text-white/80' : 'text-cmute'}`}>{top}</span>}
+          {top && <span className={`truncate text-[12px] ${selected ? 'text-black/70' : 'text-cmute'}`}>{top}</span>}
           <span className="font-num flex shrink-0 items-center gap-1 text-[16px] font-extrabold leading-none tabular-nums">
-            {boost && <span className={selected ? 'text-white' : 'text-[#D9365C]'}>{Icon.boost('w-3 h-3')}</span>}
-            <span className={flash === 'up' && !selected ? 'text-[#0D7A4A]' : flash === 'down' && !selected ? 'text-[#B3243C]' : ''}>{fmtOdds(price)}</span>
-            {flash && <span className={`text-[10px] ${selected ? 'text-white' : flash === 'up' ? 'text-[#0D7A4A]' : 'text-[#B3243C]'}`}>{flash === 'up' ? '▲' : '▼'}</span>}
+            {boost && <span className={selected ? 'text-black' : 'text-[#FF6B8A]'}>{Icon.boost('w-3 h-3')}</span>}
+            <span className={flash === 'up' && !selected ? 'text-[#3DF29A]' : flash === 'down' && !selected ? 'text-[#FF5E6C]' : ''}>{fmtOdds(price)}</span>
+            {flash && <span className={`text-[10px] ${selected ? 'text-black' : flash === 'up' ? 'text-[#3DF29A]' : 'text-[#FF5E6C]'}`}>{flash === 'up' ? '▲' : '▼'}</span>}
           </span>
         </>
       )}
@@ -235,7 +235,7 @@ export function Disclaimer() {
 export function Toast() {
   const t = useApp((s) => s.toast);
   if (!t) return null;
-  const c = t.kind === 'ok' ? 'bg-mint text-[#0B3B22]' : t.kind === 'err' ? 'bg-rose text-[#5A1220]' : 'bg-ink text-bg';
+  const c = t.kind === 'ok' ? 'bg-mint text-[#7FF0B8]' : t.kind === 'err' ? 'bg-rose text-[#FFB3BC]' : 'bg-ink text-bg';
   return (
     <div className="fixed left-0 right-0 z-50 flex justify-center px-4 pointer-events-none" style={{ top: 'calc(70px + env(safe-area-inset-top))' }}>
       <div role="status" className={`rounded-full px-5 py-3 text-[14px] font-semibold shadow-xl ${c}`}>{t.text}</div>

@@ -29,39 +29,39 @@ function Teaser() {
         {slides.map((s, idx) => (
           <div key={idx} className="w-full shrink-0 snap-center">
             {s.kind === 'boost' && s.ev ? (
-              <div className="relative h-[170px] overflow-hidden rounded-[26px] bg-lav p-[18px] text-[#120E33]">
+              <div className="relative h-[170px] overflow-hidden rounded-[26px] bg-lav p-[18px] text-[#00200F]">
                 <div aria-hidden="true" className="absolute -bottom-16 -right-8 h-[210px] w-[210px] rounded-full bg-lav2" />
-                <div aria-hidden="true" className="absolute right-6 top-5 grid h-[88px] w-[88px] place-items-center rounded-full bg-acc text-white">{Icon.boost('w-11 h-11')}</div>
+                <div aria-hidden="true" className="absolute right-6 top-5 grid h-[88px] w-[88px] place-items-center rounded-full bg-black text-acc">{Icon.boost('w-11 h-11')}</div>
                 <div className="relative">
                   <div className="font-wide text-[24px] font-black leading-none">BOOST<br />DES TAGES</div>
-                  <div className="mt-3 inline-flex max-w-[200px] items-center gap-1.5 truncate rounded-full bg-[#120E33] px-2.5 py-1 text-[11px] font-bold uppercase text-white">
+                  <div className="mt-3 inline-flex max-w-[200px] items-center gap-1.5 truncate rounded-full bg-[#00200F] px-2.5 py-1 text-[11px] font-bold uppercase text-white">
                     {s.ev.home} <span className="text-acc-hi">vs</span> {s.ev.away}
                   </div>
                   <div className="mt-3 flex items-center gap-2.5">
-                    <span className="font-num text-[15px] text-[#5B54A0] line-through">{fmtOdds(s.b.original)}</span>
+                    <span className="font-num text-[15px] text-[#007A3E] line-through">{fmtOdds(s.b.original)}</span>
                     <span className="font-num text-[30px] font-black leading-none">{fmtOdds(s.b.boosted)}</span>
                     {(() => {
                       const on = slipIds.split(',').includes(s.b.outcomeId);
                       return (
                         <button aria-pressed={on} onClick={() => slipStore.toggle({ outcomeId: s.b.outcomeId, eventId: s.b.eventId, price: s.b.boosted })}
-                          className={`ml-1 h-10 rounded-full px-4 text-[14px] font-bold ${on ? 'bg-acc text-white' : 'bg-[#120E33] text-white'}`}>{on ? 'Im Schein ✓' : 'Tippen'}</button>
+                          className={`ml-1 h-10 rounded-full px-4 text-[14px] font-bold ${on ? 'bg-white text-black' : 'bg-black text-acc'}`}>{on ? 'Im Schein ✓' : 'Tippen'}</button>
                       );
                     })()}
                   </div>
                 </div>
               </div>
             ) : s.kind === 'group' ? (
-              <Link to="/rangliste" className="relative block h-[170px] overflow-hidden rounded-[26px] bg-mint p-[18px] text-[#0B3B22]">
-                <div aria-hidden="true" className="absolute -bottom-16 -right-10 h-[200px] w-[200px] rounded-full bg-[#B5E0C6]" />
+              <Link to="/rangliste" className="relative block h-[170px] overflow-hidden rounded-[26px] bg-card p-[18px] text-ink shadow-[inset_0_0_0_1px_rgba(0,255,136,.35)]">
+                <div aria-hidden="true" className="absolute -bottom-16 -right-10 h-[200px] w-[200px] rounded-full bg-acc-lo" />
                 <div className="relative">
                   <div className="font-wide text-[24px] font-black leading-none">TIPP-<br />GRUPPEN</div>
                   <p className="mt-3 max-w-[230px] text-[14px] font-medium leading-snug">Tippt mit eurem Verein, eurer Kneipe, euren Leuten.</p>
-                  <span className="mt-3 inline-block rounded-full bg-[#0B3B22] px-4 py-2 text-[13px] font-bold text-white">Gruppe gründen</span>
+                  <span className="mt-3 inline-block rounded-full bg-acc px-4 py-2 text-[13px] font-bold text-black">Gruppe gründen</span>
                 </div>
               </Link>
             ) : (
               <Link to="/profil" className="relative block h-[170px] overflow-hidden rounded-[26px] bg-card p-[18px] text-cink">
-                <div aria-hidden="true" className="absolute right-6 top-5 grid h-[88px] w-[88px] place-items-center rounded-full bg-cink text-white">{Icon.gift('w-10 h-10')}</div>
+                <div aria-hidden="true" className="absolute right-6 top-5 grid h-[88px] w-[88px] place-items-center rounded-full bg-black text-acc">{Icon.gift('w-10 h-10')}</div>
                 <div className="relative">
                   <div className="font-wide text-[24px] font-black leading-none">+100<br />JEDEN TAG</div>
                   <p className="mt-3 max-w-[210px] text-[14px] font-medium leading-snug">Tagesbonus beim Öffnen. Nur Spielgeld – kein Kauf, keine Auszahlung.</p>
@@ -72,7 +72,7 @@ function Teaser() {
         ))}
       </div>
       <div className="mt-2.5 flex justify-center gap-1.5" aria-hidden="true">
-        {slides.map((_, idx) => <span key={idx} className={`h-[5px] rounded-full transition-all ${idx === i ? 'w-[18px] bg-acc-hi' : 'w-[5px] bg-s3'}`} />)}
+        {slides.map((_, idx) => <span key={idx} className={`h-[5px] rounded-full transition-all ${idx === i ? 'w-[18px] bg-acc shadow-neon' : 'w-[5px] bg-s3'}`} />)}
       </div>
     </div>
   );
@@ -93,8 +93,8 @@ export function SportBar({ value, onChange }: { value: string; onChange: (k: str
         const on = value === s.key;
         return (
           <button key={s.key} onClick={() => onChange(s.key)} aria-pressed={on} aria-label={s.title}
-            className={`flex h-[46px] shrink-0 items-center gap-2 rounded-full ${on ? 'bg-ink pl-1.5 pr-4 text-bg' : 'w-[46px] justify-center border border-[#2A2E39] bg-[#0E1015] text-[#C9CDDA]'}`}>
-            {on ? <span className="grid h-[34px] w-[34px] place-items-center rounded-full bg-acc text-white">{sportIcon(s.key)}</span> : sportIcon(s.key)}
+            className={`flex h-[46px] shrink-0 items-center gap-2 rounded-full ${on ? 'bg-ink pl-1.5 pr-4 text-bg' : 'w-[46px] justify-center border border-[#2A2E39] bg-[#0B0C10] text-[#C9CDDA]'}`}>
+            {on ? <span className="grid h-[34px] w-[34px] place-items-center rounded-full bg-acc text-black">{sportIcon(s.key)}</span> : sportIcon(s.key)}
             {on && <span className="text-[14px] font-bold">{s.title}</span>}
           </button>
         );

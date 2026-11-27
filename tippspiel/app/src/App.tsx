@@ -31,14 +31,14 @@ export default function App() {
   return (
     <div className="mx-auto min-h-screen max-w-md bg-bg">
       <header className="sticky top-0 z-20 flex h-16 items-center justify-between bg-bg/90 px-[18px] backdrop-blur" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-        <NavLink to="/" className="font-wide text-[19px] font-black tracking-wide text-ink">TIPPARENA<span className="text-acc-hi">.</span></NavLink>
+        <NavLink to="/" className="font-wide text-[19px] font-black tracking-wide text-ink">TIPPARENA<span className="text-acc [text-shadow:0_0_12px_rgba(0,255,136,.8)]">.</span></NavLink>
         {(user || !backend.requiresLogin) && (
           <div className="flex h-11 items-center gap-2.5 rounded-full bg-s2 pl-4 pr-1.5">
             <NavLink to="/profil" className="text-[16px] font-bold text-ink">
               <Coins value={balance} /> <span className="text-[12px] font-medium text-mute">Coins</span>
             </NavLink>
             <button onClick={() => backend.claimDailyBonus()} aria-label={bonusToday ? 'Tagesbonus heute schon abgeholt' : 'Tagesbonus abholen'}
-              className={`relative grid h-[34px] w-[34px] place-items-center rounded-full ${bonusToday ? 'bg-s3 text-mute' : 'bg-acc text-white'}`}>
+              className={`relative grid h-[34px] w-[34px] place-items-center rounded-full ${bonusToday ? 'bg-s3 text-mute' : 'bg-acc text-black'}`}>
               {Icon.gift()}
               {!bonusToday && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-s2 bg-boost" />}
             </button>
@@ -47,9 +47,9 @@ export default function App() {
       </header>
 
       {error && (
-        <div className="mx-[18px] mt-1 flex items-center justify-between gap-3 rounded-full bg-rose py-1.5 pl-4 pr-1.5 text-[13px] font-semibold text-[#5A1220]">
+        <div className="mx-[18px] mt-1 flex items-center justify-between gap-3 rounded-full bg-rose py-1.5 pl-4 pr-1.5 text-[13px] font-semibold text-[#FFB3BC]">
           <span>{error}. Anzeige nicht aktuell.</span>
-          <button onClick={() => location.reload()} className="h-9 shrink-0 rounded-full bg-cink px-3.5 font-bold text-white">Neu laden</button>
+          <button onClick={() => location.reload()} className="h-9 shrink-0 rounded-full bg-acc px-3.5 font-bold text-black">Neu laden</button>
         </div>
       )}
       <Routes>
@@ -68,15 +68,15 @@ export default function App() {
       <SlipSheet />
       <Toast />
 
-      <nav aria-label="Hauptmenü" className="fixed left-1/2 z-30 flex h-16 -translate-x-1/2 items-center gap-1.5 rounded-full bg-[#1C1F26] px-[7px] shadow-[0_12px_40px_rgba(0,0,0,.6)]"
+      <nav aria-label="Hauptmenü" className="fixed left-1/2 z-30 flex h-16 -translate-x-1/2 items-center gap-1.5 rounded-full bg-[#14161C] px-[7px] shadow-[0_12px_40px_rgba(0,0,0,.6)]"
            style={{ bottom: 'calc(20px + env(safe-area-inset-bottom))' }}>
         {TABS.map((t) => (
           <NavLink key={t.to} to={t.to} end={t.to === '/'} aria-label={t.label}
-            className={({ isActive }) => `relative flex h-[50px] items-center justify-center gap-2 rounded-full text-[14px] font-bold transition-all ${isActive ? 'bg-bg px-4 text-white' : 'w-[50px] bg-s3 text-[#D5D8E2]'}`}>
+            className={({ isActive }) => `relative flex h-[50px] items-center justify-center gap-2 rounded-full text-[14px] font-bold transition-all ${isActive ? 'bg-acc px-4 text-black shadow-neon' : 'w-[50px] bg-s3 text-[#D5D8E2]'}`}>
             {({ isActive }) => (<>
               {t.icon}{isActive && <span>{t.label}</span>}
               {t.to === '/live' && liveCount > 0 && !isActive && <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-down" />}
-              {t.to === '/wetten' && openBets > 0 && <span className="font-num absolute -right-0.5 -top-0.5 grid h-5 min-w-5 place-items-center rounded-full bg-acc px-1 text-[11px] font-black text-white">{openBets}</span>}
+              {t.to === '/wetten' && openBets > 0 && <span className="font-num absolute -right-0.5 -top-0.5 grid h-5 min-w-5 place-items-center rounded-full bg-boost px-1 text-[11px] font-black text-black">{openBets}</span>}
             </>)}
           </NavLink>
         ))}

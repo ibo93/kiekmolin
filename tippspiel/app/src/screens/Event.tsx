@@ -49,7 +49,7 @@ function Form({ team }: { team: string }) {
     <div className="flex items-center justify-between py-2">
       <span className="text-[14px] font-semibold truncate">{team}</span>
       <div className="flex gap-1">{res.map((r, i) => (
-        <span key={i} className={`grid h-[26px] w-[26px] place-items-center rounded-lg text-[12px] font-extrabold ${r === 'S' ? 'bg-mint text-[#0B3B22]' : r === 'N' ? 'bg-rose text-[#5A1220]' : 'bg-s3 text-[#C9CDDA]'}`}>{r}</span>
+        <span key={i} className={`grid h-[26px] w-[26px] place-items-center rounded-lg text-[12px] font-extrabold ${r === 'S' ? 'bg-mint text-[#7FF0B8]' : r === 'N' ? 'bg-rose text-[#FFB3BC]' : 'bg-s3 text-[#C9CDDA]'}`}>{r}</span>
       ))}</div>
     </div>
   );
@@ -133,13 +133,13 @@ export default function EventPage() {
       </nav>
 
       {mine.length >= 2 && (
-        <div className="mx-[18px] mb-3 flex items-center justify-between gap-3 rounded-[26px] bg-lav py-3 pl-[18px] pr-3 text-[#120E33]">
+        <div className="mx-[18px] mb-3 flex items-center justify-between gap-3 rounded-[26px] bg-lav py-3 pl-[18px] pr-3 text-[#00200F]">
           <div className="min-w-0">
-            <div className="text-[11px] font-extrabold uppercase tracking-wider text-[#3B2DC4]">Wetten-Konfigurator</div>
+            <div className="text-[11px] font-extrabold uppercase tracking-wider text-[#00401F]">Wetten-Konfigurator</div>
             <div className="text-[13px] font-medium">{onlyThisEvent ? `${mine.length} Tipps aus diesem Spiel` : 'Nur Tipps aus diesem Spiel im Schein lassen'}</div>
           </div>
-          <button onClick={() => slipStore.setOpen(true)} className="flex h-12 shrink-0 items-center gap-2 rounded-full bg-[#120E33] px-4 text-[14px] font-bold text-white">
-            Quote <span className="font-num text-[17px] text-[#C9C2FF]">{fmtOdds(builderOdds(mine.map((i) => i.price)))}</span>
+          <button onClick={() => slipStore.setOpen(true)} className="flex h-12 shrink-0 items-center gap-2 rounded-full bg-[#00200F] px-4 text-[14px] font-bold text-white">
+            Quote <span className="font-num text-[17px] text-[#7DFFBE]">{fmtOdds(builderOdds(mine.map((i) => i.price)))}</span>
           </button>
         </div>
       )}
