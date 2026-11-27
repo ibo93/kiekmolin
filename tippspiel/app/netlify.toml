@@ -1,0 +1,23 @@
+# TippArena – eigenes Netlify-Projekt (nicht kiekmolin.de)
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# App mit eigenem Routing: jede Adresse liefert index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Service Worker nie zwischenspeichern – sonst behalten Geräte alte Fassungen
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+[[headers]]
+  for = "/push-sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
